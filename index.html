@@ -1,1115 +1,495 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ORION-1 Field Console</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-
+    <title>Project: N.A.S.A Slime</title>
     <style>
-        /*
-         * DESIGN SYSTEM: NASA x APPLE HYBRID
-         * Dark mode, clean typography, glassmorphism panels, high legibility.
-         */
-        :root {
-            /* Palette */
-            --bg-body: #05060A; /* Deep dark blue-black */
-            --bg-card: rgba(30, 34, 45, 0.6); /* Translucent dark panel */
-            --bg-card-header: rgba(40, 44, 55, 0.8);
-            --border-subtle: rgba(255, 255, 255, 0.1);
-            
-            --accent-primary: #0A84FF; /* System Blue */
-            --accent-success: #30D158; /* System Green */
-            --accent-warning: #FF9F0A; /* System Orange */
-            --accent-error:   #FF453A; /* System Red */
-            --text-primary:   #F5F5F7; /* Off-white */
-            --text-secondary: #86868B; /* Muted gray */
-            
-            /* Typography */
-            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --font-mono: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
-
-            /* Spacing & Radius */
-            --radius-card: 16px;
-            --radius-sm: 8px;
-            --space-sm: 8px;
-            --space-md: 16px;
-            --space-lg: 24px;
-        }
-
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
+        /* --- STYLE: CYBER-ORGANIC AESTHETIC --- */
         body {
-            margin: 0; padding: 0;
-            background-color: var(--bg-body);
-            color: var(--text-primary);
-            font-family: var(--font-stack);
-            font-size: 14px;
-            line-height: 1.4;
-            height: 100vh;
-            display: flex; flex-direction: column;
-            overflow: hidden; /* App-like feel */
-        }
-
-        /* SCROLLABLE MAIN CONTENT AREA */
-        #app-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: var(--space-md);
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive Grid */
-            gap: var(--space-md);
-            align-content: start;
-        }
-
-        /* --- GLOBAL COMPONENTS --- */
-
-        /* Panels (Cards) */
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-card);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            margin: 0;
             overflow: hidden;
-            display: flex; flex-direction: column;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            background-color: #050505;
+            color: #00ff9d;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none; /* ป้องกันการ Scroll */
         }
 
-        .card-header {
-            background: var(--bg-card-header);
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border-subtle);
-            font-weight: 600;
-            font-size: 13px;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
-        .card-body {
-            padding: 16px;
-            display: flex; flex-direction: column; gap: 12px;
-            flex: 1;
-        }
-
-        /* Metrics Grid inside cards */
-        .metric-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-        }
-        .metric-item {
-            display: flex; flex-direction: column;
-        }
-        .metric-label {
-            font-size: 11px; color: var(--text-secondary); margin-bottom: 2px;
-        }
-        .metric-value {
-            font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--text-primary);
-        }
-        .metric-value.highlight { color: var(--accent-primary); }
-
-        /* Buttons */
-        .btn {
-            background: rgba(255,255,255,0.1);
-            border: none;
-            border-radius: var(--radius-sm);
-            padding: 10px 16px;
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            text-align: center;
-        }
-        .btn:hover { background: rgba(255,255,255,0.15); }
-        .btn:active { transform: scale(0.98); }
-        .btn-primary { background: var(--accent-primary); color: #fff; }
-        .btn-primary:hover { background: #007aff; } /* Slightly darker blue */
-        .btn-secondary { border: 1px solid var(--border-subtle); background: transparent; }
-
-        /* Inputs */
-        input[type="text"], select {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-sm);
-            padding: 8px 12px;
-            color: var(--text-primary);
-            font-family: var(--font-stack);
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            font-size: 13px;
-        }
-        input[type="range"] {
-            width: 100%; margin: 8px 0;
-            accent-color: var(--accent-primary);
+            height: 100%;
+            z-index: 1;
+            filter: blur(0.5px) contrast(1.2);
         }
 
-        /* Badges / Pills */
-        .badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 2px 8px; border-radius: 12px;
-            font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
-            background: rgba(255,255,255,0.1); color: var(--text-secondary);
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; /* ให้กดทะลุไปโดนสไลม์ */
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
-        .badge.success { background: rgba(48, 209, 88, 0.2); color: var(--accent-success); }
-        .badge.warning { background: rgba(255, 159, 10, 0.2); color: var(--accent-warning); }
-        .badge.error   { background: rgba(255, 69, 58, 0.2);  color: var(--accent-error); }
-        .badge.info    { background: rgba(10, 132, 255, 0.2); color: var(--accent-primary); }
 
-        /* --- SPECIFIC SECTIONS --- */
-
-        /* 1. HEADER BAR */
-        #top-bar {
-            background: rgba(30, 34, 45, 0.9);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 12px 24px;
-            display: flex; justify-content: space-between; align-items: center;
-            z-index: 100;
-            flex-shrink: 0;
+        .hud-text {
+            text-shadow: 0 0 5px #00ff9d;
+            font-size: 12px;
+            opacity: 0.8;
         }
-        .app-title h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
-        .app-title span { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-left: 8px; }
-        
-        .status-group { display: flex; gap: 16px; align-items: center; }
-        .sensor-status { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--text-secondary); }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); }
-        .status-dot.ok { background: var(--accent-success); box-shadow: 0 0 6px var(--accent-success); }
-        .status-dot.warn { background: var(--accent-warning); }
-        .status-dot.err { background: var(--accent-error); }
 
-        /* 2. CONTROL PANEL */
-        #control-panel { grid-column: 1 / -1; } /* Full width on mobile/desktop grids usually */
-        .controls-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
-        .control-group { flex: 1; min-width: 140px; }
-        .control-group label { font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
-        
-        /* 3. CAMERA PANEL */
-        #camera-panel {
-            grid-row: span 2; /* Taller */
-            display: flex; flex-direction: column;
-        }
-        .video-container {
-            position: relative;
-            background: #000;
-            border-radius: var(--radius-sm);
+        #debug-console {
+            background: rgba(0, 20, 10, 0.7);
+            padding: 10px;
+            border-left: 2px solid #00ff9d;
+            max-height: 100px;
             overflow: hidden;
-            aspect-ratio: 4/3; /* Standard aspect ratio */
-            flex-shrink: 0;
-        }
-        video { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
-        canvas#hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        
-        /* 4. AUDIO PANEL */
-        canvas.vis-canvas {
-            width: 100%; height: 60px;
-            background: rgba(0,0,0,0.2);
-            border-radius: var(--radius-sm);
-            margin-bottom: 8px;
+            font-size: 10px;
         }
 
-        /* 8. LOG PANEL */
-        #log-container {
-            height: 150px;
-            overflow-y: auto;
-            background: rgba(0,0,0,0.2);
-            border-radius: var(--radius-sm);
-            padding: 8px;
-            font-family: var(--font-mono); font-size: 11px;
-            display: flex; flex-direction: column; gap: 4px;
-        }
-        .log-entry { display: flex; gap: 8px; }
-        .log-time { color: var(--text-secondary); flex-shrink: 0; }
-        .log-msg { color: var(--text-primary); }
-        .log-msg.warn { color: var(--accent-warning); }
-        .log-msg.error { color: var(--accent-error); }
-
-        /* UTILS */
-        .hidden { display: none !important; }
-
-        /* Responsive adjustments */
-        @media (min-width: 1024px) {
-            #app-container { grid-template-columns: 350px 1fr 300px; }
-            #control-panel { grid-column: 1 / -1; }
-            #camera-panel { grid-column: 2; grid-row: 2 / 4; }
+        #start-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            background: transparent;
+            border: 2px solid #00ff9d;
+            color: #00ff9d;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #00ff9d;
+            animation: pulse 2s infinite;
         }
 
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px #00ff9d; }
+            50% { box-shadow: 0 0 25px #00ff9d, inset 0 0 10px #00ff9d; }
+            100% { box-shadow: 0 0 10px #00ff9d; }
+        }
+
+        /* ซ่อน Video element (ใช้แค่ดึงข้อมูลภาพ) */
+        #vision-input {
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-    <header id="top-bar">
-        <div class="app-title">
-            <h1>ORION-1</h1>
-            <span>FIELD CONSOLE</span>
+    <video id="vision-input" autoplay playsinline muted></video>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud-text">
+            <div>SYSTEM: ONLINE</div>
+            <div id="battery-stat">ENERGY: DETECTING...</div>
+            <div id="mood-stat">MOOD: NULL</div>
         </div>
-        
-        <div class="status-group">
-            <div id="clock" class="badge">00:00:00 UTC</div>
-            <div id="sys-status" class="badge">IDLE</div>
-            
-            <div class="sensor-status" title="Camera Status"><div id="st-cam" class="status-dot"></div> CAM</div>
-            <div class="sensor-status" title="Microphone Status"><div id="st-mic" class="status-dot"></div> MIC</div>
-            <div class="sensor-status" title="IMU Status"><div id="st-imu" class="status-dot"></div> IMU</div>
-            <div class="sensor-status" title="Magnetometer Status"><div id="st-mag" class="status-dot"></div> MAG</div>
+        <div id="debug-console">
+            > WAITING FOR INITIALIZATION...
         </div>
-    </header>
+    </div>
 
-    <div id="app-container">
+    <button id="start-btn">INITIATE LIFEFORM</button>
 
-        <section id="control-panel" class="card">
-            <div class="card-header">Mission Control</div>
-            <div class="card-body">
-                <div class="controls-row">
-                    <div class="control-group" style="flex: 0 0 auto;">
-                        <label>Acquisition</label>
-                        <div style="display:flex; gap:8px;">
-                            <button id="btn-start" class="btn btn-primary" onclick="initApp()">Initialize System</button>
-                            <button id="btn-log" class="btn btn-secondary" onclick="toggleLogging()" disabled>Start Log</button>
-                            <button id="btn-manual" class="btn btn-secondary" onclick="manualSample()" disabled>Sample</button>
-                        </div>
-                    </div>
+    <script>
+        /**
+         * PROJECT N.A.S.A (Neural Autonomous Slime Agent)
+         * Architecture:
+         * 1. PhysicsEngine: Soft body dynamics via spring-mass system.
+         * 2. VisionCortex: Pixel difference motion detection.
+         * 3. BioSystem: Hardware APIs (Battery, Gyro).
+         * 4. CoreBrain: State machine & Behavior logic.
+         */
 
-                    <div class="control-group">
-                        <label>Sample Interval: <span id="lbl-interval">1.0s</span></label>
-                        <input type="range" id="rng-interval" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateConfig(this)">
-                    </div>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            particleCount: 12,
+            radius: 100,
+            stiffness: 0.05,
+            damping: 0.9,
+            visionInterval: 5, // Check vision every 5 frames to save battery
+            voiceEnabled: true
+        };
 
-                    <div class="control-group">
-                        <label>FFT Size</label>
-                        <select id="sel-fft" onchange="updateConfig(this)">
-                            <option value="64">64 (Fast)</option>
-                            <option value="128">128</option>
-                            <option value="256" selected>256 (Detail)</option>
-                            <option value="512">512 (High Res)</option>
-                        </select>
-                    </div>
+        // --- UTILITIES ---
+        const log = (msg) => {
+            const consoleEl = document.getElementById('debug-console');
+            consoleEl.innerHTML += `<div>> ${msg}</div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        };
 
-                    <div class="control-group">
-                        <label>Metadata</label>
-                        <div style="display:flex; gap:8px;">
-                            <input type="text" id="inp-exp" placeholder="Experiment ID">
-                            <input type="text" id="inp-label" placeholder="Sample Label">
-                        </div>
-                    </div>
+        const random = (min, max) => Math.random() * (max - min) + min;
+
+        // --- PHYSICS ENGINE (The Body) ---
+        class Point {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.oldx = x;
+                this.oldy = y;
+            }
+        }
+
+        class SlimeBody {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.points = [];
+                this.color = '#00ff9d';
+                this.targetRadius = CONFIG.radius;
+                this.currentRadius = CONFIG.radius;
+                this.eyeOpenness = 1.0;
+                
+                // Create particles in a circle
+                for (let i = 0; i < CONFIG.particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / CONFIG.particleCount;
+                    const px = this.x + Math.cos(angle) * CONFIG.radius;
+                    const py = this.y + Math.sin(angle) * CONFIG.radius;
+                    this.points.push(new Point(px, py));
+                }
+            }
+
+            update(gyroX, gyroY) {
+                // 1. Move center based on Gyroscope (Gravity)
+                this.x += gyroX * 5;
+                this.y += gyroY * 5;
+
+                // Boundary Check
+                if(this.x < 0) this.x = 0;
+                if(this.x > window.innerWidth) this.x = window.innerWidth;
+                if(this.y < 0) this.y = 0;
+                if(this.y > window.innerHeight) this.y = window.innerHeight;
+
+                // 2. Physics Loop (Springs)
+                for (let i = 0; i < this.points.length; i++) {
+                    let p = this.points[i];
                     
-                    <div class="control-group" style="flex: 0 0 auto; text-align:right;">
-                        <label>Sample Count</label>
-                        <span id="sample-count" class="badge info" style="font-size:14px; padding:6px 12px;">0</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+                    // Velocity Verlet Integration
+                    const vx = (p.x - p.oldx) * CONFIG.damping;
+                    const vy = (p.y - p.oldy) * CONFIG.damping;
 
-        <section id="camera-panel" class="card">
-            <div class="card-header">
-                <span>Optical Sensors</span>
-                <span id="cam-fps" class="badge">0 FPS</span>
-            </div>
-            <div class="card-body" style="padding:0;">
-                <div class="video-container">
-                    <video id="video-feed" playsinline muted autoplay></video>
-                    <canvas id="hud-canvas"></canvas>
-                </div>
-                <div class="card-body">
-                    <div class="metric-grid">
-                        <div class="metric-item">
-                            <span class="metric-label">Motion Index</span>
-                            <span id="val-motion" class="metric-value">0.0</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Luminance</span>
-                            <span id="val-lum" class="metric-value">0</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Contrast</span>
-                            <span id="val-con" class="metric-value">0</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Stability</span>
-                            <span id="val-stab" class="metric-value">OK</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <canvas id="proc-canvas" width="64" height="48" class="hidden"></canvas>
-        </section>
+                    p.oldx = p.x;
+                    p.oldy = p.y;
+                    p.x += vx;
+                    p.y += vy;
 
-        <section id="audio-panel" class="card">
-            <div class="card-header">Acoustic Analysis</div>
-            <div class="card-body">
-                <canvas id="wave-canvas" class="vis-canvas"></canvas>
-                <canvas id="spec-canvas" class="vis-canvas"></canvas>
+                    // Pull towards ideal shape (Circle shape constraint)
+                    const angle = (Math.PI * 2 * i) / CONFIG.particleCount;
+                    const targetX = this.x + Math.cos(angle) * this.currentRadius;
+                    const targetY = this.y + Math.sin(angle) * this.currentRadius;
+
+                    p.x += (targetX - p.x) * CONFIG.stiffness;
+                    p.y += (targetY - p.y) * CONFIG.stiffness;
+
+                    // Mouse/Touch interaction repulsion will be handled in Main Loop
+                }
+
+                // Breathing effect
+                this.currentRadius = this.targetRadius + Math.sin(Date.now() / 500) * 5;
+            }
+
+            draw(ctx) {
+                // Draw Body
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.color;
                 
-                <div class="metric-grid">
-                    <div class="metric-item">
-                        <span class="metric-label">RMS (dBFS)</span>
-                        <span id="val-rms" class="metric-value">-Inf</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Dominant Freq</span>
-                        <span id="val-freq" class="metric-value">0 Hz</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Energy Index</span>
-                        <span id="val-aei" class="metric-value">0.0</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+                ctx.beginPath();
+                let xc = (this.points[0].x + this.points[this.points.length - 1].x) / 2;
+                let yc = (this.points[0].y + this.points[this.points.length - 1].y) / 2;
+                ctx.moveTo(xc, yc);
 
-        <section id="imu-panel" class="card">
-            <div class="card-header">Inertial Measurement</div>
-            <div class="card-body">
-                <div class="metric-grid">
-                    <div class="metric-item">
-                        <span class="metric-label">G-Force (Total)</span>
-                        <span id="val-g" class="metric-value highlight">1.00</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Vibration Idx</span>
-                        <span id="val-vib" class="metric-value">0.00</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Ang. Velocity</span>
-                        <span id="val-ang" class="metric-value">0.0 °/s</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Status</span>
-                        <span id="val-imu-stat" class="badge success">Stable</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+                for (let i = 0; i < this.points.length; i++) {
+                    let p = this.points[i];
+                    let nextP = this.points[(i + 1) % this.points.length];
+                    xc = (p.x + nextP.x) / 2;
+                    yc = (p.y + nextP.y) / 2;
+                    ctx.quadraticCurveTo(p.x, p.y, xc, yc);
+                }
+                ctx.closePath();
+                ctx.fill();
 
-        <section id="mag-panel" class="card">
-            <div class="card-header">Magnetometer</div>
-            <div class="card-body">
-                <div id="mag-unavailable" class="hidden" style="text-align:center; color:var(--text-secondary); padding:20px;">
-                    Sensor Unavailable
-                </div>
-                <div id="mag-data" class="metric-grid">
-                    <div class="metric-item">
-                        <span class="metric-label">Field Strength</span>
-                        <span id="val-mag" class="metric-value">0 µT</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Deviation</span>
-                        <span id="val-mag-dev" class="metric-value">0.0</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+                // Draw Eyes (The Sensor)
+                this.drawEye(ctx, -20, -10);
+                this.drawEye(ctx, 20, -10);
+            }
 
-        <section id="fusion-panel" class="card">
-            <div class="card-header">Fusion & ML Analysis</div>
-            <div class="card-body">
-                <div class="metric-grid">
-                    <div class="metric-item">
-                        <span class="metric-label">Env Activity Idx</span>
-                        <span id="val-eai" class="metric-value highlight">0.0</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Struct. Instability</span>
-                        <span id="val-sii" class="metric-value highlight">0.0</span>
-                    </div>
-                </div>
-                <hr style="border:0; border-top:1px solid var(--border-subtle); width:100%;">
+            drawEye(ctx, offsetX, offsetY) {
+                const eyeX = this.x + offsetX;
+                const eyeY = this.y + offsetY;
                 
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="metric-label">ML Classification</span>
-                    <span id="ai-conf" class="metric-label">Conf: 0%</span>
-                </div>
-                <div id="ai-label" class="badge info" style="font-size:13px; padding:8px 12px; width:100%; text-align:center;">
-                    INITIALIZING...
-                </div>
-            </div>
-        </section>
+                // Sclera
+                ctx.fillStyle = "white";
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.ellipse(eyeX, eyeY, 12, 12 * this.eyeOpenness, 0, 0, Math.PI * 2);
+                ctx.fill();
 
-        <section id="log-panel" class="card" style="grid-column: 1/-1;">
-            <div class="card-header">
-                <span>Mission Logs</span>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportJSON()">JSON</button>
-                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportCSV()">CSV</button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="log-container">
-                    </div>
-            </div>
-        </section>
+                // Pupil (Tracking Look)
+                ctx.fillStyle = "black";
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                // Simple look-at logic (follow center screen or noise)
+                const lookX = (window.innerWidth/2 - this.x) * 0.05;
+                const lookY = (window.innerHeight/2 - this.y) * 0.05;
+                ctx.arc(eyeX + Math.max(-5, Math.min(5, lookX)), eyeY + Math.max(-5, Math.min(5, lookY)), 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
-    </div> <script>
-"use strict";
+            shock() {
+                this.currentRadius = 50; // Shrink instantly
+                setTimeout(() => { this.currentRadius = CONFIG.radius + 20 }, 100); // Then expand
+            }
+        }
 
-/**
- * ORION-1 FIELD CONSOLE - CORE LOGIC
- * NASA/JPL Inspired Architecture
- * * MODULES:
- * 1. App: Global State & Config
- * 2. Sensors: Hardware Abstraction Layer
- * 3. Processing: Signal Processing Algorithms
- * 4. Fusion: Higher-level Logic & AI Heuristics
- * 5. Data: Logging & Storage
- * 6. UI: Rendering & DOM Manipulation
- */
+        // --- VISION CORTEX (The Eyes) ---
+        class VisionCortex {
+            constructor() {
+                this.video = document.getElementById('vision-input');
+                this.tempCanvas = document.createElement('canvas');
+                this.tempCtx = this.tempCanvas.getContext('2d');
+                this.prevFrame = null;
+                this.motionAmount = 0;
+                this.initialized = false;
+            }
 
-// === 1. GLOBAL APP STATE ===
-const app = {
-    config: {
-        sampleIntervalMs: 1000,
-        fftSize: 256,
-        historyLimit: 1000,
-        motionGridSize: { x: 16, y: 12 }
-    },
-    state: {
-        isRunning: false,
-        isLogging: false,
-        lastSampleTime: 0,
-        startTime: 0,
-        frameCount: 0
-    },
-    // Current Real-time Readings
-    readings: {
-        optical: { motion: 0, lum: 0, con: 0, stable: true, fps: 0 },
-        acoustic: { rms: -100, peakFreq: 0, energy: 0, spectrum: [] },
-        imu: { g: 1, gHist: [], vibration: 0, angVel: 0 },
-        mag: { val: 0, base: 0, dev: 0, available: false },
-        fusion: { eai: 0, sii: 0, label: "WAIT", conf: 0 }
-    },
-    // DOM Cache (populated on init)
-    ui: {}
-};
+            async init() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+                    this.video.srcObject = stream;
+                    this.tempCanvas.width = 64; // Low res for performance
+                    this.tempCanvas.height = 64;
+                    this.initialized = true;
+                    log("VISION SENSORS ACTIVE");
+                } catch (e) {
+                    log("VISION ERROR: " + e.message);
+                }
+            }
 
-// === INITIALIZATION ===
-function initApp() {
-    const btn = document.getElementById('btn-start');
-    btn.innerText = "Initializing...";
-    btn.disabled = true;
+            detectMotion() {
+                if (!this.initialized || this.video.paused || this.video.ended) return 0;
 
-    cacheDomElements();
-    startClock();
+                this.tempCtx.drawImage(this.video, 0, 0, 64, 64);
+                const frame = this.tempCtx.getImageData(0, 0, 64, 64);
+                const length = frame.data.length;
+                let diff = 0;
 
-    logEvent("ORION-1 SYSTEM BOOT SEQUENCE STARTED...");
+                if (this.prevFrame) {
+                    for (let i = 0; i < length; i += 4) {
+                        // Compare Green channel only (optimization)
+                        diff += Math.abs(frame.data[i+1] - this.prevFrame.data[i+1]);
+                    }
+                }
 
-    // Initialize all sensors
-    Promise.all([
-        initCamera(),
-        initAudio(),
-        initIMU(),
-        initMagnetometer()
-    ]).then(() => {
-        app.state.isRunning = true;
-        app.state.startTime = performance.now();
-        
-        // Start Loops
-        requestAnimationFrame(renderLoop);
-        setInterval(samplingLoop, 100); // Check frequency
+                this.prevFrame = frame;
+                // Normalize motion
+                this.motionAmount = diff / (64 * 64);
+                return this.motionAmount;
+            }
+        }
 
-        updateSystemStatus("RUNNING", "success");
-        btn.innerText = "System Online";
-        document.getElementById('btn-log').disabled = false;
-        document.getElementById('btn-manual').disabled = false;
-        
-        logEvent("ALL SYSTEMS NOMINAL. READY FOR ACQUISITION.", "success");
-    }).catch(err => {
-        updateSystemStatus("ERROR", "error");
-        logEvent(`SYSTEM FAILURE: ${err.message}`, "error");
-        btn.innerText = "Retry Init";
-        btn.disabled = false;
-    });
-}
+        // --- BIO SYSTEM (Hardware Access) ---
+        class BioSystem {
+            constructor() {
+                this.batteryLevel = 1.0;
+                this.charging = false;
+                this.gyro = { x: 0, y: 0 };
+            }
 
-function cacheDomElements() {
-    // Top Bar
-    app.ui.clock = document.getElementById('clock');
-    app.ui.sysStatus = document.getElementById('sys-status');
-    app.ui.dots = {
-        cam: document.getElementById('st-cam'),
-        mic: document.getElementById('st-mic'),
-        imu: document.getElementById('st-imu'),
-        mag: document.getElementById('st-mag')
-    };
+            async init() {
+                // Battery
+                if (navigator.getBattery) {
+                    const battery = await navigator.getBattery();
+                    this.updateBattery(battery);
+                    battery.addEventListener('levelchange', () => this.updateBattery(battery));
+                    battery.addEventListener('chargingchange', () => this.updateBattery(battery));
+                }
 
-    // Camera
-    app.ui.video = document.getElementById('video-feed');
-    app.ui.hudCtx = document.getElementById('hud-canvas').getContext('2d');
-    app.ui.procCtx = document.getElementById('proc-canvas').getContext('2d', { willReadFrequently: true });
+                // Gyroscope (Gravity)
+                window.addEventListener('deviceorientation', (event) => {
+                    // Normalize gamma (left/right) and beta (front/back)
+                    this.gyro.x = event.gamma ? event.gamma / 45 : 0; 
+                    this.gyro.y = event.beta ? (event.beta - 45) / 45 : 0; 
+                });
+            }
 
-    // Audio
-    app.ui.waveCtx = document.getElementById('wave-canvas').getContext('2d');
-    app.ui.specCtx = document.getElementById('spec-canvas').getContext('2d');
+            updateBattery(battery) {
+                this.batteryLevel = battery.level;
+                this.charging = battery.charging;
+                document.getElementById('battery-stat').innerText = 
+                    `ENERGY: ${Math.round(this.batteryLevel * 100)}% ${this.charging ? '[CHARGING]' : ''}`;
+            }
+        }
 
-    // Metrics
-    app.ui.vals = {
-        motion: document.getElementById('val-motion'),
-        lum: document.getElementById('val-lum'),
-        con: document.getElementById('val-con'),
-        stab: document.getElementById('val-stab'),
-        rms: document.getElementById('val-rms'),
-        freq: document.getElementById('val-freq'),
-        aei: document.getElementById('val-aei'),
-        g: document.getElementById('val-g'),
-        vib: document.getElementById('val-vib'),
-        ang: document.getElementById('val-ang'),
-        imuStat: document.getElementById('val-imu-stat'),
-        mag: document.getElementById('val-mag'),
-        magDev: document.getElementById('val-mag-dev'),
-        eai: document.getElementById('val-eai'),
-        sii: document.getElementById('val-sii'),
-        aiLbl: document.getElementById('ai-label'),
-        aiConf: document.getElementById('ai-conf')
-    };
-    
-    app.ui.logContainer = document.getElementById('log-container');
-    app.ui.sampleCount = document.getElementById('sample-count');
-}
+        // --- CORE BRAIN (Logic) ---
+        class CoreBrain {
+            constructor(slime, bio, vision) {
+                this.slime = slime;
+                this.bio = bio;
+                this.vision = vision;
+                this.state = 'IDLE'; // IDLE, EXCITED, TIRED, SLEEP
+                this.lastSpeakTime = 0;
+                this.synth = window.speechSynthesis;
+            }
 
-function startClock() {
-    setInterval(() => {
-        const now = new Date();
-        app.ui.clock.innerText = now.toISOString().split('T')[1].split('.')[0] + " UTC";
-    }, 1000);
-}
+            process() {
+                // 1. Update Biological State
+                const energy = this.bio.batteryLevel;
+                const motion = this.vision.motionAmount;
 
-// === SENSORS: INITIALIZATION & ACQUISITION ===
+                // 2. State Machine Logic
+                if (energy < 0.2 && !this.bio.charging) {
+                    this.setState('TIRED');
+                } else if (motion > 15) {
+                    this.setState('EXCITED');
+                } else if (this.bio.charging) {
+                    this.setState('HEALING'); // Charging
+                } else {
+                    this.setState('IDLE');
+                }
 
-const Sensors = {
-    audioCtx: null,
-    analyser: null,
-    freqData: null,
-    waveData: null,
-    magSensor: null
-};
+                // 3. Apply State to Body
+                this.applyStateEffects();
+            }
 
-async function initCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
-        });
-        app.ui.video.srcObject = stream;
-        app.ui.dots.cam.className = "status-dot ok";
-        logEvent("Camera initialized successfully.");
-    } catch (e) {
-        app.ui.dots.cam.className = "status-dot err";
-        logEvent(`Camera init failed: ${e.message}`, "error");
-    }
-}
+            setState(newState) {
+                if (this.state === newState) return;
+                this.state = newState;
+                document.getElementById('mood-stat').innerText = `MOOD: ${this.state}`;
+                
+                // Reaction on state change
+                this.speak(); 
+                log(`STATE SHIFT: ${newState}`);
+            }
 
-async function initAudio() {
-    try {
-        Sensors.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const src = Sensors.audioCtx.createMediaStreamSource(stream);
-        Sensors.analyser = Sensors.audioCtx.createAnalyser();
-        
-        updateFFTSize(app.config.fftSize); // Allocates arrays
-        src.connect(Sensors.analyser);
-        
-        app.ui.dots.mic.className = "status-dot ok";
-        logEvent("Microphone initialized.");
-    } catch (e) {
-        app.ui.dots.mic.className = "status-dot err";
-        logEvent(`Microphone init failed: ${e.message}`, "error");
-    }
-}
+            applyStateEffects() {
+                switch (this.state) {
+                    case 'EXCITED':
+                        this.slime.color = '#ff0055'; // Red
+                        this.slime.eyeOpenness = 1.2; // Wide eyes
+                        this.slime.targetRadius = 110;
+                        break;
+                    case 'TIRED':
+                        this.slime.color = '#555555'; // Grey
+                        this.slime.eyeOpenness = 0.2; // Sleepy eyes
+                        this.slime.targetRadius = 80;
+                        break;
+                    case 'HEALING':
+                        this.slime.color = '#00ffff'; // Cyan
+                        this.slime.eyeOpenness = 0.5;
+                        break;
+                    case 'IDLE':
+                    default:
+                        this.slime.color = '#00ff9d'; // Green
+                        this.slime.eyeOpenness = 1.0;
+                        this.slime.targetRadius = 100;
+                        break;
+                }
+            }
 
-function initIMU() {
-    if (window.DeviceMotionEvent) {
-        window.addEventListener('devicemotion', handleIMUEvent);
-        app.ui.dots.imu.className = "status-dot ok";
-        logEvent("IMU (Accel/Gyro) engaged.");
-    } else {
-        app.ui.dots.imu.className = "status-dot err";
-        logEvent("DeviceMotion API not supported.", "warn");
-    }
-}
+            speak() {
+                if (!CONFIG.voiceEnabled || Date.now() - this.lastSpeakTime < 3000) return;
+                
+                const phrases = {
+                    'EXCITED': ['I see you moving!', 'So much energy!', 'Wow!'],
+                    'TIRED': ['Low battery...', 'I need power...', 'Getting dark...'],
+                    'HEALING': ['Power surging...', 'Refueling...', 'Ahhh...'],
+                    'IDLE': ['System stable.', 'Watching you.', 'Hummm...']
+                };
 
-function initMagnetometer() {
-    if ('Magnetometer' in window) {
-        try {
-            Sensors.magSensor = new Magnetometer({ frequency: 10 });
-            Sensors.magSensor.addEventListener('reading', () => {
-                computeMagMetrics(Sensors.magSensor);
+                const text = phrases[this.state][Math.floor(Math.random() * phrases[this.state].length)];
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.pitch = this.state === 'EXCITED' ? 1.5 : 0.8;
+                utterance.rate = 1.2;
+                this.synth.speak(utterance);
+                this.lastSpeakTime = Date.now();
+            }
+        }
+
+        // --- MAIN SYSTEM ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let slime, vision, bio, brain;
+        let frameCount = 0;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        // Touch Interaction
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            
+            // Vibrate if touched
+            if (navigator.vibrate) navigator.vibrate(50);
+            
+            // Push Slime points away from touch
+            slime.points.forEach(p => {
+                const dx = p.x - touch.clientX;
+                const dy = p.y - touch.clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < 150) {
+                    p.x += dx * 0.5; // Push effect
+                    p.y += dy * 0.5;
+                }
             });
-            Sensors.magSensor.start();
-            app.readings.mag.available = true;
-            app.ui.dots.mag.className = "status-dot ok";
-            logEvent("Magnetometer online.");
-        } catch (e) {
-            handleMagError(e);
+            
+            slime.shock();
+            log("TOUCH DETECTED");
+        });
+
+        function loop() {
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Run Vision less frequently
+            if (frameCount % CONFIG.visionInterval === 0) {
+                vision.detectMotion();
+            }
+
+            // Process Logic
+            brain.process();
+
+            // Physics Update
+            slime.update(bio.gyro.x, bio.gyro.y);
+            slime.draw(ctx);
+
+            frameCount++;
+            requestAnimationFrame(loop);
         }
-    } else {
-        handleMagError({ message: "API Unavailable" });
-    }
-}
 
-function handleMagError(e) {
-    app.ui.dots.mag.className = "status-dot err";
-    document.getElementById('mag-data').classList.add('hidden');
-    document.getElementById('mag-unavailable').classList.remove('hidden');
-    // logEvent(`Magnetometer unavailable: ${e.message}`, "warn");
-}
+        document.getElementById('start-btn').addEventListener('click', async function() {
+            this.style.display = 'none';
+            
+            resize();
+            
+            // Initialize Modules
+            slime = new SlimeBody(window.innerWidth / 2, window.innerHeight / 2);
+            vision = new VisionCortex();
+            bio = new BioSystem();
+            brain = new CoreBrain(slime, bio, vision);
 
-function updateFFTSize(size) {
-    if (!Sensors.analyser) return;
-    app.config.fftSize = parseInt(size);
-    Sensors.analyser.fftSize = app.config.fftSize;
-    const len = Sensors.analyser.frequencyBinCount;
-    Sensors.freqData = new Uint8Array(len);
-    Sensors.waveData = new Uint8Array(len);
-}
+            await vision.init();
+            await bio.init();
 
-// === PROCESSING FUNCTIONS ===
+            log("SYSTEM INITIALIZED SUCCESSFULLY");
+            loop();
+        });
 
-// Optical
-let lastFrameData = null;
-function processVideoFrame() {
-    const vid = app.ui.video;
-    if (vid.readyState !== 4) return;
-
-    const ctx = app.ui.procCtx;
-    const w = ctx.canvas.width; 
-    const h = ctx.canvas.height;
-
-    // Draw small frame
-    ctx.drawImage(vid, 0, 0, w, h);
-    const frame = ctx.getImageData(0, 0, w, h);
-    const data = frame.data;
-
-    let lumSum = 0;
-    let diffSum = 0;
-    
-    // Pixel loop (RGBA)
-    for(let i = 0; i < data.length; i += 4) {
-        // Luminance (Rec. 601)
-        const lum = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-        lumSum += lum;
-
-        // Motion (Frame Diff)
-        if (lastFrameData) {
-            const lastLum = 0.299 * lastFrameData[i] + 0.587 * lastFrameData[i+1] + 0.114 * lastFrameData[i+2];
-            if (Math.abs(lum - lastLum) > 20) diffSum++; // Threshold 20/255
-        }
-    }
-
-    // Metrics
-    const meanLum = lumSum / (w * h);
-    const motionIdx = Math.min(100, (diffSum / (w * h)) * 500); // Scale factor
-    
-    // Approximate Contrast (Simplification: Variance of luminance)
-    // For perf, we use just mean, but could do min/max. Skipping expensive loop.
-    
-    // Store
-    app.readings.optical.lum = meanLum;
-    app.readings.optical.motion = motionIdx;
-    
-    // Stability Heuristic
-    app.readings.optical.stable = motionIdx < 5;
-    
-    lastFrameData = data;
-}
-
-// Acoustic
-function processAudioFrame() {
-    if (!Sensors.analyser) return;
-
-    Sensors.analyser.getByteTimeDomainData(Sensors.waveData);
-    Sensors.analyser.getByteFrequencyData(Sensors.freqData);
-
-    // RMS
-    let sumSq = 0;
-    for(let i=0; i < Sensors.waveData.length; i++) {
-        const norm = (Sensors.waveData[i] - 128) / 128;
-        sumSq += (norm * norm);
-    }
-    const rms = Math.sqrt(sumSq / Sensors.waveData.length);
-    const db = 20 * Math.log10(rms || 1e-10);
-
-    // Dominant Freq
-    let maxVal = 0; 
-    let maxIdx = 0;
-    let energySum = 0;
-    for(let i=0; i < Sensors.freqData.length; i++) {
-        const val = Sensors.freqData[i];
-        energySum += val;
-        if(val > maxVal) { maxVal = val; maxIdx = i; }
-    }
-    const nyquist = Sensors.audioCtx.sampleRate / 2;
-    const domFreq = maxIdx * (nyquist / Sensors.freqData.length);
-
-    app.readings.acoustic.rms = db;
-    app.readings.acoustic.peakFreq = domFreq;
-    app.readings.acoustic.energy = energySum / Sensors.freqData.length; // 0-255 avg
-    
-    // Cache for logging
-    app.readings.acoustic.spectrum = Array.from(Sensors.freqData); // Copy
-}
-
-// IMU
-function handleIMUEvent(e) {
-    const acc = e.accelerationIncludingGravity;
-    const rot = e.rotationRate;
-    
-    if (acc) {
-        const x = acc.x || 0;
-        const y = acc.y || 0;
-        const z = acc.z || 0;
-        const mag = Math.sqrt(x*x + y*y + z*z);
-        const g = mag / 9.80665;
-        
-        app.readings.imu.g = g;
-
-        // Rolling history for vibration
-        const hist = app.readings.imu.gHist;
-        hist.push(g);
-        if (hist.length > 30) hist.shift();
-
-        // Variance
-        const mean = hist.reduce((a,b)=>a+b,0) / hist.length;
-        const variance = hist.reduce((a,b)=>a + (b-mean)**2, 0) / hist.length;
-        app.readings.imu.vibration = Math.sqrt(variance) * 10; // Scaled
-    }
-
-    if (rot) {
-        const alpha = rot.alpha || 0;
-        const beta = rot.beta || 0;
-        const gamma = rot.gamma || 0;
-        app.readings.imu.angVel = Math.sqrt(alpha*alpha + beta*beta + gamma*gamma);
-    }
-}
-
-function computeMagMetrics(sensor) {
-    const mag = Math.sqrt(sensor.x**2 + sensor.y**2 + sensor.z**2);
-    if (app.readings.mag.base === 0) app.readings.mag.base = mag;
-    
-    app.readings.mag.val = mag;
-    app.readings.mag.dev = mag - app.readings.mag.base;
-}
-
-// === FUSION & AI HOOKS ===
-
-function buildFeatureVector() {
-    const r = app.readings;
-    return {
-        timestamp: new Date().toISOString(),
-        optical: { ...r.optical },
-        acoustic: { ...r.acoustic },
-        imu: { ...r.imu },
-        mag: { ...r.mag }
-    };
-}
-
-function computeFusionIndices() {
-    const r = app.readings;
-    
-    // Environment Activity Index (EAI)
-    // Normalized Sum of Motion, Audio Energy, Vibration
-    const nMot = Math.min(1, r.optical.motion / 80);
-    const nAud = Math.min(1, (r.acoustic.energy) / 100);
-    const nVib = Math.min(1, r.imu.vibration / 2.0);
-    
-    r.fusion.eai = (nMot * 0.4 + nAud * 0.4 + nVib * 0.2) * 100;
-
-    // Structural Instability Index (SII)
-    // High vibration + Low Freq Audio
-    const nLowFreq = (r.acoustic.peakFreq < 150 && r.acoustic.energy > 30) ? 1.0 : 0.0;
-    r.fusion.sii = (nVib * 0.7 + nLowFreq * 0.3) * 100;
-}
-
-function runMLModel() {
-    const r = app.readings;
-    // Heuristic Classification "Model"
-    let label = "UNKNOWN";
-    let conf = 0;
-
-    if (r.fusion.eai < 10) {
-        label = "QUIET / STABLE";
-        conf = 95;
-    } else if (r.fusion.sii > 60) {
-        label = "STRUCTURAL STRESS";
-        conf = 85;
-    } else if (r.optical.motion > 80) {
-        label = "HIGH VISUAL ACTIVITY";
-        conf = 90;
-    } else if (r.acoustic.energy > 150) {
-        label = "HIGH NOISE";
-        conf = 88;
-    } else if (r.imu.angVel > 100) {
-        label = "DEVICE HANDLING";
-        conf = 99;
-    } else {
-        label = "AMBIENT ACTIVITY";
-        conf = 60;
-    }
-
-    r.fusion.label = label;
-    r.fusion.conf = conf;
-}
-
-
-// === LOGGING & EXPORT ===
-
-const Data = {
-    buffer: []
-};
-
-function samplingLoop() {
-    if (!app.state.isRunning) return;
-    
-    const now = performance.now();
-    // Throttle sampling based on config
-    if (now - app.state.lastSampleTime >= app.config.sampleIntervalMs) {
-        if (app.state.isLogging) {
-            saveSample();
-        }
-        app.state.lastSampleTime = now;
-    }
-}
-
-function saveSample() {
-    const r = app.readings;
-    const sample = {
-        ts: new Date().toISOString(),
-        expId: document.getElementById('inp-exp').value || "NULL",
-        label: document.getElementById('inp-label').value || "NULL",
-        motion: r.optical.motion.toFixed(2),
-        lum: r.optical.lum.toFixed(1),
-        rms: r.acoustic.rms.toFixed(1),
-        freq: r.acoustic.peakFreq.toFixed(0),
-        g: r.imu.g.toFixed(3),
-        vib: r.imu.vibration.toFixed(3),
-        mag: r.mag.val ? r.mag.val.toFixed(1) : "0",
-        eai: r.fusion.eai.toFixed(1),
-        class: r.fusion.label
-    };
-    
-    Data.buffer.push(sample);
-    if (Data.buffer.length > app.config.historyLimit) Data.buffer.shift();
-    
-    // Update Count
-    app.ui.sampleCount.innerText = Data.buffer.length;
-    
-    // Visual log entry
-    logEvent(`Sampled: ${r.fusion.label}`, "info");
-}
-
-function manualSample() {
-    saveSample();
-    logEvent("Manual sample acquired.", "success");
-}
-
-function toggleLogging() {
-    app.state.isLogging = !app.state.isLogging;
-    const btn = document.getElementById('btn-log');
-    if (app.state.isLogging) {
-        btn.innerText = "Stop Logging";
-        btn.classList.add('btn-primary'); // Make it look active
-        logEvent("Data logging STARTED.", "warn");
-    } else {
-        btn.innerText = "Start Log";
-        btn.classList.remove('btn-primary');
-        logEvent("Data logging STOPPED.", "warn");
-    }
-}
-
-function logEvent(message, type="info") {
-    const div = document.createElement('div');
-    div.className = "log-entry";
-    
-    const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
-    const cssClass = type === 'error' ? 'log-msg error' : type === 'warn' ? 'log-msg warn' : 'log-msg';
-    
-    div.innerHTML = `<span class="log-time">[${ts}]</span> <span class="${cssClass}">${message}</span>`;
-    app.ui.logContainer.prepend(div);
-}
-
-function updateConfig(el) {
-    if(el.id === 'rng-interval') {
-        app.config.sampleIntervalMs = parseFloat(el.value) * 1000;
-        document.getElementById('lbl-interval').innerText = el.value + "s";
-    } else if (el.id === 'sel-fft') {
-        updateFFTSize(el.value);
-    }
-}
-
-function exportJSON() {
-    if (Data.buffer.length === 0) return alert("No data to export.");
-    const blob = new Blob([JSON.stringify(Data.buffer, null, 2)], {type : 'application/json'});
-    triggerDownload(blob, `orion_log_${Date.now()}.json`);
-}
-
-function exportCSV() {
-    if (Data.buffer.length === 0) return alert("No data to export.");
-    const headers = Object.keys(Data.buffer[0]);
-    let csv = headers.join(",") + "\n";
-    Data.buffer.forEach(row => {
-        csv += headers.map(k => row[k]).join(",") + "\n";
-    });
-    const blob = new Blob([csv], {type : 'text/csv'});
-    triggerDownload(blob, `orion_log_${Date.now()}.csv`);
-}
-
-function triggerDownload(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    logEvent("Export complete.", "success");
-}
-
-function clearData() {
-    Data.buffer = [];
-    app.ui.sampleCount.innerText = "0";
-    logEvent("Buffer cleared.", "warn");
-}
-app.data = { exportJSON, exportCSV, clear: clearData }; // Helper link
-
-// === VISUALIZATION ===
-
-function renderLoop() {
-    if (!app.state.isRunning) return;
-
-    // 1. Process
-    processVideoFrame();
-    processAudioFrame();
-    computeFusionIndices();
-    runMLModel();
-
-    // 2. Draw Visuals
-    drawHUD();
-    drawAudioVisuals();
-
-    // 3. Update DOM Metrics
-    updateMetricsUI();
-
-    requestAnimationFrame(renderLoop);
-}
-
-function drawHUD() {
-    const ctx = app.ui.hudCtx;
-    const w = ctx.canvas.width = ctx.canvas.clientWidth;
-    const h = ctx.canvas.height = ctx.canvas.clientHeight;
-    ctx.clearRect(0, 0, w, h);
-
-    // Crosshair
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(w/2 - 10, h/2); ctx.lineTo(w/2 + 10, h/2);
-    ctx.moveTo(w/2, h/2 - 10); ctx.lineTo(w/2, h/2 + 10);
-    ctx.stroke();
-
-    // Motion Border (if high)
-    const mot = app.readings.optical.motion;
-    if (mot > 10) {
-        const intensity = Math.min(1, mot / 50);
-        ctx.strokeStyle = `rgba(255, 69, 58, ${intensity})`;
-        ctx.lineWidth = 4;
-        ctx.strokeRect(0, 0, w, h);
-    }
-}
-
-function drawAudioVisuals() {
-    if (!Sensors.analyser) return;
-
-    // Waveform
-    const wCtx = app.ui.waveCtx;
-    const w = wCtx.canvas.width = wCtx.canvas.clientWidth;
-    const h = wCtx.canvas.height = wCtx.canvas.clientHeight;
-    wCtx.clearRect(0,0,w,h);
-    
-    wCtx.beginPath();
-    wCtx.strokeStyle = "#0A84FF";
-    wCtx.lineWidth = 1;
-    const slice = w / Sensors.waveData.length;
-    let x = 0;
-    for(let i=0; i<Sensors.waveData.length; i++) {
-        const v = Sensors.waveData[i] / 128.0;
-        const y = v * h/2;
-        if(i===0) wCtx.moveTo(x,y); else wCtx.lineTo(x,y);
-        x += slice;
-    }
-    wCtx.stroke();
-
-    // Spectrum
-    const sCtx = app.ui.specCtx;
-    const sw = sCtx.canvas.width = sCtx.canvas.clientWidth;
-    const sh = sCtx.canvas.height = sCtx.canvas.clientHeight;
-    sCtx.clearRect(0,0,sw,sh);
-    
-    sCtx.fillStyle = "rgba(48, 209, 88, 0.6)"; // Greenish
-    const barW = (sw / Sensors.freqData.length) * 2.5;
-    let bx = 0;
-    for(let i=0; i<Sensors.freqData.length; i++) {
-        const barH = (Sensors.freqData[i] / 255) * sh;
-        sCtx.fillRect(bx, sh - barH, barW, barH);
-        bx += barW + 1;
-    }
-}
-
-function updateMetricsUI() {
-    const r = app.readings;
-    
-    // Optical
-    app.ui.vals.motion.innerText = r.optical.motion.toFixed(1);
-    app.ui.vals.lum.innerText = r.optical.lum.toFixed(0);
-    app.ui.vals.con.innerText = r.optical.con.toFixed(1);
-    app.ui.vals.stab.innerText = r.optical.stable ? "OK" : "DRIFT";
-    app.ui.vals.stab.style.color = r.optical.stable ? "var(--accent-success)" : "var(--accent-warning)";
-
-    // Acoustic
-    app.ui.vals.rms.innerText = r.acoustic.rms.toFixed(1);
-    app.ui.vals.freq.innerText = r.acoustic.peakFreq.toFixed(0) + " Hz";
-    app.ui.vals.aei.innerText = r.acoustic.energy.toFixed(1);
-
-    // IMU
-    app.ui.vals.g.innerText = r.imu.g.toFixed(2);
-    app.ui.vals.vib.innerText = r.imu.vibration.toFixed(2);
-    app.ui.vals.ang.innerText = r.imu.angVel.toFixed(1) + " °/s";
-    
-    const imuState = r.imu.vibration < 2 ? "Stable" : r.imu.vibration < 8 ? "Mild" : "High Vib";
-    app.ui.vals.imuStat.innerText = imuState;
-    app.ui.vals.imuStat.className = r.imu.vibration < 2 ? "badge success" : r.imu.vibration < 8 ? "badge warning" : "badge error";
-
-    // Mag
-    if (r.mag.available) {
-        app.ui.vals.mag.innerText = r.mag.val.toFixed(1) + " µT";
-        app.ui.vals.magDev.innerText = r.mag.dev.toFixed(1);
-    }
-
-    // Fusion & AI
-    app.ui.vals.eai.innerText = r.fusion.eai.toFixed(1);
-    app.ui.vals.sii.innerText = r.fusion.sii.toFixed(1);
-    
-    app.ui.vals.aiLbl.innerText = r.fusion.label;
-    app.ui.vals.aiConf.innerText = `Conf: ${r.fusion.conf}%`;
-    
-    // Colorize AI Label
-    const eai = r.fusion.eai;
-    app.ui.vals.aiLbl.className = eai < 20 ? "badge info" : eai < 50 ? "badge warning" : "badge error";
-}
-
-function updateSystemStatus(text, type) {
-    app.ui.sysStatus.innerText = text;
-    if(type === 'success') app.ui.sysStatus.className = "badge success";
-    else if(type === 'error') app.ui.sysStatus.className = "badge error";
-    else app.ui.sysStatus.className = "badge";
-}
-
-// Global hook for buttons
-window.initApp = initApp;
-window.toggleLogging = app.toggleRecording;
-window.manualSample = app.logic.takeManualSample;
-window.updateConfig = updateConfig;
-window.exportJSON = app.data.exportJSON;
-window.exportCSV = app.data.exportCSV;
-
-</script>
+    </script>
 </body>
 </html>
