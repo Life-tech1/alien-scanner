@@ -3,299 +3,531 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>INTERCEPTOR | TACTICAL OS</title>
+    <title>INTERCEPTOR | Field Analysis Unit</title>
     <style>
-        /* === INTERCEPTOR DESIGN SYSTEM === */
+        /* * SYSTEM DESIGN LANGUAGE: "Tactical Precision"
+         * High contrast, monospaced fonts, HUD-like overlay logic.
+         */
         :root {
-            --neon: #00f3ff;  /* Cyan Default */
-            --alert: #ff2a6d;
-            --glass: rgba(0, 20, 40, 0.85);
-            --border: 1px solid rgba(0, 243, 255, 0.3);
-            --bg: #000;
+            --bg-color: #050505;
+            --hud-primary: #00f3ff;     /* Data/Status */
+            --hud-warning: #ff9d00;     /* Caution */
+            --hud-alert: #ff2a6d;       /* Critical */
+            --hud-dim: rgba(0, 243, 255, 0.2);
+            --glass-panel: rgba(10, 15, 20, 0.85);
+            --font-mono: 'Courier New', Courier, monospace;
+            --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
-        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
-        body { margin: 0; background: var(--bg); overflow: hidden; width: 100vw; height: 100vh; font-family: 'Courier New', Courier, monospace; color: var(--neon); }
+        * { box-sizing: border-box; touch-action: manipulation; user-select: none; -webkit-tap-highlight-color: transparent; }
 
-        /* LAYER 1: CAMERA */
-        #cam-feed {
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--hud-primary);
+            font-family: var(--font-ui);
+            overflow: hidden;
+            width: 100vw; height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+        /* --- LAYERS --- */
+        #view-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0; transition: filter 0.3s, transform 0.1s;
+            z-index: 0; overflow: hidden;
         }
-        /* Vision Modes */
-        .mode-night { filter: sepia(1) hue-rotate(70deg) saturate(3) contrast(1.2) brightness(1.2); }
-        .mode-thermal { filter: invert(1) sepia(1) hue-rotate(-45deg) saturate(4) contrast(2); }
-        .mode-red { filter: sepia(1) hue-rotate(320deg) saturate(4) contrast(1.5); }
-
-        /* LAYER 2: INTERACTIVE HUD */
-        #hud-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: auto; /* Allow clicks */
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
-
-        /* UI AREAS */
-        .top-bar {
-            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
-            padding: 15px; display: flex; justify-content: space-between; align-items: center;
-        }
-        .sys-badge {
-            border: 1px solid var(--neon); padding: 5px 10px; font-weight: bold;
-            background: rgba(0, 243, 255, 0.1); font-size: 12px;
-            cursor: pointer;
-        }
-        .sys-badge:active { background: var(--neon); color: #000; }
-
-        /* CONTROL DECK (BOTTOM) */
-        .control-deck {
-            background: rgba(0, 10, 20, 0.9);
-            border-top: 2px solid var(--neon);
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 20px;
-            align-items: center;
-            backdrop-filter: blur(10px);
-        }
-
-        /* BUTTONS */
-        .btn-circle {
-            width: 60px; height: 60px; border-radius: 50%;
-            border: 2px solid var(--neon); background: rgba(0,0,0,0.5);
-            color: var(--neon); display: flex; align-items: center; justify-content: center;
-            font-size: 24px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
-            transition: 0.1s;
-        }
-        .btn-circle:active { transform: scale(0.9); background: var(--neon); color: #000; box-shadow: 0 0 25px var(--neon); }
         
-        .btn-rect {
-            border: 1px solid var(--neon); background: transparent; color: var(--neon);
-            padding: 10px; width: 100%; margin-bottom: 5px; cursor: pointer;
-            font-weight: bold; font-size: 10px; letter-spacing: 1px;
-            transition: 0.2s;
+        /* Camera Feed */
+        video#cam-feed {
+            width: 100%; height: 100%; object-fit: cover;
+            filter: contrast(1.1) saturate(0.8);
+            transition: filter 0.3s;
         }
-        .btn-rect.active { background: var(--neon); color: #000; }
-
-        /* ZOOM SLIDER */
-        .zoom-container {
-            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
-            height: 200px; background: rgba(0,0,0,0.6); border: 1px solid var(--neon);
-            border-radius: 20px; padding: 10px; display: flex; flex-direction: column; align-items: center;
-        }
-        input[type=range][orient=vertical] {
-            writing-mode: bt-lr; /* IE */
-            -webkit-appearance: slider-vertical; /* WebKit */
-            width: 8px; height: 100%; padding: 0 5px;
+        
+        /* HUD Overlay (Canvas) */
+        canvas#hud-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
         }
 
-        /* TARGET RETICLE (Interactive) */
-        #reticle {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 60px; height: 60px; pointer-events: none; transition: top 0.2s, left 0.2s;
-        }
-        .reticle-box {
-            width: 100%; height: 100%; border: 1px solid var(--neon);
-            position: relative; animation: pulse-border 2s infinite;
-        }
-        .corner {
-            position: absolute; width: 10px; height: 10px; border: 2px solid var(--neon);
-        }
-        .tl { top: -4px; left: -4px; border-right: 0; border-bottom: 0; }
-        .tr { top: -4px; right: -4px; border-left: 0; border-bottom: 0; }
-        .bl { bottom: -4px; left: -4px; border-right: 0; border-top: 0; }
-        .br { bottom: -4px; right: -4px; border-left: 0; border-top: 0; }
-
-        /* INFO POPUP */
-        #target-info {
-            position: absolute; top: 50%; left: 50%; transform: translate(40px, -40px);
-            background: rgba(0,0,0,0.8); border: 1px solid var(--neon);
-            padding: 5px; font-size: 10px; display: none;
+        /* UI Interface Layer */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
         }
 
-        @keyframes pulse-border { 0% { opacity: 0.5; scale: 1; } 50% { opacity: 1; scale: 1.1; } 100% { opacity: 0.5; scale: 1; } }
-
-        /* FLASH EFFECT */
-        #flash-overlay {
-            position: absolute; top:0; left:0; width:100%; height:100%; background:#fff;
-            opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 99;
+        /* --- COMPONENTS --- */
+        .panel {
+            background: var(--glass-panel);
+            border: 1px solid var(--hud-dim);
+            border-left: 2px solid var(--hud-primary);
+            backdrop-filter: blur(4px);
+            pointer-events: auto;
+            padding: 8px;
+            margin-bottom: 5px;
         }
+
+        .header-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--hud-primary);
+            padding-bottom: 5px; margin-bottom: 5px;
+        }
+        
+        .title { font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; font-size: 14px; }
+        .status-badge { 
+            font-size: 10px; padding: 2px 6px; border-radius: 2px; 
+            background: var(--hud-dim); color: var(--hud-primary); font-weight: bold;
+        }
+        .status-badge.alert { background: rgba(255, 42, 109, 0.2); color: var(--hud-alert); }
+
+        /* Data Grid */
+        .data-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-family: var(--font-mono);
+        }
+        .data-item { display: flex; flex-direction: column; }
+        .label { font-size: 9px; color: #888; text-transform: uppercase; }
+        .value { font-size: 12px; font-weight: bold; color: #fff; }
+        .value.warn { color: var(--hud-warning); }
+        .value.crit { color: var(--hud-alert); }
+
+        /* Controls */
+        .control-deck {
+            display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px;
+            pointer-events: auto;
+        }
+        button.btn-tac {
+            background: rgba(0, 0, 0, 0.6); border: 1px solid var(--hud-primary);
+            color: var(--hud-primary); padding: 8px 12px; font-family: var(--font-mono);
+            font-size: 10px; cursor: pointer; text-transform: uppercase; white-space: nowrap;
+            flex: 1; transition: 0.2s;
+        }
+        button.btn-tac:active { background: var(--hud-primary); color: #000; }
+        button.btn-tac.active { background: var(--hud-dim); border-color: #fff; color: #fff; }
+        button.btn-tac.alert { border-color: var(--hud-alert); color: var(--hud-alert); }
+
+        /* Analysis View (Graphs) */
+        #analysis-panel {
+            display: none; flex-direction: column; gap: 5px;
+            height: 150px; transition: height 0.3s;
+        }
+        canvas.graph { width: 100%; height: 40px; background: #000; border: 1px solid #333; }
+
+        /* Start Screen */
+        #init-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: var(--font-mono);
+        }
+        .loader {
+            width: 40px; height: 40px; border: 2px solid #333; border-top: 2px solid var(--hud-primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
 
-    <video id="cam-feed" playsinline muted autoplay></video>
-    <div id="flash-overlay"></div>
+    <div id="init-overlay">
+        <h1 style="font-size: 24px; letter-spacing: 3px;">INTERCEPTOR</h1>
+        <div style="font-size: 12px; color: #666; margin-bottom: 20px;">FIELD ANALYSIS UNIT v2.0</div>
+        <div class="loader"></div>
+        <div id="init-status" style="font-size: 10px; color: var(--hud-primary);">SYSTEM BOOT...</div>
+        <button id="btn-start" class="btn-tac" style="margin-top: 20px; padding: 15px 40px; font-size: 14px; display:none;">INITIALIZE SENSORS</button>
+    </div>
 
-    <div id="hud-layer">
+    <div id="view-layer">
+        <video id="cam-feed" playsinline muted autoplay></video>
+        <canvas id="hud-canvas"></canvas>
+    </div>
+
+    <div id="ui-layer">
         
-        <div class="top-bar">
-            <div class="sys-badge" id="btn-color" onclick="toggleColor()">COLOR: CYAN</div>
-            <div style="font-size: 18px; font-weight: bold; letter-spacing: 3px;">INTERCEPTOR</div>
-            <div class="sys-badge" onclick="toggleFlash()">LIGHT: OFF</div>
-        </div>
-
-        <div style="flex: 1;" onclick="moveReticle(event)"></div>
-
-        <div id="reticle">
-            <div class="reticle-box">
-                <div class="corner tl"></div><div class="corner tr"></div>
-                <div class="corner bl"></div><div class="corner br"></div>
+        <div class="panel">
+            <div class="header-bar">
+                <div class="title">TELEMETRY</div>
+                <div class="status-badge" id="rec-status">STANDBY</div>
             </div>
-            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:4px; height:4px; background:var(--neon);"></div>
-        </div>
-        <div id="target-info">
-            TGT: LOCKED<br>
-            DIST: <span id="dist-val">--</span> M
-        </div>
-
-        <div class="zoom-container">
-            <span style="font-size:10px;">5x</span>
-            <input type="range" orient="vertical" min="1" max="5" step="0.1" value="1" oninput="setZoom(this.value)">
-            <span style="font-size:10px;">1x</span>
-        </div>
-
-        <div class="control-deck">
-            <div style="display:flex; flex-direction:column;">
-                <button class="btn-rect active" onclick="setMode('normal', this)">NORMAL</button>
-                <button class="btn-rect" onclick="setMode('night', this)">NIGHT OPS</button>
-                <button class="btn-rect" onclick="setMode('thermal', this)">THERMAL</button>
-            </div>
-
-            <div style="text-align:center;">
-                <div class="btn-circle" onclick="takeSnapshot()">
-                    ◉
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="label">G-FORCE (MAX)</span>
+                    <span class="value" id="val-g">1.00 G</span>
                 </div>
-                <div style="font-size:10px; margin-top:5px;">CAPTURE</div>
+                <div class="data-item">
+                    <span class="label">MOTION IDX</span>
+                    <span class="value" id="val-motion">0%</span>
+                </div>
+                <div class="data-item">
+                    <span class="label">AUDIO (dB)</span>
+                    <span class="value" id="val-audio">-Inf dB</span>
+                </div>
+                <div class="data-item">
+                    <span class="label">ENV. STRESS</span>
+                    <span class="value" id="val-stress">NORMAL</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: auto;">
+            
+            <div id="analysis-panel" class="panel">
+                <div class="label">AUDIO SPECTRUM (FFT)</div>
+                <canvas id="graph-audio" class="graph"></canvas>
+                <div class="label">G-FORCE HISTORY</div>
+                <canvas id="graph-g" class="graph"></canvas>
             </div>
 
-            <div style="display:flex; flex-direction:column;">
-                <button class="btn-rect" onclick="setMode('red', this)">PREDATOR</button>
-                <button class="btn-rect" onclick="toggleGrid()">GRID: OFF</button>
-                <button class="btn-rect" style="border-color:var(--alert); color:var(--alert);" onclick="resetSys()">RESET</button>
+            <div class="control-deck">
+                <button class="btn-tac" onclick="app.ui.toggleGraphs()">GRAPH</button>
+                <button class="btn-tac" onclick="app.ui.toggleFilter()">VISION</button>
+                <button class="btn-tac" onclick="app.logic.resetStats()">RESET</button>
+                <button class="btn-tac alert" id="btn-rec" onclick="app.logic.toggleRecording()">REC LOG</button>
+                <button class="btn-tac" onclick="app.export.downloadJSON()">EXPORT</button>
             </div>
         </div>
     </div>
 
     <script>
-        const video = document.getElementById('cam-feed');
-        const reticle = document.getElementById('reticle');
-        const infoBox = document.getElementById('target-info');
-        const flash = document.getElementById('flash-overlay');
-        const root = document.documentElement;
+        /**
+         * PROJECT: INTERCEPTOR (Core System)
+         * Architecture: Modular (State, Sensors, Processing, UI, Export)
+         * Standards: "use strict", ES6+
+         */
+        "use strict";
 
-        let currentZoom = 1;
-        let currentColorIdx = 0;
-        const colors = ['#00f3ff', '#ff2a6d', '#39ff14', '#ff9d00']; // Cyan, Red, Green, Orange
-        const colorNames = ['CYAN', 'RED', 'GREEN', 'AMBER'];
-
-        // 1. STARTUP
-        (async function init() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: {ideal: 1280} }
-                });
-                video.srcObject = stream;
-            } catch(e) {
-                alert("Camera Access Denied. Upload to HTTPS.");
+        // --- 1. APP STATE ---
+        const app = {
+            isRunning: false,
+            isRecording: false,
+            config: {
+                sampleRate: 100, // ms between logic updates
+                graphPoints: 100,
+                motionThreshold: 20,
+                stressThreshold: { warn: 1.5, crit: 2.5 } // Combined index thresholds
+            },
+            state: {
+                startTime: 0,
+                frameCount: 0,
+                visionMode: 0, // 0:Normal, 1:Night, 2:Thermal
+                gMax: 0,
+                motionVal: 0,
+                audioLevel: -100,
+                stressIndex: 0,
+                logBuffer: []
+            },
+            sensors: {
+                video: null,
+                audio: { ctx: null, analyser: null, data: null },
+                imu: { acc: {x:0, y:0, z:0}, lastG: 1 },
+                motion: { ctx: null, lastFrame: null }
             }
-        })();
+        };
 
-        // 2. INTERACTIVE FUNCTIONS
+        // --- 2. ACQUISITION LAYER (Sensors) ---
+        const Acquisition = {
+            init: async function() {
+                const status = document.getElementById('init-status');
+                
+                try {
+                    // Camera
+                    status.innerText = "CONNECTING OPTICS...";
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment', width: { ideal: 640 } },
+                        audio: true
+                    });
+                    
+                    app.sensors.video = document.getElementById('cam-feed');
+                    app.sensors.video.srcObject = stream;
 
-        // Set Vision Mode
-        function setMode(mode, btn) {
-            video.className = ''; // Reset
-            if(mode !== 'normal') video.classList.add('mode-' + mode);
-            
-            // Update Buttons
-            document.querySelectorAll('.btn-rect').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        }
+                    // Audio
+                    status.innerText = "CALIBRATING AUDIO...";
+                    app.sensors.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const src = app.sensors.audio.ctx.createMediaStreamSource(stream);
+                    app.sensors.audio.analyser = app.sensors.audio.ctx.createAnalyser();
+                    app.sensors.audio.analyser.fftSize = 256;
+                    src.connect(app.sensors.audio.analyser);
+                    app.sensors.audio.data = new Uint8Array(app.sensors.audio.analyser.frequencyBinCount);
 
-        // Manual Zoom
-        function setZoom(val) {
-            currentZoom = val;
-            video.style.transform = `scale(${val})`;
-        }
+                    // IMU (DeviceMotion)
+                    if (window.DeviceMotionEvent) {
+                        window.addEventListener('devicemotion', (e) => {
+                            const acc = e.accelerationIncludingGravity;
+                            if(acc) app.sensors.imu.acc = acc;
+                        });
+                    }
 
-        // Touch to Lock Target
-        function moveReticle(e) {
-            // Move visual
-            const x = e.clientX;
-            const y = e.clientY;
-            reticle.style.left = x + 'px';
-            reticle.style.top = y + 'px';
-            
-            // Show Data
-            infoBox.style.display = 'block';
-            infoBox.style.left = x + 'px';
-            infoBox.style.top = y + 'px';
-            
-            // Simulate Ranging
-            document.getElementById('dist-val').innerText = (Math.random() * 50 + 5).toFixed(1);
-            
-            // Play click animation
-            reticle.style.transform = "translate(-50%, -50%) scale(0.8)";
-            setTimeout(() => reticle.style.transform = "translate(-50%, -50%) scale(1)", 100);
-        }
+                    // Motion Processing Setup (Hidden Canvas)
+                    const mc = document.createElement('canvas');
+                    mc.width = 64; mc.height = 64; // Low res for performance
+                    app.sensors.motion.ctx = mc.getContext('2d', { willReadFrequently: true });
 
-        // Change HUD Color
-        function toggleColor() {
-            currentColorIdx = (currentColorIdx + 1) % colors.length;
-            const c = colors[currentColorIdx];
-            root.style.setProperty('--neon', c);
-            document.getElementById('btn-color').innerText = "COLOR: " + colorNames[currentColorIdx];
-        }
+                    status.innerText = "SYSTEM READY";
+                    return true;
 
-        // Screen Flashlight
-        let flashState = false;
-        function toggleFlash() {
-            flashState = !flashState;
-            flash.style.opacity = flashState ? 1 : 0; // White overlay
-            /* Note: Real 'torch' API is unstable, using screen brightness is safer for web apps */
-        }
+                } catch (e) {
+                    status.innerText = "ERROR: " + e.message;
+                    alert("Sensor Access Denied. Please use HTTPS.");
+                    return false;
+                }
+            }
+        };
 
-        // Take Snapshot (Download Canvas)
-        function takeSnapshot() {
-            // Flash Effect
-            flash.style.opacity = 0.8;
-            setTimeout(() => flash.style.opacity = 0, 100);
+        // --- 3. SIGNAL PROCESSING LAYER ---
+        const Processor = {
+            // Calculate G-Force Magnitude
+            computeG: function(acc) {
+                const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
+                return isNaN(g) ? 1.0 : g;
+            },
 
-            // Create Canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
+            // Audio RMS (Root Mean Square) -> dB
+            computeAudioLevel: function(data) {
+                let sum = 0;
+                for(let i=0; i<data.length; i++) sum += data[i];
+                const avg = sum / data.length;
+                // Rough estimate mapping 0-255 to dB-like scale
+                return avg > 0 ? 20 * Math.log10(avg / 255) : -100; 
+            },
 
-            // Draw Video
-            // (Note: Filters don't apply to canvas context drawImage easily without extra work, 
-            // strictly capturing raw feed + UI overlay simulation here for speed)
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Overlay Text
-            ctx.fillStyle = colors[currentColorIdx];
-            ctx.font = "40px Courier New";
-            ctx.fillText("INTERCEPTOR // EVIDENCE", 50, 50);
-            ctx.fillText(new Date().toLocaleString(), 50, 100);
+            // Video Motion Detection (Pixel Difference)
+            computeMotion: function(video, ctx, lastFrame) {
+                if (video.readyState !== 4) return { val: 0, frame: null };
+                
+                const w = 64, h = 64;
+                ctx.drawImage(video, 0, 0, w, h);
+                const frame = ctx.getImageData(0, 0, w, h);
+                const data = frame.data;
+                
+                let diff = 0;
+                if (lastFrame) {
+                    for (let i = 0; i < data.length; i += 4) {
+                        // Simple luminance diff
+                        const l1 = (data[i] + data[i+1] + data[i+2]) / 3;
+                        const l2 = (lastFrame[i] + lastFrame[i+1] + lastFrame[i+2]) / 3;
+                        if (Math.abs(l1 - l2) > 20) diff++;
+                    }
+                }
+                
+                const pct = Math.min(100, (diff / (w*h)) * 1000); // Scale factor
+                return { val: pct, frame: data };
+            },
 
-            // Download
-            const link = document.createElement('a');
-            link.download = 'interceptor-capture-' + Date.now() + '.jpg';
-            link.href = canvas.toDataURL('image/jpeg');
-            link.click();
-        }
+            // Fusion: Calculate Environment Stress Index
+            computeStressIndex: function(g, motion, audioDb) {
+                // Normalize inputs roughly 0-1
+                const normG = Math.abs(g - 1.0); // Deviation from 1G
+                const normMotion = motion / 100;
+                const normAudio = (audioDb + 100) / 100; // Map -100..0 to 0..1
+                
+                // Weighted Sum
+                return (normG * 2.0) + (normMotion * 1.0) + (normAudio * 0.5);
+            }
+        };
 
-        function toggleGrid() {
-            alert("Grid Overlay Toggled (Visual)");
-        }
+        // --- 4. LOGIC & LOOP ---
+        app.logic = {
+            loop: function() {
+                if (!app.isRunning) return;
+                
+                // 1. Process Sensors
+                const g = Processor.computeG(app.sensors.imu.acc);
+                app.sensors.audio.analyser.getByteFrequencyData(app.sensors.audio.data);
+                const audioDb = Processor.computeAudioLevel(app.sensors.audio.data);
+                const motionRes = Processor.computeMotion(app.sensors.video, app.sensors.motion.ctx, app.sensors.motion.lastFrame);
+                app.sensors.motion.lastFrame = motionRes.frame;
 
-        function resetSys() {
-            setZoom(1);
-            setMode('normal', document.querySelector('.btn-rect'));
-            video.style.filter = 'none';
-            reticle.style.top = '50%'; reticle.style.left = '50%';
-            infoBox.style.display = 'none';
-        }
+                // 2. Update State
+                app.state.gMax = Math.max(app.state.gMax, g);
+                app.state.motionVal = motionRes.val;
+                app.state.audioLevel = audioDb;
+                app.state.stressIndex = Processor.computeStressIndex(g, motionRes.val, audioDb);
+
+                // 3. Logging
+                if (app.isRecording) {
+                    app.state.logBuffer.push({
+                        ts: Date.now(),
+                        g: parseFloat(g.toFixed(3)),
+                        motion: parseFloat(motionRes.val.toFixed(1)),
+                        audio: parseFloat(audioDb.toFixed(1)),
+                        stress: parseFloat(app.state.stressIndex.toFixed(2))
+                    });
+                }
+
+                // 4. Render UI
+                app.ui.render();
+
+                requestAnimationFrame(app.logic.loop);
+            },
+
+            resetStats: function() {
+                app.state.gMax = 0;
+                app.state.logBuffer = [];
+                alert("Statistics & Log Buffer Cleared.");
+            },
+
+            toggleRecording: function() {
+                app.isRecording = !app.isRecording;
+                const btn = document.getElementById('btn-rec');
+                const badge = document.getElementById('rec-status');
+                
+                if(app.isRecording) {
+                    btn.classList.add('active');
+                    badge.innerText = "REC ●";
+                    badge.classList.add('alert');
+                    app.state.startTime = Date.now();
+                } else {
+                    btn.classList.remove('active');
+                    badge.innerText = "STANDBY";
+                    badge.classList.remove('alert');
+                }
+            }
+        };
+
+        // --- 5. UI & VISUALIZATION ---
+        app.ui = {
+            hudCanvas: document.getElementById('hud-canvas'),
+            hudCtx: document.getElementById('hud-canvas').getContext('2d'),
+            graphsVisible: false,
+
+            init: function() {
+                const resize = () => {
+                    app.ui.hudCanvas.width = window.innerWidth;
+                    app.ui.hudCanvas.height = window.innerHeight;
+                };
+                window.addEventListener('resize', resize);
+                resize();
+            },
+
+            toggleGraphs: function() {
+                this.graphsVisible = !this.graphsVisible;
+                const panel = document.getElementById('analysis-panel');
+                panel.style.display = this.graphsVisible ? 'flex' : 'none';
+            },
+
+            toggleFilter: function() {
+                app.state.visionMode = (app.state.visionMode + 1) % 3;
+                const v = app.sensors.video;
+                v.style.filter = "none"; // reset
+                
+                if(app.state.visionMode === 1) { // Night
+                    v.style.filter = "sepia(1) hue-rotate(70deg) contrast(1.5) brightness(1.2)";
+                } else if (app.state.visionMode === 2) { // Thermal (Sim)
+                    v.style.filter = "invert(1) sepia(1) hue-rotate(-45deg) contrast(1.5) saturate(3)";
+                }
+            },
+
+            render: function() {
+                // Update Text Values
+                document.getElementById('val-g').innerText = app.state.gMax.toFixed(2) + " G";
+                document.getElementById('val-motion').innerText = app.state.motionVal.toFixed(0) + "%";
+                
+                const db = app.state.audioLevel;
+                document.getElementById('val-audio').innerText = (db === -100 ? "-Inf" : db.toFixed(0)) + " dB";
+
+                // Stress Monitor
+                const sVal = document.getElementById('val-stress');
+                const stress = app.state.stressIndex;
+                if (stress > app.config.stressThreshold.crit) {
+                    sVal.innerText = "CRITICAL"; sVal.className = "value crit";
+                } else if (stress > app.config.stressThreshold.warn) {
+                    sVal.innerText = "WARNING"; sVal.className = "value warn";
+                } else {
+                    sVal.innerText = "STABLE"; sVal.className = "value";
+                }
+
+                // Draw HUD Overlay
+                const ctx = this.hudCtx;
+                const w = ctx.canvas.width;
+                const h = ctx.canvas.height;
+                ctx.clearRect(0, 0, w, h);
+                
+                // Crosshair
+                ctx.strokeStyle = "rgba(0, 243, 255, 0.5)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(w/2 - 20, h/2); ctx.lineTo(w/2 + 20, h/2);
+                ctx.moveTo(w/2, h/2 - 20); ctx.lineTo(w/2, h/2 + 20);
+                ctx.stroke();
+
+                // Anomaly Alert (Visual Flash)
+                if (stress > app.config.stressThreshold.crit) {
+                    ctx.fillStyle = "rgba(255, 42, 109, 0.1)";
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.strokeStyle = "rgba(255, 42, 109, 0.8)";
+                    ctx.strokeRect(10, 10, w-20, h-20);
+                }
+
+                // Render Graphs if visible
+                if (this.graphsVisible) {
+                    this.drawGraph(document.getElementById('graph-audio'), app.sensors.audio.data, 'fft');
+                    // For G-force, ideally we'd use a history buffer, simplifying here using real-time visualizer
+                }
+            },
+
+            drawGraph: function(canvas, data, type) {
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width;
+                const h = canvas.height;
+                ctx.fillStyle = "#000";
+                ctx.fillRect(0, 0, w, h);
+                ctx.strokeStyle = "#00f3ff";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+
+                if (type === 'fft') {
+                    const sliceW = w / data.length;
+                    let x = 0;
+                    for(let i = 0; i < data.length; i++) {
+                        const v = data[i] / 255.0;
+                        const y = h - (v * h);
+                        if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        x += sliceW;
+                    }
+                }
+                ctx.stroke();
+            }
+        };
+
+        // --- 6. EXPORT LAYER ---
+        app.export = {
+            downloadJSON: function() {
+                if (app.state.logBuffer.length === 0) {
+                    alert("No data recorded. Press REC first.");
+                    return;
+                }
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(app.state.logBuffer, null, 2));
+                const link = document.createElement('a');
+                link.setAttribute("href", dataStr);
+                link.setAttribute("download", "interceptor_log_" + Date.now() + ".json");
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }
+        };
+
+        // --- BOOTSTRAP ---
+        document.getElementById('btn-start').addEventListener('click', async () => {
+            const ready = await Acquisition.init();
+            if (ready) {
+                document.getElementById('init-overlay').style.display = 'none';
+                app.ui.init();
+                app.isRunning = true;
+                app.logic.loop();
+            }
+        });
+
+        // Show start button after DOM load
+        window.onload = () => {
+            setTimeout(() => {
+                document.querySelector('.loader').style.display = 'none';
+                document.getElementById('init-status').innerText = "READY TO ENGAGE";
+                document.getElementById('btn-start').style.display = 'block';
+            }, 1000);
+        };
 
     </script>
 </body>
