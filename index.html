@@ -3,433 +3,371 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PROJECT: A.L.I.C.E</title>
+    <title>PROJECT: OMEGA</title>
     <style>
         :root {
-            --primary: #00ffcc;
-            --danger: #ff0055;
-            --bg: #050505;
+            --neon-blue: #00f3ff;
+            --neon-red: #ff003c;
+            --neon-gold: #ffd700;
+            --bg: #020202;
         }
         
         body {
-            margin: 0;
-            overflow: hidden;
-            background-color: var(--bg);
-            font-family: 'Consolas', 'Courier New', monospace;
-            color: var(--primary);
-            user-select: none;
-            touch-action: none;
+            margin: 0; overflow: hidden; background-color: var(--bg);
+            font-family: 'Consolas', monospace; color: var(--neon-blue);
+            touch-action: none; user-select: none;
         }
 
-        #world {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 1;
+        canvas { display: block; }
+
+        /* CINEMATIC OVERLAYS */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
         }
 
-        /* HIDDEN SENSORS */
-        #vision-sensor {
-            position: absolute;
-            top: 0; left: 0;
-            width: 32px; height: 32px; /* Scan small area for performance */
-            opacity: 0;
-            pointer-events: none;
-            z-index: -1;
+        .hud-text {
+            position: absolute; font-size: 10px; text-shadow: 0 0 5px var(--neon-blue);
+            line-height: 1.5;
         }
+        .top-left { top: 20px; left: 20px; border-left: 2px solid var(--neon-blue); padding-left: 10px; }
+        .btm-left { bottom: 20px; left: 20px; }
+        .btm-right { bottom: 20px; right: 20px; text-align: right; border-right: 2px solid var(--neon-red); padding-right: 10px; }
 
-        /* UI LAYER */
-        #hud {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 10;
-            pointer-events: none;
-            box-shadow: inset 0 0 80px rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+        /* STATUS BARS */
+        .bar-container { width: 150px; background: #111; height: 6px; margin-bottom: 5px; border: 1px solid #333; }
+        .bar-fill { height: 100%; width: 50%; transition: width 0.2s; }
+        #hp-bar { background: var(--neon-blue); box-shadow: 0 0 8px var(--neon-blue); }
+        #voice-bar { background: var(--neon-gold); box-shadow: 0 0 8px var(--neon-gold); }
+        #hunger-bar { background: var(--neon-red); box-shadow: 0 0 8px var(--neon-red); }
 
-        .hud-section {
-            background: rgba(0, 10, 10, 0.6);
-            padding: 10px;
-            border: 1px solid rgba(0, 255, 204, 0.3);
-            backdrop-filter: blur(2px);
+        /* START SCREEN */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
         }
-
-        #brain-log {
-            height: 100px;
-            overflow-y: auto;
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 10px;
+        #init-btn {
+            background: transparent; border: 1px solid var(--neon-blue); color: var(--neon-blue);
+            padding: 20px 40px; font-size: 18px; letter-spacing: 3px; cursor: pointer;
+            box-shadow: 0 0 15px var(--neon-blue);
+            transition: 0.3s;
         }
+        #init-btn:hover { background: var(--neon-blue); color: #000; }
         
-        #brain-log div { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        #brain-log span.sys { color: var(--primary); }
-        #brain-log span.thought { color: #fff; font-style: italic; }
-
-        .stat-bar {
-            width: 100%;
-            height: 4px;
-            background: #333;
-            margin-top: 5px;
-            position: relative;
+        .glitch { animation: glitch 1s infinite; }
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 2px) }
+            40% { transform: translate(-2px, -2px) }
+            60% { transform: translate(2px, 2px) }
+            80% { transform: translate(2px, -2px) }
+            100% { transform: translate(0) }
         }
-        .stat-fill {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            transition: width 0.5s;
-            box-shadow: 0 0 10px var(--primary);
-        }
-
-        /* START BUTTON */
-        #wake-up-btn {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 999;
-            background: transparent;
-            border: 2px solid var(--primary);
-            color: var(--primary);
-            padding: 20px 40px;
-            font-size: 16px;
-            letter-spacing: 2px;
-            cursor: pointer;
-            box-shadow: 0 0 20px var(--primary);
-            animation: breathe 2s infinite;
-        }
-
-        @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
-
-        /* SCAN LINE */
-        .scanline {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 5px;
-            background: rgba(0, 255, 204, 0.1);
-            animation: scan 3s linear infinite;
-            pointer-events: none;
-            z-index: 5;
-        }
-        @keyframes scan { 0% { top: -10%; } 100% { top: 110%; } }
-
     </style>
 </head>
 <body>
 
-    <video id="vision-sensor" autoplay playsinline muted></video>
-    <canvas id="vision-canvas" width="32" height="32" style="display:none;"></canvas>
+    <video id="video-input" playsinline autoplay muted style="display:none;"></video>
+    
+    <canvas id="main-canvas"></canvas>
 
-    <canvas id="world"></canvas>
-    <div class="scanline"></div>
-
-    <div id="hud">
-        <div class="hud-section" style="max-width: 200px;">
-            <div style="font-size: 12px; font-weight: bold;">ENTITY: <span id="entity-name">LOADING...</span></div>
-            <div style="font-size: 10px;">AGE: <span id="age-timer">0s</span></div>
-            <div style="font-size: 10px;">GEN: <span id="generation">1</span> | LVL: <span id="level-disp">1</span></div>
-            
-            <div style="margin-top:5px; font-size: 9px;">EVOLUTION PROGRESS</div>
-            <div class="stat-bar"><div id="xp-bar" class="stat-fill"></div></div>
+    <div id="ui-layer">
+        <div class="hud-text top-left">
+            PROJECT: <span style="font-weight:bold; font-size:14px;">OMEGA</span><br>
+            STATUS: <span id="status-txt">ONLINE</span><br>
+            CORE_CLOCK: <span id="clock-txt">00:00:00</span>
         </div>
 
-        <div class="hud-section">
-            <div style="font-size: 9px; margin-bottom: 5px;">NEURAL_LOG_OUTPUT >></div>
-            <div id="brain-log"></div>
+        <div class="hud-text btm-left">
+            <div>INTEGRITY</div>
+            <div class="bar-container"><div id="hp-bar" class="bar-fill"></div></div>
+            <div>AUDIO_INPUT</div>
+            <div class="bar-container"><div id="voice-bar" class="bar-fill" style="width:0%"></div></div>
+            <div>METABOLISM (HUNGER)</div>
+            <div class="bar-container"><div id="hunger-bar" class="bar-fill"></div></div>
+        </div>
+
+        <div class="hud-text btm-right">
+            <div class="glitch">WARNING: BIO-HAZARD</div>
+            DATA_STREAM: <span id="data-stream">NULL</span><br>
+            VOICE_MOD: <span id="voice-stat">ACTIVE</span>
         </div>
     </div>
 
-    <button id="wake-up-btn">ESTABLISH LINK</button>
+    <div id="start-screen">
+        <h1 class="glitch" style="color:var(--neon-blue); text-shadow:0 0 10px var(--neon-blue);">OMEGA</h1>
+        <p style="color:#555; margin-bottom:30px; font-size:10px;">REQ: CAM | MIC | GYRO</p>
+        <button id="init-btn">INITIALIZE SYSTEM</button>
+    </div>
 
     <script>
         /**
-         * PROJECT A.L.I.C.E (Artificial Living Intelligence & Cybernetic Evolution)
-         * Features: LocalStorage Memory, Phototaxis (Light seeking), Evolution System.
+         * PROJECT OMEGA - Ultimate Single File Lifeform
+         * Features: Microphone Analysis, TTS, Swarm Physics, Camera Optical Flow, RPG Stats
          */
 
-        // --- MEMORY CORE (LocalStorage) ---
-        const DB_KEY = 'ALICE_LIFEFORM_DATA_V1';
-        
-        class MemoryCore {
+        // --- 1. THE CORE (State Management) ---
+        const CORE = {
+            state: {
+                hp: 100,
+                hunger: 0, // 0 = Full, 100 = Starving
+                energy: 100,
+                stress: 0
+            },
+            config: {
+                particleCount: 120, // Adjust for performance
+                voiceEnabled: true
+            },
+            save: () => localStorage.setItem('OMEGA_DATA', JSON.stringify(CORE.state)),
+            load: () => {
+                const d = localStorage.getItem('OMEGA_DATA');
+                if(d) CORE.state = JSON.parse(d);
+            }
+        };
+
+        // --- 2. AUDIO SENSORY (Microphone) ---
+        class AudioSenses {
             constructor() {
-                this.data = this.load();
-            }
-
-            load() {
-                const saved = localStorage.getItem(DB_KEY);
-                if (saved) {
-                    return JSON.parse(saved);
-                } else {
-                    // Genesis Block (First Life)
-                    return {
-                        name: 'A.L.I.C.E-' + Math.floor(Math.random() * 9999),
-                        birthTime: Date.now(),
-                        xp: 0,
-                        level: 1,
-                        maxLevel: 50,
-                        personality: Math.random(), // 0 = Calm, 1 = Aggressive
-                        sessions: 0
-                    };
-                }
-            }
-
-            save() {
-                this.data.lastSeen = Date.now();
-                localStorage.setItem(DB_KEY, JSON.stringify(this.data));
-            }
-
-            reset() {
-                localStorage.removeItem(DB_KEY);
-                location.reload();
-            }
-        }
-
-        // --- SENSORY SYSTEM (Vision & Orientation) ---
-        class Senses {
-            constructor() {
-                this.lightLevel = 0; // 0 (Dark) to 1 (Bright)
-                this.gyro = { x: 0, y: 0 };
-                this.video = document.getElementById('vision-sensor');
-                this.vCanvas = document.getElementById('vision-canvas');
-                this.vCtx = this.vCanvas.getContext('2d');
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.analyser = this.ctx.createAnalyser();
+                this.analyser.fftSize = 256;
+                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                this.volume = 0;
                 this.initialized = false;
             }
 
             async init() {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' } // Back camera for "Seeing" world
-                    });
-                    this.video.srcObject = stream;
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const source = this.ctx.createMediaStreamSource(stream);
+                    source.connect(this.analyser);
                     this.initialized = true;
-                    
-                    window.addEventListener('deviceorientation', e => {
-                        this.gyro.x = e.gamma ? e.gamma / 45 : 0;
-                        this.gyro.y = e.beta ? (e.beta - 45) / 45 : 0;
-                    });
-                } catch (e) {
-                    console.warn("Sensors failed: ", e);
-                }
+                } catch(e) { console.error("Mic Error", e); }
             }
 
-            processVision() {
-                if (!this.initialized) return;
-                // Downsample video to 32x32 to calculate average brightness
-                this.vCtx.drawImage(this.video, 0, 0, 32, 32);
-                const frame = this.vCtx.getImageData(0, 0, 32, 32);
-                let total = 0;
-                for(let i=0; i<frame.data.length; i+=4) {
-                    total += (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
-                }
-                // Normalize 0-1
-                this.lightLevel = (total / (frame.data.length / 4)) / 255;
+            getVolume() {
+                if(!this.initialized) return 0;
+                this.analyser.getByteFrequencyData(this.dataArray);
+                let sum = 0;
+                for(let i=0; i<this.dataArray.length; i++) sum += this.dataArray[i];
+                this.volume = sum / this.dataArray.length;
+                return this.volume; // 0 - 255
             }
         }
 
-        // --- EVOLUTION & BRAIN ---
-        class Brain {
-            constructor(memory, senses, visual) {
-                this.mem = memory;
-                this.senses = senses;
-                this.visual = visual;
-                this.thoughtTimer = 0;
-                this.mem.data.sessions++;
+        // --- 3. VOICE MODULE (Speech Synthesis) ---
+        class VoiceBox {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.lastSpeak = 0;
             }
 
-            update() {
-                // 1. Gain XP from Light (Photosynthesis) & Movement
-                let xpGain = 0;
-                if (this.senses.lightLevel > 0.6) xpGain += 0.05; // Like light
-                if (Math.abs(this.senses.gyro.x) > 0.2) xpGain += 0.02; // Like movement
-
-                this.mem.data.xp += xpGain;
-
-                // 2. Level Up Logic
-                const xpNeeded = this.mem.data.level * 100;
-                if (this.mem.data.xp >= xpNeeded) {
-                    this.mem.data.xp = 0;
-                    this.mem.data.level++;
-                    this.log(`EVOLUTION REACHED: LEVEL ${this.mem.data.level}`, "sys");
-                    this.mem.save(); // Save progress
-                }
-
-                // 3. Update UI
-                document.getElementById('xp-bar').style.width = (this.mem.data.xp / xpNeeded * 100) + "%";
-                document.getElementById('level-disp').innerText = this.mem.data.level;
-
-                // 4. Thoughts (Random or Reactive)
-                this.thoughtTimer++;
-                if (this.thoughtTimer > 300) { // Every ~5 seconds
-                    this.think();
-                    this.thoughtTimer = 0;
-                }
-            }
-
-            think() {
-                const thoughts = [];
-                const light = this.senses.lightLevel;
+            speak(text, priority = false) {
+                if (!CORE.config.voiceEnabled) return;
+                if (Date.now() - this.lastSpeak < 3000 && !priority) return; // Cooldown
                 
-                if (light < 0.2) thoughts.push("It is dark... I am afraid.", "Where is the light?", "Dormant mode...");
-                else if (light > 0.8) thoughts.push("ENERGY SOURCE DETECTED.", "Consuming photons...", "Too bright!");
-                else thoughts.push("Scanning...", "Analyzing environment.", "I exist.");
-
-                if (this.mem.data.level > 5) thoughts.push("My neural net is expanding.", "I remember the last session.");
-                if (this.mem.data.level > 10) thoughts.push("Am I the only one?", "Why do you observe me?");
-
-                const t = thoughts[Math.floor(Math.random() * thoughts.length)];
-                this.log(t, "thought");
-            }
-
-            log(msg, type) {
-                const logEl = document.getElementById('brain-log');
-                const entry = document.createElement('div');
-                entry.innerHTML = `<span class="${type}">[${type.toUpperCase()}]</span> ${msg}`;
-                logEl.prepend(entry);
-                if (logEl.children.length > 10) logEl.removeChild(logEl.lastChild);
-            }
-        }
-
-        // --- VISUAL ENGINE (The Body) ---
-        class Entity {
-            constructor(memory) {
-                this.mem = memory;
-                this.canvas = document.getElementById('world');
-                this.ctx = this.canvas.getContext('2d');
-                this.nodes = [];
-                this.color = '#00ffcc';
-                this.resize();
-            }
-
-            resize() {
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
-                this.initNodes();
-            }
-
-            initNodes() {
-                this.nodes = [];
-                // Number of nodes depends on Level
-                const count = 20 + (this.mem.data.level * 2); 
-                for(let i=0; i<count; i++) {
-                    this.nodes.push({
-                        x: Math.random() * this.canvas.width,
-                        y: Math.random() * this.canvas.height,
-                        vx: (Math.random()-0.5),
-                        vy: (Math.random()-0.5),
-                        size: Math.random() * 3
-                    });
-                }
-            }
-
-            draw(gyro, light) {
-                // Clear with trail
-                this.ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-                // Update Nodes
-                const speedMult = 1 + (this.mem.data.level * 0.1);
-                const center = { x: this.canvas.width/2, y: this.canvas.height/2 };
-
-                // Color shifts based on Level
-                if(this.mem.data.level > 5) this.ctx.fillStyle = '#00ccff';
-                if(this.mem.data.level > 10) this.ctx.fillStyle = '#ff00cc';
-                else this.ctx.fillStyle = this.color;
-
-                // Draw Connections
-                this.ctx.strokeStyle = this.ctx.fillStyle;
-                this.ctx.lineWidth = 0.5;
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.pitch = 0.5 + (Math.random() * 0.5); // Low robotic pitch
+                utter.rate = 1.1;
+                utter.volume = 0.8;
                 
-                // Determine "Attraction Point" (Light seeking behavior)
-                // If light is high, they swarm to center. If low, they scatter.
-                let targetX = center.x + (gyro.x * 300);
-                let targetY = center.y + (gyro.y * 300);
+                // Select a robotic voice if available
+                const voices = this.synth.getVoices();
+                const botVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Samantha'));
+                if(botVoice) utter.voice = botVoice;
 
-                this.nodes.forEach((n, i) => {
-                    // Move logic
-                    n.x += n.vx * speedMult;
-                    n.y += n.vy * speedMult;
-
-                    // Phototaxis (Seek Center/Light)
-                    if (light > 0.5) {
-                        n.vx += (targetX - n.x) * 0.0005;
-                        n.vy += (targetY - n.y) * 0.0005;
-                    }
-
-                    // Bounce
-                    if(n.x < 0 || n.x > this.canvas.width) n.vx *= -1;
-                    if(n.y < 0 || n.y > this.canvas.height) n.vy *= -1;
-
-                    // Draw Node
-                    this.ctx.beginPath();
-                    this.ctx.arc(n.x, n.y, n.size, 0, Math.PI*2);
-                    this.ctx.fill();
-
-                    // Connect to close nodes (Neural network look)
-                    for(let j=i+1; j<this.nodes.length; j++) {
-                        const n2 = this.nodes[j];
-                        const dx = n.x - n2.x;
-                        const dy = n.y - n2.y;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
-                        
-                        // Connection range increases with level
-                        const connectRange = 80 + (this.mem.data.level * 5);
-
-                        if(dist < connectRange) {
-                            this.ctx.beginPath();
-                            this.ctx.globalAlpha = 1 - (dist/connectRange);
-                            this.ctx.moveTo(n.x, n.y);
-                            this.ctx.lineTo(n2.x, n2.y);
-                            this.ctx.stroke();
-                            this.ctx.globalAlpha = 1;
-                        }
-                    }
-                });
+                this.synth.speak(utter);
+                this.lastSpeak = Date.now();
+                
+                // Update UI text
+                document.getElementById('data-stream').innerText = text.toUpperCase();
             }
         }
 
-        // --- MAIN INIT ---
-        const mem = new MemoryCore();
-        const senses = new Senses();
-        const entity = new Entity(mem);
-        const brain = new Brain(mem, senses, entity);
+        // --- 4. PHYSICS ENGINE (Swarm Boids) ---
+        class Particle {
+            constructor(w, h) {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.vx = Math.random() - 0.5;
+                this.vy = Math.random() - 0.5;
+                this.history = [];
+                this.maxSpeed = 4;
+            }
 
-        document.getElementById('entity-name').innerText = mem.data.name;
-        document.getElementById('level-disp').innerText = mem.data.level;
-        document.getElementById('generation').innerText = mem.data.sessions;
+            update(targetX, targetY, audioLevel, w, h) {
+                // 1. Seek Target (Mouse/Gyro)
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                
+                // Acceleration towards center
+                this.vx += dx * 0.0005;
+                this.vy += dy * 0.0005;
 
-        // Age Timer
-        setInterval(() => {
-            const age = Math.floor((Date.now() - mem.data.birthTime) / 1000);
-            document.getElementById('age-timer').innerText = age + "s";
-        }, 1000);
+                // 2. Audio Reaction (Agitation)
+                if (audioLevel > 50) {
+                    this.vx += (Math.random() - 0.5) * (audioLevel / 10);
+                    this.vy += (Math.random() - 0.5) * (audioLevel / 10);
+                }
 
-        // Main Loop
-        function loop() {
-            senses.processVision(); // Check camera light
-            brain.update(); // Think & Evolve
-            entity.draw(senses.gyro, senses.lightLevel); // Render
-            
-            // Auto-save every 10 seconds
-            if (Date.now() % 10000 < 20) mem.save();
-            
-            requestAnimationFrame(loop);
+                // 3. Friction/Limit
+                this.vx *= 0.96;
+                this.vy *= 0.96;
+
+                // Update Pos
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundary Wrap
+                if(this.x < 0) this.x = w; if(this.x > w) this.x = 0;
+                if(this.y < 0) this.y = h; if(this.y > h) this.y = 0;
+
+                // Trail History
+                this.history.push({x: this.x, y: this.y});
+                if(this.history.length > 5 + (audioLevel/20)) this.history.shift();
+            }
+
+            draw(ctx, color) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if(this.history.length > 0) {
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    for(let i=1; i<this.history.length; i++) {
+                        ctx.lineTo(this.history[i].x, this.history[i].y);
+                    }
+                }
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+            }
         }
 
-        document.getElementById('wake-up-btn').addEventListener('click', async function() {
-            this.style.display = 'none';
-            await senses.init();
-            brain.log("SYSTEM ONLINE.", "sys");
-            brain.log(`WELCOME BACK, USER. MEMORY RELOADED: LVL ${mem.data.level}`, "sys");
-            loop();
+        // --- 5. MAIN SYSTEM ---
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        const audio = new AudioSenses();
+        const voice = new VoiceBox();
+        
+        let particles = [];
+        let gyro = { x: 0, y: 0 };
+        let width, height;
+
+        // Senses
+        window.addEventListener('deviceorientation', e => {
+            gyro.x = e.gamma ? e.gamma : 0;
+            gyro.y = e.beta ? e.beta : 0;
         });
 
-        window.addEventListener('resize', () => entity.resize());
+        window.addEventListener('resize', resize);
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
 
+        // Init Logic
+        function init() {
+            CORE.load();
+            resize();
+            // Create Swarm
+            for(let i=0; i<CORE.config.particleCount; i++) {
+                particles.push(new Particle(width, height));
+            }
+            
+            voice.speak("Omega System Initialized. Awaiting input.", true);
+            animate();
+            
+            // Game Loop (1s interval)
+            setInterval(gameLogic, 1000);
+        }
+
+        function gameLogic() {
+            // Hunger Logic
+            CORE.state.hunger += 0.5;
+            if(CORE.state.hunger > 80 && Math.random() > 0.7) voice.speak("Energy critical. Feed me.");
+            if(CORE.state.hunger >= 100) {
+                CORE.state.hp -= 2;
+                CORE.state.hunger = 100;
+            } else {
+                CORE.state.hp += 1; // Heal if not starving
+            }
+            if(CORE.state.hp > 100) CORE.state.hp = 100;
+            if(CORE.state.hp < 0) CORE.state.hp = 0;
+
+            // Update Bars
+            document.getElementById('hp-bar').style.width = CORE.state.hp + "%";
+            document.getElementById('hunger-bar').style.width = CORE.state.hunger + "%";
+            
+            // Clock
+            const now = new Date();
+            document.getElementById('clock-txt').innerText = now.toLocaleTimeString();
+            
+            CORE.save();
+        }
+
+        function animate() {
+            // 1. Clear & Fade (Motion Blur Effect)
+            ctx.fillStyle = 'rgba(2, 2, 2, 0.3)';
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. Get Inputs
+            const vol = audio.getVolume();
+            document.getElementById('voice-bar').style.width = (vol/255 * 100) + "%";
+
+            // 3. Calculate Target (Center + Gyro)
+            let targetX = (width / 2) + (gyro.x * 5);
+            let targetY = (height / 2) + (gyro.y * 5);
+
+            // 4. Swarm Color Logic
+            let color = '#00f3ff'; // Default Blue
+            if (CORE.state.hunger > 50) color = '#ffd700'; // Hungry Yellow
+            if (vol > 100) color = '#ff003c'; // Angry Red (Loud noise)
+
+            // 5. Render Swarm
+            ctx.globalCompositeOperation = 'lighter'; // Glow effect
+            particles.forEach(p => {
+                p.update(targetX, targetY, vol, width, height);
+                p.draw(ctx, color);
+            });
+            ctx.globalCompositeOperation = 'source-over';
+
+            // 6. Core Visualization (The "Eye")
+            const eyeSize = 20 + (vol / 5);
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, eyeSize, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(animate);
+        }
+
+        // Interactions
+        canvas.addEventListener('touchstart', () => {
+            CORE.state.hunger -= 10; // Feed
+            if(CORE.state.hunger < 0) CORE.state.hunger = 0;
+            voice.speak("Consuming energy.");
+            
+            // Ripple effect
+            particles.forEach(p => {
+                p.vx += (Math.random()-0.5) * 10;
+                p.vy += (Math.random()-0.5) * 10;
+            });
+        });
+
+        document.getElementById('init-btn').addEventListener('click', async () => {
+            document.getElementById('start-screen').style.display = 'none';
+            await audio.init();
+            init();
+        });
     </script>
 </body>
 </html>
