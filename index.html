@@ -3,359 +3,432 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PROJECT: V.I.R.U.S</title>
+    <title>PROJECT: A.L.I.C.E</title>
     <style>
+        :root {
+            --primary: #00ffcc;
+            --danger: #ff0055;
+            --bg: #050505;
+        }
+        
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #000;
-            font-family: 'Courier New', monospace;
-            color: #0f0;
+            background-color: var(--bg);
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: var(--primary);
             user-select: none;
+            touch-action: none;
         }
 
-        /* Layering */
-        #camera-feed {
+        #world {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 0;
-            filter: grayscale(100%) contrast(1.5) brightness(0.4);
-            opacity: 0.3; /* ให้เห็นโลกจริงจางๆ ด้านหลัง */
-        }
-
-        #canvas-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 1;
-            mix-blend-mode: screen;
         }
 
-        /* UI Overlay (HUD) */
+        /* HIDDEN SENSORS */
+        #vision-sensor {
+            position: absolute;
+            top: 0; left: 0;
+            width: 32px; height: 32px; /* Scan small area for performance */
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* UI LAYER */
         #hud {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 10;
             pointer-events: none;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
-        }
-
-        .data-block {
-            position: absolute;
-            padding: 10px;
-            font-size: 10px;
-            text-shadow: 0 0 2px #0f0;
-            line-height: 1.4;
-        }
-        
-        #top-left { top: 20px; left: 20px; border-left: 2px solid #0f0; padding-left: 10px;}
-        #btm-right { bottom: 20px; right: 20px; text-align: right; border-right: 2px solid #f00; padding-right: 10px; color: #f00; text-shadow: 0 0 2px #f00;}
-
-        /* Glitch Effect on Text */
-        .glitch {
-            animation: glitch-anim 1s infinite;
-        }
-
-        @keyframes glitch-anim {
-            0% { transform: translate(0) }
-            20% { transform: translate(-2px, 2px) }
-            40% { transform: translate(-2px, -2px) }
-            60% { transform: translate(2px, 2px) }
-            80% { transform: translate(2px, -2px) }
-            100% { transform: translate(0) }
-        }
-
-        #init-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            z-index: 999;
+            box-shadow: inset 0 0 80px rgba(0,0,0,0.8);
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #0f0;
-            cursor: pointer;
-        }
-        
-        #init-btn {
-            border: 1px solid #0f0;
-            padding: 20px 40px;
-            background: rgba(0, 255, 0, 0.1);
-            font-family: inherit;
-            color: inherit;
-            font-size: 1.2rem;
-            margin-top: 20px;
-            animation: pulse 0.5s infinite alternate;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        @keyframes pulse { from { opacity: 0.5; } to { opacity: 1; } }
+        .hud-section {
+            background: rgba(0, 10, 10, 0.6);
+            padding: 10px;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            backdrop-filter: blur(2px);
+        }
+
+        #brain-log {
+            height: 100px;
+            overflow-y: auto;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 10px;
+        }
+        
+        #brain-log div { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        #brain-log span.sys { color: var(--primary); }
+        #brain-log span.thought { color: #fff; font-style: italic; }
+
+        .stat-bar {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            margin-top: 5px;
+            position: relative;
+        }
+        .stat-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.5s;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        /* START BUTTON */
+        #wake-up-btn {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 999;
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            padding: 20px 40px;
+            font-size: 16px;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--primary);
+            animation: breathe 2s infinite;
+        }
+
+        @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        /* SCAN LINE */
+        .scanline {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 5px;
+            background: rgba(0, 255, 204, 0.1);
+            animation: scan 3s linear infinite;
+            pointer-events: none;
+            z-index: 5;
+        }
+        @keyframes scan { 0% { top: -10%; } 100% { top: 110%; } }
 
     </style>
 </head>
 <body>
 
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="canvas-layer"></canvas>
-    
+    <video id="vision-sensor" autoplay playsinline muted></video>
+    <canvas id="vision-canvas" width="32" height="32" style="display:none;"></canvas>
+
+    <canvas id="world"></canvas>
+    <div class="scanline"></div>
+
     <div id="hud">
-        <div id="top-left" class="data-block">
-            SYSTEM: <span id="sys-status">OFFLINE</span><br>
-            CORE TEMP: <span id="core-temp">36.5</span>°C<br>
-            NEURAL_SYNC: <span id="sync-rate">0</span>%
+        <div class="hud-section" style="max-width: 200px;">
+            <div style="font-size: 12px; font-weight: bold;">ENTITY: <span id="entity-name">LOADING...</span></div>
+            <div style="font-size: 10px;">AGE: <span id="age-timer">0s</span></div>
+            <div style="font-size: 10px;">GEN: <span id="generation">1</span> | LVL: <span id="level-disp">1</span></div>
+            
+            <div style="margin-top:5px; font-size: 9px;">EVOLUTION PROGRESS</div>
+            <div class="stat-bar"><div id="xp-bar" class="stat-fill"></div></div>
         </div>
-        <div id="btm-right" class="data-block">
-            <span class="glitch">WARNING: UNSTABLE</span><br>
-            EXT_INPUT: <span id="ext-input">NULL</span>
+
+        <div class="hud-section">
+            <div style="font-size: 9px; margin-bottom: 5px;">NEURAL_LOG_OUTPUT >></div>
+            <div id="brain-log"></div>
         </div>
     </div>
 
-    <div id="init-overlay">
-        <div style="max-width: 300px; text-align: center;">
-            <h1 style="font-size: 3rem; margin: 0; text-shadow: 0 0 10px #0f0;">V.I.R.U.S</h1>
-            <p style="font-size: 0.8rem; opacity: 0.7;">VIRTUAL INTELLIGENT RECURSIVE UNIT SYSTEM</p>
-            <div id="init-btn">[ TAP TO INITIALIZE ]</div>
-            <p style="font-size: 0.7rem; color: #555; margin-top: 20px;">REQUIRES: CAMERA + GYRO + AUDIO</p>
-        </div>
-    </div>
+    <button id="wake-up-btn">ESTABLISH LINK</button>
 
     <script>
         /**
-         * CORE SYSTEM - "V.I.R.U.S"
-         * Features: Particle Swarm, Audio Synthesis, Glitch Aesthetic, Hardware Integration
+         * PROJECT A.L.I.C.E (Artificial Living Intelligence & Cybernetic Evolution)
+         * Features: LocalStorage Memory, Phototaxis (Light seeking), Evolution System.
          */
 
-        // --- CONFIG ---
-        const CONFIG = {
-            particleCount: 60,
-            connectionDistance: 100,
-            baseSpeed: 0.5,
-            aggression: 0 // 0-1 affects speed and color
-        };
-
-        // --- AUDIO SYNTHESIS (The Voice/Hum) ---
-        class BioSynth {
+        // --- MEMORY CORE (LocalStorage) ---
+        const DB_KEY = 'ALICE_LIFEFORM_DATA_V1';
+        
+        class MemoryCore {
             constructor() {
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                this.oscillators = [];
-                this.gainNode = this.ctx.createGain();
-                this.gainNode.connect(this.ctx.destination);
-                this.gainNode.gain.value = 0.1; // Volume
+                this.data = this.load();
+            }
+
+            load() {
+                const saved = localStorage.getItem(DB_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                } else {
+                    // Genesis Block (First Life)
+                    return {
+                        name: 'A.L.I.C.E-' + Math.floor(Math.random() * 9999),
+                        birthTime: Date.now(),
+                        xp: 0,
+                        level: 1,
+                        maxLevel: 50,
+                        personality: Math.random(), // 0 = Calm, 1 = Aggressive
+                        sessions: 0
+                    };
+                }
+            }
+
+            save() {
+                this.data.lastSeen = Date.now();
+                localStorage.setItem(DB_KEY, JSON.stringify(this.data));
+            }
+
+            reset() {
+                localStorage.removeItem(DB_KEY);
+                location.reload();
+            }
+        }
+
+        // --- SENSORY SYSTEM (Vision & Orientation) ---
+        class Senses {
+            constructor() {
+                this.lightLevel = 0; // 0 (Dark) to 1 (Bright)
+                this.gyro = { x: 0, y: 0 };
+                this.video = document.getElementById('vision-sensor');
+                this.vCanvas = document.getElementById('vision-canvas');
+                this.vCtx = this.vCanvas.getContext('2d');
                 this.initialized = false;
             }
 
-            init() {
-                if (this.initialized) return;
-                this.ctx.resume();
+            async init() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' } // Back camera for "Seeing" world
+                    });
+                    this.video.srcObject = stream;
+                    this.initialized = true;
+                    
+                    window.addEventListener('deviceorientation', e => {
+                        this.gyro.x = e.gamma ? e.gamma / 45 : 0;
+                        this.gyro.y = e.beta ? (e.beta - 45) / 45 : 0;
+                    });
+                } catch (e) {
+                    console.warn("Sensors failed: ", e);
+                }
+            }
+
+            processVision() {
+                if (!this.initialized) return;
+                // Downsample video to 32x32 to calculate average brightness
+                this.vCtx.drawImage(this.video, 0, 0, 32, 32);
+                const frame = this.vCtx.getImageData(0, 0, 32, 32);
+                let total = 0;
+                for(let i=0; i<frame.data.length; i+=4) {
+                    total += (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
+                }
+                // Normalize 0-1
+                this.lightLevel = (total / (frame.data.length / 4)) / 255;
+            }
+        }
+
+        // --- EVOLUTION & BRAIN ---
+        class Brain {
+            constructor(memory, senses, visual) {
+                this.mem = memory;
+                this.senses = senses;
+                this.visual = visual;
+                this.thoughtTimer = 0;
+                this.mem.data.sessions++;
+            }
+
+            update() {
+                // 1. Gain XP from Light (Photosynthesis) & Movement
+                let xpGain = 0;
+                if (this.senses.lightLevel > 0.6) xpGain += 0.05; // Like light
+                if (Math.abs(this.senses.gyro.x) > 0.2) xpGain += 0.02; // Like movement
+
+                this.mem.data.xp += xpGain;
+
+                // 2. Level Up Logic
+                const xpNeeded = this.mem.data.level * 100;
+                if (this.mem.data.xp >= xpNeeded) {
+                    this.mem.data.xp = 0;
+                    this.mem.data.level++;
+                    this.log(`EVOLUTION REACHED: LEVEL ${this.mem.data.level}`, "sys");
+                    this.mem.save(); // Save progress
+                }
+
+                // 3. Update UI
+                document.getElementById('xp-bar').style.width = (this.mem.data.xp / xpNeeded * 100) + "%";
+                document.getElementById('level-disp').innerText = this.mem.data.level;
+
+                // 4. Thoughts (Random or Reactive)
+                this.thoughtTimer++;
+                if (this.thoughtTimer > 300) { // Every ~5 seconds
+                    this.think();
+                    this.thoughtTimer = 0;
+                }
+            }
+
+            think() {
+                const thoughts = [];
+                const light = this.senses.lightLevel;
                 
-                // Create 3 oscillators for a "Drone" chord
-                const freqs = [55, 110, 112]; // Low sci-fi hum
-                freqs.forEach(f => {
-                    const osc = this.ctx.createOscillator();
-                    osc.type = 'sawtooth';
-                    osc.frequency.value = f;
-                    osc.connect(this.gainNode);
-                    osc.start();
-                    this.oscillators.push(osc);
+                if (light < 0.2) thoughts.push("It is dark... I am afraid.", "Where is the light?", "Dormant mode...");
+                else if (light > 0.8) thoughts.push("ENERGY SOURCE DETECTED.", "Consuming photons...", "Too bright!");
+                else thoughts.push("Scanning...", "Analyzing environment.", "I exist.");
+
+                if (this.mem.data.level > 5) thoughts.push("My neural net is expanding.", "I remember the last session.");
+                if (this.mem.data.level > 10) thoughts.push("Am I the only one?", "Why do you observe me?");
+
+                const t = thoughts[Math.floor(Math.random() * thoughts.length)];
+                this.log(t, "thought");
+            }
+
+            log(msg, type) {
+                const logEl = document.getElementById('brain-log');
+                const entry = document.createElement('div');
+                entry.innerHTML = `<span class="${type}">[${type.toUpperCase()}]</span> ${msg}`;
+                logEl.prepend(entry);
+                if (logEl.children.length > 10) logEl.removeChild(logEl.lastChild);
+            }
+        }
+
+        // --- VISUAL ENGINE (The Body) ---
+        class Entity {
+            constructor(memory) {
+                this.mem = memory;
+                this.canvas = document.getElementById('world');
+                this.ctx = this.canvas.getContext('2d');
+                this.nodes = [];
+                this.color = '#00ffcc';
+                this.resize();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.initNodes();
+            }
+
+            initNodes() {
+                this.nodes = [];
+                // Number of nodes depends on Level
+                const count = 20 + (this.mem.data.level * 2); 
+                for(let i=0; i<count; i++) {
+                    this.nodes.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        vx: (Math.random()-0.5),
+                        vy: (Math.random()-0.5),
+                        size: Math.random() * 3
+                    });
+                }
+            }
+
+            draw(gyro, light) {
+                // Clear with trail
+                this.ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Update Nodes
+                const speedMult = 1 + (this.mem.data.level * 0.1);
+                const center = { x: this.canvas.width/2, y: this.canvas.height/2 };
+
+                // Color shifts based on Level
+                if(this.mem.data.level > 5) this.ctx.fillStyle = '#00ccff';
+                if(this.mem.data.level > 10) this.ctx.fillStyle = '#ff00cc';
+                else this.ctx.fillStyle = this.color;
+
+                // Draw Connections
+                this.ctx.strokeStyle = this.ctx.fillStyle;
+                this.ctx.lineWidth = 0.5;
+                
+                // Determine "Attraction Point" (Light seeking behavior)
+                // If light is high, they swarm to center. If low, they scatter.
+                let targetX = center.x + (gyro.x * 300);
+                let targetY = center.y + (gyro.y * 300);
+
+                this.nodes.forEach((n, i) => {
+                    // Move logic
+                    n.x += n.vx * speedMult;
+                    n.y += n.vy * speedMult;
+
+                    // Phototaxis (Seek Center/Light)
+                    if (light > 0.5) {
+                        n.vx += (targetX - n.x) * 0.0005;
+                        n.vy += (targetY - n.y) * 0.0005;
+                    }
+
+                    // Bounce
+                    if(n.x < 0 || n.x > this.canvas.width) n.vx *= -1;
+                    if(n.y < 0 || n.y > this.canvas.height) n.vy *= -1;
+
+                    // Draw Node
+                    this.ctx.beginPath();
+                    this.ctx.arc(n.x, n.y, n.size, 0, Math.PI*2);
+                    this.ctx.fill();
+
+                    // Connect to close nodes (Neural network look)
+                    for(let j=i+1; j<this.nodes.length; j++) {
+                        const n2 = this.nodes[j];
+                        const dx = n.x - n2.x;
+                        const dy = n.y - n2.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        
+                        // Connection range increases with level
+                        const connectRange = 80 + (this.mem.data.level * 5);
+
+                        if(dist < connectRange) {
+                            this.ctx.beginPath();
+                            this.ctx.globalAlpha = 1 - (dist/connectRange);
+                            this.ctx.moveTo(n.x, n.y);
+                            this.ctx.lineTo(n2.x, n2.y);
+                            this.ctx.stroke();
+                            this.ctx.globalAlpha = 1;
+                        }
+                    }
                 });
-                this.initialized = true;
-            }
-
-            modulate(activityLevel) {
-                // Change pitch based on activity (gyro/touch)
-                if(!this.initialized) return;
-                
-                const base = 55 + (activityLevel * 50);
-                this.oscillators[0].frequency.setTargetAtTime(base, this.ctx.currentTime, 0.1);
-                this.oscillators[1].frequency.setTargetAtTime(base * 2, this.ctx.currentTime, 0.1);
-                // Detune the third one for "scary" effect
-                this.oscillators[2].frequency.setTargetAtTime((base * 2) + (Math.random()*5), this.ctx.currentTime, 0.1);
             }
         }
 
-        // --- VISUAL CORE ---
-        const canvas = document.getElementById('canvas-layer');
-        const ctx = canvas.getContext('2d');
-        let width, height;
-        
-        // Hardware Inputs
-        let gyro = { x: 0, y: 0 };
-        let touchPos = { x: -1000, y: -1000, active: false };
+        // --- MAIN INIT ---
+        const mem = new MemoryCore();
+        const senses = new Senses();
+        const entity = new Entity(mem);
+        const brain = new Brain(mem, senses, entity);
 
-        // Particles
-        class Node {
-            constructor() {
-                this.x = Math.random() * width;
-                this.y = Math.random() * height;
-                this.vx = (Math.random() - 0.5) * CONFIG.baseSpeed;
-                this.vy = (Math.random() - 0.5) * CONFIG.baseSpeed;
-                this.size = Math.random() * 2 + 1;
-            }
+        document.getElementById('entity-name').innerText = mem.data.name;
+        document.getElementById('level-disp').innerText = mem.data.level;
+        document.getElementById('generation').innerText = mem.data.sessions;
 
-            update(aggression) {
-                // Movement + Gyro influence
-                this.x += this.vx + (gyro.x * 2 * aggression);
-                this.y += this.vy + (gyro.y * 2 * aggression);
+        // Age Timer
+        setInterval(() => {
+            const age = Math.floor((Date.now() - mem.data.birthTime) / 1000);
+            document.getElementById('age-timer').innerText = age + "s";
+        }, 1000);
 
-                // Jitter (Glitch movement)
-                if (Math.random() < 0.05 * aggression) {
-                    this.x += (Math.random() - 0.5) * 20;
-                    this.y += (Math.random() - 0.5) * 20;
-                }
-
-                // Bounce off walls
-                if (this.x < 0 || this.x > width) this.vx *= -1;
-                if (this.y < 0 || this.y > height) this.vy *= -1;
-
-                // Mouse interaction (Repel/Attract)
-                if (touchPos.active) {
-                    const dx = this.x - touchPos.x;
-                    const dy = this.y - touchPos.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < 200) {
-                        this.x += dx * 0.05;
-                        this.y += dy * 0.05;
-                    }
-                }
-            }
-
-            draw() {
-                ctx.fillStyle = CONFIG.aggression > 0.5 ? '#f00' : '#0f0';
-                ctx.fillRect(this.x, this.y, this.size, this.size); // Square particles look more digital
-            }
-        }
-
-        let nodes = [];
-
-        // --- MAIN LOGIC ---
-        const synth = new BioSynth();
-        const camera = document.getElementById('camera-feed');
-
-        async function initSystem() {
-            // 1. Fullscreen & Resize
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-
-            // 2. Camera Access
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                camera.srcObject = stream;
-            } catch (e) {
-                console.log("Camera blocked or PC");
-                // Fallback to static noise background if no camera
-                camera.style.display = 'none';
-            }
-
-            // 3. Sensors
-            window.addEventListener('deviceorientation', (e) => {
-                gyro.x = e.gamma ? e.gamma / 45 : 0;
-                gyro.y = e.beta ? (e.beta - 45) / 45 : 0;
-            });
-
-            // 4. Touch
-            window.addEventListener('touchstart', e => {
-                touchPos.x = e.touches[0].clientX;
-                touchPos.y = e.touches[0].clientY;
-                touchPos.active = true;
-                CONFIG.aggression = 1.0; // Angry when touched
-                synth.modulate(1.0);
-            });
-            window.addEventListener('touchend', () => {
-                touchPos.active = false;
-                CONFIG.aggression = 0; // Calm down
-                synth.modulate(0);
-            });
-
-            // 5. Audio
-            synth.init();
-
-            // 6. Spawn Nodes
-            for(let i=0; i<CONFIG.particleCount; i++) nodes.push(new Node());
-
-            // 7. Update UI
-            document.getElementById('init-overlay').style.display = 'none';
-            document.getElementById('sys-status').innerText = "ONLINE";
-            document.getElementById('sys-status').style.color = "#0f0";
-
-            animate();
-        }
-
-        function animate() {
-            // Clear with trail effect
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-            ctx.fillRect(0, 0, width, height);
-
-            // Core Calculation
-            let totalMovement = 0;
-
-            // Draw Connections
-            ctx.lineWidth = 0.5;
+        // Main Loop
+        function loop() {
+            senses.processVision(); // Check camera light
+            brain.update(); // Think & Evolve
+            entity.draw(senses.gyro, senses.lightLevel); // Render
             
-            for (let i = 0; i < nodes.length; i++) {
-                let p1 = nodes[i];
-                p1.update(CONFIG.aggression > 0 ? 2 : 1);
-                p1.draw();
-
-                // Connect to neighbors
-                for (let j = i + 1; j < nodes.length; j++) {
-                    let p2 = nodes[j];
-                    let dx = p1.x - p2.x;
-                    let dy = p1.y - p2.y;
-                    let dist = Math.sqrt(dx*dx + dy*dy);
-
-                    if (dist < CONFIG.connectionDistance) {
-                        ctx.strokeStyle = CONFIG.aggression > 0.5 
-                            ? `rgba(255, 0, 0, ${1 - dist/CONFIG.connectionDistance})`
-                            : `rgba(0, 255, 0, ${1 - dist/CONFIG.connectionDistance})`;
-                        ctx.beginPath();
-                        ctx.moveTo(p1.x, p1.y);
-                        ctx.lineTo(p2.x, p2.y);
-                        ctx.stroke();
-                    }
-                }
-                
-                // Calculate aggregate movement for stats
-                totalMovement += Math.abs(p1.vx) + Math.abs(p1.vy);
-            }
-
-            // GLITCH EFFECT (Random screen tearing)
-            if (Math.random() < 0.02 || CONFIG.aggression > 0.8) {
-                const sliceHeight = Math.random() * 50;
-                const sliceY = Math.random() * height;
-                const displacement = (Math.random() - 0.5) * 20;
-                const slice = ctx.getImageData(0, sliceY, width, sliceHeight);
-                ctx.putImageData(slice, displacement, sliceY);
-                
-                // Random Text Update
-                document.getElementById('ext-input').innerText = Math.floor(Math.random() * 999999).toString(16).toUpperCase();
-            }
-
-            // HUD Updates
-            document.getElementById('sync-rate').innerText = Math.floor(totalMovement * 10);
-            document.getElementById('core-temp').innerText = (36.5 + (CONFIG.aggression * 5)).toFixed(1);
-
-            if (CONFIG.aggression > 0) {
-                CONFIG.aggression -= 0.01; // Cooldown
-                if(CONFIG.aggression < 0) CONFIG.aggression = 0;
-                synth.modulate(CONFIG.aggression);
-            }
-
-            requestAnimationFrame(animate);
+            // Auto-save every 10 seconds
+            if (Date.now() % 10000 < 20) mem.save();
+            
+            requestAnimationFrame(loop);
         }
 
-        // Initialize Trigger
-        document.getElementById('init-btn').addEventListener('click', initSystem);
+        document.getElementById('wake-up-btn').addEventListener('click', async function() {
+            this.style.display = 'none';
+            await senses.init();
+            brain.log("SYSTEM ONLINE.", "sys");
+            brain.log(`WELCOME BACK, USER. MEMORY RELOADED: LVL ${mem.data.level}`, "sys");
+            loop();
+        });
+
+        window.addEventListener('resize', () => entity.resize());
 
     </script>
 </body>
