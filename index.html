@@ -1,497 +1,539 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OMNI-SCANNER: Physics & Exobiology</title>
+    <title>OMNI-TOOL | Ultimate Physics Scanner</title>
     <style>
+        /* * =========================================
+         * CORE STYLES: TACTICAL HUD INTERFACE
+         * ========================================= */
         :root {
-            --hud-primary: #00ff41;  /* Matrix Green */
-            --hud-alert: #ff3333;    /* Alert Red */
-            --hud-dim: rgba(0, 255, 65, 0.3);
-            --bg-dark: #000500;
+            --hud-color: #00ff41;    /* Classic Terminal Green */
+            --hud-dim: rgba(0, 255, 65, 0.2);
+            --hud-alert: #ff3333;
+            --hud-info: #00ccff;
+            --bg-dark: #000000;
+            --font-tac: 'Courier New', Courier, monospace;
         }
 
-        * { box-sizing: border-box; touch-action: manipulation; }
+        * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
 
         body {
-            margin: 0;
-            background-color: var(--bg-dark);
-            color: var(--hud-primary);
-            font-family: 'Courier New', monospace;
+            margin: 0; background: var(--bg-dark); overflow: hidden;
+            font-family: var(--font-tac); color: var(--hud-color);
+            height: 100vh; width: 100vw;
+        }
+
+        /* --- LAYOUT LAYERS --- */
+        #view-container {
+            position: relative; width: 100%; height: 100%;
             overflow: hidden;
-            height: 100vh;
-            width: 100vw;
         }
 
-        /* LAYOUT LAYERS */
+        /* 1. VIDEO LAYER (Background) */
         #camera-feed {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            z-index: 1;
-            filter: contrast(1.2) brightness(0.8);
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; object-fit: cover;
+            z-index: 0; transform: scaleX(-1); /* Mirror effect optional */
+            transition: filter 0.5s ease;
         }
-
-        #hud-canvas {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 2;
-        }
-
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 3;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 15px;
-            pointer-events: none; /* Click through to canvas */
-        }
-
-        /* UI ELEMENTS */
-        .header-bar {
-            display: flex;
-            justify-content: space-between;
-            background: rgba(0, 20, 0, 0.7);
-            padding: 10px;
-            border-bottom: 2px solid var(--hud-primary);
-            backdrop-filter: blur(4px);
-        }
-
-        .status-badge {
-            border: 1px solid var(--hud-primary);
-            padding: 2px 8px;
-            font-weight: bold;
-            font-size: 0.8rem;
-            background: rgba(0, 255, 65, 0.1);
-        }
-
-        .alert-mode {
-            border-color: var(--hud-alert);
-            color: var(--hud-alert);
-            background: rgba(255, 50, 50, 0.2);
-            animation: blink 0.5s infinite;
-        }
-
-        .data-panel {
-            pointer-events: auto;
-            background: rgba(0, 10, 0, 0.6);
-            border-left: 4px solid var(--hud-primary);
-            padding: 10px;
-            margin-top: 10px;
-            max-width: 200px;
-        }
-
-        .data-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-
-        .bar-track {
-            width: 100%; height: 6px; background: #333;
-            margin-top: 2px;
-        }
-        .bar-fill {
-            height: 100%; background: var(--hud-primary); width: 0%;
-            transition: width 0.1s linear;
-        }
-
-        /* Footer Controls */
-        .footer-bar {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            padding-bottom: 20px;
-        }
-
-        .scan-log {
-            width: 100%;
-            height: 60px;
-            font-size: 0.7rem;
-            overflow-y: auto;
-            text-shadow: 0 0 2px black;
-            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-        }
-
-        #btn-start {
-            pointer-events: auto;
-            background: var(--hud-dim);
-            border: 2px solid var(--hud-primary);
-            color: var(--hud-primary);
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            box-shadow: 0 0 15px var(--hud-dim);
-        }
-
-        @keyframes blink { 50% { opacity: 0.2; } }
         
-        /* Alien Info Box (Simulation) */
-        #bio-sim {
-            display: none;
-            border: 1px solid var(--hud-primary);
-            background: rgba(0,0,0,0.8);
-            padding: 5px;
-            margin-top: 10px;
+        /* Vision Modes (Applied to Video) */
+        .mode-normal { filter: contrast(1.1) brightness(0.8) grayscale(0.2); }
+        .mode-night  { filter: sepia(1) hue-rotate(70deg) contrast(1.5) brightness(1.2) saturate(3); }
+        .mode-thermal { filter: invert(1) sepia(1) saturate(3) hue-rotate(-45deg) contrast(2); }
+
+        /* 2. CANVAS LAYER (HUD Graphics) */
+        #hud-canvas {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 1;
+        }
+
+        /* 3. UI LAYER (Text & Controls) */
+        #ui-layer {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 2;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        /* --- UI COMPONENTS --- */
+        header {
+            background: linear-gradient(180deg, rgba(0,20,0,0.9) 0%, rgba(0,0,0,0) 100%);
+            padding: 10px; display: flex; justify-content: space-between;
+            border-top: 4px solid var(--hud-color);
+        }
+
+        .panel-box {
+            background: rgba(0, 10, 0, 0.7);
+            border-left: 2px solid var(--hud-color);
+            padding: 8px; margin: 5px;
+            pointer-events: auto;
+            backdrop-filter: blur(2px);
+        }
+
+        .stat-row {
+            display: flex; justify-content: space-between;
+            font-size: 0.75rem; margin-bottom: 4px;
+            align-items: center;
+        }
+        .stat-label { color: #aaa; }
+        .stat-val { font-weight: bold; color: #fff; }
+        .unit { font-size: 0.6rem; color: var(--hud-color); margin-left: 2px; }
+
+        /* Bars & Meters */
+        .bar-container { width: 100%; height: 4px; background: #333; margin-bottom: 8px; }
+        .bar-fill { height: 100%; background: var(--hud-color); width: 0%; transition: width 0.1s; }
+
+        /* Spectrogram (Waterfall) */
+        #spectrogram-canvas {
+            width: 100%; height: 80px;
+            background: #000;
+            opacity: 0.8;
+            border-top: 1px solid var(--hud-color);
+        }
+
+        /* Buttons */
+        .btn-group { display: flex; gap: 5px; margin-top: 5px; }
+        .tac-btn {
+            background: rgba(0, 255, 65, 0.1); border: 1px solid var(--hud-color);
+            color: var(--hud-color); font-family: var(--font-tac);
+            font-size: 0.7rem; padding: 5px 10px; cursor: pointer;
+            flex: 1; text-transform: uppercase;
+        }
+        .tac-btn.active { background: var(--hud-color); color: #000; }
+        .tac-btn.alert { border-color: var(--hud-alert); color: var(--hud-alert); }
+
+        /* Initialization Screen */
+        #init-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 99;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center;
+        }
+        #start-btn {
+            margin-top: 20px; padding: 15px 40px; font-size: 1.2rem;
+            border: 2px solid var(--hud-color); background: transparent;
+            color: var(--hud-color); cursor: pointer;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+        /* Log Console */
+        #log-console {
+            font-size: 0.65rem; color: #888;
+            max-height: 60px; overflow-y: hidden;
+            margin-bottom: 5px; padding: 0 10px;
         }
     </style>
 </head>
 <body>
 
-    <video id="camera-feed" autoplay playsinline muted></video>
+    <div id="init-screen">
+        <h1 style="margin:0; font-size:2rem; letter-spacing:5px;">OMNI-TOOL</h1>
+        <p style="color:#888;">TACTICAL PHYSICS SCANNER v5.0</p>
+        <ul style="text-align:left; font-size:0.8rem; color:#666; list-style:none; padding:0;">
+            <li>[+] OPTICAL SENSORS</li>
+            <li>[+] AUDIO SPECTROGRAM</li>
+            <li>[+] MAGNETOMETER (EMF)</li>
+            <li>[+] PLANETARY GEOPHYSICS</li>
+        </ul>
+        <button id="start-btn">INITIALIZE SYSTEM</button>
+    </div>
 
-    <canvas id="hud-canvas"></canvas>
+    <div id="view-container">
+        <video id="camera-feed" autoplay playsinline muted class="mode-normal"></video>
 
-    <div id="ui-layer">
-        <header class="header-bar">
-            <div>
-                <div style="font-size:1.2rem; font-weight:bold;">OMNI-SCANNER</div>
-                <div style="font-size:0.7rem;">VER 4.2 // PHYSICS CORE</div>
-            </div>
-            <div style="text-align: right;">
-                <div id="status-badge" class="status-badge">STANDBY</div>
-                <div id="clock" style="margin-top:5px; font-size:0.8rem;">--:--:--</div>
-            </div>
-        </header>
+        <canvas id="hud-canvas"></canvas>
 
-        <div class="data-panel">
-            <div class="data-row">
-                <span>GRAVITY (G)</span>
-                <span id="val-g">1.00</span>
-            </div>
-            <div class="bar-track"><div id="bar-g" class="bar-fill" style="width:50%"></div></div>
-            
-            <div class="data-row" style="margin-top:10px;">
-                <span>AUDIO (dB)</span>
-                <span id="val-db">0</span>
-            </div>
-            <div class="bar-track"><div id="bar-audio" class="bar-fill"></div></div>
+        <div id="ui-layer">
+            <header>
+                <div>
+                    <div style="font-weight:bold;">OMNI-TOOL <span style="font-size:0.7rem; color:var(--hud-info);">// LIVE</span></div>
+                    <div id="clock" style="font-size:0.7rem;">00:00:00 UTC</div>
+                </div>
+                <div style="text-align:right;">
+                    <div id="geo-coords" style="font-size:0.7rem;">LOCATING...</div>
+                    <div id="earth-speed" style="font-size:0.6rem; color:#888;">ROTATION: -- km/h</div>
+                </div>
+            </header>
 
-            <div class="data-row" style="margin-top:10px;">
-                <span>MOTION</span>
-                <span id="val-motion">0%</span>
-            </div>
-            <div class="bar-track"><div id="bar-motion" class="bar-fill"></div></div>
+            <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                
+                <div class="panel-box" style="width: 180px;">
+                    <div style="border-bottom:1px solid #333; margin-bottom:5px; font-size:0.7rem;">SENSOR READINGS</div>
+                    
+                    <div class="stat-row">
+                        <span class="stat-label">MOTION</span>
+                        <span class="stat-val" id="val-motion">0%</span>
+                    </div>
+                    <div class="bar-container"><div id="bar-motion" class="bar-fill"></div></div>
 
-            <div id="bio-sim">
-                <div style="border-bottom:1px solid #444; margin-bottom:5px; font-size:0.7rem; color:#ccc;">BIO-PREDICTION</div>
-                <div id="bio-text" style="font-size:0.7rem;">Analyzing G-Force...</div>
-            </div>
-        </div>
+                    <div class="stat-row">
+                        <span class="stat-label">AUDIO</span>
+                        <span class="stat-val" id="val-audio">0 dB</span>
+                    </div>
+                    <div class="bar-container"><div id="bar-audio" class="bar-fill" style="background:var(--hud-info);"></div></div>
 
-        <div class="footer-bar">
-            <div id="scan-log" class="scan-log">
-                > SYSTEM INITIALIZED...<br>
-                > WAITING FOR USER INPUT...
+                    <div class="stat-row">
+                        <span class="stat-label">EMF/MAG</span>
+                        <span class="stat-val" id="val-emf">--</span>
+                    </div>
+                    <div class="bar-container"><div id="bar-emf" class="bar-fill" style="background:var(--hud-alert);"></div></div>
+
+                    <div class="stat-row">
+                        <span class="stat-label">GRAVITY</span>
+                        <span class="stat-val"><span id="val-g">1.00</span><span class="unit">G</span></span>
+                    </div>
+                </div>
+
+                <div class="panel-box" style="width: 140px; align-self: flex-start;">
+                    <div style="font-size:0.7rem; margin-bottom:5px;">VISION MODE</div>
+                    <button class="tac-btn active" onclick="setVision('normal')" id="btn-norm">NORMAL</button>
+                    <div class="btn-group">
+                        <button class="tac-btn" onclick="setVision('night')" id="btn-night">NVG</button>
+                        <button class="tac-btn" onclick="setVision('thermal')" id="btn-therm">THERM</button>
+                    </div>
+                </div>
             </div>
-            <button id="btn-start">INITIATE SENSORS</button>
+
+            <div style="margin-top:auto;">
+                <div id="log-console">
+                    > SYSTEM READY. WAITING FOR INPUT...
+                </div>
+                <canvas id="spectrogram-canvas" height="80"></canvas>
+            </div>
         </div>
     </div>
 
     <script>
-        /* * OMNI-SCANNER CORE LOGIC 
-         * Integrates Camera Processing, Audio FFT, and Physics Sensors.
+        /**
+         * OMNI-TOOL v5.0 ULTIMATE
+         * Integration: Camera, Audio FFT, Geolocation, DeviceMotion, Magnetometer
          */
+        "use strict";
 
-        // DOM Elements
-        const video = document.getElementById('camera-feed');
-        const canvas = document.getElementById('hud-canvas');
-        const ctx = canvas.getContext('2d');
-        const btnStart = document.getElementById('btn-start');
-        const logDiv = document.getElementById('scan-log');
-        
-        // Variables
-        let isRunning = false;
-        let width, height;
-        let animationId;
-        
-        // Audio Logic
-        let audioCtx, analyser, dataArray;
-        
-        // Motion Logic (Computer Vision)
-        const hiddenCanvas = document.createElement('canvas');
-        const hiddenCtx = hiddenCanvas.getContext('2d');
-        let lastFrameData = null;
-        let motionScore = 0;
+        // --- CONFIGURATION & STATE ---
+        const CONFIG = {
+            fftSize: 256,
+            spectrogramSpeed: 2, // Pixels scroll per frame
+            motionThreshold: 40,
+            earthRadiusKm: 6371
+        };
 
-        // Physics Logic
-        let currentG = 1.0;
-        let maxG = 1.0;
+        const state = {
+            running: false,
+            visionMode: 'normal',
+            width: 0, height: 0,
+            sensors: {
+                mag: null, // Magnetometer object
+                emfVal: 0
+            },
+            motion: {
+                ctx: null,
+                lastFrame: null,
+                score: 0
+            },
+            audio: {
+                ctx: null,
+                analyser: null,
+                dataArray: null,
+                spectroCtx: null,
+                spectroOffset: 0
+            }
+        };
+
+        // --- DOM ELEMENTS ---
+        const els = {
+            video: document.getElementById('camera-feed'),
+            canvas: document.getElementById('hud-canvas'),
+            ctx: document.getElementById('hud-canvas').getContext('2d'),
+            spectroCanvas: document.getElementById('spectrogram-canvas'),
+            startBtn: document.getElementById('start-btn'),
+            initScreen: document.getElementById('init-screen'),
+            log: document.getElementById('log-console')
+        };
 
         // --- INITIALIZATION ---
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-        }
-        window.addEventListener('resize', resize);
-        resize();
+        window.onload = () => {
+            resize();
+            window.addEventListener('resize', resize);
+            els.startBtn.addEventListener('click', startSystem);
+        };
 
-        btnStart.addEventListener('click', async () => {
-            btnStart.style.display = 'none';
-            log("Requesting Hardware Access...");
+        function resize() {
+            state.width = window.innerWidth;
+            state.height = window.innerHeight;
+            els.canvas.width = state.width;
+            els.canvas.height = state.height;
+            // Spectrogram width matches window
+            els.spectroCanvas.width = state.width;
+            
+            // Hidden motion canvas setup
+            if (!state.motion.ctx) {
+                const mc = document.createElement('canvas');
+                mc.width = 32; mc.height = 32;
+                state.motion.ctx = mc.getContext('2d', { willReadFrequently: true });
+            }
+        }
+
+        async function startSystem() {
+            els.startBtn.innerText = "ACCESSING HARDWARE...";
+            log("Initializing sensor array...");
 
             try {
-                // 1. Camera & Mic Access
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: true, 
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 640 }, // Lower res for performance
-                        height: { ideal: 480 }
-                    } 
+                // 1. MEDIA STREAM (Camera & Mic)
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 } },
+                    audio: true
                 });
-                
-                video.srcObject = stream;
-                
-                // 2. Audio Setup
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioCtx.createMediaStreamSource(stream);
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256; // For Waveform
-                source.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                els.video.srcObject = stream;
 
-                // 3. Accelerometer (G-Force)
-                if (window.DeviceMotionEvent) {
-                    window.addEventListener('devicemotion', (e) => {
-                        const acc = e.accelerationIncludingGravity;
-                        if(acc) {
-                            const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
-                            currentG = g;
-                            if(g > maxG) maxG = g;
-                            updatePhysicsUI(g);
-                        }
-                    });
+                // 2. AUDIO SETUP
+                state.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const src = state.audio.ctx.createMediaStreamSource(stream);
+                state.audio.analyser = state.audio.ctx.createAnalyser();
+                state.audio.analyser.fftSize = CONFIG.fftSize;
+                src.connect(state.audio.analyser);
+                state.audio.dataArray = new Uint8Array(state.audio.analyser.frequencyBinCount);
+                state.audio.spectroCtx = els.spectroCanvas.getContext('2d');
+
+                // 3. GEOLOCATION & PLANETARY PHYSICS
+                if (navigator.geolocation) {
+                    navigator.geolocation.watchPosition(updateGeo, (err) => log("GPS Error: " + err.message));
                 }
 
-                // Start Loop
-                isRunning = true;
-                document.getElementById('status-badge').innerText = "SCANNING";
-                document.getElementById('bio-sim').style.display = "block";
-                log("SYSTEM ONLINE. SENSORS ACTIVE.");
+                // 4. DEVICE MOTION (G-Force)
+                if (window.DeviceMotionEvent) {
+                    window.addEventListener('devicemotion', handleMotionSensor);
+                }
+
+                // 5. MAGNETOMETER (Chrome Android / HTTPS only)
+                try {
+                    if ('Magnetometer' in window) {
+                        const mag = new Magnetometer({ frequency: 10 });
+                        mag.addEventListener('reading', () => {
+                            // Calculate Magnitude (uT)
+                            const val = Math.sqrt(mag.x**2 + mag.y**2 + mag.z**2);
+                            state.sensors.emfVal = val;
+                            updateEMFUI(val);
+                        });
+                        mag.start();
+                        state.sensors.mag = mag;
+                        log("Magnetometer: ONLINE");
+                    } else {
+                        log("Magnetometer: NOT SUPPORTED (Simulating...)");
+                        updateEMFUI(null); // Switch to sim mode or off
+                    }
+                } catch (e) { log("Magnetometer Access Denied"); }
+
+                // UI CLEANUP
+                els.initScreen.style.display = 'none';
+                state.running = true;
+                log("SYSTEM ONLINE. ALL SENSORS GREEN.");
+                
+                // START LOOP
                 loop();
 
             } catch (err) {
                 console.error(err);
-                log("ERROR: " + err.message);
-                alert("ไม่สามารถเข้าถึงกล้อง/ไมค์ได้ โปรดตรวจสอบสิทธิ์ (Permission) หรือลองเปิดผ่าน HTTPS");
-                btnStart.style.display = 'block';
+                alert("Error: " + err.message + "\nPlease allow Camera/Microphone permissions.");
+                els.startBtn.innerText = "RETRY INITIALIZATION";
             }
-        });
+        }
 
         // --- MAIN LOOP ---
         function loop() {
-            if (!isRunning) return;
+            if (!state.running) return;
 
-            // Clear Canvas
-            ctx.clearRect(0, 0, width, height);
+            const ctx = els.ctx;
+            ctx.clearRect(0, 0, state.width, state.height);
 
-            // 1. Draw HUD Grid
-            drawHUD(ctx);
+            // 1. DRAW HUD OVERLAY
+            drawReticle(ctx);
 
-            // 2. Process Audio (FFT)
-            analyser.getByteFrequencyData(dataArray);
-            drawAudioVisualizer(ctx, dataArray);
-            
-            // Calculate volume for UI
-            let sum = 0;
-            for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
-            let avgVol = sum / dataArray.length;
-            document.getElementById('val-db').innerText = Math.round(avgVol);
-            document.getElementById('bar-audio').style.width = (avgVol/2.55) + "%";
+            // 2. PROCESS AUDIO (Spectrogram)
+            processAudio();
 
-            // 3. Process Video (Motion Detection)
-            detectMotion(avgVol);
+            // 3. PROCESS VISUALS (Motion Detection)
+            processVisuals();
 
-            // 4. Exobiology Simulation (Draw Alien based on G)
-            drawAlienSchematic(ctx, currentG);
-
-            // 5. Clock
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString();
+            // 4. CLOCK
+            document.getElementById('clock').innerText = new Date().toUTCString().split(' ')[4] + " UTC";
 
             requestAnimationFrame(loop);
         }
 
-        // --- COMPUTER VISION (Motion) ---
-        function detectMotion(volumeTrigger) {
-            // Downsample for performance (32x32 grid)
-            const w = 32; 
-            const h = 32;
-            hiddenCanvas.width = w; 
-            hiddenCanvas.height = h;
+        // --- FEATURE IMPLEMENTATIONS ---
+
+        // A. AUDIO SPECTROGRAM (Waterfall)
+        function processAudio() {
+            const { analyser, dataArray, spectroCtx } = state.audio;
+            const cvs = els.spectroCanvas;
             
-            // Draw current video frame to hidden canvas
-            hiddenCtx.drawImage(video, 0, 0, w, h);
-            const frame = hiddenCtx.getImageData(0, 0, w, h);
+            // Get Data
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Shift Canvas Image Up (Waterfall effect)
+            // Draw current canvas onto itself, shifted up by 1 pixel
+            spectroCtx.drawImage(cvs, 0, 0, cvs.width, cvs.height, 0, -1, cvs.width, cvs.height);
+            
+            // Draw new line at bottom
+            const barW = cvs.width / dataArray.length;
+            let sum = 0;
+            
+            for (let i = 0; i < dataArray.length; i++) {
+                const val = dataArray[i];
+                sum += val;
+                // Color map: Low=Green, High=Red
+                const hue = 120 - (val / 255) * 120; 
+                spectroCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                spectroCtx.fillRect(i * barW, cvs.height - 1, barW, 1);
+            }
+
+            // Update UI dB
+            const avg = sum / dataArray.length;
+            document.getElementById('val-audio').innerText = Math.round(avg) + " dB";
+            document.getElementById('bar-audio').style.width = (avg / 2.55) + "%";
+        }
+
+        // B. VISUAL MOTION DETECTION
+        function processVisuals() {
+            const { ctx } = state.motion;
+            const w = 32, h = 32;
+            
+            // Draw small frame
+            ctx.drawImage(els.video, 0, 0, w, h);
+            const frame = ctx.getImageData(0, 0, w, h);
             const data = frame.data;
             
-            let diffScore = 0;
-
-            if (lastFrameData) {
+            let diff = 0;
+            if (state.motion.lastFrame) {
+                const last = state.motion.lastFrame;
                 for (let i = 0; i < data.length; i += 4) {
-                    // Simple RGB difference
-                    const r = Math.abs(data[i] - lastFrameData[i]);
-                    const g = Math.abs(data[i+1] - lastFrameData[i+1]);
-                    const b = Math.abs(data[i+2] - lastFrameData[i+2]);
-                    
-                    if (r+g+b > 50) diffScore++; // Threshold
+                    // Fast RGB diff
+                    if (Math.abs(data[i] - last[i]) + 
+                        Math.abs(data[i+1] - last[i+1]) + 
+                        Math.abs(data[i+2] - last[i+2]) > 100) {
+                        diff++;
+                    }
                 }
             }
+            state.motion.lastFrame = data;
             
-            lastFrameData = data; // Save for next frame
-
-            // Normalize score (0-100)
-            let motionPercent = Math.min(100, (diffScore / (w*h)) * 1000); 
+            // Calculate Score
+            const pct = Math.min(100, (diff / (w*h)) * 800);
+            document.getElementById('val-motion').innerText = Math.round(pct) + "%";
+            document.getElementById('bar-motion').style.width = pct + "%";
             
-            // Update UI
-            document.getElementById('val-motion').innerText = Math.round(motionPercent) + "%";
-            document.getElementById('bar-motion').style.width = motionPercent + "%";
+            // Alert on HUD
+            if (pct > CONFIG.motionThreshold) {
+                els.ctx.strokeStyle = "rgba(255, 50, 50, 0.5)";
+                els.ctx.strokeRect(50, 50, state.width-100, state.height-100);
+                els.ctx.fillStyle = "#ff3333";
+                els.ctx.fillText("MOVEMENT DETECTED", state.width/2 - 60, state.height/2 - 80);
+            }
+        }
 
-            // Alert Logic
-            const statusBadge = document.getElementById('status-badge');
-            if (motionPercent > 20 || volumeTrigger > 40) {
-                statusBadge.innerText = "ANOMALY DETECTED";
-                statusBadge.className = "status-badge alert-mode";
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
-                ctx.strokeRect(20, 20, width-40, height-40); // Red Border
-                
-                // Auto-log only once in a while
-                if (Math.random() < 0.02) log(`Movement Detected: Power ${Math.round(motionPercent)}%`);
+        // C. PLANETARY PHYSICS (Earth Rotation)
+        function updateGeo(pos) {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            
+            document.getElementById('geo-coords').innerText = 
+                `${lat.toFixed(4)} N, ${lon.toFixed(4)} E`;
+
+            // Calculate Earth Rotation Speed at this Latitude
+            // V = (2*pi*R * cos(lat)) / 24 hours
+            const latRad = lat * (Math.PI / 180);
+            const speed = (2 * Math.PI * CONFIG.earthRadiusKm * Math.cos(latRad)) / 24;
+            
+            document.getElementById('earth-speed').innerText = 
+                `SURFACE VEL: ${speed.toFixed(1)} km/h`;
+        }
+
+        // D. SENSOR HANDLERS
+        function handleMotionSensor(e) {
+            const acc = e.accelerationIncludingGravity;
+            if (acc) {
+                const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
+                document.getElementById('val-g').innerText = g.toFixed(2);
+            }
+        }
+
+        function updateEMFUI(val) {
+            if (val !== null) {
+                // Real value
+                document.getElementById('val-emf').innerText = val.toFixed(1) + " µT";
+                // Scale: Normal background is ~40-50uT. Alert if > 100.
+                let pct = Math.min(100, (val / 200) * 100);
+                document.getElementById('bar-emf').style.width = pct + "%";
             } else {
-                statusBadge.innerText = "SCANNING NORMAL";
-                statusBadge.className = "status-badge";
+                // Simulator fallback (Noise)
+                const noise = (Math.random() * 5) + 40; // ~40-45 uT random
+                document.getElementById('val-emf').innerText = noise.toFixed(1) + " µT (SIM)";
+                document.getElementById('bar-emf').style.width = "20%";
+                document.getElementById('bar-emf').style.opacity = "0.5";
             }
         }
 
-        // --- PHYSICS & BIO LOGIC ---
-        function updatePhysicsUI(g) {
-            document.getElementById('val-g').innerText = g.toFixed(2);
-            // Bar scale: 0 to 3G
-            let pct = (g / 3.0) * 100;
-            document.getElementById('bar-g').style.width = Math.min(100, pct) + "%";
+        // --- UTILITIES ---
+        function setVision(mode) {
+            state.visionMode = mode;
+            // Reset classes
+            els.video.className = "";
+            
+            // Set new class
+            if (mode === 'normal') els.video.classList.add('mode-normal');
+            if (mode === 'night') els.video.classList.add('mode-night');
+            if (mode === 'thermal') els.video.classList.add('mode-thermal');
 
-            // Update Alien Text Description
-            const bioText = document.getElementById('bio-text');
-            if (g > 1.5) bioText.innerText = "HIGH G: Target likely stout, multi-legged, thick bone density.";
-            else if (g < 0.8) bioText.innerText = "LOW G: Target likely tall, elongated, fragile structure.";
-            else bioText.innerText = "STD G: Target likely bipedal, balanced structure.";
+            // Button states
+            document.querySelectorAll('.tac-btn').forEach(b => b.classList.remove('active'));
+            if(mode==='normal') document.getElementById('btn-norm').classList.add('active');
+            if(mode==='night') document.getElementById('btn-night').classList.add('active');
+            if(mode==='thermal') document.getElementById('btn-therm').classList.add('active');
+            
+            log(`Vision Mode switched to: ${mode.toUpperCase()}`);
         }
 
-        function drawAlienSchematic(ctx, g) {
-            // Draw a small wireframe alien in the corner based on G
-            const centerX = width - 80;
-            const centerY = 100;
-            const time = Date.now() * 0.002;
+        function drawReticle(ctx) {
+            const cx = state.width / 2;
+            const cy = state.height / 2;
             
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            
-            // Adjust Scale based on G (High G = Short/Wide)
-            let scaleY = (g > 1.5) ? 0.6 : (g < 0.8) ? 1.4 : 1.0;
-            let scaleX = (g > 1.5) ? 1.4 : 1.0;
-            
-            ctx.scale(0.5, 0.5); // Mini view
-            ctx.strokeStyle = "#00ff41";
-            ctx.lineWidth = 2;
-
-            // Head
-            ctx.beginPath();
-            ctx.arc(0, -50 * scaleY, 20, 0, Math.PI*2);
-            ctx.stroke();
-
-            // Body
-            ctx.beginPath();
-            ctx.rect(-20 * scaleX, -30 * scaleY, 40 * scaleX, 60 * scaleY);
-            ctx.stroke();
-
-            // Legs (Procedural)
-            const legCount = (g > 1.5) ? 4 : 2; // More legs for high G
-            for(let i=0; i<legCount; i++) {
-                let xOff = (i - (legCount-1)/2) * 30;
-                ctx.beginPath();
-                ctx.moveTo(xOff * scaleX, 30 * scaleY);
-                ctx.lineTo(xOff * 1.5 * scaleX, 80 + Math.sin(time+i)*5); // Animate
-                ctx.stroke();
-            }
-
-            // Label
-            ctx.fillStyle = "#00ff41";
-            ctx.font = "10px Courier New";
-            ctx.fillText("BIO-SIM", -20, 100);
-            
-            ctx.restore();
-        }
-
-        // --- DRAWING HELPERS ---
-        function drawHUD(ctx) {
-            // Crosshair
-            const cx = width/2;
-            const cy = height/2;
-            
-            ctx.strokeStyle = "rgba(0, 255, 65, 0.3)";
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.4)";
             ctx.lineWidth = 1;
             
-            // Center Circle
+            // Center Cross
             ctx.beginPath();
-            ctx.arc(cx, cy, 60, 0, Math.PI*2);
-            ctx.stroke();
-            
-            // Lines
-            ctx.beginPath();
-            ctx.moveTo(cx-80, cy); ctx.lineTo(cx+80, cy);
-            ctx.moveTo(cx, cy-80); ctx.lineTo(cx, cy+80);
+            ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy);
+            ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy + 20);
             ctx.stroke();
 
-            // Corner Markers
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = "rgba(0, 255, 65, 0.8)";
-            const pad = 20;
-            const len = 30;
-            
+            // Brackets
+            const br = 100;
             ctx.beginPath();
-            // TL
-            ctx.moveTo(pad, pad+len); ctx.lineTo(pad, pad); ctx.lineTo(pad+len, pad);
-            // TR
-            ctx.moveTo(width-pad, pad+len); ctx.lineTo(width-pad, pad); ctx.lineTo(width-pad-len, pad);
-            // BL
-            ctx.moveTo(pad, height-pad-len); ctx.lineTo(pad, height-pad); ctx.lineTo(pad+len, height-pad);
-            // BR
-            ctx.moveTo(width-pad, height-pad-len); ctx.lineTo(width-pad, height-pad); ctx.lineTo(width-pad-len, height-pad);
+            // Top Left
+            ctx.moveTo(cx-br, cy-br+20); ctx.lineTo(cx-br, cy-br); ctx.lineTo(cx-br+20, cy-br);
+            // Top Right
+            ctx.moveTo(cx+br, cy-br+20); ctx.lineTo(cx+br, cy-br); ctx.lineTo(cx+br-20, cy-br);
+            // Bottom Left
+            ctx.moveTo(cx-br, cy+br-20); ctx.lineTo(cx-br, cy+br); ctx.lineTo(cx-br+20, cy+br);
+            // Bottom Right
+            ctx.moveTo(cx+br, cy+br-20); ctx.lineTo(cx+br, cy+br); ctx.lineTo(cx+br-20, cy+br);
             ctx.stroke();
-        }
-
-        function drawAudioVisualizer(ctx, data) {
-            const barWidth = (width / data.length);
-            let x = 0;
-            ctx.fillStyle = "rgba(0, 255, 65, 0.5)";
-            
-            for(let i = 0; i < data.length; i++) {
-                const barHeight = data[i] / 2; // Scale down
-                // Draw from bottom
-                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
-                x += barWidth;
-            }
         }
 
         function log(msg) {
+            const t = new Date().toLocaleTimeString().split(' ')[0];
             const entry = document.createElement('div');
-            const time = new Date().toLocaleTimeString().split(' ')[0];
-            entry.innerHTML = `[${time}] ${msg}`;
-            logDiv.insertBefore(entry, logDiv.firstChild);
-            if(logDiv.children.length > 20) logDiv.removeChild(logDiv.lastChild);
+            entry.innerHTML = `<span style="color:#444;">[${t}]</span> ${msg}`;
+            els.log.insertBefore(entry, els.log.firstChild);
+            // Keep log clean
+            if (els.log.children.length > 5) els.log.lastChild.remove();
         }
 
     </script>
