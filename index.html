@@ -3,850 +3,599 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PROJECT: OMEGA // AI LIFEFORM</title>
+    <title>MOCHI ULTIMATE: AR PET</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --c-void: #050505;
-            --c-text: #a0a0a0;
-            --c-calm: #00f3ff;    /* Cyan */
-            --c-curious: #ffd700; /* Gold */
-            --c-alert: #ff003c;   /* Red */
-            --c-sleepy: #8a2be2;  /* Violet */
-            --c-happy: #00ff88;   /* Green */
-            --font-mono: 'Courier New', Consolas, monospace;
+            --primary: #ff9a9e;
+            --bg-gradient: linear-gradient(to top, #a18cd1 0%, #fbc2eb 100%);
+            --ui-bg: rgba(255, 255, 255, 0.9);
         }
 
-        * { box-sizing: border-box; }
-
         body {
-            margin: 0;
-            overflow: hidden;
-            background-color: var(--c-void);
-            color: var(--c-calm);
-            font-family: var(--font-mono);
-            user-select: none;
-            -webkit-font-smoothing: antialiased;
+            margin: 0; overflow: hidden; background: #222;
+            font-family: 'Nunito', sans-serif;
+            touch-action: none; user-select: none;
         }
 
         /* LAYERS */
-        #canvas-bg, #canvas-face {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        #canvas-bg { z-index: 0; }
-        #canvas-face { z-index: 1; }
-        
-        /* HUD LAYER */
-        #hud-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none; /* Let clicks pass to canvas */
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        /* INTERACTIVE ELEMENTS (Pointer events enabled) */
-        .interactive { pointer-events: auto; cursor: pointer; }
-
-        /* HEADER */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
-        }
-        .title { font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 10px currentColor; }
-        .subtitle { font-size: 0.8rem; color: var(--c-text); margin-top: 5px; }
-        .clock { font-size: 1.2rem; text-align: right; }
-
-        /* STATS BARS */
-        .stats-container {
-            width: 200px;
-            margin-top: 10px;
-            font-size: 0.7rem;
-        }
-        .stat-row { margin-bottom: 8px; }
-        .bar-bg {
-            width: 100%;
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            margin-top: 2px;
-        }
-        .bar-fill {
-            height: 100%;
-            background: currentColor;
-            width: 50%;
-            transition: width 0.3s ease, background-color 0.5s ease;
-            box-shadow: 0 0 5px currentColor;
-        }
-
-        /* FOOTER / LOGS */
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            font-size: 0.8rem;
-            background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
-            padding-bottom: 10px;
-        }
-        .log-container {
-            max-width: 60%;
-            height: 60px;
-            overflow: hidden;
-            mask-image: linear-gradient(to bottom, transparent, black 20%);
-            -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%);
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-        .log-entry {
-            margin-top: 4px;
-            opacity: 0.7;
-            text-shadow: 0 0 2px black;
-        }
-        .log-entry::before { content: "> "; color: var(--c-text); }
-
-        .status-panel {
-            text-align: right;
-        }
-        .data-stream {
-            color: #fff;
-            font-style: italic;
-            margin-bottom: 10px;
-            opacity: 0.9;
-            min-height: 1.2em;
-        }
-
-        /* CONTROLS */
-        .controls {
-            position: absolute;
-            top: 50%;
-            right: 20px;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .btn {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--c-calm);
-            color: var(--c-calm);
-            padding: 10px;
-            font-family: var(--font-mono);
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            transition: all 0.2s;
-            backdrop-filter: blur(4px);
-        }
-        .btn:hover { background: var(--c-calm); color: #000; }
-
-        /* START OVERLAY */
-        #start-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.5s;
-        }
-        #start-btn {
-            padding: 20px 40px;
-            font-size: 1.5rem;
-            background: transparent;
-            color: var(--c-calm);
-            border: 2px solid var(--c-calm);
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            box-shadow: 0 0 20px var(--c-calm);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 10px var(--c-calm); }
-            50% { box-shadow: 0 0 30px var(--c-calm); }
-            100% { box-shadow: 0 0 10px var(--c-calm); }
-        }
-
-        /* SCANLINE EFFECT */
-        .scanlines {
+        #camera-feed {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
-            background-size: 100% 4px;
-            z-index: 20;
-            pointer-events: none;
-            opacity: 0.3;
+            object-fit: cover; opacity: 1; z-index: 0;
         }
+        
+        #game-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* UI OVERLAY */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 15px;
+        }
+
+        /* TOP HUD */
+        .hud-top {
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+
+        .stats-card {
+            background: var(--ui-bg);
+            border-radius: 20px; padding: 10px 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            backdrop-filter: blur(5px);
+            width: 140px;
+        }
+
+        .stat-row { margin-bottom: 5px; }
+        .stat-label { font-size: 10px; color: #888; font-weight: bold; display: flex; justify-content: space-between; }
+        
+        .progress-bar {
+            height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin-top: 2px;
+        }
+        .progress-fill { height: 100%; width: 50%; transition: width 0.5s; }
+
+        .level-badge {
+            background: #fff; border-radius: 50%; width: 50px; height: 50px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 3px solid var(--primary);
+        }
+        .lvl-txt { font-size: 8px; color: #888; }
+        .lvl-num { font-family: 'Fredoka One', cursive; font-size: 20px; color: var(--primary); line-height: 1; }
+
+        /* BOTTOM ACTIONS */
+        .action-bar {
+            display: flex; justify-content: center; gap: 15px;
+            pointer-events: auto; margin-bottom: 20px;
+        }
+
+        .btn-action {
+            width: 60px; height: 60px; border-radius: 20px;
+            border: none; background: #fff;
+            font-size: 24px; cursor: pointer;
+            box-shadow: 0 5px 0 #ddd;
+            transition: transform 0.1s, box-shadow 0.1s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-action:active { transform: translateY(5px); box-shadow: 0 0 0 #ddd; }
+        .btn-action.critical { animation: shake 0.5s infinite; border: 2px solid red; }
+
+        @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-2px);} 75%{transform:translateX(2px);} }
+
+        /* START SCREEN */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%);
+            z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff;
+        }
+        #btn-init {
+            background: #fff; color: #ff9a9e; border: none; padding: 15px 50px;
+            border-radius: 50px; font-size: 22px; font-family: 'Fredoka One';
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
 
-    <!-- VISUAL LAYERS -->
-    <canvas id="canvas-bg"></canvas>
-    <canvas id="canvas-face"></canvas>
-    <div class="scanlines"></div>
+    <video id="camera-feed" autoplay playsinline muted></video>
+    <canvas id="game-canvas"></canvas>
 
-    <!-- HUD LAYER -->
-    <div id="hud-layer">
-        <div class="header">
-            <div>
-                <div class="title">PROJECT: OMEGA</div>
-                <div class="subtitle">Sensor-Aware Artificial Lifeform</div>
-                <div class="stats-container">
-                    <div class="stat-row">
-                        <span>INTEGRITY</span>
-                        <div class="bar-bg"><div class="bar-fill" id="bar-hp"></div></div>
-                    </div>
-                    <div class="stat-row">
-                        <span>ENERGY</span>
-                        <div class="bar-bg"><div class="bar-fill" id="bar-energy"></div></div>
-                    </div>
-                    <div class="stat-row">
-                        <span>AUDIO INPUT</span>
-                        <div class="bar-bg"><div class="bar-fill" id="bar-audio"></div></div>
-                    </div>
-                    <div class="stat-row">
-                        <span>HUNGER</span>
-                        <div class="bar-bg"><div class="bar-fill" id="bar-hunger"></div></div>
-                    </div>
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div class="level-badge">
+                <span class="lvl-txt">LVL</span>
+                <span class="lvl-num" id="disp-lvl">1</span>
+            </div>
+            <div class="stats-card">
+                <div class="stat-row">
+                    <div class="stat-label"><span>HUNGER</span><span id="txt-hunger">50%</span></div>
+                    <div class="progress-bar"><div id="bar-hunger" class="progress-fill" style="background:#ff9a9e;"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label"><span>FUN</span><span id="txt-fun">50%</span></div>
+                    <div class="progress-bar"><div id="bar-fun" class="progress-fill" style="background:#84fab0;"></div></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label"><span>HYGIENE</span><span id="txt-hygiene">50%</span></div>
+                    <div class="progress-bar"><div id="bar-hygiene" class="progress-fill" style="background:#a1c4fd;"></div></div>
                 </div>
             </div>
-            <div class="clock" id="clock">00:00:00</div>
         </div>
 
-        <!-- SIDE CONTROLS -->
-        <div class="controls">
-            <button class="btn interactive" id="btn-voice">VOICE: ON</button>
-            <button class="btn interactive" id="btn-reset">RESET MEM</button>
-        </div>
-
-        <div class="footer">
-            <div class="log-container" id="log-container">
-                <!-- JS will populate logs -->
-            </div>
-            <div class="status-panel">
-                <div class="data-stream" id="data-stream">...INITIALIZING...</div>
-                <div>MOOD: <span id="status-mood">NEUTRAL</span></div>
-                <div>ENV: <span id="status-env">QUIET</span></div>
-                <div>IDLE: <span id="status-idle">0s</span></div>
-            </div>
+        <div class="action-bar">
+            <button class="btn-action" id="btn-feed" onclick="Game.action('FEED')">🍖</button>
+            <button class="btn-action" id="btn-play" onclick="Game.action('PLAY')">🎾</button>
+            <button class="btn-action" id="btn-clean" onclick="Game.action('CLEAN')">🧼</button>
         </div>
     </div>
 
-    <!-- INITIALIZATION OVERLAY -->
     <div id="start-screen">
-        <button id="start-btn">INITIALIZE SYSTEM</button>
-        <div style="margin-top: 20px; color: #555; font-size: 0.8rem;">REQ: Mic Access & Sensors</div>
+        <h1 style="font-family: 'Fredoka One'; font-size: 3rem; margin-bottom: 10px;">MOCHI</h1>
+        <p style="opacity: 0.8; margin-bottom: 30px;">Ultimate AR Companion</p>
+        <button id="btn-init">START GAME</button>
     </div>
 
 <script>
 /**
- * PROJECT: OMEGA
- * Senior Engineer Implementation
- * * Architecture:
- * 1. Constants & Config
- * 2. Utils (Math, Color)
- * 3. Modules: Memory, Voice, Sensors, Visuals (Particles, Face), State
- * 4. Main Kernel Loop
+ * PROJECT: MOCHI ULTIMATE
+ * Features: Tamagotchi Systems, Save/Load, Speech Synthesis, Physics, Particle System
  */
 
-// --- 1. CONFIG & CONSTANTS ---
+// --- CONFIG ---
 const CONFIG = {
+    tickRate: 1000, // Logic update every 1s
+    decay: {
+        hunger: 1,
+        fun: 0.5,
+        hygiene: 0.2
+    },
     colors: {
-        calm: '#00f3ff',
-        curious: '#ffd700',
-        alert: '#ff003c',
-        sleepy: '#8a2be2',
-        happy: '#00ff88',
-        lonely: '#ffffff'
-    },
-    thresholds: {
-        noiseStress: 0.6,
-        motionStress: 0.5,
-        idleHunger: 10, // seconds to start getting hungry
-        longIdle: 60    // seconds to feel lonely
-    },
-    particleCount: 120,
-    speechEnabled: true
-};
-
-// --- 2. UTILS ---
-const Utils = {
-    lerp: (start, end, amt) => (1 - amt) * start + amt * end,
-    clamp: (val, min, max) => Math.min(Math.max(val, min), max),
-    randomRange: (min, max) => Math.random() * (max - min) + min,
-    
-    // Time of day helper
-    getTimeOfDay: () => {
-        const hr = new Date().getHours();
-        if (hr >= 5 && hr < 12) return 'morning';
-        if (hr >= 12 && hr < 17) return 'afternoon';
-        if (hr >= 17 && hr < 21) return 'evening';
-        return 'night';
-    },
-
-    // Color interpolation helper (simple RGB lerp)
-    hexToRgb: (hex) => {
-        const bigint = parseInt(hex.replace('#', ''), 16);
-        return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-    },
-    rgbToHex: (r, g, b) => "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1),
-    lerpColor: (a, b, amount) => {
-        const [ar, ag, ab] = Utils.hexToRgb(a);
-        const [br, bg, bb] = Utils.hexToRgb(b);
-        return Utils.rgbToHex(
-            Math.round(ar + amount * (br - ar)),
-            Math.round(ag + amount * (bg - ag)),
-            Math.round(ab + amount * (bb - ab))
-        );
+        body: '#ff9a9e',
+        happy: '#ff9a9e',
+        dirty: '#d4fc79',
+        sick: '#a18cd1'
     }
 };
 
-// --- 3. MODULES ---
-
-// >> MEMORY MODULE
-const Memory = {
-    key: 'OMEGA_STATE',
-    logKey: 'OMEGA_LOG',
-    
-    save(state) {
-        localStorage.setItem(this.key, JSON.stringify(state));
+// --- 1. GAME STATE & SAVE SYSTEM ---
+const State = {
+    stats: {
+        hunger: 100, // 0-100 (0 = Starving)
+        fun: 100,    // 0-100 (0 = Depressed)
+        hygiene: 100,// 0-100 (0 = Filthy)
+        xp: 0,
+        level: 1
     },
-    
-    load() {
-        const data = localStorage.getItem(this.key);
-        return data ? JSON.parse(data) : null;
+    lastSave: Date.now(),
+
+    init() {
+        const saved = localStorage.getItem('MOCHI_V3_DATA');
+        if (saved) {
+            const data = JSON.parse(saved);
+            this.stats = data.stats;
+            // Calculate offline decay
+            const elapsedSecs = (Date.now() - data.timestamp) / 1000;
+            this.applyDecay(elapsedSecs * 0.1); // 10% decay rate when offline
+        }
+        this.save();
+        setInterval(() => this.tick(), CONFIG.tickRate);
     },
 
-    log(entry) {
-        let logs = JSON.parse(localStorage.getItem(this.logKey) || '[]');
-        logs.push(entry);
-        if (logs.length > 50) logs.shift(); // Keep last 50
-        localStorage.setItem(this.logKey, JSON.stringify(logs));
+    tick() {
+        this.applyDecay(1);
+        this.save();
+        UI.update();
         
-        // Update UI
-        UI.addLogEntry(entry.msg);
+        // Random Events
+        if (this.stats.hygiene < 50 && Math.random() < 0.1) World.spawnPoop();
     },
 
-    clear() {
-        localStorage.removeItem(this.key);
-        localStorage.removeItem(this.logKey);
-        location.reload();
+    applyDecay(multiplier) {
+        this.stats.hunger = Math.max(0, this.stats.hunger - (CONFIG.decay.hunger * multiplier));
+        this.stats.fun = Math.max(0, this.stats.fun - (CONFIG.decay.fun * multiplier));
+        this.stats.hygiene = Math.max(0, this.stats.hygiene - (CONFIG.decay.hygiene * multiplier));
+    },
+
+    save() {
+        const data = { stats: this.stats, timestamp: Date.now() };
+        localStorage.setItem('MOCHI_V3_DATA', JSON.stringify(data));
+    },
+
+    addXp(amount) {
+        this.stats.xp += amount;
+        if (this.stats.xp > this.stats.level * 100) {
+            this.stats.xp = 0;
+            this.stats.level++;
+            Voice.speak("Level Up! Yay!");
+            Particles.explode(Mochi.x, Mochi.y, '⭐');
+        }
     }
 };
 
-// >> VOICE MODULE
+// --- 2. VOICE SYSTEM (Cute Pitch) ---
 const Voice = {
     synth: window.speechSynthesis,
-    speaking: false,
-    lastSpeakTime: 0,
-
-    speak(text, mood, force = false) {
-        if (!CONFIG.speechEnabled) return;
+    speak(text) {
+        if (!this.synth) return;
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.2; // Faster
+        u.pitch = 1.5; // Higher pitch (Cute)
         
-        // Debounce
-        const now = Date.now();
-        if (!force && (this.speaking || now - this.lastSpeakTime < 3000)) return;
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        // Voice selection (prefer basic English voices)
+        // Find a "child" or "female" voice if possible
         const voices = this.synth.getVoices();
-        const preferred = voices.find(v => v.lang.includes('en-US') && !v.name.includes('Google')); 
-        if (preferred) utterance.voice = preferred;
-
-        // Modulate based on mood
-        switch (mood) {
-            case 'stressed': utterance.rate = 1.4; utterance.pitch = 1.2; break;
-            case 'sleepy': utterance.rate = 0.8; utterance.pitch = 0.6; break;
-            case 'curious': utterance.rate = 1.1; utterance.pitch = 1.3; break;
-            case 'alert': utterance.rate = 1.3; utterance.pitch = 1.1; break;
-            default: utterance.rate = 1.0; utterance.pitch = 1.0;
-        }
-
-        utterance.onstart = () => { this.speaking = true; State.speaking = true; };
-        utterance.onend = () => { this.speaking = false; State.speaking = false; };
+        const cuteVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha'));
+        if(cuteVoice) u.voice = cuteVoice;
         
-        this.synth.speak(utterance);
-        this.lastSpeakTime = now;
-        UI.updateDataStream(text);
+        this.synth.speak(u);
     }
 };
 
-// >> SENSORS MODULE
-const Sensors = {
-    audioContext: null,
-    analyser: null,
-    dataArray: null,
-    
-    noiseLevel: 0,
-    motionLevel: 0,
-    interactionLevel: 0,
-    lastInteractionTime: Date.now(),
+// --- 3. PHYSICS & WORLD ---
+const World = {
+    canvas: document.getElementById('game-canvas'),
+    ctx: null,
+    items: [], // Food, Balls, Poop
     
     init() {
-        // Audio Setup
-        try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    const source = this.audioContext.createMediaStreamSource(stream);
-                    this.analyser = this.audioContext.createAnalyser();
-                    this.analyser.fftSize = 256;
-                    source.connect(this.analyser);
-                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                })
-                .catch(err => {
-                    console.warn('Mic permission denied', err);
-                    UI.addLogEntry('WARN: Audio Sensors Offline');
-                });
-        } catch (e) { console.warn('Audio API not supported'); }
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        // Interaction
+        this.canvas.addEventListener('pointerdown', (e) => this.handleTouch(e));
+    },
 
-        // Motion Setup
-        window.addEventListener('deviceorientation', (e) => {
-            // Normalize beta (-180 to 180) and gamma (-90 to 90)
-            const tilt = (Math.abs(e.beta) + Math.abs(e.gamma)) / 200;
-            this.motionLevel = Utils.lerp(this.motionLevel, Math.min(tilt, 1), 0.1);
-        });
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    },
 
-        // Interaction Setup
-        ['mousedown', 'touchstart', 'mousemove'].forEach(evt => {
-            window.addEventListener(evt, () => this.triggerInteraction());
+    spawnItem(type) {
+        const item = {
+            type: type, // 'FOOD', 'BALL', 'POOP', 'BUBBLE'
+            x: Math.random() * this.canvas.width,
+            y: -50,
+            vx: 0, vy: 5,
+            size: 40,
+            emoji: type === 'FOOD' ? '🍖' : (type === 'POOP' ? '💩' : '🧼'),
+            grounded: false
+        };
+        
+        if (type === 'BALL') { item.emoji = '🎾'; item.vx = (Math.random()-0.5)*10; }
+        
+        this.items.push(item);
+    },
+
+    spawnPoop() {
+        if (this.items.filter(i => i.type === 'POOP').length > 5) return; // Max poops
+        this.items.push({
+            type: 'POOP',
+            x: Mochi.x + (Math.random()-0.5)*50,
+            y: Mochi.y + 50,
+            vx: 0, vy: 0,
+            size: 30, emoji: '💩',
+            grounded: true
         });
+        Voice.speak("Oh no! Poopy!");
     },
 
     update() {
-        // Update Audio Level
-        if (this.analyser) {
-            this.analyser.getByteFrequencyData(this.dataArray);
-            let sum = 0;
-            for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
-            const avg = sum / this.dataArray.length;
-            this.noiseLevel = Utils.lerp(this.noiseLevel, avg / 255, 0.2);
-        }
+        // Items Physics
+        this.items.forEach(item => {
+            if (!item.grounded) {
+                item.x += item.vx;
+                item.y += item.vy;
+                
+                // Gravity / Bounce
+                if (item.y > this.canvas.height - 100) {
+                    item.y = this.canvas.height - 100;
+                    item.vy *= -0.5;
+                    item.vx *= 0.8;
+                    if(Math.abs(item.vy) < 1) item.grounded = true;
+                } else {
+                    item.vy += 0.5; // Gravity
+                }
+            }
+
+            // Mochi Interaction
+            const dx = item.x - Mochi.x;
+            const dy = item.y - Mochi.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < Mochi.radius + item.size) {
+                if (item.type === 'FOOD' && State.stats.hunger < 100) {
+                    this.consume(item);
+                } else if (item.type === 'BALL') {
+                    item.vx += (item.x - Mochi.x) * 0.2;
+                    item.vy -= 5;
+                    item.grounded = false;
+                    Mochi.jump();
+                    State.stats.fun = Math.min(100, State.stats.fun + 2);
+                }
+            }
+        });
+    },
+
+    consume(item) {
+        this.items = this.items.filter(i => i !== item);
+        State.stats.hunger = Math.min(100, State.stats.hunger + 20);
+        State.addXp(10);
+        Voice.speak("Yummy!");
+        Particles.explode(Mochi.x, Mochi.y, '✨');
+        Mochi.squish();
+    },
+
+    cleanPoop(item) {
+        this.items = this.items.filter(i => i !== item);
+        State.stats.hygiene = Math.min(100, State.stats.hygiene + 20);
+        Particles.explode(item.x, item.y, '🫧');
+    },
+
+    handleTouch(e) {
+        const x = e.clientX;
+        const y = e.clientY;
         
-        // Decay interaction
-        this.interactionLevel = Math.max(0, this.interactionLevel - 0.01);
+        // Check Poops
+        let clickedItem = false;
+        this.items.forEach(item => {
+            if (item.type === 'POOP') {
+                const dx = x - item.x;
+                const dy = y - item.y;
+                if (Math.sqrt(dx*dx+dy*dy) < 50) {
+                    this.cleanPoop(item);
+                    clickedItem = true;
+                }
+            }
+        });
+
+        if (!clickedItem) {
+            // Check Mochi
+            const dx = x - Mochi.x;
+            const dy = y - Mochi.y;
+            if (Math.sqrt(dx*dx+dy*dy) < Mochi.radius) {
+                Mochi.jump();
+                Voice.speak("Hehe!");
+                State.stats.fun += 5;
+                Particles.explode(x, y, '❤️');
+            } else {
+                // Move Mochi
+                Mochi.targetX = x;
+                Mochi.targetY = y;
+            }
+        }
     },
 
-    triggerInteraction() {
-        this.lastInteractionTime = Date.now();
-        this.interactionLevel = Math.min(1, this.interactionLevel + 0.2);
-    },
-
-    getIdleTime() {
-        return (Date.now() - this.lastInteractionTime) / 1000;
+    draw(ctx) {
+        this.items.forEach(item => {
+            ctx.font = `${item.size}px Arial`;
+            ctx.fillText(item.emoji, item.x - item.size/2, item.y + item.size/2);
+        });
     }
 };
 
-// >> STATE & MOOD ENGINE
-const State = {
-    hp: 100,
-    energy: 100,
-    hunger: 0,
-    stress: 0,
-    curiosity: 50,
-    mood: 'calm',
-    speaking: false,
+// --- 4. MOCHI CHARACTER ---
+const Mochi = {
+    x: window.innerWidth/2, y: window.innerHeight/2,
+    targetX: window.innerWidth/2, targetY: window.innerHeight/2,
+    vx: 0, vy: 0,
+    radius: 60,
+    squishX: 1, squishY: 1,
+    blink: 0,
     
-    init() {
-        const saved = Memory.load();
-        if (saved) {
-            this.hp = saved.hp;
-            this.energy = saved.energy;
-            this.hunger = saved.hunger;
-            this.stress = saved.stress;
+    update() {
+        // AI Logic
+        // Go to food if hungry
+        const food = World.items.find(i => i.type === 'FOOD');
+        if (food && State.stats.hunger < 90) {
+            this.targetX = food.x;
+            this.targetY = food.y;
+        } else if (State.stats.fun < 30) {
+             // Sad wandering
+             if(Math.random() < 0.01) {
+                 this.targetX = Math.random() * window.innerWidth;
+                 this.targetY = window.innerHeight - 100;
+             }
         }
+
+        // Physics
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        
+        this.vx += dx * 0.005;
+        this.vy += dy * 0.005;
+        this.vx *= 0.9; this.vy *= 0.9; // Friction
+        
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Squish Animation
+        const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+        this.squishX = 1 + (speed * 0.02) + Math.sin(Date.now()/100)*0.05;
+        this.squishY = 1 - (speed * 0.02) - Math.sin(Date.now()/100)*0.05;
+
+        // Blink
+        if(Math.random() < 0.01) this.blink = 10;
+        if(this.blink > 0) this.blink--;
     },
 
-    update(dt) {
-        const idle = Sensors.getIdleTime();
-        const noise = Sensors.noiseLevel;
-        const motion = Sensors.motionLevel;
-        const timeOfDay = Utils.getTimeOfDay();
-
-        // Hunger Logic
-        if (idle > CONFIG.thresholds.idleHunger) {
-            this.hunger += dt * 0.5;
-        } else {
-            this.hunger = Math.max(0, this.hunger - dt * 5); // Recover quickly on interaction
-        }
-
-        // Stress Logic
-        if (noise > CONFIG.thresholds.noiseStress || motion > CONFIG.thresholds.motionStress) {
-            this.stress += dt * 2;
-        } else {
-            this.stress = Math.max(0, this.stress - dt * 0.5);
-        }
-
-        // Energy Logic
-        if (timeOfDay === 'night') {
-            this.energy = Math.max(0, this.energy - dt * 0.2);
-        } else if (this.stress < 10) {
-            this.energy = Math.min(100, this.energy + dt * 0.5);
-        }
-
-        // Integrity (HP)
-        if (this.hunger > 90 || this.stress > 90) {
-            this.hp = Math.max(0, this.hp - dt * 0.1);
-        } else {
-            this.hp = Math.min(100, this.hp + dt * 0.1);
-        }
-
-        this.determineMood(idle, noise, timeOfDay);
-        
-        // Save state occasionally
-        if (Math.random() < 0.01) Memory.save(this);
+    jump() {
+        this.vy = -15;
+        this.squishY = 0.5;
+        this.squishX = 1.5;
     },
 
-    determineMood(idle, noise, timeOfDay) {
-        let prevMood = this.mood;
-
-        if (this.stress > 70) this.mood = 'stressed';
-        else if (noise > 0.8) this.mood = 'alert';
-        else if (idle > CONFIG.thresholds.longIdle && this.hunger > 80) this.mood = 'lonely';
-        else if (Sensors.interactionLevel > 0.5) this.mood = 'happy';
-        else if (this.energy < 20 || (timeOfDay === 'night' && idle > 30)) this.mood = 'sleepy';
-        else if (Sensors.motionLevel > 0.2) this.mood = 'curious';
-        else this.mood = 'calm';
-
-        if (this.mood !== prevMood) {
-            this.onMoodChange(prevMood, this.mood);
-        }
+    squish() {
+        this.squishX = 1.4;
+        this.squishY = 0.6;
     },
 
-    onMoodChange(oldMood, newMood) {
-        Memory.log({ timestamp: Date.now(), msg: `Mood shift: ${oldMood} -> ${newMood}` });
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.squishX * (1 + State.stats.level * 0.05), this.squishY * (1 + State.stats.level * 0.05)); // Grow with level
+
+        // Determine Color based on status
+        let color = CONFIG.colors.body;
+        if (State.stats.hygiene < 30) color = CONFIG.colors.dirty;
+        if (State.stats.hunger < 20) color = '#eee'; // Pale
         
-        // Trigger Speech
-        const phrases = {
-            stressed: ["Sensors overloaded.", "Too much input.", "System stress critical."],
-            alert: ["Did you hear that?", "Noise levels rising.", "Alert."],
-            lonely: ["Are you still there?", "Signal lost.", "It is quiet."],
-            happy: ["Interaction detected.", "Systems optimal.", "Acknowledged."],
-            sleepy: ["Power reserves low.", "Entering standby.", "Goodnight."],
-            curious: ["Detecting movement.", "Analyzing input.", "Interesting."],
-            calm: ["All systems nominal.", "Stabilizing.", "Omega online."]
-        };
-
-        const lines = phrases[newMood];
-        Voice.speak(lines[Math.floor(Math.random() * lines.length)], newMood);
-    }
-};
-
-// >> VISUALS: PARTICLES
-class Particle {
-    constructor(w, h) {
-        this.x = Math.random() * w;
-        this.y = Math.random() * h;
-        this.vx = Utils.randomRange(-1, 1);
-        this.vy = Utils.randomRange(-1, 1);
-        this.size = Utils.randomRange(1, 3);
-        this.history = [];
-    }
-
-    update(mood, w, h, speedMult) {
-        let jitter = mood === 'stressed' ? 2 : 0.1;
+        // Body
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.fill();
         
-        // Mouse attraction if curious
-        if (mood === 'curious' || mood === 'happy') {
-            // Simple attraction logic implies accessing global mouse, skipping for simplicity
-            // Adding swirl instead
-            this.vx += Math.sin(this.y * 0.01) * 0.01;
-            this.vy += Math.cos(this.x * 0.01) * 0.01;
+        // Glow
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath(); ctx.arc(-this.radius/3, -this.radius/3, this.radius/3, 0, Math.PI*2); ctx.fill();
+
+        // Face
+        this.drawFace(ctx);
+
+        // Dirt particles if dirty
+        if (State.stats.hygiene < 50) {
+            ctx.fillStyle = '#556b2f';
+            for(let i=0; i<3; i++) {
+                ctx.beginPath(); ctx.arc(Math.sin(Date.now()/500 + i)*40, Math.cos(Date.now()/300 + i)*40, 5, 0, Math.PI*2); ctx.fill();
+            }
         }
 
-        this.x += this.vx * speedMult + Utils.randomRange(-jitter, jitter);
-        this.y += this.vy * speedMult + Utils.randomRange(-jitter, jitter);
+        ctx.restore();
+    },
 
-        // Bounce
-        if (this.x < 0 || this.x > w) this.vx *= -1;
-        if (this.y < 0 || this.y > h) this.vy *= -1;
+    drawFace(ctx) {
+        ctx.fillStyle = '#333';
+        // Eyes
+        if (this.blink > 0) {
+            ctx.beginPath(); ctx.moveTo(-20, -10); ctx.lineTo(-10, -10); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(20, -10); ctx.stroke();
+        } else {
+            ctx.beginPath(); ctx.arc(-15, -10, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(15, -10, 6, 0, Math.PI*2); ctx.fill();
+        }
 
-        // Trail history
-        this.history.push({x: this.x, y: this.y});
-        if (this.history.length > 10) this.history.shift();
-    }
+        // Cheeks
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.beginPath(); ctx.arc(-25, 5, 8, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(25, 5, 8, 0, Math.PI*2); ctx.fill();
 
-    draw(ctx, color) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
+        // Mouth
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        for (let i = 0; i < this.history.length; i++) {
-            let p = this.history[i];
-            if (i === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
+        if (State.stats.fun < 30 || State.stats.hunger < 20) {
+            ctx.arc(0, 15, 5, Math.PI, 0); // Sad mouth
+        } else {
+            ctx.arc(0, 10, 5, 0, Math.PI); // Smile
         }
         ctx.stroke();
-        
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
-        ctx.fill();
-    }
-}
-
-const ParticleSystem = {
-    canvas: document.getElementById('canvas-bg'),
-    ctx: null,
-    particles: [],
-    width: 0,
-    height: 0,
-    currentColor: CONFIG.colors.calm,
-
-    init() {
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-
-        for(let i=0; i<CONFIG.particleCount; i++) {
-            this.particles.push(new Particle(this.width, this.height));
-        }
-    },
-
-    resize() {
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-    },
-
-    render() {
-        // Clear with fade effect
-        this.ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
-        this.ctx.fillRect(0, 0, this.width, this.height);
-
-        // Interpolate Color
-        let targetColor = CONFIG.colors[State.mood] || CONFIG.colors.calm;
-        this.currentColor = Utils.lerpColor(this.currentColor, targetColor, 0.05);
-
-        // Params based on state
-        let speed = (State.stress / 100) * 5 + 1;
-        if (State.mood === 'sleepy') speed = 0.2;
-
-        this.particles.forEach(p => {
-            p.update(State.mood, this.width, this.height, speed);
-            p.draw(this.ctx, this.currentColor);
-        });
     }
 };
 
-// >> VISUALS: FACE AVATAR
-const FaceRenderer = {
-    canvas: document.getElementById('canvas-face'),
-    ctx: null,
-    width: 0,
-    height: 0,
-    blinkTimer: 0,
-    blinkState: 1, // 1 = open, 0 = closed
-    eyeOffset: { x: 0, y: 0 },
-    currentColor: CONFIG.colors.calm,
-
-    init() {
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-        
-        // Mouse tracking
-        window.addEventListener('mousemove', e => {
-            this.eyeOffset.x = (e.clientX - this.width/2) / (this.width/2) * 20;
-            this.eyeOffset.y = (e.clientY - this.height/2) / (this.height/2) * 20;
-        });
-    },
-
-    resize() {
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-    },
-
-    render() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        
-        // Update Color
-        let targetColor = CONFIG.colors[State.mood] || CONFIG.colors.calm;
-        this.currentColor = Utils.lerpColor(this.currentColor, targetColor, 0.1);
-
-        const cx = this.width / 2;
-        const cy = this.height / 2;
-
-        // -- Logic: Blinking --
-        this.blinkTimer--;
-        if (this.blinkTimer <= 0) {
-            this.blinkTimer = Utils.randomRange(100, 300); // Reset timer
-            this.blinkState = 0; // Start blink
+// --- 5. PARTICLES ---
+const Particles = {
+    list: [],
+    explode(x, y, char) {
+        for(let i=0; i<5; i++) {
+            this.list.push({
+                x, y, char,
+                vx: (Math.random()-0.5)*5,
+                vy: (Math.random()-0.5)*5 - 5,
+                life: 1
+            });
         }
-        if (this.blinkState < 1) this.blinkState += 0.1; // Reopen eyes
-
-        // -- Logic: Sensor Influence --
-        // Add Gyro motion to eyes
-        const mx = this.eyeOffset.x + Sensors.motionLevel * 50;
-        const my = this.eyeOffset.y;
-        // Jitter if stressed
-        const jitter = State.stress > 50 ? Math.random() * 5 : 0;
-
-        this.ctx.strokeStyle = this.currentColor;
-        this.ctx.fillStyle = this.currentColor;
-        this.ctx.lineWidth = 3;
-        this.ctx.shadowBlur = 20;
-        this.ctx.shadowColor = this.currentColor;
-
-        // -- Draw Eyes --
-        const eyeSize = 100;
-        const eyeGap = 120;
-        const eyeHeight = 60 * this.blinkState;
-
-        // Left Eye (Outer)
-        this.drawBracket(cx - eyeGap, cy, eyeSize, eyeHeight, -1, jitter);
-        // Right Eye (Outer)
-        this.drawBracket(cx + eyeGap, cy, eyeSize, eyeHeight, 1, jitter);
-
-        // Pupils (Solid)
-        this.ctx.beginPath();
-        this.ctx.arc(cx - eyeGap + mx, cy + my, 10 * this.blinkState, 0, Math.PI*2);
-        this.ctx.arc(cx + eyeGap + mx, cy + my, 10 * this.blinkState, 0, Math.PI*2);
-        this.ctx.fill();
-
-        // -- Draw Mouth --
-        // Mouth responds to audio (if speaking) or just sits there
-        this.ctx.beginPath();
-        let mouthW = 100;
-        let mouthH = 0;
-        
-        if (State.speaking) {
-            // Animate based on volume or random sine if synth volume not accessible
-            mouthH = Math.sin(Date.now() / 50) * 20 + Sensors.noiseLevel * 50;
-        } else {
-            // Mood based static mouth
-            if (State.mood === 'sad') mouthH = -5;
-            else if (State.mood === 'happy') mouthH = 5;
-        }
-
-        // Draw simple wave or line
-        this.ctx.moveTo(cx - mouthW/2, cy + 150);
-        this.ctx.quadraticCurveTo(cx, cy + 150 + mouthH + jitter, cx + mouthW/2, cy + 150);
-        this.ctx.stroke();
-
-        this.ctx.shadowBlur = 0; // Reset for next frame
     },
-
-    drawBracket(x, y, w, h, dir, jitter) {
-        // Sci-fi bracket style eye
-        this.ctx.beginPath();
-        this.ctx.moveTo(x - w/2 + jitter, y - h/2 + jitter);
-        this.ctx.lineTo(x + w/2 + jitter, y - h/2 + jitter);
-        this.ctx.lineTo(x + w/2 + jitter, y + h/2 + jitter);
-        this.ctx.lineTo(x - w/2 + jitter, y + h/2 + jitter);
-        this.ctx.closePath();
-        this.ctx.stroke();
+    updateAndDraw(ctx) {
+        for(let i=this.list.length-1; i>=0; i--) {
+            const p = this.list[i];
+            p.x += p.vx; p.y += p.vy;
+            p.life -= 0.02;
+            ctx.globalAlpha = p.life;
+            ctx.font = "20px Arial";
+            ctx.fillText(p.char, p.x, p.y);
+            if(p.life <= 0) this.list.splice(i, 1);
+        }
+        ctx.globalAlpha = 1;
     }
 };
 
-// >> UI MANAGER
+// --- 6. GAME LOOP ---
+const Game = {
+    action(type) {
+        if (type === 'FEED') {
+            World.spawnItem('FOOD');
+        } else if (type === 'PLAY') {
+            World.spawnItem('BALL');
+            Voice.speak("Ball!");
+        } else if (type === 'CLEAN') {
+            // Clean all dirt
+            if (State.stats.hygiene < 100) {
+                State.stats.hygiene = 100;
+                Particles.explode(Mochi.x, Mochi.y, '🧼');
+                Voice.speak("So fresh!");
+            } else {
+                Voice.speak("I am clean!");
+            }
+            // Remove all poops
+            World.items = World.items.filter(i => i.type !== 'POOP');
+        }
+    },
+    
+    loop() {
+        World.ctx.clearRect(0, 0, World.canvas.width, World.canvas.height);
+        
+        World.update();
+        World.draw(World.ctx);
+        
+        Mochi.update();
+        Mochi.draw(World.ctx);
+        
+        Particles.updateAndDraw(World.ctx);
+        
+        requestAnimationFrame(Game.loop);
+    }
+};
+
+// --- 7. UI UPDATER ---
 const UI = {
-    hp: document.getElementById('bar-hp'),
-    energy: document.getElementById('bar-energy'),
-    audio: document.getElementById('bar-audio'),
-    hunger: document.getElementById('bar-hunger'),
-    clock: document.getElementById('clock'),
-    mood: document.getElementById('status-mood'),
-    env: document.getElementById('status-env'),
-    idle: document.getElementById('status-idle'),
-    logs: document.getElementById('log-container'),
-    stream: document.getElementById('data-stream'),
-
     update() {
-        // Bars
-        this.hp.style.width = `${State.hp}%`;
-        this.hp.style.color = State.hp < 30 ? CONFIG.colors.alert : CONFIG.colors.calm;
+        document.getElementById('bar-hunger').style.width = State.stats.hunger + "%";
+        document.getElementById('bar-fun').style.width = State.stats.fun + "%";
+        document.getElementById('bar-hygiene').style.width = State.stats.hygiene + "%";
         
-        this.energy.style.width = `${State.energy}%`;
+        document.getElementById('txt-hunger').innerText = Math.floor(State.stats.hunger) + "%";
+        document.getElementById('txt-fun').innerText = Math.floor(State.stats.fun) + "%";
+        document.getElementById('txt-hygiene').innerText = Math.floor(State.stats.hygiene) + "%";
         
-        this.audio.style.width = `${Sensors.noiseLevel * 100}%`;
-        this.audio.style.color = Sensors.noiseLevel > 0.6 ? CONFIG.colors.alert : CONFIG.colors.calm;
-        
-        this.hunger.style.width = `${State.hunger}%`;
-        this.hunger.style.color = State.hunger > 80 ? CONFIG.colors.alert : CONFIG.colors.calm;
+        document.getElementById('disp-lvl').innerText = State.stats.level;
 
-        // Text
-        const now = new Date();
-        this.clock.textContent = now.toLocaleTimeString();
-        this.mood.textContent = State.mood.toUpperCase();
-        this.mood.style.color = CONFIG.colors[State.mood] || CONFIG.colors.calm;
-        
-        this.env.textContent = Sensors.noiseLevel > 0.5 ? 'NOISY' : 'QUIET';
-        this.idle.textContent = Math.floor(Sensors.getIdleTime()) + 's';
-    },
-
-    addLogEntry(msg) {
-        const div = document.createElement('div');
-        div.className = 'log-entry';
-        div.textContent = msg;
-        this.logs.appendChild(div);
-        // Auto scroll
-        this.logs.scrollTop = this.logs.scrollHeight;
-    },
-
-    updateDataStream(text) {
-        this.stream.textContent = `"${text}"`;
+        // Critical Warnings
+        const btns = document.querySelectorAll('.btn-action');
+        btns[0].classList.toggle('critical', State.stats.hunger < 30);
+        btns[1].classList.toggle('critical', State.stats.fun < 30);
+        btns[2].classList.toggle('critical', State.stats.hygiene < 30);
     }
 };
 
-// --- 4. KERNEL (MAIN LOOP) ---
-let lastTime = 0;
+// --- 8. START ---
+document.getElementById('btn-init').addEventListener('click', async () => {
+    document.getElementById('start-screen').style.display = 'none';
+    
+    // Camera Init
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        document.getElementById('camera-feed').srcObject = stream;
+    } catch(e) { console.log("No camera"); }
 
-function loop(timestamp) {
-    const dt = (timestamp - lastTime) / 1000;
-    lastTime = timestamp;
-
-    Sensors.update();
-    State.update(dt);
-    ParticleSystem.render();
-    FaceRenderer.render();
-    UI.update();
-
-    requestAnimationFrame(loop);
-}
-
-function init() {
+    World.init();
     State.init();
-    Sensors.init();
-    ParticleSystem.init();
-    FaceRenderer.init();
+    Game.loop();
     
-    Memory.log({ timestamp: Date.now(), msg: 'SYSTEM BOOT SEQUENCE INITIATED' });
-    Voice.speak("Omega system online. Sensors active.", "calm", true);
-    
-    document.getElementById('start-screen').style.opacity = 0;
-    setTimeout(() => document.getElementById('start-screen').style.display = 'none', 500);
-
-    requestAnimationFrame(loop);
-}
-
-// --- EVENT LISTENERS & STARTUP ---
-document.getElementById('start-btn').addEventListener('click', init);
-
-document.getElementById('btn-voice').addEventListener('click', (e) => {
-    CONFIG.speechEnabled = !CONFIG.speechEnabled;
-    e.target.textContent = `VOICE: ${CONFIG.speechEnabled ? 'ON' : 'OFF'}`;
-});
-
-document.getElementById('btn-reset').addEventListener('click', () => {
-    if(confirm('Purge Memory Core?')) Memory.clear();
+    Voice.speak("Hi! I am Mochi!");
 });
 
 </script>
