@@ -3,411 +3,424 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL RESEARCH UNIT | GOD MODE</title>
+    <title>AEGIS PRO | TACTICAL AI</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --hud: #00ff41; /* Standard Green */
-            --warn: #ffcc00;
+            --bg-dark: #0b0c10;
+            --bg-panel: rgba(11, 12, 16, 0.85);
+            --primary: #ff9d00; /* Amber for UI */
+            --target: #00f3ff;  /* Cyan for AI Targets */
             --alert: #ff3333;
-            --bg: rgba(0, 20, 5, 0.6);
-            --glass: rgba(255, 255, 255, 0.1);
-            --font: 'Share Tech Mono', monospace;
+            --grid: rgba(255, 255, 255, 0.05);
+            --font-ui: 'Rajdhani', sans-serif;
+            --font-code: 'Roboto Mono', monospace;
         }
 
         * { box-sizing: border-box; user-select: none; }
-        body { margin: 0; background: #000; overflow: hidden; font-family: var(--font); color: var(--hud); width: 100vw; height: 100vh; }
+        body { margin: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; font-family: var(--font-ui); color: #e0e0e0; }
 
         /* LAYERS */
-        #video-feed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-        #hud-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 10px; }
+        #video-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; filter: contrast(1.1) saturate(0.8); }
+        #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-grid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: grid; grid-template-columns: 220px 1fr 220px; grid-template-rows: 60px 1fr 140px; gap: 8px; padding: 8px; }
 
-        /* UI COMPONENTS */
-        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); padding-bottom: 20px; }
-        
-        .panel {
-            background: var(--bg); border: 1px solid var(--hud);
-            padding: 5px 10px; backdrop-filter: blur(4px);
-            pointer-events: auto; margin-bottom: 5px;
-        }
+        /* PANELS */
+        .panel { background: var(--bg-panel); border: 1px solid #333; backdrop-filter: blur(4px); display: flex; flex-direction: column; overflow: hidden; pointer-events: auto; }
+        .panel-head { background: rgba(255, 157, 0, 0.1); padding: 4px 8px; font-size: 12px; font-weight: 700; color: var(--primary); letter-spacing: 1px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
+        .panel-body { flex: 1; position: relative; padding: 8px; font-family: var(--font-code); font-size: 11px; }
 
-        .data-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; gap: 15px; }
-        .val { font-weight: bold; color: #fff; }
-        .label { color: rgba(0, 255, 65, 0.7); }
+        /* TOP BAR */
+        .top-bar { grid-column: 1 / 4; grid-row: 1; display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); border-bottom: 2px solid var(--primary); padding: 0 20px; }
+        .logo { font-size: 24px; font-weight: 800; letter-spacing: 4px; color: #fff; }
+        .logo span { color: var(--primary); }
+        .sys-stat { display: flex; gap: 15px; font-family: var(--font-code); font-size: 12px; color: #888; }
+        .sys-stat span { color: var(--target); font-weight: bold; }
 
-        /* COMPASS STRIP */
-        .compass-container {
-            position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
-            width: 300px; height: 30px; overflow: hidden;
-            border-left: 1px solid var(--hud); border-right: 1px solid var(--hud);
-            background: rgba(0,0,0,0.3);
-        }
-        #compass-strip {
-            position: absolute; left: 0; top: 5px;
-            white-space: nowrap; font-size: 14px; transition: left 0.1s linear;
-        }
-        .center-mark {
-            position: absolute; left: 50%; top: 0; transform: translateX(-50%);
-            width: 0; height: 10px; border-left: 2px solid var(--alert); z-index: 10;
-        }
+        /* LEFT: MAP & DATA */
+        .col-left { grid-column: 1; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 8px; }
+        #map-container { width: 100%; height: 180px; background: #111; opacity: 0.8; }
+        .data-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222; margin-bottom: 2px; }
+        .val { color: #fff; }
 
-        /* HISTOGRAM */
-        .histogram-box {
-            position: absolute; bottom: 100px; right: 10px;
-            width: 120px; height: 60px;
-            background: rgba(0,0,0,0.5); border: 1px solid var(--hud);
-        }
-        #histo-canvas { width: 100%; height: 100%; opacity: 0.8; }
+        /* RIGHT: HISTOGRAM & LOGS */
+        .col-right { grid-column: 3; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 8px; }
+        canvas.histogram { width: 100%; height: 40px; background: #000; border: 1px solid #222; margin-bottom: 2px; }
+        #ai-log { height: 100%; overflow: hidden; color: var(--target); font-size: 10px; line-height: 1.4; }
 
-        /* LOADING */
-        #loader {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 99; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-        }
-        .scan-line {
-            width: 100%; height: 2px; background: var(--hud);
-            position: absolute; top: 0; animation: scan 2s linear infinite;
-        }
-        @keyframes scan { 0% {top:0} 100% {top:100%} }
+        /* CENTER: RETICLE */
+        .col-center { grid-column: 2; grid-row: 2 / 4; position: relative; display: flex; justify-content: center; align-items: center; }
+        .crosshair { width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.3); position: absolute; }
+        .crosshair::after { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:4px; height:4px; background:var(--target); }
 
-        button {
-            background: transparent; border: 1px solid var(--hud); color: var(--hud);
-            padding: 10px 20px; font-family: var(--font); font-size: 16px;
-            cursor: pointer; text-transform: uppercase; margin-top: 20px;
-        }
-        button:hover { background: var(--hud); color: #000; }
+        /* LOADING SCREEN */
+        #boot-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--font-code); }
+        .loader-bar { width: 200px; height: 4px; background: #333; margin: 20px 0; position: relative; overflow: hidden; }
+        .loader-fill { position: absolute; top:0; left:0; height:100%; width:0%; background: var(--primary); transition: width 0.2s; }
+        .boot-btn { border: 1px solid var(--primary); background: transparent; color: var(--primary); padding: 15px 40px; cursor: pointer; letter-spacing: 2px; font-weight: bold; display: none; }
+        .boot-btn:hover { background: var(--primary); color: #000; }
 
+        /* MOBILE RESPONSIVE */
+        @media (max-width: 800px) {
+            #ui-grid { grid-template-columns: 1fr; grid-template-rows: 50px 1fr 120px; gap: 0; padding: 0; }
+            .col-left, .col-right { display: none; } /* Hide heavy UI on small screens */
+            .col-center { grid-column: 1; grid-row: 2; }
+            /* Add a minimal bottom bar for mobile */
+            .col-bottom-mobile { display: flex; grid-row: 3; background: rgba(0,0,0,0.8); padding: 10px; justify-content: space-between; align-items: center; border-top: 1px solid var(--primary); pointer-events: auto; }
+        }
+        @media (min-width: 801px) { .col-bottom-mobile { display: none; } }
     </style>
 </head>
 <body>
 
-    <div id="loader">
-        <div class="scan-line"></div>
-        <h1 style="letter-spacing: 5px;">TACTICAL LAB</h1>
-        <p>LOADING NEURAL NET & PHYSICS ENGINE...</p>
-        <button id="btn-start" style="display:none;">INITIALIZE</button>
+    <div id="boot-screen">
+        <h1 style="color:#fff; letter-spacing:5px;">AEGIS <span style="color:var(--primary)">PRO</span></h1>
+        <div style="font-size:12px; color:#666;">TACTICAL AI INTEGRATION SYSTEM</div>
+        <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+        <div id="boot-status" style="color:var(--primary); font-size:10px;">LOADING NEURAL NETWORK...</div>
+        <button class="boot-btn" id="btn-start" onclick="startSystem()">INITIALIZE</button>
     </div>
 
-    <video id="video-feed" playsinline muted autoplay></video>
-    <canvas id="hud-layer"></canvas>
+    <video id="video-layer" playsinline muted autoplay></video>
+    <canvas id="hud-canvas"></canvas>
 
-    <div id="ui-layer">
+    <div id="ui-grid">
         <div class="top-bar">
-            <div class="panel">
-                <div class="data-row"><span class="label">SYS TIME</span><span class="val" id="clock">--:--:--</span></div>
-                <div class="data-row"><span class="label">GPS LOC</span><span class="val" id="gps">ACQUIRING...</span></div>
-            </div>
-            <div class="panel" style="text-align:right;">
-                <div class="data-row"><span class="label">HEADING</span><span class="val" id="val-head">0° N</span></div>
-                <div class="data-row"><span class="label">PITCH</span><span class="val" id="val-pitch">0°</span></div>
+            <div class="logo">AEGIS <span>PRO</span></div>
+            <div class="sys-stat">
+                <div>AI: <span id="stat-ai">OFFLINE</span></div>
+                <div>FPS: <span id="stat-fps">0</span></div>
+                <div>GPS: <span id="stat-gps">SEARCHING</span></div>
             </div>
         </div>
 
-        <div class="compass-container">
-            <div class="center-mark"></div>
-            <div id="compass-strip">
-                N . . . 15 . . . 30 . . . 45 . . . 60 . . . 75 . . . E . . . 105 . . . 120 . . . 135 . . . 150 . . . 165 . . . S . . . 195 . . . 210 . . . 225 . . . 240 . . . 255 . . . W . . . 285 . . . 300 . . . 315 . . . 330 . . . 345 . . . N . . . 15 . . . 30
+        <div class="col-left">
+            <div class="panel" style="flex: 0 0 200px;">
+                <div class="panel-head">SAT-LINK <span>LIVE</span></div>
+                <div id="map-container"></div>
             </div>
-        </div>
-
-        <div class="histogram-box">
-            <canvas id="histo-canvas"></canvas>
-            <div style="position:absolute; top:2px; left:2px; font-size:8px; background:#000;">EXPOSURE</div>
-        </div>
-
-        <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end;">
-            <div class="panel">
-                <div style="font-size:10px; color:#aaa; margin-bottom:2px;">TARGET TELEMETRY</div>
-                <div class="data-row"><span class="label">TARGET</span><span class="val" id="tgt-name">NONE</span></div>
-                <div class="data-row"><span class="label">CONFIDENCE</span><span class="val" id="tgt-conf">0%</span></div>
-                <div class="data-row" style="border-top:1px solid #444; padding-top:2px; margin-top:2px;">
-                    <span class="label" style="color:var(--alert);">EST. DIST</span>
-                    <span class="val" style="color:var(--alert); font-size:14px;" id="tgt-dist">-- M</span>
+            <div class="panel" style="flex: 1;">
+                <div class="panel-head">TELEMETRY</div>
+                <div class="panel-body">
+                    <div class="data-row"><span>LAT</span><span class="val" id="val-lat">--.----</span></div>
+                    <div class="data-row"><span>LON</span><span class="val" id="val-lon">--.----</span></div>
+                    <div class="data-row"><span>ALT</span><span class="val" id="val-alt">-- M</span></div>
+                    <div class="data-row"><span>HEAD</span><span class="val" id="val-head">0°</span></div>
+                    <div class="data-row"><span>TILT</span><span class="val" id="val-tilt">0°</span></div>
+                    <div style="margin-top:10px; color:var(--primary); border-bottom:1px solid #333;">TARGET DATA</div>
+                    <div class="data-row"><span>CLASS</span><span class="val" id="tgt-class" style="color:var(--target)">NONE</span></div>
+                    <div class="data-row"><span>DIST</span><span class="val" id="tgt-dist" style="color:var(--target)">--</span></div>
                 </div>
             </div>
-            
-            <div class="panel" style="text-align:right;">
-                <div class="data-row"><span class="label">G-FORCE</span><span class="val" id="val-g">1.00 G</span></div>
-                <div class="data-row"><span class="label">LIGHT</span><span class="val" id="val-lux">-- LX</span></div>
+        </div>
+
+        <div class="col-center">
+            <div class="crosshair"></div>
+        </div>
+
+        <div class="col-right">
+            <div class="panel" style="flex: 0 0 160px;">
+                <div class="panel-head">SPECTRAL ANALYSIS</div>
+                <div class="panel-body" style="padding:4px; background:#000;">
+                    <canvas id="hist-r" class="histogram"></canvas>
+                    <canvas id="hist-g" class="histogram"></canvas>
+                    <canvas id="hist-b" class="histogram"></canvas>
+                </div>
             </div>
+            <div class="panel" style="flex: 1;">
+                <div class="panel-head">AI EVENT LOG</div>
+                <div class="panel-body">
+                    <div id="ai-log"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-bottom-mobile">
+            <div style="font-size:12px; color:#aaa;">TARGET: <span id="mob-tgt" style="color:var(--target); font-weight:bold; font-size:16px;">NONE</span></div>
+            <div style="font-size:12px; color:#aaa;">RANGE: <span id="mob-dist" style="color:var(--target); font-weight:bold; font-size:16px;">--</span></div>
         </div>
     </div>
 
-    <script>
-        /* * TACTICAL RESEARCH UNIT (TRU)
-         * Integrates: AI Ranging, Magnetometer, Histogram, Physics
-         */
+    <canvas id="proc-canvas" style="display:none;"></canvas>
 
-        // --- CONFIG ---
-        const CONFIG = {
-            lerp: 0.2,
-            focalLengthApprox: 600, // Arbitrary focal length for phone camera estimation
-            avgHumanHeight: 1.7, // meters
-            histSkip: 5, // Calculate histogram every X frames (Performance)
+    <script>
+        /* * AEGIS PRO CORE LOGIC */
+        
+        // CONFIG
+        const CONF = {
+            lerp: 0.2, // Smoothing factor
+            confThreshold: 0.6,
+            focalLength: 600, // Approx pixel focal length
+            realHeight: { 'person': 1700, 'car': 1500, 'cup': 100, 'laptop': 250, 'default': 500 } // mm
         };
 
+        // STATE
         const state = {
             w: 0, h: 0,
             model: null,
-            tracking: {},
-            compass: 0,
-            pitch: 0,
-            frameCount: 0
+            tracks: {},
+            fps: 0,
+            lastFrame: 0
         };
 
-        // --- DOM ---
-        const vid = document.getElementById('video-feed');
-        const cvs = document.getElementById('hud-layer');
-        const ctx = cvs.getContext('2d');
-        const histCvs = document.getElementById('histo-canvas');
-        const histCtx = histCvs.getContext('2d');
+        // DOM
+        const els = {
+            vid: document.getElementById('video-layer'),
+            cvs: document.getElementById('hud-canvas'),
+            ctx: document.getElementById('hud-canvas').getContext('2d'),
+            procCvs: document.getElementById('proc-canvas'),
+            procCtx: document.getElementById('proc-canvas').getContext('2d', {willReadFrequently:true}),
+            loader: document.getElementById('loader-fill'),
+            status: document.getElementById('boot-status'),
+            btn: document.getElementById('btn-start'),
+            log: document.getElementById('ai-log')
+        };
 
-        // --- INIT ---
-        (async function init() {
+        // 1. BOOT SEQUENCE
+        (async function boot() {
             try {
+                // Load AI
+                animateLoader(0, 50);
                 state.model = await cocoSsd.load();
-                document.querySelector('#loader p').innerText = "SYSTEM READY";
-                const btn = document.getElementById('btn-start');
-                btn.style.display = 'block';
-                btn.onclick = startSystem;
-            } catch(e) { alert("AI Error: " + e); }
+                animateLoader(50, 90);
+                
+                els.status.innerText = "SYSTEM READY - STANDBY";
+                animateLoader(90, 100);
+                els.btn.style.display = 'block';
+                
+            } catch (e) {
+                alert("AI LOAD ERROR: " + e);
+            }
         })();
 
+        function animateLoader(start, end) {
+            els.loader.style.width = end + "%";
+        }
+
         async function startSystem() {
-            document.getElementById('loader').style.display = 'none';
+            document.getElementById('boot-screen').style.display = 'none';
             
-            // Camera
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-            vid.srcObject = stream;
-            vid.onloadedmetadata = () => {
+            // Cam
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: {ideal: 1280} },
+                audio: false
+            });
+            els.vid.srcObject = stream;
+            
+            els.vid.onloadedmetadata = () => {
                 resize();
-                vid.play();
-                loop();
-                predict();
+                els.vid.play();
+                
+                // Start Subsystems
+                document.getElementById('stat-ai').innerText = "ONLINE";
+                document.getElementById('stat-ai').style.color = "var(--target)";
+                
+                initMap();
+                initSensors();
+                
+                predictLoop(); // AI
+                renderLoop(); // Graphics
             };
-
-            // Sensors
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', (e) => {
-                    // Compass (Alpha) & Pitch (Beta)
-                    if(e.webkitCompassHeading) {
-                        state.compass = e.webkitCompassHeading; // iOS
-                    } else if (e.alpha) {
-                        state.compass = 360 - e.alpha; // Android
-                    }
-                    state.pitch = e.beta;
-                    
-                    updateCompassUI();
-                });
-            }
-            
-            if (window.DeviceMotionEvent) {
-                window.addEventListener('devicemotion', (e) => {
-                    const acc = e.accelerationIncludingGravity;
-                    if(acc) {
-                        const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
-                        document.getElementById('val-g').innerText = g.toFixed(2) + " G";
-                    }
-                });
-            }
-
-            // GPS
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(pos => {
-                    document.getElementById('gps').innerText = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-                });
-            }
         }
 
         function resize() {
             state.w = window.innerWidth;
             state.h = window.innerHeight;
-            cvs.width = state.w; cvs.height = state.h;
-            // Hidden canvas for pixel reading
-            state.tempCvs = document.createElement('canvas');
-            state.tempCvs.width = 100; state.tempCvs.height = 100; // Small for performance
-            state.tempCtx = state.tempCvs.getContext('2d');
+            els.cvs.width = state.w;
+            els.cvs.height = state.h;
+            els.procCvs.width = 100; els.procCvs.height = 100; // Low res for histogram
         }
         window.onresize = resize;
 
-        // --- AI LOOP ---
-        async function predict() {
-            const preds = await state.model.detect(vid);
-            
-            // Tracking & Smoothing Logic
-            const activeLabels = new Set();
-            
-            preds.forEach(p => {
-                if (p.score < 0.6) return;
-                const id = p.class;
-                activeLabels.add(id);
+        // 2. AI LOOP
+        async function predictLoop() {
+            const preds = await state.model.detect(els.vid);
+            const active = new Set();
 
-                if (!state.tracking[id]) {
-                    state.tracking[id] = { ...p, bbox: [...p.bbox] };
+            preds.forEach(p => {
+                if(p.score < CONF.confThreshold) return;
+                const id = p.class; // Simple ID by class
+                active.add(id);
+
+                if(!state.tracks[id]) {
+                    state.tracks[id] = { ...p, smoothBox: [...p.bbox], detected: Date.now() };
+                    logEvent(`DETECTED: ${id.toUpperCase()}`);
                 } else {
-                    // Lerp smooth
-                    const t = state.tracking[id];
-                    t.bbox[0] += (p.bbox[0] - t.bbox[0]) * CONFIG.lerp;
-                    t.bbox[1] += (p.bbox[1] - t.bbox[1]) * CONFIG.lerp;
-                    t.bbox[2] += (p.bbox[2] - t.bbox[2]) * CONFIG.lerp;
-                    t.bbox[3] += (p.bbox[3] - t.bbox[3]) * CONFIG.lerp;
+                    // Smooth Lerp
+                    const t = state.tracks[id];
                     t.score = p.score;
+                    t.smoothBox[0] += (p.bbox[0] - t.smoothBox[0]) * CONF.lerp;
+                    t.smoothBox[1] += (p.bbox[1] - t.smoothBox[1]) * CONF.lerp;
+                    t.smoothBox[2] += (p.bbox[2] - t.smoothBox[2]) * CONF.lerp;
+                    t.smoothBox[3] += (p.bbox[3] - t.smoothBox[3]) * CONF.lerp;
                 }
             });
 
-            // Cleanup lost objects
-            for (let key in state.tracking) {
-                if (!activeLabels.has(key)) delete state.tracking[key];
+            // Remove stale
+            for(let id in state.tracks) {
+                if(!active.has(id)) delete state.tracks[id];
             }
 
-            requestAnimationFrame(predict);
+            requestAnimationFrame(predictLoop);
         }
 
-        // --- RENDER LOOP ---
-        function loop() {
+        // 3. RENDER LOOP
+        function renderLoop(now) {
+            const ctx = els.ctx;
             ctx.clearRect(0, 0, state.w, state.h);
-            state.frameCount++;
 
-            // 1. Draw Tracking & Rangefinding
-            drawHUD();
+            // FPS Calc
+            const delta = now - state.lastFrame;
+            state.lastFrame = now;
+            if(Math.random() < 0.1) document.getElementById('stat-fps').innerText = Math.round(1000/delta);
 
-            // 2. Calculate Histogram (Every X frames)
-            if (state.frameCount % CONFIG.histSkip === 0) {
-                calcHistogram();
+            // Draw Tracks
+            let closestObj = null;
+            let minCenterDist = Infinity;
+
+            for(let id in state.tracks) {
+                const t = state.tracks[id];
+                const rect = scaleRect(t.smoothBox);
+                
+                drawTacticalBox(ctx, rect, id, t.score);
+                
+                // Center logic for telemetry
+                const cx = state.w/2, cy = state.h/2;
+                const ocx = rect.x + rect.w/2, ocy = rect.y + rect.h/2;
+                const dist = Math.hypot(cx-ocx, cy-ocy);
+                
+                if(dist < minCenterDist) {
+                    minCenterDist = dist;
+                    closestObj = { id, ...rect };
+                }
             }
 
-            // 3. Clock
-            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+            // Update Telemetry
+            if(closestObj) {
+                // Rangefinder
+                const realH = CONF.realHeight[closestObj.id] || CONF.realHeight['default'];
+                // Distance (m) = (Real(mm) * Focal) / (Img(px) * SensorScale) -> Simplified
+                // Est: 100px height = 5m for person
+                const estDistM = (realH * 2) / closestObj.h; 
+                
+                const distStr = estDistM.toFixed(1) + " M";
+                const nameStr = closestObj.id.toUpperCase();
 
-            requestAnimationFrame(loop);
+                document.getElementById('tgt-class').innerText = nameStr;
+                document.getElementById('tgt-dist').innerText = distStr;
+                document.getElementById('mob-tgt').innerText = nameStr;
+                document.getElementById('mob-dist').innerText = distStr;
+                
+                // Locking Line
+                ctx.strokeStyle = "rgba(0, 243, 255, 0.3)";
+                ctx.beginPath();
+                ctx.moveTo(state.w/2, state.h/2);
+                ctx.lineTo(closestObj.x + closestObj.w/2, closestObj.y + closestObj.h/2);
+                ctx.stroke();
+            }
+
+            // Histogram Analysis (Every 5 frames)
+            if(Math.random() < 0.2) updateHistogram();
+
+            requestAnimationFrame(renderLoop);
         }
 
-        function drawHUD() {
-            // Draw Crosshair
-            const cx = state.w / 2;
-            const cy = state.h / 2;
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-            ctx.lineWidth = 1;
+        // DRAW UTILS
+        function drawTacticalBox(ctx, r, label, score) {
+            const color = "#00f3ff";
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            const corner = 10;
+
+            // Corners (Brackets)
             ctx.beginPath();
-            ctx.moveTo(cx-20, cy); ctx.lineTo(cx+20, cy);
-            ctx.moveTo(cx, cy-20); ctx.lineTo(cx, cy+20);
+            // TL
+            ctx.moveTo(r.x, r.y + corner); ctx.lineTo(r.x, r.y); ctx.lineTo(r.x + corner, r.y);
+            // TR
+            ctx.moveTo(r.x+r.w, r.y + corner); ctx.lineTo(r.x+r.w, r.y); ctx.lineTo(r.x+r.w - corner, r.y);
+            // BL
+            ctx.moveTo(r.x, r.y+r.h - corner); ctx.lineTo(r.x, r.y+r.h); ctx.lineTo(r.x + corner, r.y+r.h);
+            // BR
+            ctx.moveTo(r.x+r.w, r.y+r.h - corner); ctx.lineTo(r.x+r.w, r.y+r.h); ctx.lineTo(r.x+r.w - corner, r.y+r.h);
             ctx.stroke();
 
-            // Draw Objects
-            let nearestDist = 9999;
-            let primaryTarget = null;
+            // Label Tag
+            ctx.fillStyle = "rgba(0, 243, 255, 0.2)";
+            ctx.fillRect(r.x, r.y - 14, ctx.measureText(label).width + 30, 14);
+            ctx.fillStyle = color;
+            ctx.font = "bold 10px Roboto Mono";
+            ctx.fillText(`${label.toUpperCase()} ${(score*100).toFixed(0)}%`, r.x + 2, r.y - 4);
+        }
 
-            for (let key in state.tracking) {
-                const obj = state.tracking[key];
-                const rect = scaleRect(obj.bbox);
-                
-                // Draw Box
-                ctx.strokeStyle = "#00ff41";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
-                
-                // Corners
-                ctx.strokeStyle = "#fff";
-                ctx.strokeRect(rect.x-2, rect.y-2, 10, 1); ctx.strokeRect(rect.x-2, rect.y-2, 1, 10);
-
-                // RANGEFINDING CALCULATION
-                // Distance = (RealHeight * Focal) / ImageHeight
-                // We assume mostly humans (1.7m) or standard objects.
-                // This is an estimation!
-                let dist = 0;
-                if (key === 'person') {
-                    dist = (CONFIG.avgHumanHeight * CONFIG.focalLengthApprox) / (rect.h / state.h * 100); // Simplified scaling
-                } else {
-                    // Fallback generic size 1m
-                    dist = (1.0 * CONFIG.focalLengthApprox) / (rect.h / state.h * 100);
-                }
-
-                // Text Label
-                ctx.fillStyle = "#00ff41";
-                ctx.font = "12px Share Tech Mono";
-                ctx.fillText(`${key.toUpperCase()} ${(obj.score*100).toFixed(0)}%`, rect.x, rect.y - 15);
-                ctx.fillStyle = "#ffcc00";
-                ctx.fillText(`RNG: ${dist.toFixed(1)}m`, rect.x, rect.y - 5);
-
-                // Update Telemetry Panel with Center-most object
-                const distToCenter = Math.hypot(cx - (rect.x+rect.w/2), cy - (rect.y+rect.h/2));
-                if (distToCenter < nearestDist) {
-                    nearestDist = distToCenter;
-                    primaryTarget = { key, score: obj.score, dist };
-                }
+        function updateHistogram() {
+            els.procCtx.drawImage(els.vid, 0, 0, 100, 100);
+            const data = els.procCtx.getImageData(0,0,100,100).data;
+            const bins = {r:new Array(256).fill(0), g:new Array(256).fill(0), b:new Array(256).fill(0)};
+            
+            for(let i=0; i<data.length; i+=16) {
+                bins.r[data[i]]++; bins.g[data[i+1]]++; bins.b[data[i+2]]++;
             }
+            
+            drawHistGraph(document.getElementById('hist-r').getContext('2d'), bins.r, '#ff3333');
+            drawHistGraph(document.getElementById('hist-g').getContext('2d'), bins.g, '#33ff33');
+            drawHistGraph(document.getElementById('hist-b').getContext('2d'), bins.b, '#3333ff');
+        }
 
-            if (primaryTarget) {
-                document.getElementById('tgt-name').innerText = primaryTarget.key.toUpperCase();
-                document.getElementById('tgt-conf').innerText = (primaryTarget.score*100).toFixed(0) + "%";
-                document.getElementById('tgt-dist').innerText = primaryTarget.dist.toFixed(1) + " M";
-            } else {
-                document.getElementById('tgt-name').innerText = "SCANNING";
-                document.getElementById('tgt-dist').innerText = "-- M";
+        function drawHistGraph(ctx, bins, c) {
+            ctx.clearRect(0,0,ctx.canvas.width, ctx.canvas.height);
+            ctx.fillStyle = c;
+            const max = Math.max(...bins)||1;
+            const w = ctx.canvas.width/256;
+            for(let i=0; i<256; i++) {
+                const h = (bins[i]/max)*ctx.canvas.height;
+                ctx.fillRect(i*w, ctx.canvas.height-h, w, h);
             }
         }
 
-        function calcHistogram() {
-            // Draw video to temp canvas
-            state.tempCtx.drawImage(vid, 0, 0, 100, 100);
-            const frame = state.tempCtx.getImageData(0, 0, 100, 100);
-            const data = frame.data;
+        function initMap() {
+            const map = L.map('map-container', {zoomControl:false, attributionControl:false}).setView([0,0], 2);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {maxZoom:18}).addTo(map);
             
-            // Reset bins
-            const bins = new Array(256).fill(0);
-            let totalBrightness = 0;
-
-            for (let i = 0; i < data.length; i += 4) {
-                // Luminance
-                const lum = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-                bins[Math.floor(lum)]++;
-                totalBrightness += lum;
+            if(navigator.geolocation) {
+                navigator.geolocation.watchPosition(p => {
+                    const {latitude: lat, longitude: lon, altitude: alt, heading: head} = p.coords;
+                    document.getElementById('val-lat').innerText = lat.toFixed(4);
+                    document.getElementById('val-lon').innerText = lon.toFixed(4);
+                    document.getElementById('val-alt').innerText = (alt||0).toFixed(0) + " M";
+                    document.getElementById('stat-gps').innerText = "LOCKED";
+                    document.getElementById('stat-gps').style.color = "var(--primary)";
+                    map.setView([lat, lon], 14);
+                });
             }
-
-            // Draw Histogram
-            histCtx.clearRect(0, 0, histCvs.width, histCvs.height);
-            histCtx.fillStyle = "rgba(0, 255, 65, 0.6)";
             
-            const maxVal = Math.max(...bins);
-            const barW = histCvs.width / 256;
-            
-            for (let i = 0; i < 256; i++) {
-                const h = (bins[i] / maxVal) * histCvs.height;
-                histCtx.fillRect(i * barW, histCvs.height - h, barW, h);
+            if(window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', e => {
+                    document.getElementById('val-head').innerText = (e.alpha||0).toFixed(0) + "°";
+                    document.getElementById('val-tilt').innerText = (e.beta||0).toFixed(0) + "°";
+                });
             }
-
-            // Lux Est
-            const avgLux = totalBrightness / (100*100);
-            document.getElementById('val-lux').innerText = avgLux.toFixed(0) + " LX";
         }
 
-        function updateCompassUI() {
-            const strip = document.getElementById('compass-strip');
-            // Pixel width of strip is approx 600px for 360 degrees? 
-            // Simplification: Shift pixels based on degree
-            // Need infinite loop visual logic, but simple offset works for now
-            const offset = -(state.compass * 2); // 2px per degree
-            strip.style.left = `calc(50% + ${offset}px)`;
-            
-            document.getElementById('val-head').innerText = state.compass.toFixed(0) + "°";
-            document.getElementById('val-pitch').innerText = state.pitch ? state.pitch.toFixed(0) + "°" : "0°";
+        function scaleRect(b) {
+            const vw = els.vid.videoWidth; const vh = els.vid.videoHeight;
+            const s = Math.max(state.w/vw, state.h/vh);
+            const dx = (state.w - vw*s)/2; const dy = (state.h - vh*s)/2;
+            return { x: b[0]*s + dx, y: b[1]*s + dy, w: b[2]*s, h: b[3]*s };
         }
 
-        function scaleRect(bbox) {
-            // Scale video coords to canvas
-            const vidW = vid.videoWidth;
-            const vidH = vid.videoHeight;
-            const scale = Math.max(state.w / vidW, state.h / vidH);
-            const x = bbox[0] * scale + (state.w - vidW * scale) / 2;
-            const y = bbox[1] * scale + (state.h - vidH * scale) / 2;
-            return { x, y, w: bbox[2] * scale, h: bbox[3] * scale };
+        function logEvent(msg) {
+            const d = document.createElement('div');
+            d.innerText = `> ${msg}`;
+            els.log.prepend(d);
+            if(els.log.children.length > 6) els.log.lastChild.remove();
         }
+
     </script>
 </body>
 </html>
