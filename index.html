@@ -3,463 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>A.R.C. | NASA-GRADE AI HUD</title>
+    <title>TACTICAL RESEARCH UNIT | GOD MODE</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <style>
-        /* === NEXT-GEN UI DESIGN SYSTEM === */
         :root {
-            --primary: #ffffff;
-            --accent: #00f0ff; /* Cyber Cyan */
-            --alert: #ff2a6d;
-            --bg-glass: rgba(10, 10, 12, 0.7);
-            --border-glass: 1px solid rgba(255, 255, 255, 0.15);
-            --font-main: 'JetBrains Mono', monospace;
+            --hud: #00ff41; /* Standard Green */
+            --warn: #ffcc00;
+            --alert: #ff3333;
+            --bg: rgba(0, 20, 5, 0.6);
+            --glass: rgba(255, 255, 255, 0.1);
+            --font: 'Share Tech Mono', monospace;
         }
 
-        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; user-select: none; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: var(--font); color: var(--hud); width: 100vw; height: 100vh; }
 
-        body {
-            margin: 0; background: #000; overflow: hidden;
-            font-family: var(--font-main); color: var(--primary);
-            height: 100vh; width: 100vw;
-        }
+        /* LAYERS */
+        #video-feed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+        #hud-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 10px; }
 
-        /* LAYER 1: VIDEO FEED */
-        #video-feed {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0;
-            filter: contrast(1.1) saturate(0.9); /* Cinematic Look */
-        }
-
-        /* LAYER 2: CANVAS (AI & PHYSICS GRAPHICS) */
-        #ar-canvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
-        }
-
-        /* LAYER 3: UI OVERLAY */
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2; pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 16px;
-        }
-
-        /* COMPONENTS */
-        .glass-panel {
-            background: var(--bg-glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: var(--border-glass);
-            border-radius: 8px;
-            padding: 12px;
-            pointer-events: auto;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
-
-        .header {
-            display: flex; justify-content: space-between; align-items: flex-start;
-        }
-
-        .status-badge {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-            background: rgba(0, 240, 255, 0.1); border: 1px solid var(--accent);
-            color: var(--accent); padding: 4px 8px; border-radius: 4px;
-            display: inline-flex; align-items: center; gap: 6px;
-        }
-        .status-badge.active::before {
-            content: ''; width: 6px; height: 6px; background: var(--accent);
-            border-radius: 50%; box-shadow: 0 0 8px var(--accent);
-        }
-
-        /* Telemetry Data Grid */
-        .telemetry-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-            margin-top: 8px; width: 200px;
-        }
-        .data-cell {
-            display: flex; flex-direction: column;
-        }
-        .label { font-size: 9px; color: #888; letter-spacing: 1px; }
-        .value { font-size: 12px; font-weight: 700; color: #fff; }
-
-        /* Footer Controls */
-        .footer {
-            display: flex; flex-direction: column; gap: 10px;
-        }
+        /* UI COMPONENTS */
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); padding-bottom: 20px; }
         
-        .log-console {
-            height: 60px; overflow: hidden;
-            font-size: 10px; color: #aaa;
-            mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+        .panel {
+            background: var(--bg); border: 1px solid var(--hud);
+            padding: 5px 10px; backdrop-filter: blur(4px);
+            pointer-events: auto; margin-bottom: 5px;
         }
-        .log-entry { margin-bottom: 2px; }
-        .log-entry::before { content: '> '; color: var(--accent); }
 
-        /* Initialization Screen */
+        .data-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; gap: 15px; }
+        .val { font-weight: bold; color: #fff; }
+        .label { color: rgba(0, 255, 65, 0.7); }
+
+        /* COMPASS STRIP */
+        .compass-container {
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 30px; overflow: hidden;
+            border-left: 1px solid var(--hud); border-right: 1px solid var(--hud);
+            background: rgba(0,0,0,0.3);
+        }
+        #compass-strip {
+            position: absolute; left: 0; top: 5px;
+            white-space: nowrap; font-size: 14px; transition: left 0.1s linear;
+        }
+        .center-mark {
+            position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+            width: 0; height: 10px; border-left: 2px solid var(--alert); z-index: 10;
+        }
+
+        /* HISTOGRAM */
+        .histogram-box {
+            position: absolute; bottom: 100px; right: 10px;
+            width: 120px; height: 60px;
+            background: rgba(0,0,0,0.5); border: 1px solid var(--hud);
+        }
+        #histo-canvas { width: 100%; height: 100%; opacity: 0.8; }
+
+        /* LOADING */
         #loader {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #050505; z-index: 99;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: #000; z-index: 99; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
         }
-        .loader-ring {
-            width: 40px; height: 40px; border: 2px solid #333;
-            border-top: 2px solid var(--accent); border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 20px;
+        .scan-line {
+            width: 100%; height: 2px; background: var(--hud);
+            position: absolute; top: 0; animation: scan 2s linear infinite;
         }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        
+        @keyframes scan { 0% {top:0} 100% {top:100%} }
+
         button {
-            background: transparent; border: 1px solid var(--primary);
-            color: var(--primary); padding: 12px 24px;
-            font-family: var(--font-main); text-transform: uppercase;
-            cursor: pointer; transition: 0.2s;
-            letter-spacing: 2px; font-size: 12px;
+            background: transparent; border: 1px solid var(--hud); color: var(--hud);
+            padding: 10px 20px; font-family: var(--font); font-size: 16px;
+            cursor: pointer; text-transform: uppercase; margin-top: 20px;
         }
-        button:hover { background: var(--primary); color: #000; }
+        button:hover { background: var(--hud); color: #000; }
 
     </style>
 </head>
 <body>
 
     <div id="loader">
-        <div class="loader-ring"></div>
-        <div style="font-size:12px; letter-spacing:2px;">SYSTEM INITIALIZING</div>
-        <div style="font-size:10px; color:#666; margin-top:5px;">LOADING NEURAL ENGINE...</div>
-        <button id="btn-start" style="display:none; margin-top:20px;">ENGAGE SYSTEM</button>
+        <div class="scan-line"></div>
+        <h1 style="letter-spacing: 5px;">TACTICAL LAB</h1>
+        <p>LOADING NEURAL NET & PHYSICS ENGINE...</p>
+        <button id="btn-start" style="display:none;">INITIALIZE</button>
     </div>
 
     <video id="video-feed" playsinline muted autoplay></video>
-    <canvas id="ar-canvas"></canvas>
+    <canvas id="hud-layer"></canvas>
 
     <div id="ui-layer">
-        <div class="header">
-            <div class="glass-panel">
-                <div style="font-weight:700; letter-spacing:1px;">A.R.C. <span style="color:var(--accent);">// HUD</span></div>
-                <div class="telemetry-grid">
-                    <div class="data-cell">
-                        <span class="label">G-FORCE</span>
-                        <span class="value" id="val-g">1.00 G</span>
-                    </div>
-                    <div class="data-cell">
-                        <span class="label">VELOCITY (EST)</span>
-                        <span class="value" id="val-vel">0.0 m/s</span>
-                    </div>
-                    <div class="data-cell">
-                        <span class="label">LUMINANCE</span>
-                        <span class="value" id="val-lux">-- %</span>
-                    </div>
-                    <div class="data-cell">
-                        <span class="label">JERK (m/s³)</span>
-                        <span class="value" id="val-jerk">0.00</span>
-                    </div>
+        <div class="top-bar">
+            <div class="panel">
+                <div class="data-row"><span class="label">SYS TIME</span><span class="val" id="clock">--:--:--</span></div>
+                <div class="data-row"><span class="label">GPS LOC</span><span class="val" id="gps">ACQUIRING...</span></div>
+            </div>
+            <div class="panel" style="text-align:right;">
+                <div class="data-row"><span class="label">HEADING</span><span class="val" id="val-head">0° N</span></div>
+                <div class="data-row"><span class="label">PITCH</span><span class="val" id="val-pitch">0°</span></div>
+            </div>
+        </div>
+
+        <div class="compass-container">
+            <div class="center-mark"></div>
+            <div id="compass-strip">
+                N . . . 15 . . . 30 . . . 45 . . . 60 . . . 75 . . . E . . . 105 . . . 120 . . . 135 . . . 150 . . . 165 . . . S . . . 195 . . . 210 . . . 225 . . . 240 . . . 255 . . . W . . . 285 . . . 300 . . . 315 . . . 330 . . . 345 . . . N . . . 15 . . . 30
+            </div>
+        </div>
+
+        <div class="histogram-box">
+            <canvas id="histo-canvas"></canvas>
+            <div style="position:absolute; top:2px; left:2px; font-size:8px; background:#000;">EXPOSURE</div>
+        </div>
+
+        <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div class="panel">
+                <div style="font-size:10px; color:#aaa; margin-bottom:2px;">TARGET TELEMETRY</div>
+                <div class="data-row"><span class="label">TARGET</span><span class="val" id="tgt-name">NONE</span></div>
+                <div class="data-row"><span class="label">CONFIDENCE</span><span class="val" id="tgt-conf">0%</span></div>
+                <div class="data-row" style="border-top:1px solid #444; padding-top:2px; margin-top:2px;">
+                    <span class="label" style="color:var(--alert);">EST. DIST</span>
+                    <span class="val" style="color:var(--alert); font-size:14px;" id="tgt-dist">-- M</span>
                 </div>
             </div>
-
-            <div class="status-badge active" id="ai-status">AI ACTIVE</div>
-        </div>
-
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); pointer-events:none;">
-            <svg width="60" height="60" viewBox="0 0 60 60">
-                <line x1="30" y1="20" x2="30" y2="40" stroke="rgba(255,255,255,0.3)" />
-                <line x1="20" y1="30" x2="40" y2="30" stroke="rgba(255,255,255,0.3)" />
-                <rect x="0" y="0" width="60" height="60" fill="none" stroke="rgba(255,255,255,0.1)" />
-            </svg>
-        </div>
-
-        <div class="footer">
-            <div class="glass-panel">
-                <div style="font-size:10px; color:#888; margin-bottom:4px;">SYSTEM LOG</div>
-                <div class="log-console" id="sys-log">
-                    <div class="log-entry">Waiting for pilot input...</div>
-                </div>
+            
+            <div class="panel" style="text-align:right;">
+                <div class="data-row"><span class="label">G-FORCE</span><span class="val" id="val-g">1.00 G</span></div>
+                <div class="data-row"><span class="label">LIGHT</span><span class="val" id="val-lux">-- LX</span></div>
             </div>
         </div>
     </div>
 
     <script>
-        /**
-         * A.R.C. SYSTEM CORE
-         * Features: Smooth AI Tracking, Physics Telemetry, Cinematic UI
+        /* * TACTICAL RESEARCH UNIT (TRU)
+         * Integrates: AI Ranging, Magnetometer, Histogram, Physics
          */
 
         // --- CONFIG ---
         const CONFIG = {
-            lerpFactor: 0.15, // Smoothing factor (Lower = Smoother/Slower)
-            confidenceThreshold: 0.6, // Only show objects with > 60% confidence
+            lerp: 0.2,
+            focalLengthApprox: 600, // Arbitrary focal length for phone camera estimation
+            avgHumanHeight: 1.7, // meters
+            histSkip: 5, // Calculate histogram every X frames (Performance)
         };
 
-        // --- STATE ---
         const state = {
-            width: 0, height: 0,
+            w: 0, h: 0,
             model: null,
-            isDetecting: false,
-            predictions: [], // Raw predictions
-            trackedObjects: {}, // Smoothed objects map
-            physics: {
-                lastAcc: { x:0, y:0, z:0 },
-                velocity: { x:0, y:0, z:0 },
-                lastTime: Date.now()
-            }
+            tracking: {},
+            compass: 0,
+            pitch: 0,
+            frameCount: 0
         };
 
-        // --- ELEMENTS ---
-        const video = document.getElementById('video-feed');
-        const canvas = document.getElementById('ar-canvas');
-        const ctx = canvas.getContext('2d');
-        const logEl = document.getElementById('sys-log');
+        // --- DOM ---
+        const vid = document.getElementById('video-feed');
+        const cvs = document.getElementById('hud-layer');
+        const ctx = cvs.getContext('2d');
+        const histCvs = document.getElementById('histo-canvas');
+        const histCtx = histCvs.getContext('2d');
 
-        // --- 1. INITIALIZATION ---
+        // --- INIT ---
         (async function init() {
             try {
-                // Load Coco-SSD
                 state.model = await cocoSsd.load();
-                
-                document.querySelector('.loader-ring').style.display = 'none';
-                document.querySelector('#loader div:nth-child(2)').innerText = "SYSTEM READY";
+                document.querySelector('#loader p').innerText = "SYSTEM READY";
                 const btn = document.getElementById('btn-start');
                 btn.style.display = 'block';
-                
-                btn.addEventListener('click', startExperience);
-
-            } catch (e) {
-                alert("AI Load Error: " + e.message);
-            }
+                btn.onclick = startSystem;
+            } catch(e) { alert("AI Error: " + e); }
         })();
 
-        async function startExperience() {
+        async function startSystem() {
             document.getElementById('loader').style.display = 'none';
             
-            // Camera Access
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
-                audio: false
-            });
-            video.srcObject = stream;
-            
-            video.onloadedmetadata = () => {
+            // Camera
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            vid.srcObject = stream;
+            vid.onloadedmetadata = () => {
                 resize();
-                video.play();
-                detectLoop(); // Start AI
-                renderLoop(); // Start Graphics
-                log("Optical sensors engaged.");
-                log("Neural tracking initialized.");
+                vid.play();
+                loop();
+                predict();
             };
 
-            // Physics Sensors
+            // Sensors
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', (e) => {
+                    // Compass (Alpha) & Pitch (Beta)
+                    if(e.webkitCompassHeading) {
+                        state.compass = e.webkitCompassHeading; // iOS
+                    } else if (e.alpha) {
+                        state.compass = 360 - e.alpha; // Android
+                    }
+                    state.pitch = e.beta;
+                    
+                    updateCompassUI();
+                });
+            }
+            
             if (window.DeviceMotionEvent) {
-                window.addEventListener('devicemotion', handlePhysics);
+                window.addEventListener('devicemotion', (e) => {
+                    const acc = e.accelerationIncludingGravity;
+                    if(acc) {
+                        const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
+                        document.getElementById('val-g').innerText = g.toFixed(2) + " G";
+                    }
+                });
+            }
+
+            // GPS
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    document.getElementById('gps').innerText = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+                });
             }
         }
 
         function resize() {
-            state.width = window.innerWidth;
-            state.height = window.innerHeight;
-            canvas.width = state.width;
-            canvas.height = state.height;
+            state.w = window.innerWidth;
+            state.h = window.innerHeight;
+            cvs.width = state.w; cvs.height = state.h;
+            // Hidden canvas for pixel reading
+            state.tempCvs = document.createElement('canvas');
+            state.tempCvs.width = 100; state.tempCvs.height = 100; // Small for performance
+            state.tempCtx = state.tempCvs.getContext('2d');
         }
-        window.addEventListener('resize', resize);
+        window.onresize = resize;
 
-        // --- 2. AI DETECTION LOOP (Asynchronous) ---
-        async function detectLoop() {
-            if (!video.readyState === 4) return;
-
-            const preds = await state.model.detect(video);
-            // Filter high confidence
-            state.predictions = preds.filter(p => p.score > CONFIG.confidenceThreshold);
+        // --- AI LOOP ---
+        async function predict() {
+            const preds = await state.model.detect(vid);
             
-            requestAnimationFrame(detectLoop);
-        }
-
-        // --- 3. PHYSICS ENGINE (Real-time) ---
-        function handlePhysics(e) {
-            const acc = e.accelerationIncludingGravity;
-            const now = Date.now();
-            const dt = (now - state.physics.lastTime) / 1000; // Seconds
+            // Tracking & Smoothing Logic
+            const activeLabels = new Set();
             
-            if (!acc || !acc.x) return;
+            preds.forEach(p => {
+                if (p.score < 0.6) return;
+                const id = p.class;
+                activeLabels.add(id);
 
-            // G-Force Calculation
-            const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
-            
-            // Jerk Calculation (Change in accel / time)
-            const dA = Math.sqrt(
-                (acc.x - state.physics.lastAcc.x)**2 +
-                (acc.y - state.physics.lastAcc.y)**2 +
-                (acc.z - state.physics.lastAcc.z)**2
-            );
-            const jerk = dA / dt;
-
-            // Simple Velocity Integration (Drift prone, but visual)
-            // Remove gravity (approx) for velocity
-            const linAccX = acc.x; // Simplified
-            state.physics.velocity.x += linAccX * dt;
-
-            // Update UI
-            document.getElementById('val-g').innerText = g.toFixed(2) + " G";
-            document.getElementById('val-jerk').innerText = jerk.toFixed(2);
-            document.getElementById('val-vel').innerText = Math.abs(state.physics.velocity.x).toFixed(1) + " m/s";
-
-            // Update State
-            state.physics.lastAcc = acc;
-            state.physics.lastTime = now;
-        }
-
-        // --- 4. RENDER LOOP (60 FPS Graphics) ---
-        function renderLoop() {
-            ctx.clearRect(0, 0, state.width, state.height);
-
-            // A. Analyze Luminance (Physics of Light)
-            analyzeLight();
-
-            // B. Draw Smooth Tracking
-            drawSmoothTracking();
-
-            // C. Draw HUD Overlay elements
-            drawHUD();
-
-            requestAnimationFrame(renderLoop);
-        }
-
-        // *** KEY UPGRADE: SMOOTH TRACKING ALGORITHM ***
-        function drawSmoothTracking() {
-            // Map existing tracked objects
-            const activeIds = new Set();
-
-            state.predictions.forEach((pred, index) => {
-                // Use class as ID (Simplified tracking)
-                const id = pred.class; 
-                activeIds.add(id);
-
-                if (!state.trackedObjects[id]) {
-                    // New object
-                    state.trackedObjects[id] = {
-                        x: pred.bbox[0],
-                        y: pred.bbox[1],
-                        w: pred.bbox[2],
-                        h: pred.bbox[3],
-                        score: pred.score,
-                        color: '#00f0ff'
-                    };
+                if (!state.tracking[id]) {
+                    state.tracking[id] = { ...p, bbox: [...p.bbox] };
                 } else {
-                    // LERP (Linear Interpolation) for smoothing
-                    // current = current + (target - current) * factor
-                    const obj = state.trackedObjects[id];
-                    obj.x += (pred.bbox[0] - obj.x) * CONFIG.lerpFactor;
-                    obj.y += (pred.bbox[1] - obj.y) * CONFIG.lerpFactor;
-                    obj.w += (pred.bbox[2] - obj.w) * CONFIG.lerpFactor;
-                    obj.h += (pred.bbox[3] - obj.h) * CONFIG.lerpFactor;
-                    obj.score = pred.score;
+                    // Lerp smooth
+                    const t = state.tracking[id];
+                    t.bbox[0] += (p.bbox[0] - t.bbox[0]) * CONFIG.lerp;
+                    t.bbox[1] += (p.bbox[1] - t.bbox[1]) * CONFIG.lerp;
+                    t.bbox[2] += (p.bbox[2] - t.bbox[2]) * CONFIG.lerp;
+                    t.bbox[3] += (p.bbox[3] - t.bbox[3]) * CONFIG.lerp;
+                    t.score = p.score;
                 }
             });
 
-            // Draw & Cleanup
-            for (const id in state.trackedObjects) {
-                if (!activeIds.has(id)) {
-                    delete state.trackedObjects[id]; // Lost tracking
-                    continue;
-                }
-
-                const obj = state.trackedObjects[id];
-                const rect = scaleRectToCanvas(obj.x, obj.y, obj.w, obj.h);
-                
-                drawTacticalBox(rect, id, obj.score);
+            // Cleanup lost objects
+            for (let key in state.tracking) {
+                if (!activeLabels.has(key)) delete state.tracking[key];
             }
+
+            requestAnimationFrame(predict);
         }
 
-        // Helper: Scale video coords to screen
-        function scaleRectToCanvas(x, y, w, h) {
-            const scaleX = canvas.width / video.videoWidth;
-            const scaleY = canvas.height / video.videoHeight;
-            const scale = Math.max(scaleX, scaleY);
-            const offsetX = (canvas.width - video.videoWidth * scale) / 2;
-            const offsetY = (canvas.height - video.videoHeight * scale) / 2;
+        // --- RENDER LOOP ---
+        function loop() {
+            ctx.clearRect(0, 0, state.w, state.h);
+            state.frameCount++;
 
-            return {
-                x: x * scale + offsetX,
-                y: y * scale + offsetY,
-                w: w * scale,
-                h: h * scale
-            };
-        }
+            // 1. Draw Tracking & Rangefinding
+            drawHUD();
 
-        // DRAW STYLE: NASA/Sci-Fi Look
-        function drawTacticalBox(rect, label, confidence) {
-            const { x, y, w, h } = rect;
-            
-            // Main Box
-            ctx.strokeStyle = "rgba(0, 240, 255, 0.6)";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x, y, w, h);
+            // 2. Calculate Histogram (Every X frames)
+            if (state.frameCount % CONFIG.histSkip === 0) {
+                calcHistogram();
+            }
 
-            // Corner Accents (Bold)
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 2;
-            const corner = 10;
-            ctx.beginPath();
-            ctx.moveTo(x, y + corner); ctx.lineTo(x, y); ctx.lineTo(x + corner, y); // TL
-            ctx.moveTo(x + w, y + corner); ctx.lineTo(x + w, y); ctx.lineTo(x + w - corner, y); // TR
-            ctx.moveTo(x, y + h - corner); ctx.lineTo(x, y + h); ctx.lineTo(x + corner, y + h); // BL
-            ctx.moveTo(x + w, y + h - corner); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - corner, y + h); // BR
-            ctx.stroke();
+            // 3. Clock
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
 
-            // Label Tag
-            ctx.fillStyle = "rgba(0, 240, 255, 0.8)";
-            ctx.fillRect(x, y - 16, ctx.measureText(label).width + 20, 16);
-            
-            ctx.fillStyle = "#000";
-            ctx.font = "bold 10px JetBrains Mono";
-            ctx.fillText(`${label.toUpperCase()} ${Math.round(confidence*100)}%`, x + 4, y - 5);
-            
-            // Connecting line to center (Targeting System)
-            ctx.strokeStyle = "rgba(0, 240, 255, 0.2)";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width/2, canvas.height/2);
-            ctx.lineTo(x + w/2, y + h/2);
-            ctx.stroke();
-        }
-
-        function analyzeLight() {
-            // Sample center pixel for luminance (Simplified logic)
-            // In a full app, we would scan the whole buffer, but that kills FPS in JS
-            // We simulate it by "guessing" from the video feed if we could.
-            // Since we can't read video pixels efficiently every frame without WebGL,
-            // We will randomize slight fluctuations based on time to simulate sensor reading
-            // *However* if we wanted to be real, we'd use a hidden canvas. Let's do the hidden canvas method efficiently.
-            
-            // Check if we should sample (every 10 frames)
-            if (Date.now() % 10 !== 0) return;
-
-            // This part requires a secondary canvas, omitted for pure FPS speed, 
-            // but let's simulate a reliable sensor readout:
-            const lux = 45 + Math.sin(Date.now()/1000) * 5; // Simulated ambient lux base
-            document.getElementById('val-lux').innerText = lux.toFixed(1) + " lx";
+            requestAnimationFrame(loop);
         }
 
         function drawHUD() {
-            // Artificial Horizon Line
-            const cy = state.height / 2;
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-            ctx.setLineDash([5, 5]);
+            // Draw Crosshair
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(0, cy); ctx.lineTo(state.width, cy);
+            ctx.moveTo(cx-20, cy); ctx.lineTo(cx+20, cy);
+            ctx.moveTo(cx, cy-20); ctx.lineTo(cx, cy+20);
             ctx.stroke();
-            ctx.setLineDash([]);
+
+            // Draw Objects
+            let nearestDist = 9999;
+            let primaryTarget = null;
+
+            for (let key in state.tracking) {
+                const obj = state.tracking[key];
+                const rect = scaleRect(obj.bbox);
+                
+                // Draw Box
+                ctx.strokeStyle = "#00ff41";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+                
+                // Corners
+                ctx.strokeStyle = "#fff";
+                ctx.strokeRect(rect.x-2, rect.y-2, 10, 1); ctx.strokeRect(rect.x-2, rect.y-2, 1, 10);
+
+                // RANGEFINDING CALCULATION
+                // Distance = (RealHeight * Focal) / ImageHeight
+                // We assume mostly humans (1.7m) or standard objects.
+                // This is an estimation!
+                let dist = 0;
+                if (key === 'person') {
+                    dist = (CONFIG.avgHumanHeight * CONFIG.focalLengthApprox) / (rect.h / state.h * 100); // Simplified scaling
+                } else {
+                    // Fallback generic size 1m
+                    dist = (1.0 * CONFIG.focalLengthApprox) / (rect.h / state.h * 100);
+                }
+
+                // Text Label
+                ctx.fillStyle = "#00ff41";
+                ctx.font = "12px Share Tech Mono";
+                ctx.fillText(`${key.toUpperCase()} ${(obj.score*100).toFixed(0)}%`, rect.x, rect.y - 15);
+                ctx.fillStyle = "#ffcc00";
+                ctx.fillText(`RNG: ${dist.toFixed(1)}m`, rect.x, rect.y - 5);
+
+                // Update Telemetry Panel with Center-most object
+                const distToCenter = Math.hypot(cx - (rect.x+rect.w/2), cy - (rect.y+rect.h/2));
+                if (distToCenter < nearestDist) {
+                    nearestDist = distToCenter;
+                    primaryTarget = { key, score: obj.score, dist };
+                }
+            }
+
+            if (primaryTarget) {
+                document.getElementById('tgt-name').innerText = primaryTarget.key.toUpperCase();
+                document.getElementById('tgt-conf').innerText = (primaryTarget.score*100).toFixed(0) + "%";
+                document.getElementById('tgt-dist').innerText = primaryTarget.dist.toFixed(1) + " M";
+            } else {
+                document.getElementById('tgt-name').innerText = "SCANNING";
+                document.getElementById('tgt-dist').innerText = "-- M";
+            }
         }
 
-        function log(msg) {
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            entry.innerText = msg;
-            logEl.prepend(entry);
-            if (logEl.children.length > 5) logEl.lastChild.remove();
+        function calcHistogram() {
+            // Draw video to temp canvas
+            state.tempCtx.drawImage(vid, 0, 0, 100, 100);
+            const frame = state.tempCtx.getImageData(0, 0, 100, 100);
+            const data = frame.data;
+            
+            // Reset bins
+            const bins = new Array(256).fill(0);
+            let totalBrightness = 0;
+
+            for (let i = 0; i < data.length; i += 4) {
+                // Luminance
+                const lum = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+                bins[Math.floor(lum)]++;
+                totalBrightness += lum;
+            }
+
+            // Draw Histogram
+            histCtx.clearRect(0, 0, histCvs.width, histCvs.height);
+            histCtx.fillStyle = "rgba(0, 255, 65, 0.6)";
+            
+            const maxVal = Math.max(...bins);
+            const barW = histCvs.width / 256;
+            
+            for (let i = 0; i < 256; i++) {
+                const h = (bins[i] / maxVal) * histCvs.height;
+                histCtx.fillRect(i * barW, histCvs.height - h, barW, h);
+            }
+
+            // Lux Est
+            const avgLux = totalBrightness / (100*100);
+            document.getElementById('val-lux').innerText = avgLux.toFixed(0) + " LX";
         }
 
+        function updateCompassUI() {
+            const strip = document.getElementById('compass-strip');
+            // Pixel width of strip is approx 600px for 360 degrees? 
+            // Simplification: Shift pixels based on degree
+            // Need infinite loop visual logic, but simple offset works for now
+            const offset = -(state.compass * 2); // 2px per degree
+            strip.style.left = `calc(50% + ${offset}px)`;
+            
+            document.getElementById('val-head').innerText = state.compass.toFixed(0) + "°";
+            document.getElementById('val-pitch').innerText = state.pitch ? state.pitch.toFixed(0) + "°" : "0°";
+        }
+
+        function scaleRect(bbox) {
+            // Scale video coords to canvas
+            const vidW = vid.videoWidth;
+            const vidH = vid.videoHeight;
+            const scale = Math.max(state.w / vidW, state.h / vidH);
+            const x = bbox[0] * scale + (state.w - vidW * scale) / 2;
+            const y = bbox[1] * scale + (state.h - vidH * scale) / 2;
+            return { x, y, w: bbox[2] * scale, h: bbox[3] * scale };
+        }
     </script>
 </body>
 </html>
