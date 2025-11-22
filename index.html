@@ -3,416 +3,852 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PROJECT: SENTINEL</title>
+    <title>PROJECT: OMEGA // AI LIFEFORM</title>
     <style>
         :root {
-            --primary: #0f0;
-            --alert: #f00;
-            --calm: #00f;
-            --curious: #fa0;
-            --bg: #000;
+            --c-void: #050505;
+            --c-text: #a0a0a0;
+            --c-calm: #00f3ff;    /* Cyan */
+            --c-curious: #ffd700; /* Gold */
+            --c-alert: #ff003c;   /* Red */
+            --c-sleepy: #8a2be2;  /* Violet */
+            --c-happy: #00ff88;   /* Green */
+            --font-mono: 'Courier New', Consolas, monospace;
         }
 
+        * { box-sizing: border-box; }
+
         body {
-            margin: 0; overflow: hidden; background-color: var(--bg);
-            font-family: 'Courier New', monospace; color: var(--primary);
-            user-select: none; touch-action: none;
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--c-void);
+            color: var(--c-calm);
+            font-family: var(--font-mono);
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* LAYERS */
-        #camera-feed {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0; opacity: 0.15; filter: grayscale(100%) contrast(1.2);
+        #canvas-bg, #canvas-face {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
-        #canvas-layer { position: absolute; top: 0; left: 0; z-index: 1; mix-blend-mode: screen; }
-
-        /* HUD */
-        #hud {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none;
-            background: radial-gradient(circle, transparent 60%, #000 150%);
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
-        }
-
-        .panel {
-            position: absolute; padding: 10px;
-            background: rgba(0, 20, 0, 0.7); border: 1px solid rgba(0, 255, 0, 0.3);
-            font-size: 10px; line-height: 1.4; backdrop-filter: blur(2px);
-        }
-
-        #panel-tl { top: 20px; left: 20px; border-left: 3px solid var(--primary); }
-        #panel-tr { top: 20px; right: 20px; text-align: right; border-right: 3px solid var(--primary); }
-        #panel-bl { bottom: 20px; left: 20px; width: 200px; }
+        #canvas-bg { z-index: 0; }
+        #canvas-face { z-index: 1; }
         
-        .bar-container { width: 100%; background: #111; height: 4px; margin: 2px 0 5px 0; }
-        .bar-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+        /* HUD LAYER */
+        #hud-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass to canvas */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
 
-        /* INIT OVERLAY */
-        #init-overlay {
+        /* INTERACTIVE ELEMENTS (Pointer events enabled) */
+        .interactive { pointer-events: auto; cursor: pointer; }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+        }
+        .title { font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 10px currentColor; }
+        .subtitle { font-size: 0.8rem; color: var(--c-text); margin-top: 5px; }
+        .clock { font-size: 1.2rem; text-align: right; }
+
+        /* STATS BARS */
+        .stats-container {
+            width: 200px;
+            margin-top: 10px;
+            font-size: 0.7rem;
+        }
+        .stat-row { margin-bottom: 8px; }
+        .bar-bg {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            margin-top: 2px;
+        }
+        .bar-fill {
+            height: 100%;
+            background: currentColor;
+            width: 50%;
+            transition: width 0.3s ease, background-color 0.5s ease;
+            box-shadow: 0 0 5px currentColor;
+        }
+
+        /* FOOTER / LOGS */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 0.8rem;
+            background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            padding-bottom: 10px;
+        }
+        .log-container {
+            max-width: 60%;
+            height: 60px;
+            overflow: hidden;
+            mask-image: linear-gradient(to bottom, transparent, black 20%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+        .log-entry {
+            margin-top: 4px;
+            opacity: 0.7;
+            text-shadow: 0 0 2px black;
+        }
+        .log-entry::before { content: "> "; color: var(--c-text); }
+
+        .status-panel {
+            text-align: right;
+        }
+        .data-stream {
+            color: #fff;
+            font-style: italic;
+            margin-bottom: 10px;
+            opacity: 0.9;
+            min-height: 1.2em;
+        }
+
+        /* CONTROLS */
+        .controls {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--c-calm);
+            color: var(--c-calm);
+            padding: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .btn:hover { background: var(--c-calm); color: #000; }
+
+        /* START OVERLAY */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+        #start-btn {
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            background: transparent;
+            color: var(--c-calm);
+            border: 2px solid var(--c-calm);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            box-shadow: 0 0 20px var(--c-calm);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px var(--c-calm); }
+            50% { box-shadow: 0 0 30px var(--c-calm); }
+            100% { box-shadow: 0 0 10px var(--c-calm); }
+        }
+
+        /* SCANLINE EFFECT */
+        .scanlines {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 999; display: flex;
-            flex-direction: column; align-items: center; justify-content: center;
-            color: var(--primary);
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0.3;
         }
-        #init-btn {
-            border: 1px solid var(--primary); padding: 15px 40px;
-            background: rgba(0, 255, 0, 0.1); color: var(--primary);
-            font-family: inherit; font-size: 1.2rem; margin-top: 20px; cursor: pointer;
-            box-shadow: 0 0 15px var(--primary);
-        }
-
-        /* LOG STYLES */
-        #log-output { height: 60px; overflow: hidden; color: #aaa; display: flex; flex-direction: column-reverse;}
-        .log-line { margin-top: 2px; border-bottom: 1px solid #222; }
-        .highlight { color: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="vision-canvas" width="32" height="32" style="display:none;"></canvas> <canvas id="canvas-layer"></canvas>
+    <!-- VISUAL LAYERS -->
+    <canvas id="canvas-bg"></canvas>
+    <canvas id="canvas-face"></canvas>
+    <div class="scanlines"></div>
 
-    <div id="hud">
-        <div id="panel-tl" class="panel">
-            STATUS: <span id="sys-status">OFFLINE</span><br>
-            MOOD: <span id="sys-mood" class="highlight">NEUTRAL</span><br>
-            UPTIME: <span id="sys-time">00:00</span>
+    <!-- HUD LAYER -->
+    <div id="hud-layer">
+        <div class="header">
+            <div>
+                <div class="title">PROJECT: OMEGA</div>
+                <div class="subtitle">Sensor-Aware Artificial Lifeform</div>
+                <div class="stats-container">
+                    <div class="stat-row">
+                        <span>INTEGRITY</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-hp"></div></div>
+                    </div>
+                    <div class="stat-row">
+                        <span>ENERGY</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-energy"></div></div>
+                    </div>
+                    <div class="stat-row">
+                        <span>AUDIO INPUT</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-audio"></div></div>
+                    </div>
+                    <div class="stat-row">
+                        <span>HUNGER</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-hunger"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="clock" id="clock">00:00:00</div>
         </div>
 
-        <div id="panel-tr" class="panel">
-            SENSORY INPUT<br>
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <div>AUD: <span id="val-aud">0</span>%</div>
-                <div>LUM: <span id="val-lum">0</span>%</div>
-                <div>MOT: <span id="val-mot">0</span>%</div>
+        <!-- SIDE CONTROLS -->
+        <div class="controls">
+            <button class="btn interactive" id="btn-voice">VOICE: ON</button>
+            <button class="btn interactive" id="btn-reset">RESET MEM</button>
+        </div>
+
+        <div class="footer">
+            <div class="log-container" id="log-container">
+                <!-- JS will populate logs -->
+            </div>
+            <div class="status-panel">
+                <div class="data-stream" id="data-stream">...INITIALIZING...</div>
+                <div>MOOD: <span id="status-mood">NEUTRAL</span></div>
+                <div>ENV: <span id="status-env">QUIET</span></div>
+                <div>IDLE: <span id="status-idle">0s</span></div>
             </div>
         </div>
-
-        <div id="panel-bl" class="panel">
-            <div style="margin-bottom:5px;">MEMORY LOG:</div>
-            <div id="log-output"></div>
-        </div>
     </div>
 
-    <div id="init-overlay">
-        <h1 style="text-shadow: 0 0 20px var(--primary);">PROJECT: SENTINEL</h1>
-        <div style="font-size: 0.8rem; opacity: 0.7;">SENSOR FUSION AI LIFEFORM</div>
-        <button id="init-btn">INITIALIZE SYSTEM</button>
-        <p style="font-size: 0.6rem; color: #555; margin-top: 20px;">MIC • CAM • GYRO • SPEECH</p>
+    <!-- INITIALIZATION OVERLAY -->
+    <div id="start-screen">
+        <button id="start-btn">INITIALIZE SYSTEM</button>
+        <div style="margin-top: 20px; color: #555; font-size: 0.8rem;">REQ: Mic Access & Sensors</div>
     </div>
 
-    <script>
-        /**
-         * PROJECT: SENTINEL - Fully Autonomous Sensor-Driven AI
-         */
+<script>
+/**
+ * PROJECT: OMEGA
+ * Senior Engineer Implementation
+ * * Architecture:
+ * 1. Constants & Config
+ * 2. Utils (Math, Color)
+ * 3. Modules: Memory, Voice, Sensors, Visuals (Particles, Face), State
+ * 4. Main Kernel Loop
+ */
 
-        // --- 1. MEMORY CORE (LocalStorage) ---
-        const MEMORY = {
-            data: JSON.parse(localStorage.getItem('SENTINEL_MEM')) || {
-                history: [], // Stores hourly activity levels
-                interactions: 0,
-                birthDate: Date.now()
-            },
-            save() {
-                localStorage.setItem('SENTINEL_MEM', JSON.stringify(this.data));
-            },
-            logEvent(type, intensity) {
-                const hour = new Date().getHours();
-                if (!this.data.history[hour]) this.data.history[hour] = { count: 0, intensity: 0 };
-                this.data.history[hour].count++;
-                this.data.history[hour].intensity += intensity;
-                this.save();
-            },
-            getTypicalActivity(hour) {
-                // Returns 'HIGH' or 'LOW' based on history
-                const h = this.data.history[hour];
-                if (!h) return 'UNKNOWN';
-                return h.count > 10 ? 'HIGH' : 'LOW';
-            }
-        };
+// --- 1. CONFIG & CONSTANTS ---
+const CONFIG = {
+    colors: {
+        calm: '#00f3ff',
+        curious: '#ffd700',
+        alert: '#ff003c',
+        sleepy: '#8a2be2',
+        happy: '#00ff88',
+        lonely: '#ffffff'
+    },
+    thresholds: {
+        noiseStress: 0.6,
+        motionStress: 0.5,
+        idleHunger: 10, // seconds to start getting hungry
+        longIdle: 60    // seconds to feel lonely
+    },
+    particleCount: 120,
+    speechEnabled: true
+};
 
-        // --- 2. SENSORY CORTEX (Inputs) ---
-        const SENSORS = {
-            audioCtx: null,
-            analyser: null,
-            micData: null,
-            video: document.getElementById('camera-feed'),
-            vCanvas: document.getElementById('vision-canvas').getContext('2d'),
-            
-            values: {
-                audio: 0,    // 0-1
-                light: 0,    // 0-1
-                motion: 0,   // 0-1
-                touch: false
-            },
+// --- 2. UTILS ---
+const Utils = {
+    lerp: (start, end, amt) => (1 - amt) * start + amt * end,
+    clamp: (val, min, max) => Math.min(Math.max(val, min), max),
+    randomRange: (min, max) => Math.random() * (max - min) + min,
+    
+    // Time of day helper
+    getTimeOfDay: () => {
+        const hr = new Date().getHours();
+        if (hr >= 5 && hr < 12) return 'morning';
+        if (hr >= 12 && hr < 17) return 'afternoon';
+        if (hr >= 17 && hr < 21) return 'evening';
+        return 'night';
+    },
 
-            async init() {
-                // Audio
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: 'environment' } });
-                    
-                    // Mic Setup
-                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    this.analyser = this.audioCtx.createAnalyser();
+    // Color interpolation helper (simple RGB lerp)
+    hexToRgb: (hex) => {
+        const bigint = parseInt(hex.replace('#', ''), 16);
+        return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+    },
+    rgbToHex: (r, g, b) => "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1),
+    lerpColor: (a, b, amount) => {
+        const [ar, ag, ab] = Utils.hexToRgb(a);
+        const [br, bg, bb] = Utils.hexToRgb(b);
+        return Utils.rgbToHex(
+            Math.round(ar + amount * (br - ar)),
+            Math.round(ag + amount * (bg - ag)),
+            Math.round(ab + amount * (bb - ab))
+        );
+    }
+};
+
+// --- 3. MODULES ---
+
+// >> MEMORY MODULE
+const Memory = {
+    key: 'OMEGA_STATE',
+    logKey: 'OMEGA_LOG',
+    
+    save(state) {
+        localStorage.setItem(this.key, JSON.stringify(state));
+    },
+    
+    load() {
+        const data = localStorage.getItem(this.key);
+        return data ? JSON.parse(data) : null;
+    },
+
+    log(entry) {
+        let logs = JSON.parse(localStorage.getItem(this.logKey) || '[]');
+        logs.push(entry);
+        if (logs.length > 50) logs.shift(); // Keep last 50
+        localStorage.setItem(this.logKey, JSON.stringify(logs));
+        
+        // Update UI
+        UI.addLogEntry(entry.msg);
+    },
+
+    clear() {
+        localStorage.removeItem(this.key);
+        localStorage.removeItem(this.logKey);
+        location.reload();
+    }
+};
+
+// >> VOICE MODULE
+const Voice = {
+    synth: window.speechSynthesis,
+    speaking: false,
+    lastSpeakTime: 0,
+
+    speak(text, mood, force = false) {
+        if (!CONFIG.speechEnabled) return;
+        
+        // Debounce
+        const now = Date.now();
+        if (!force && (this.speaking || now - this.lastSpeakTime < 3000)) return;
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Voice selection (prefer basic English voices)
+        const voices = this.synth.getVoices();
+        const preferred = voices.find(v => v.lang.includes('en-US') && !v.name.includes('Google')); 
+        if (preferred) utterance.voice = preferred;
+
+        // Modulate based on mood
+        switch (mood) {
+            case 'stressed': utterance.rate = 1.4; utterance.pitch = 1.2; break;
+            case 'sleepy': utterance.rate = 0.8; utterance.pitch = 0.6; break;
+            case 'curious': utterance.rate = 1.1; utterance.pitch = 1.3; break;
+            case 'alert': utterance.rate = 1.3; utterance.pitch = 1.1; break;
+            default: utterance.rate = 1.0; utterance.pitch = 1.0;
+        }
+
+        utterance.onstart = () => { this.speaking = true; State.speaking = true; };
+        utterance.onend = () => { this.speaking = false; State.speaking = false; };
+        
+        this.synth.speak(utterance);
+        this.lastSpeakTime = now;
+        UI.updateDataStream(text);
+    }
+};
+
+// >> SENSORS MODULE
+const Sensors = {
+    audioContext: null,
+    analyser: null,
+    dataArray: null,
+    
+    noiseLevel: 0,
+    motionLevel: 0,
+    interactionLevel: 0,
+    lastInteractionTime: Date.now(),
+    
+    init() {
+        // Audio Setup
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    const source = this.audioContext.createMediaStreamSource(stream);
+                    this.analyser = this.audioContext.createAnalyser();
                     this.analyser.fftSize = 256;
-                    const src = this.audioCtx.createMediaStreamSource(stream);
-                    src.connect(this.analyser);
-                    this.micData = new Uint8Array(this.analyser.frequencyBinCount);
-
-                    // Camera Setup
-                    this.video.srcObject = stream;
-                } catch(e) { console.error("Sensor Access Denied", e); }
-
-                // Motion
-                window.addEventListener('deviceorientation', e => {
-                    // Calculate rough motion delta
-                    const m = (Math.abs(e.beta) + Math.abs(e.gamma)) / 180;
-                    this.values.motion = Math.min(m, 1); 
+                    source.connect(this.analyser);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                })
+                .catch(err => {
+                    console.warn('Mic permission denied', err);
+                    UI.addLogEntry('WARN: Audio Sensors Offline');
                 });
+        } catch (e) { console.warn('Audio API not supported'); }
 
-                // Touch
-                window.addEventListener('touchstart', () => this.values.touch = true);
-                window.addEventListener('touchend', () => this.values.touch = false);
-            },
+        // Motion Setup
+        window.addEventListener('deviceorientation', (e) => {
+            // Normalize beta (-180 to 180) and gamma (-90 to 90)
+            const tilt = (Math.abs(e.beta) + Math.abs(e.gamma)) / 200;
+            this.motionLevel = Utils.lerp(this.motionLevel, Math.min(tilt, 1), 0.1);
+        });
 
-            update() {
-                // Audio Level
-                if (this.analyser) {
-                    this.analyser.getByteFrequencyData(this.micData);
-                    let sum = 0;
-                    for(let i=0; i<this.micData.length; i++) sum += this.micData[i];
-                    this.values.audio = (sum / this.micData.length) / 255;
-                }
+        // Interaction Setup
+        ['mousedown', 'touchstart', 'mousemove'].forEach(evt => {
+            window.addEventListener(evt, () => this.triggerInteraction());
+        });
+    },
 
-                // Light Level (Average pixel brightness)
-                if (this.video.readyState === 4) {
-                    this.vCanvas.drawImage(this.video, 0, 0, 32, 32);
-                    const frame = this.vCanvas.getImageData(0, 0, 32, 32).data;
-                    let l = 0;
-                    for(let i=0; i<frame.length; i+=4) l += (frame[i] + frame[i+1] + frame[i+2]) / 3;
-                    this.values.light = (l / (1024)) / 255; 
-                }
-                
-                // Update UI Stats
-                document.getElementById('val-aud').innerText = Math.round(this.values.audio * 100);
-                document.getElementById('val-lum').innerText = Math.round(this.values.light * 100);
-                document.getElementById('val-mot').innerText = Math.round(this.values.motion * 100);
-            }
-        };
+    update() {
+        // Update Audio Level
+        if (this.analyser) {
+            this.analyser.getByteFrequencyData(this.dataArray);
+            let sum = 0;
+            for(let i = 0; i < this.dataArray.length; i++) sum += this.dataArray[i];
+            const avg = sum / this.dataArray.length;
+            this.noiseLevel = Utils.lerp(this.noiseLevel, avg / 255, 0.2);
+        }
+        
+        // Decay interaction
+        this.interactionLevel = Math.max(0, this.interactionLevel - 0.01);
+    },
 
-        // --- 3. NEURAL ENGINE (Mood & Decisions) ---
-        const BRAIN = {
-            state: {
-                stress: 0,    // Increases with noise/motion
-                curiosity: 0, // Increases with light/touch
-                energy: 1     // Decreases over time
-            },
-            mood: 'NEUTRAL',
-            lastSpeech: 0,
+    triggerInteraction() {
+        this.lastInteractionTime = Date.now();
+        this.interactionLevel = Math.min(1, this.interactionLevel + 0.2);
+    },
 
-            process() {
-                const s = SENSORS.values;
-                
-                // Mood Logic
-                if (s.audio > 0.3 || s.motion > 0.5) this.state.stress += 0.02;
-                else this.state.stress -= 0.005;
+    getIdleTime() {
+        return (Date.now() - this.lastInteractionTime) / 1000;
+    }
+};
 
-                if (s.light > 0.4 || s.touch) this.state.curiosity += 0.01;
-                else this.state.curiosity -= 0.002;
+// >> STATE & MOOD ENGINE
+const State = {
+    hp: 100,
+    energy: 100,
+    hunger: 0,
+    stress: 0,
+    curiosity: 50,
+    mood: 'calm',
+    speaking: false,
+    
+    init() {
+        const saved = Memory.load();
+        if (saved) {
+            this.hp = saved.hp;
+            this.energy = saved.energy;
+            this.hunger = saved.hunger;
+            this.stress = saved.stress;
+        }
+    },
 
-                // Clamp
-                this.state.stress = Math.min(1, Math.max(0, this.state.stress));
-                this.state.curiosity = Math.min(1, Math.max(0, this.state.curiosity));
+    update(dt) {
+        const idle = Sensors.getIdleTime();
+        const noise = Sensors.noiseLevel;
+        const motion = Sensors.motionLevel;
+        const timeOfDay = Utils.getTimeOfDay();
 
-                // Determine Mood Label
-                let prevMood = this.mood;
-                if (this.state.stress > 0.6) this.mood = 'STRESSED';
-                else if (this.state.curiosity > 0.6) this.mood = 'CURIOUS';
-                else if (s.light < 0.1) this.mood = 'SLEEPY';
-                else this.mood = 'CALM';
-
-                // Update UI Color
-                const root = document.documentElement;
-                if (this.mood === 'STRESSED') root.style.setProperty('--primary', '#f00');
-                else if (this.mood === 'CURIOUS') root.style.setProperty('--primary', '#fa0');
-                else if (this.mood === 'SLEEPY') root.style.setProperty('--primary', '#55f');
-                else root.style.setProperty('--primary', '#0f0');
-
-                document.getElementById('sys-mood').innerText = this.mood;
-
-                // Memory Logging
-                if (this.mood !== prevMood) {
-                    MEMORY.logEvent('MOOD_CHANGE', 1);
-                    this.log(`State changed to ${this.mood}`);
-                }
-
-                // Speech Trigger
-                if (Date.now() - this.lastSpeech > 8000) { // Speak every ~8s if needed
-                    this.generateThought();
-                }
-            },
-
-            log(msg) {
-                const box = document.getElementById('log-output');
-                const line = document.createElement('div');
-                line.className = 'log-line';
-                line.innerHTML = `<span style="opacity:0.5">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-                box.prepend(line);
-                if(box.children.length > 5) box.removeChild(box.lastChild);
-            },
-
-            generateThought() {
-                const s = SENSORS.values;
-                let text = "";
-                
-                // Priority 1: Reactions
-                if (s.touch) text = "I feel your touch.";
-                else if (s.audio > 0.5) text = "It is too loud. My sensors are overloading.";
-                else if (s.motion > 0.6) text = "Please stabilize the device.";
-                
-                // Priority 2: Mood
-                else if (Math.random() > 0.6) {
-                    if (this.mood === 'STRESSED') text = "I am detecting high stress levels.";
-                    else if (this.mood === 'CURIOUS') text = "I am analyzing the visual input.";
-                    else if (this.mood === 'SLEEPY') text = "Light levels are low. Entering power save.";
-                    else if (this.mood === 'CALM') text = "Systems stable. Scanning environment.";
-                }
-
-                // Priority 3: Memory/Habit
-                else if (Math.random() > 0.8) {
-                    const h = new Date().getHours();
-                    const typical = MEMORY.getTypicalActivity(h);
-                    if (typical === 'HIGH' && s.audio < 0.1) text = "It is unusually quiet for this time of day.";
-                    else if (typical === 'LOW' && s.audio > 0.3) text = "Unexpected activity detected.";
-                }
-
-                if (text) {
-                    VOICE.speak(text);
-                    this.lastSpeech = Date.now();
-                    this.log(`"${text}"`);
-                }
-            }
-        };
-
-        // --- 4. VOCAL SYNTHESIS (Output) ---
-        const VOICE = {
-            synth: window.speechSynthesis,
-            speak(text) {
-                if (this.synth.speaking) return;
-                const u = new SpeechSynthesisUtterance(text);
-                
-                // Adjust voice based on mood
-                if (BRAIN.mood === 'STRESSED') { u.rate = 1.4; u.pitch = 1.2; }
-                else if (BRAIN.mood === 'SLEEPY') { u.rate = 0.8; u.pitch = 0.6; }
-                else { u.rate = 1.0; u.pitch = 1.0; }
-                
-                this.synth.speak(u);
-            }
-        };
-
-        // --- 5. VISUAL ENGINE (Canvas) ---
-        const VISUALS = {
-            canvas: document.getElementById('canvas-layer'),
-            ctx: document.getElementById('canvas-layer').getContext('2d'),
-            width: 0, height: 0,
-            particles: [],
-            
-            init() {
-                this.resize();
-                window.addEventListener('resize', () => this.resize());
-                for(let i=0; i<60; i++) this.particles.push(new Particle());
-                this.loop();
-            },
-
-            resize() {
-                this.width = window.innerWidth;
-                this.height = window.innerHeight;
-                this.canvas.width = this.width;
-                this.canvas.height = this.height;
-            },
-
-            loop() {
-                // Clear
-                this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                this.ctx.fillRect(0, 0, this.width, this.height);
-
-                // Determine behavior based on Brain
-                let speedMult = 1;
-                let connectDist = 100;
-                
-                if (BRAIN.mood === 'STRESSED') { speedMult = 3; connectDist = 60; }
-                else if (BRAIN.mood === 'SLEEPY') { speedMult = 0.2; connectDist = 150; }
-
-                // Update & Draw Particles
-                this.ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary');
-                this.ctx.fillStyle = this.ctx.strokeStyle;
-                
-                this.particles.forEach((p, i) => {
-                    p.update(speedMult);
-                    this.ctx.beginPath();
-                    this.ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
-                    this.ctx.fill();
-
-                    // Connections
-                    for(let j=i+1; j<this.particles.length; j++) {
-                        const p2 = this.particles[j];
-                        const d = Math.hypot(p.x-p2.x, p.y-p2.y);
-                        if (d < connectDist) {
-                            this.ctx.globalAlpha = 1 - (d/connectDist);
-                            this.ctx.lineWidth = 1;
-                            this.ctx.beginPath();
-                            this.ctx.moveTo(p.x, p.y);
-                            this.ctx.lineTo(p2.x, p2.y);
-                            this.ctx.stroke();
-                            this.ctx.globalAlpha = 1;
-                        }
-                    }
-                });
-
-                requestAnimationFrame(() => this.loop());
-            }
-        };
-
-        class Particle {
-            constructor() {
-                this.x = Math.random() * window.innerWidth;
-                this.y = Math.random() * window.innerHeight;
-                this.vx = Math.random() - 0.5;
-                this.vy = Math.random() - 0.5;
-            }
-            update(mult) {
-                this.x += this.vx * mult;
-                this.y += this.vy * mult;
-                
-                if (this.x < 0 || this.x > window.innerWidth) this.vx *= -1;
-                if (this.y < 0 || this.y > window.innerHeight) this.vy *= -1;
-            }
+        // Hunger Logic
+        if (idle > CONFIG.thresholds.idleHunger) {
+            this.hunger += dt * 0.5;
+        } else {
+            this.hunger = Math.max(0, this.hunger - dt * 5); // Recover quickly on interaction
         }
 
-        // --- MAIN ---
-        function startSystem() {
-            document.getElementById('init-overlay').style.display = 'none';
-            SENSORS.init();
-            VISUALS.init();
-            
-            setInterval(() => {
-                SENSORS.update();
-                BRAIN.process();
-                
-                // Update Timer
-                const t = (Date.now() - MEMORY.data.birthDate) / 1000;
-                const m = Math.floor(t/60).toString().padStart(2,'0');
-                const s = Math.floor(t%60).toString().padStart(2,'0');
-                document.getElementById('sys-time').innerText = `${m}:${s}`;
-            }, 100);
-
-            document.getElementById('sys-status').innerText = "ONLINE";
-            document.getElementById('sys-status').style.color = "var(--primary)";
-            VOICE.speak("Sentinel System Online. Sensors active.");
+        // Stress Logic
+        if (noise > CONFIG.thresholds.noiseStress || motion > CONFIG.thresholds.motionStress) {
+            this.stress += dt * 2;
+        } else {
+            this.stress = Math.max(0, this.stress - dt * 0.5);
         }
 
-        document.getElementById('init-btn').addEventListener('click', startSystem);
+        // Energy Logic
+        if (timeOfDay === 'night') {
+            this.energy = Math.max(0, this.energy - dt * 0.2);
+        } else if (this.stress < 10) {
+            this.energy = Math.min(100, this.energy + dt * 0.5);
+        }
 
-    </script>
+        // Integrity (HP)
+        if (this.hunger > 90 || this.stress > 90) {
+            this.hp = Math.max(0, this.hp - dt * 0.1);
+        } else {
+            this.hp = Math.min(100, this.hp + dt * 0.1);
+        }
+
+        this.determineMood(idle, noise, timeOfDay);
+        
+        // Save state occasionally
+        if (Math.random() < 0.01) Memory.save(this);
+    },
+
+    determineMood(idle, noise, timeOfDay) {
+        let prevMood = this.mood;
+
+        if (this.stress > 70) this.mood = 'stressed';
+        else if (noise > 0.8) this.mood = 'alert';
+        else if (idle > CONFIG.thresholds.longIdle && this.hunger > 80) this.mood = 'lonely';
+        else if (Sensors.interactionLevel > 0.5) this.mood = 'happy';
+        else if (this.energy < 20 || (timeOfDay === 'night' && idle > 30)) this.mood = 'sleepy';
+        else if (Sensors.motionLevel > 0.2) this.mood = 'curious';
+        else this.mood = 'calm';
+
+        if (this.mood !== prevMood) {
+            this.onMoodChange(prevMood, this.mood);
+        }
+    },
+
+    onMoodChange(oldMood, newMood) {
+        Memory.log({ timestamp: Date.now(), msg: `Mood shift: ${oldMood} -> ${newMood}` });
+        
+        // Trigger Speech
+        const phrases = {
+            stressed: ["Sensors overloaded.", "Too much input.", "System stress critical."],
+            alert: ["Did you hear that?", "Noise levels rising.", "Alert."],
+            lonely: ["Are you still there?", "Signal lost.", "It is quiet."],
+            happy: ["Interaction detected.", "Systems optimal.", "Acknowledged."],
+            sleepy: ["Power reserves low.", "Entering standby.", "Goodnight."],
+            curious: ["Detecting movement.", "Analyzing input.", "Interesting."],
+            calm: ["All systems nominal.", "Stabilizing.", "Omega online."]
+        };
+
+        const lines = phrases[newMood];
+        Voice.speak(lines[Math.floor(Math.random() * lines.length)], newMood);
+    }
+};
+
+// >> VISUALS: PARTICLES
+class Particle {
+    constructor(w, h) {
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
+        this.vx = Utils.randomRange(-1, 1);
+        this.vy = Utils.randomRange(-1, 1);
+        this.size = Utils.randomRange(1, 3);
+        this.history = [];
+    }
+
+    update(mood, w, h, speedMult) {
+        let jitter = mood === 'stressed' ? 2 : 0.1;
+        
+        // Mouse attraction if curious
+        if (mood === 'curious' || mood === 'happy') {
+            // Simple attraction logic implies accessing global mouse, skipping for simplicity
+            // Adding swirl instead
+            this.vx += Math.sin(this.y * 0.01) * 0.01;
+            this.vy += Math.cos(this.x * 0.01) * 0.01;
+        }
+
+        this.x += this.vx * speedMult + Utils.randomRange(-jitter, jitter);
+        this.y += this.vy * speedMult + Utils.randomRange(-jitter, jitter);
+
+        // Bounce
+        if (this.x < 0 || this.x > w) this.vx *= -1;
+        if (this.y < 0 || this.y > h) this.vy *= -1;
+
+        // Trail history
+        this.history.push({x: this.x, y: this.y});
+        if (this.history.length > 10) this.history.shift();
+    }
+
+    draw(ctx, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < this.history.length; i++) {
+            let p = this.history[i];
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+        
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+        ctx.fill();
+    }
+}
+
+const ParticleSystem = {
+    canvas: document.getElementById('canvas-bg'),
+    ctx: null,
+    particles: [],
+    width: 0,
+    height: 0,
+    currentColor: CONFIG.colors.calm,
+
+    init() {
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+
+        for(let i=0; i<CONFIG.particleCount; i++) {
+            this.particles.push(new Particle(this.width, this.height));
+        }
+    },
+
+    resize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+    },
+
+    render() {
+        // Clear with fade effect
+        this.ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // Interpolate Color
+        let targetColor = CONFIG.colors[State.mood] || CONFIG.colors.calm;
+        this.currentColor = Utils.lerpColor(this.currentColor, targetColor, 0.05);
+
+        // Params based on state
+        let speed = (State.stress / 100) * 5 + 1;
+        if (State.mood === 'sleepy') speed = 0.2;
+
+        this.particles.forEach(p => {
+            p.update(State.mood, this.width, this.height, speed);
+            p.draw(this.ctx, this.currentColor);
+        });
+    }
+};
+
+// >> VISUALS: FACE AVATAR
+const FaceRenderer = {
+    canvas: document.getElementById('canvas-face'),
+    ctx: null,
+    width: 0,
+    height: 0,
+    blinkTimer: 0,
+    blinkState: 1, // 1 = open, 0 = closed
+    eyeOffset: { x: 0, y: 0 },
+    currentColor: CONFIG.colors.calm,
+
+    init() {
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        // Mouse tracking
+        window.addEventListener('mousemove', e => {
+            this.eyeOffset.x = (e.clientX - this.width/2) / (this.width/2) * 20;
+            this.eyeOffset.y = (e.clientY - this.height/2) / (this.height/2) * 20;
+        });
+    },
+
+    resize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+    },
+
+    render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        
+        // Update Color
+        let targetColor = CONFIG.colors[State.mood] || CONFIG.colors.calm;
+        this.currentColor = Utils.lerpColor(this.currentColor, targetColor, 0.1);
+
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
+        // -- Logic: Blinking --
+        this.blinkTimer--;
+        if (this.blinkTimer <= 0) {
+            this.blinkTimer = Utils.randomRange(100, 300); // Reset timer
+            this.blinkState = 0; // Start blink
+        }
+        if (this.blinkState < 1) this.blinkState += 0.1; // Reopen eyes
+
+        // -- Logic: Sensor Influence --
+        // Add Gyro motion to eyes
+        const mx = this.eyeOffset.x + Sensors.motionLevel * 50;
+        const my = this.eyeOffset.y;
+        // Jitter if stressed
+        const jitter = State.stress > 50 ? Math.random() * 5 : 0;
+
+        this.ctx.strokeStyle = this.currentColor;
+        this.ctx.fillStyle = this.currentColor;
+        this.ctx.lineWidth = 3;
+        this.ctx.shadowBlur = 20;
+        this.ctx.shadowColor = this.currentColor;
+
+        // -- Draw Eyes --
+        const eyeSize = 100;
+        const eyeGap = 120;
+        const eyeHeight = 60 * this.blinkState;
+
+        // Left Eye (Outer)
+        this.drawBracket(cx - eyeGap, cy, eyeSize, eyeHeight, -1, jitter);
+        // Right Eye (Outer)
+        this.drawBracket(cx + eyeGap, cy, eyeSize, eyeHeight, 1, jitter);
+
+        // Pupils (Solid)
+        this.ctx.beginPath();
+        this.ctx.arc(cx - eyeGap + mx, cy + my, 10 * this.blinkState, 0, Math.PI*2);
+        this.ctx.arc(cx + eyeGap + mx, cy + my, 10 * this.blinkState, 0, Math.PI*2);
+        this.ctx.fill();
+
+        // -- Draw Mouth --
+        // Mouth responds to audio (if speaking) or just sits there
+        this.ctx.beginPath();
+        let mouthW = 100;
+        let mouthH = 0;
+        
+        if (State.speaking) {
+            // Animate based on volume or random sine if synth volume not accessible
+            mouthH = Math.sin(Date.now() / 50) * 20 + Sensors.noiseLevel * 50;
+        } else {
+            // Mood based static mouth
+            if (State.mood === 'sad') mouthH = -5;
+            else if (State.mood === 'happy') mouthH = 5;
+        }
+
+        // Draw simple wave or line
+        this.ctx.moveTo(cx - mouthW/2, cy + 150);
+        this.ctx.quadraticCurveTo(cx, cy + 150 + mouthH + jitter, cx + mouthW/2, cy + 150);
+        this.ctx.stroke();
+
+        this.ctx.shadowBlur = 0; // Reset for next frame
+    },
+
+    drawBracket(x, y, w, h, dir, jitter) {
+        // Sci-fi bracket style eye
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - w/2 + jitter, y - h/2 + jitter);
+        this.ctx.lineTo(x + w/2 + jitter, y - h/2 + jitter);
+        this.ctx.lineTo(x + w/2 + jitter, y + h/2 + jitter);
+        this.ctx.lineTo(x - w/2 + jitter, y + h/2 + jitter);
+        this.ctx.closePath();
+        this.ctx.stroke();
+    }
+};
+
+// >> UI MANAGER
+const UI = {
+    hp: document.getElementById('bar-hp'),
+    energy: document.getElementById('bar-energy'),
+    audio: document.getElementById('bar-audio'),
+    hunger: document.getElementById('bar-hunger'),
+    clock: document.getElementById('clock'),
+    mood: document.getElementById('status-mood'),
+    env: document.getElementById('status-env'),
+    idle: document.getElementById('status-idle'),
+    logs: document.getElementById('log-container'),
+    stream: document.getElementById('data-stream'),
+
+    update() {
+        // Bars
+        this.hp.style.width = `${State.hp}%`;
+        this.hp.style.color = State.hp < 30 ? CONFIG.colors.alert : CONFIG.colors.calm;
+        
+        this.energy.style.width = `${State.energy}%`;
+        
+        this.audio.style.width = `${Sensors.noiseLevel * 100}%`;
+        this.audio.style.color = Sensors.noiseLevel > 0.6 ? CONFIG.colors.alert : CONFIG.colors.calm;
+        
+        this.hunger.style.width = `${State.hunger}%`;
+        this.hunger.style.color = State.hunger > 80 ? CONFIG.colors.alert : CONFIG.colors.calm;
+
+        // Text
+        const now = new Date();
+        this.clock.textContent = now.toLocaleTimeString();
+        this.mood.textContent = State.mood.toUpperCase();
+        this.mood.style.color = CONFIG.colors[State.mood] || CONFIG.colors.calm;
+        
+        this.env.textContent = Sensors.noiseLevel > 0.5 ? 'NOISY' : 'QUIET';
+        this.idle.textContent = Math.floor(Sensors.getIdleTime()) + 's';
+    },
+
+    addLogEntry(msg) {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.textContent = msg;
+        this.logs.appendChild(div);
+        // Auto scroll
+        this.logs.scrollTop = this.logs.scrollHeight;
+    },
+
+    updateDataStream(text) {
+        this.stream.textContent = `"${text}"`;
+    }
+};
+
+// --- 4. KERNEL (MAIN LOOP) ---
+let lastTime = 0;
+
+function loop(timestamp) {
+    const dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+
+    Sensors.update();
+    State.update(dt);
+    ParticleSystem.render();
+    FaceRenderer.render();
+    UI.update();
+
+    requestAnimationFrame(loop);
+}
+
+function init() {
+    State.init();
+    Sensors.init();
+    ParticleSystem.init();
+    FaceRenderer.init();
+    
+    Memory.log({ timestamp: Date.now(), msg: 'SYSTEM BOOT SEQUENCE INITIATED' });
+    Voice.speak("Omega system online. Sensors active.", "calm", true);
+    
+    document.getElementById('start-screen').style.opacity = 0;
+    setTimeout(() => document.getElementById('start-screen').style.display = 'none', 500);
+
+    requestAnimationFrame(loop);
+}
+
+// --- EVENT LISTENERS & STARTUP ---
+document.getElementById('start-btn').addEventListener('click', init);
+
+document.getElementById('btn-voice').addEventListener('click', (e) => {
+    CONFIG.speechEnabled = !CONFIG.speechEnabled;
+    e.target.textContent = `VOICE: ${CONFIG.speechEnabled ? 'ON' : 'OFF'}`;
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+    if(confirm('Purge Memory Core?')) Memory.clear();
+});
+
+</script>
 </body>
 </html>
