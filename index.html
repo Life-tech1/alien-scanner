@@ -1,18 +1,38 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project: N.A.S.A Slime</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORION-AR :: LIVE OBJECT INTELLIGENCE SCANNER</title>
     <style>
-        /* --- STYLE: CYBER-ORGANIC AESTHETIC --- */
-        body {
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #000;
+            color: #fff;
             overflow: hidden;
-            background-color: #050505;
-            color: #00ff9d;
-            font-family: 'Courier New', Courier, monospace;
-            touch-action: none; /* ป้องกันการ Scroll */
+            height: 100vh;
+            position: relative;
+        }
+
+        #videoContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         #canvas {
@@ -21,475 +41,841 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1;
-            filter: blur(0.5px) contrast(1.2);
+            z-index: 2;
         }
 
-        #ui-layer {
+        /* Top Status Bar */
+        .status-bar {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            pointer-events: none; /* ให้กดทะลุไปโดนสไลม์ */
-            padding: 20px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            right: 0;
+            z-index: 3;
+            background: rgba(0, 20, 40, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(100, 200, 255, 0.2);
+            padding: 12px 20px;
         }
 
-        .hud-text {
-            text-shadow: 0 0 5px #00ff9d;
+        .status-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #64c8ff;
+            margin-bottom: 2px;
+        }
+
+        .status-subtitle {
             font-size: 12px;
-            opacity: 0.8;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
         }
 
-        #debug-console {
-            background: rgba(0, 20, 10, 0.7);
-            padding: 10px;
-            border-left: 2px solid #00ff9d;
-            max-height: 100px;
-            overflow: hidden;
-            font-size: 10px;
+        .status-pill {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(100, 200, 255, 0.2);
+            border: 1px solid rgba(100, 200, 255, 0.4);
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
         }
 
-        #start-btn {
+        .status-pill.idle { background: rgba(100, 200, 255, 0.2); }
+        .status-pill.tracking { background: rgba(100, 255, 150, 0.2); border-color: rgba(100, 255, 150, 0.4); }
+        .status-pill.lost { background: rgba(255, 100, 100, 0.2); border-color: rgba(255, 100, 100, 0.4); }
+
+        /* Center Overlay */
+        .center-overlay {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 10;
-            background: transparent;
-            border: 2px solid #00ff9d;
-            color: #00ff9d;
-            padding: 15px 30px;
-            font-size: 18px;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .reticle {
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(100, 200, 255, 0.6);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .reticle::before, .reticle::after {
+            content: '';
+            position: absolute;
+            background: rgba(100, 200, 255, 0.6);
+        }
+
+        .reticle::before {
+            width: 2px;
+            height: 20px;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .reticle::after {
+            width: 20px;
+            height: 2px;
+            left: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .target-box {
+            position: absolute;
+            border: 2px solid #64ff96;
+            border-radius: 8px;
+            background: rgba(100, 255, 150, 0.1);
+            box-shadow: 0 0 20px rgba(100, 255, 150, 0.3);
+            transition: all 0.3s ease;
+            z-index: 3;
+        }
+
+        /* Bottom Panel */
+        .bottom-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 3;
+            background: rgba(0, 20, 40, 0.85);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(100, 200, 255, 0.2);
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            max-height: 50vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .info-item {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #64c8ff;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ffaa00, #64ff96);
+            transition: width 0.3s ease;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            background: rgba(100, 200, 255, 0.15);
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            border-radius: 8px;
+            color: #64c8ff;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
-            box-shadow: 0 0 15px #00ff9d;
-            animation: pulse 2s infinite;
+            transition: all 0.2s ease;
         }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 10px #00ff9d; }
-            50% { box-shadow: 0 0 25px #00ff9d, inset 0 0 10px #00ff9d; }
-            100% { box-shadow: 0 0 10px #00ff9d; }
+        .btn:hover {
+            background: rgba(100, 200, 255, 0.25);
         }
 
-        /* ซ่อน Video element (ใช้แค่ดึงข้อมูลภาพ) */
-        #vision-input {
-            display: none;
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn.muted {
+            background: rgba(255, 100, 100, 0.15);
+            border-color: rgba(255, 100, 100, 0.3);
+            color: #ff6464;
+        }
+
+        .event-log {
+            flex: 1;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 11px;
+            max-height: 120px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .log-time {
+            color: rgba(100, 200, 255, 0.7);
+            margin-right: 8px;
+        }
+
+        /* Instructions */
+        .instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 4;
+            background: rgba(0, 20, 40, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 300px;
+        }
+
+        .instructions h3 {
+            color: #64c8ff;
+            margin-bottom: 12px;
+        }
+
+        .instructions p {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .close-btn {
+            padding: 8px 16px;
+            background: rgba(100, 200, 255, 0.2);
+            border: 1px solid rgba(100, 200, 255, 0.4);
+            border-radius: 8px;
+            color: #64c8ff;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-
-    <video id="vision-input" autoplay playsinline muted></video>
-
-    <canvas id="canvas"></canvas>
-
-    <div id="ui-layer">
-        <div class="hud-text">
-            <div>SYSTEM: ONLINE</div>
-            <div id="battery-stat">ENERGY: DETECTING...</div>
-            <div id="mood-stat">MOOD: NULL</div>
-        </div>
-        <div id="debug-console">
-            > WAITING FOR INITIALIZATION...
-        </div>
+    <div id="videoContainer">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
     </div>
 
-    <button id="start-btn">INITIATE LIFEFORM</button>
+    <div class="status-bar">
+        <div class="status-title">ORION-AR LIVE SCANNER</div>
+        <div class="status-subtitle">Live Object Intelligence Analysis</div>
+        <div class="status-pill idle" id="statusPill">IDLE</div>
+    </div>
+
+    <div class="center-overlay">
+        <div class="reticle" id="reticle"></div>
+    </div>
+
+    <div class="target-box" id="targetBox" style="display: none;"></div>
+
+    <div class="bottom-panel">
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">CATEGORY</div>
+                <div class="info-value" id="categoryValue">-</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">STABILITY</div>
+                <div class="info-value" id="stabilityValue">-</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">MOTION INDEX</div>
+                <div class="info-value" id="motionValue">0.00</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">VIBRATION INDEX</div>
+                <div class="info-value" id="vibrationValue">0.00</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">AUDIO LEVEL</div>
+                <div class="info-value" id="audioValue">-</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">CONFIDENCE</div>
+                <div class="info-value" id="confidenceValue">-</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceFill" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="lockBtn">LOCK TARGET</button>
+            <button class="btn" id="rescanBtn">RE-SCAN</button>
+            <button class="btn" id="muteBtn">MUTE VOICE</button>
+        </div>
+
+        <div class="event-log" id="eventLog"></div>
+    </div>
+
+    <div class="instructions" id="instructions">
+        <h3>ORION-AR Scanner</h3>
+        <p>Tap anywhere on screen to lock onto a target. The system will track the object and analyze its motion, vibration, and acoustic properties.</p>
+        <p>Keep the target in view for continuous analysis.</p>
+        <button class="close-btn" id="closeInstructions">BEGIN SCAN</button>
+    </div>
 
     <script>
-        /**
-         * PROJECT N.A.S.A (Neural Autonomous Slime Agent)
-         * Architecture:
-         * 1. PhysicsEngine: Soft body dynamics via spring-mass system.
-         * 2. VisionCortex: Pixel difference motion detection.
-         * 3. BioSystem: Hardware APIs (Battery, Gyro).
-         * 4. CoreBrain: State machine & Behavior logic.
-         */
-
-        // --- CONFIGURATION ---
-        const CONFIG = {
-            particleCount: 12,
-            radius: 100,
-            stiffness: 0.05,
-            damping: 0.9,
-            visionInterval: 5, // Check vision every 5 frames to save battery
-            voiceEnabled: true
+        // Global Application State
+        const app = {
+            state: 'idle', // 'idle', 'tracking', 'lost'
+            target: {
+                x: 0,
+                y: 0,
+                width: 64,
+                height: 64,
+                template: null,
+                confidence: 0,
+                lostFrames: 0
+            },
+            sensors: {
+                motionHistory: [],
+                vibrationHistory: [],
+                audioLevel: 0,
+                lastFrame: null
+            },
+            ui: {
+                voiceMuted: false,
+                lastSpeechTime: 0
+            },
+            config: {
+                trackingThreshold: 0.3,
+                lostThreshold: 10,
+                motionThresholds: { low: 0.05, high: 0.2 },
+                vibrationThresholds: { low: 0.02, high: 0.1 },
+                audioThresholds: { low: 0.1, high: 0.5 },
+                speechCooldown: 3000
+            },
+            elements: {},
+            video: null,
+            canvas: null,
+            ctx: null,
+            audioContext: null,
+            analyser: null,
+            lastClassification: null
         };
 
-        // --- UTILITIES ---
-        const log = (msg) => {
-            const consoleEl = document.getElementById('debug-console');
-            consoleEl.innerHTML += `<div>> ${msg}</div>`;
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-        };
-
-        const random = (min, max) => Math.random() * (max - min) + min;
-
-        // --- PHYSICS ENGINE (The Body) ---
-        class Point {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.oldx = x;
-                this.oldy = y;
-            }
+        // DOM Elements
+        function initializeElements() {
+            app.elements = {
+                video: document.getElementById('video'),
+                canvas: document.getElementById('canvas'),
+                statusPill: document.getElementById('statusPill'),
+                targetBox: document.getElementById('targetBox'),
+                reticle: document.getElementById('reticle'),
+                categoryValue: document.getElementById('categoryValue'),
+                stabilityValue: document.getElementById('stabilityValue'),
+                motionValue: document.getElementById('motionValue'),
+                vibrationValue: document.getElementById('vibrationValue'),
+                audioValue: document.getElementById('audioValue'),
+                confidenceValue: document.getElementById('confidenceValue'),
+                confidenceFill: document.getElementById('confidenceFill'),
+                lockBtn: document.getElementById('lockBtn'),
+                rescanBtn: document.getElementById('rescanBtn'),
+                muteBtn: document.getElementById('muteBtn'),
+                eventLog: document.getElementById('eventLog'),
+                instructions: document.getElementById('instructions'),
+                closeInstructions: document.getElementById('closeInstructions')
+            };
+            app.ctx = app.elements.canvas.getContext('2d');
         }
 
-        class SlimeBody {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.points = [];
-                this.color = '#00ff9d';
-                this.targetRadius = CONFIG.radius;
-                this.currentRadius = CONFIG.radius;
-                this.eyeOpenness = 1.0;
+        // Camera Initialization
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' },
+                    audio: true 
+                });
+                app.elements.video.srcObject = stream;
                 
-                // Create particles in a circle
-                for (let i = 0; i < CONFIG.particleCount; i++) {
-                    const angle = (Math.PI * 2 * i) / CONFIG.particleCount;
-                    const px = this.x + Math.cos(angle) * CONFIG.radius;
-                    const py = this.y + Math.sin(angle) * CONFIG.radius;
-                    this.points.push(new Point(px, py));
-                }
-            }
-
-            update(gyroX, gyroY) {
-                // 1. Move center based on Gyroscope (Gravity)
-                this.x += gyroX * 5;
-                this.y += gyroY * 5;
-
-                // Boundary Check
-                if(this.x < 0) this.x = 0;
-                if(this.x > window.innerWidth) this.x = window.innerWidth;
-                if(this.y < 0) this.y = 0;
-                if(this.y > window.innerHeight) this.y = window.innerHeight;
-
-                // 2. Physics Loop (Springs)
-                for (let i = 0; i < this.points.length; i++) {
-                    let p = this.points[i];
-                    
-                    // Velocity Verlet Integration
-                    const vx = (p.x - p.oldx) * CONFIG.damping;
-                    const vy = (p.y - p.oldy) * CONFIG.damping;
-
-                    p.oldx = p.x;
-                    p.oldy = p.y;
-                    p.x += vx;
-                    p.y += vy;
-
-                    // Pull towards ideal shape (Circle shape constraint)
-                    const angle = (Math.PI * 2 * i) / CONFIG.particleCount;
-                    const targetX = this.x + Math.cos(angle) * this.currentRadius;
-                    const targetY = this.y + Math.sin(angle) * this.currentRadius;
-
-                    p.x += (targetX - p.x) * CONFIG.stiffness;
-                    p.y += (targetY - p.y) * CONFIG.stiffness;
-
-                    // Mouse/Touch interaction repulsion will be handled in Main Loop
-                }
-
-                // Breathing effect
-                this.currentRadius = this.targetRadius + Math.sin(Date.now() / 500) * 5;
-            }
-
-            draw(ctx) {
-                // Draw Body
-                ctx.fillStyle = this.color;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = this.color;
-                
-                ctx.beginPath();
-                let xc = (this.points[0].x + this.points[this.points.length - 1].x) / 2;
-                let yc = (this.points[0].y + this.points[this.points.length - 1].y) / 2;
-                ctx.moveTo(xc, yc);
-
-                for (let i = 0; i < this.points.length; i++) {
-                    let p = this.points[i];
-                    let nextP = this.points[(i + 1) % this.points.length];
-                    xc = (p.x + nextP.x) / 2;
-                    yc = (p.y + nextP.y) / 2;
-                    ctx.quadraticCurveTo(p.x, p.y, xc, yc);
-                }
-                ctx.closePath();
-                ctx.fill();
-
-                // Draw Eyes (The Sensor)
-                this.drawEye(ctx, -20, -10);
-                this.drawEye(ctx, 20, -10);
-            }
-
-            drawEye(ctx, offsetX, offsetY) {
-                const eyeX = this.x + offsetX;
-                const eyeY = this.y + offsetY;
-                
-                // Sclera
-                ctx.fillStyle = "white";
-                ctx.shadowBlur = 5;
-                ctx.beginPath();
-                ctx.ellipse(eyeX, eyeY, 12, 12 * this.eyeOpenness, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Pupil (Tracking Look)
-                ctx.fillStyle = "black";
-                ctx.shadowBlur = 0;
-                ctx.beginPath();
-                // Simple look-at logic (follow center screen or noise)
-                const lookX = (window.innerWidth/2 - this.x) * 0.05;
-                const lookY = (window.innerHeight/2 - this.y) * 0.05;
-                ctx.arc(eyeX + Math.max(-5, Math.min(5, lookX)), eyeY + Math.max(-5, Math.min(5, lookY)), 5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            shock() {
-                this.currentRadius = 50; // Shrink instantly
-                setTimeout(() => { this.currentRadius = CONFIG.radius + 20 }, 100); // Then expand
-            }
-        }
-
-        // --- VISION CORTEX (The Eyes) ---
-        class VisionCortex {
-            constructor() {
-                this.video = document.getElementById('vision-input');
-                this.tempCanvas = document.createElement('canvas');
-                this.tempCtx = this.tempCanvas.getContext('2d');
-                this.prevFrame = null;
-                this.motionAmount = 0;
-                this.initialized = false;
-            }
-
-            async init() {
+                // Initialize audio analysis if available
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-                    this.video.srcObject = stream;
-                    this.tempCanvas.width = 64; // Low res for performance
-                    this.tempCanvas.height = 64;
-                    this.initialized = true;
-                    log("VISION SENSORS ACTIVE");
-                } catch (e) {
-                    log("VISION ERROR: " + e.message);
+                    app.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    app.analyser = app.audioContext.createAnalyser();
+                    const source = app.audioContext.createMediaStreamSource(stream);
+                    source.connect(app.analyser);
+                    app.analyser.fftSize = 256;
+                } catch (audioError) {
+                    console.warn('Audio analysis not available:', audioError);
                 }
+                
+                return new Promise((resolve) => {
+                    app.elements.video.onloadedmetadata = () => {
+                        app.elements.canvas.width = app.elements.video.videoWidth;
+                        app.elements.canvas.height = app.elements.video.videoHeight;
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error('Camera initialization failed:', error);
+                logEvent('Camera Error', 'Failed to access camera');
+                throw error;
             }
+        }
 
-            detectMotion() {
-                if (!this.initialized || this.video.paused || this.video.ended) return 0;
+        // Event Logging
+        function logEvent(event, payload = {}) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${timestamp}]</span> ${event}`;
+            
+            app.elements.eventLog.appendChild(entry);
+            app.elements.eventLog.scrollTop = app.elements.eventLog.scrollHeight;
+            
+            // Keep only last 10 entries
+            while (app.elements.eventLog.children.length > 10) {
+                app.elements.eventLog.removeChild(app.elements.eventLog.firstChild);
+            }
+        }
 
-                this.tempCtx.drawImage(this.video, 0, 0, 64, 64);
-                const frame = this.tempCtx.getImageData(0, 0, 64, 64);
-                const length = frame.data.length;
-                let diff = 0;
+        // Target Locking
+        function lockTarget(x, y) {
+            const rect = app.elements.canvas.getBoundingClientRect();
+            const scaleX = app.elements.canvas.width / rect.width;
+            const scaleY = app.elements.canvas.height / rect.height;
+            
+            app.target.x = (x - rect.left) * scaleX;
+            app.target.y = (y - rect.top) * scaleY;
+            
+            // Capture template
+            captureTemplate();
+            
+            app.state = 'tracking';
+            app.target.confidence = 1.0;
+            app.target.lostFrames = 0;
+            
+            updateStatus();
+            logEvent('Target Locked', { x: Math.round(app.target.x), y: Math.round(app.target.y) });
+            
+            // Initial classification and speech
+            updateClassification();
+            speakStatus('initial');
+        }
 
-                if (this.prevFrame) {
-                    for (let i = 0; i < length; i += 4) {
-                        // Compare Green channel only (optimization)
-                        diff += Math.abs(frame.data[i+1] - this.prevFrame.data[i+1]);
+        function captureTemplate() {
+            const { x, y, width, height } = app.target;
+            app.ctx.drawImage(app.elements.video, 0, 0);
+            const imageData = app.ctx.getImageData(x - width/2, y - height/2, width, height);
+            
+            // Convert to grayscale for tracking
+            const grayData = new Uint8Array(width * height);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                grayData[i/4] = Math.round(
+                    imageData.data[i] * 0.299 +
+                    imageData.data[i+1] * 0.587 +
+                    imageData.data[i+2] * 0.114
+                );
+            }
+            
+            app.target.template = grayData;
+            app.sensors.lastFrame = grayData.slice();
+        }
+
+        // Template Matching (Simplified 2D tracking)
+        function matchTemplate() {
+            if (!app.target.template) return null;
+            
+            const { width, height } = app.target;
+            const searchRange = 32;
+            let bestMatch = { x: app.target.x, y: app.target.y, error: Infinity };
+            
+            app.ctx.drawImage(app.elements.video, 0, 0);
+            const currentImageData = app.ctx.getImageData(0, 0, app.elements.canvas.width, app.elements.canvas.height);
+            
+            for (let dy = -searchRange; dy <= searchRange; dy += 4) {
+                for (let dx = -searchRange; dx <= searchRange; dx += 4) {
+                    const testX = app.target.x + dx;
+                    const testY = app.target.y + dy;
+                    
+                    if (testX < width/2 || testX >= app.elements.canvas.width - width/2 ||
+                        testY < height/2 || testY >= app.elements.canvas.height - height/2) {
+                        continue;
+                    }
+                    
+                    let error = 0;
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            const srcIdx = ((testY - height/2 + y) * app.elements.canvas.width + (testX - width/2 + x)) * 4;
+                            const gray = Math.round(
+                                currentImageData.data[srcIdx] * 0.299 +
+                                currentImageData.data[srcIdx+1] * 0.587 +
+                                currentImageData.data[srcIdx+2] * 0.114
+                            );
+                            const templateIdx = y * width + x;
+                            error += Math.abs(gray - app.target.template[templateIdx]);
+                        }
+                    }
+                    
+                    error /= (width * height);
+                    
+                    if (error < bestMatch.error) {
+                        bestMatch = { x: testX, y: testY, error };
                     }
                 }
-
-                this.prevFrame = frame;
-                // Normalize motion
-                this.motionAmount = diff / (64 * 64);
-                return this.motionAmount;
             }
+            
+            return bestMatch;
         }
 
-        // --- BIO SYSTEM (Hardware Access) ---
-        class BioSystem {
-            constructor() {
-                this.batteryLevel = 1.0;
-                this.charging = false;
-                this.gyro = { x: 0, y: 0 };
+        // Motion Metrics
+        function updateMotionMetrics() {
+            if (!app.target.template || !app.sensors.lastFrame) return 0;
+            
+            const { width, height } = app.target;
+            let motion = 0;
+            
+            app.ctx.drawImage(app.elements.video, 0, 0);
+            const currentImageData = app.ctx.getImageData(
+                app.target.x - width/2, 
+                app.target.y - height/2, 
+                width, 
+                height
+            );
+            
+            // Convert current frame to grayscale and compare with last frame
+            for (let i = 0; i < currentImageData.data.length; i += 4) {
+                const currentGray = Math.round(
+                    currentImageData.data[i] * 0.299 +
+                    currentImageData.data[i+1] * 0.587 +
+                    currentImageData.data[i+2] * 0.114
+                );
+                motion += Math.abs(currentGray - app.sensors.lastFrame[i/4]);
             }
+            
+            motion /= (width * height * 255); // Normalize to 0-1
+            
+            // Update history
+            app.sensors.motionHistory.push(motion);
+            if (app.sensors.motionHistory.length > 10) {
+                app.sensors.motionHistory.shift();
+            }
+            
+            // Store current frame for next comparison
+            for (let i = 0; i < currentImageData.data.length; i += 4) {
+                app.sensors.lastFrame[i/4] = Math.round(
+                    currentImageData.data[i] * 0.299 +
+                    currentImageData.data[i+1] * 0.587 +
+                    currentImageData.data[i+2] * 0.114
+                );
+            }
+            
+            return motion;
+        }
 
-            async init() {
-                // Battery
-                if (navigator.getBattery) {
-                    const battery = await navigator.getBattery();
-                    this.updateBattery(battery);
-                    battery.addEventListener('levelchange', () => this.updateBattery(battery));
-                    battery.addEventListener('chargingchange', () => this.updateBattery(battery));
-                }
-
-                // Gyroscope (Gravity)
-                window.addEventListener('deviceorientation', (event) => {
-                    // Normalize gamma (left/right) and beta (front/back)
-                    this.gyro.x = event.gamma ? event.gamma / 45 : 0; 
-                    this.gyro.y = event.beta ? (event.beta - 45) / 45 : 0; 
+        // IMU/Vibration Metrics
+        function initIMU() {
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', (event) => {
+                    const acceleration = event.accelerationIncludingGravity;
+                    if (acceleration) {
+                        const gForce = Math.sqrt(
+                            Math.pow(acceleration.x, 2) +
+                            Math.pow(acceleration.y, 2) + 
+                            Math.pow(acceleration.z, 2)
+                        ) / 9.80665;
+                        
+                        // Calculate vibration as deviation from 1G
+                        const vibration = Math.abs(gForce - 1.0);
+                        
+                        app.sensors.vibrationHistory.push(vibration);
+                        if (app.sensors.vibrationHistory.length > 20) {
+                            app.sensors.vibrationHistory.shift();
+                        }
+                    }
                 });
-            }
-
-            updateBattery(battery) {
-                this.batteryLevel = battery.level;
-                this.charging = battery.charging;
-                document.getElementById('battery-stat').innerText = 
-                    `ENERGY: ${Math.round(this.batteryLevel * 100)}% ${this.charging ? '[CHARGING]' : ''}`;
+            } else {
+                console.warn('DeviceMotion not supported');
             }
         }
 
-        // --- CORE BRAIN (Logic) ---
-        class CoreBrain {
-            constructor(slime, bio, vision) {
-                this.slime = slime;
-                this.bio = bio;
-                this.vision = vision;
-                this.state = 'IDLE'; // IDLE, EXCITED, TIRED, SLEEP
-                this.lastSpeakTime = 0;
-                this.synth = window.speechSynthesis;
+        function getVibrationIndex() {
+            if (app.sensors.vibrationHistory.length === 0) return 0;
+            
+            // Calculate standard deviation as vibration index
+            const mean = app.sensors.vibrationHistory.reduce((a, b) => a + b) / app.sensors.vibrationHistory.length;
+            const variance = app.sensors.vibrationHistory.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / app.sensors.vibrationHistory.length;
+            return Math.sqrt(variance);
+        }
+
+        // Audio Analysis
+        function updateAudioMetrics() {
+            if (!app.analyser) return 0;
+            
+            const dataArray = new Uint8Array(app.analyser.frequencyBinCount);
+            app.analyser.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
             }
+            
+            const rms = Math.sqrt(sum / dataArray.length) / 255;
+            app.sensors.audioLevel = rms;
+            return rms;
+        }
 
-            process() {
-                // 1. Update Biological State
-                const energy = this.bio.batteryLevel;
-                const motion = this.vision.motionAmount;
-
-                // 2. State Machine Logic
-                if (energy < 0.2 && !this.bio.charging) {
-                    this.setState('TIRED');
-                } else if (motion > 15) {
-                    this.setState('EXCITED');
-                } else if (this.bio.charging) {
-                    this.setState('HEALING'); // Charging
-                } else {
-                    this.setState('IDLE');
+        // Target State Classification
+        function classifyTargetState(motionIndex, vibrationIndex, audioLevel) {
+            let category = 'Unknown';
+            let stability = 'Unknown';
+            let audioDescriptor = 'Quiet';
+            let confidence = 0.7; // Base confidence
+            
+            // Audio classification
+            if (audioLevel < app.config.audioThresholds.low) {
+                audioDescriptor = 'Quiet';
+            } else if (audioLevel < app.config.audioThresholds.high) {
+                audioDescriptor = 'Moderate';
+            } else {
+                audioDescriptor = 'Loud';
+            }
+            
+            // Stability classification based on vibration
+            if (vibrationIndex < app.config.vibrationThresholds.low) {
+                stability = 'Stable';
+                confidence += 0.1;
+            } else if (vibrationIndex < app.config.vibrationThresholds.high) {
+                stability = 'Mild Vibration';
+            } else {
+                stability = 'High Vibration';
+            }
+            
+            // Category classification
+            if (motionIndex < app.config.motionThresholds.low && vibrationIndex < app.config.vibrationThresholds.low) {
+                category = 'Static Surface';
+                confidence += 0.2;
+            } else if (motionIndex >= app.config.motionThresholds.high && vibrationIndex < app.config.vibrationThresholds.low) {
+                category = 'Moving Object';
+            } else if (vibrationIndex >= app.config.vibrationThresholds.high) {
+                category = 'Vibrating Appliance';
+                if (audioLevel > app.config.audioThresholds.high) {
+                    category = 'Active Machinery';
+                    confidence += 0.1;
                 }
-
-                // 3. Apply State to Body
-                this.applyStateEffects();
+            } else if (motionIndex > app.config.motionThresholds.low) {
+                category = 'Dynamic Object';
             }
+            
+            // Adjust confidence based on tracking quality
+            confidence *= app.target.confidence;
+            confidence = Math.min(1, Math.max(0.3, confidence));
+            
+            return { category, stability, audioDescriptor, confidence };
+        }
 
-            setState(newState) {
-                if (this.state === newState) return;
-                this.state = newState;
-                document.getElementById('mood-stat').innerText = `MOOD: ${this.state}`;
+        function updateClassification() {
+            const motionIndex = updateMotionMetrics();
+            const vibrationIndex = getVibrationIndex();
+            const audioLevel = updateAudioMetrics();
+            
+            const classification = classifyTargetState(motionIndex, vibrationIndex, audioLevel);
+            
+            // Update UI
+            app.elements.categoryValue.textContent = classification.category;
+            app.elements.stabilityValue.textContent = classification.stability;
+            app.elements.motionValue.textContent = motionIndex.toFixed(3);
+            app.elements.vibrationValue.textContent = vibrationIndex.toFixed(3);
+            app.elements.audioValue.textContent = classification.audioDescriptor;
+            app.elements.confidenceValue.textContent = Math.round(classification.confidence * 100) + '%';
+            app.elements.confidenceFill.style.width = (classification.confidence * 100) + '%';
+            
+            // Check for significant state changes
+            if (app.lastClassification) {
+                const categoryChanged = app.lastClassification.category !== classification.category;
+                const stabilityChanged = app.lastClassification.stability !== classification.stability;
                 
-                // Reaction on state change
-                this.speak(); 
-                log(`STATE SHIFT: ${newState}`);
-            }
-
-            applyStateEffects() {
-                switch (this.state) {
-                    case 'EXCITED':
-                        this.slime.color = '#ff0055'; // Red
-                        this.slime.eyeOpenness = 1.2; // Wide eyes
-                        this.slime.targetRadius = 110;
-                        break;
-                    case 'TIRED':
-                        this.slime.color = '#555555'; // Grey
-                        this.slime.eyeOpenness = 0.2; // Sleepy eyes
-                        this.slime.targetRadius = 80;
-                        break;
-                    case 'HEALING':
-                        this.slime.color = '#00ffff'; // Cyan
-                        this.slime.eyeOpenness = 0.5;
-                        break;
-                    case 'IDLE':
-                    default:
-                        this.slime.color = '#00ff9d'; // Green
-                        this.slime.eyeOpenness = 1.0;
-                        this.slime.targetRadius = 100;
-                        break;
+                if (categoryChanged || stabilityChanged) {
+                    speakStatus('update');
+                    logEvent('State Change', {
+                        category: classification.category,
+                        stability: classification.stability
+                    });
                 }
             }
+            
+            app.lastClassification = classification;
+        }
 
-            speak() {
-                if (!CONFIG.voiceEnabled || Date.now() - this.lastSpeakTime < 3000) return;
-                
-                const phrases = {
-                    'EXCITED': ['I see you moving!', 'So much energy!', 'Wow!'],
-                    'TIRED': ['Low battery...', 'I need power...', 'Getting dark...'],
-                    'HEALING': ['Power surging...', 'Refueling...', 'Ahhh...'],
-                    'IDLE': ['System stable.', 'Watching you.', 'Hummm...']
-                };
-
-                const text = phrases[this.state][Math.floor(Math.random() * phrases[this.state].length)];
+        // Speech Synthesis
+        function speakStatus(type) {
+            if (app.ui.voiceMuted) return;
+            if (Date.now() - app.ui.lastSpeechTime < app.config.speechCooldown) return;
+            
+            const synthesis = window.speechSynthesis;
+            if (!synthesis) return;
+            
+            // Cancel any ongoing speech
+            synthesis.cancel();
+            
+            let text = '';
+            if (type === 'initial' && app.lastClassification) {
+                text = `Target locked. Appears to be a ${app.lastClassification.category.toLowerCase()}. Stability: ${app.lastClassification.stability.toLowerCase()}.`;
+            } else if (type === 'update' && app.lastClassification) {
+                text = `Update. Target now classified as ${app.lastClassification.category.toLowerCase()}. Vibration level ${app.lastClassification.stability.toLowerCase().includes('high') ? 'high' : 'low'}.`;
+            } else if (type === 'lost') {
+                text = 'Target lost. Please reacquire.';
+            }
+            
+            if (text) {
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.pitch = this.state === 'EXCITED' ? 1.5 : 0.8;
-                utterance.rate = 1.2;
-                this.synth.speak(utterance);
-                this.lastSpeakTime = Date.now();
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                synthesis.speak(utterance);
+                app.ui.lastSpeechTime = Date.now();
             }
         }
 
-        // --- MAIN SYSTEM ---
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let slime, vision, bio, brain;
-        let frameCount = 0;
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        // UI Updates
+        function updateStatus() {
+            app.elements.statusPill.textContent = app.state.toUpperCase();
+            app.elements.statusPill.className = `status-pill ${app.state}`;
+            
+            app.elements.reticle.style.display = app.state === 'idle' ? 'block' : 'none';
+            app.elements.targetBox.style.display = app.state === 'tracking' ? 'block' : 'none';
         }
-        window.addEventListener('resize', resize);
 
-        // Touch Interaction
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
+        function renderOverlay() {
+            // Clear canvas
+            app.ctx.clearRect(0, 0, app.elements.canvas.width, app.elements.canvas.height);
             
-            // Vibrate if touched
-            if (navigator.vibrate) navigator.vibrate(50);
+            if (app.state === 'tracking') {
+                // Draw target box
+                const { x, y, width, height } = app.target;
+                app.elements.targetBox.style.left = (x - width/2) + 'px';
+                app.elements.targetBox.style.top = (y - height/2) + 'px';
+                app.elements.targetBox.style.width = width + 'px';
+                app.elements.targetBox.style.height = height + 'px';
+                
+                // Draw confidence indicator
+                const confidence = app.lastClassification ? app.lastClassification.confidence : app.target.confidence;
+                const hue = confidence * 120; // 0 (red) to 120 (green)
+                app.elements.targetBox.style.borderColor = `hsl(${hue}, 100%, 65%)`;
+                app.elements.targetBox.style.boxShadow = `0 0 20px hsla(${hue}, 100%, 65%, 0.3)`;
+            }
+        }
+
+        // Main Tracking Loop
+        function updateTracking() {
+            if (app.state === 'tracking') {
+                const match = matchTemplate();
+                
+                if (match && match.error < app.config.trackingThreshold) {
+                    app.target.x = match.x;
+                    app.target.y = match.y;
+                    app.target.confidence = 1 - (match.error / app.config.trackingThreshold);
+                    app.target.lostFrames = 0;
+                    
+                    updateClassification();
+                } else {
+                    app.target.lostFrames++;
+                    app.target.confidence *= 0.9;
+                    
+                    if (app.target.lostFrames > app.config.lostThreshold) {
+                        app.state = 'lost';
+                        updateStatus();
+                        speakStatus('lost');
+                        logEvent('Target Lost', { confidence: app.target.confidence.toFixed(2) });
+                    }
+                }
+                
+                renderOverlay();
+            }
             
-            // Push Slime points away from touch
-            slime.points.forEach(p => {
-                const dx = p.x - touch.clientX;
-                const dy = p.y - touch.clientY;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if(dist < 150) {
-                    p.x += dx * 0.5; // Push effect
-                    p.y += dy * 0.5;
+            requestAnimationFrame(updateTracking);
+        }
+
+        // Event Handlers
+        function bindEvents() {
+            // Canvas tap for target locking
+            app.elements.canvas.addEventListener('click', (e) => {
+                if (app.state !== 'tracking') {
+                    lockTarget(e.clientX, e.clientY);
                 }
             });
             
-            slime.shock();
-            log("TOUCH DETECTED");
-        });
-
-        function loop() {
-            ctx.fillStyle = '#050505';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Run Vision less frequently
-            if (frameCount % CONFIG.visionInterval === 0) {
-                vision.detectMotion();
-            }
-
-            // Process Logic
-            brain.process();
-
-            // Physics Update
-            slime.update(bio.gyro.x, bio.gyro.y);
-            slime.draw(ctx);
-
-            frameCount++;
-            requestAnimationFrame(loop);
+            // Button handlers
+            app.elements.lockBtn.addEventListener('click', () => {
+                if (app.state === 'idle') {
+                    // Lock to center of screen
+                    const rect = app.elements.canvas.getBoundingClientRect();
+                    lockTarget(rect.left + rect.width/2, rect.top + rect.height/2);
+                }
+            });
+            
+            app.elements.rescanBtn.addEventListener('click', () => {
+                if (app.state === 'tracking') {
+                    captureTemplate();
+                    logEvent('Target Rescanned');
+                }
+            });
+            
+            app.elements.muteBtn.addEventListener('click', () => {
+                app.ui.voiceMuted = !app.ui.voiceMuted;
+                app.elements.muteBtn.classList.toggle('muted', app.ui.voiceMuted);
+                app.elements.muteBtn.textContent = app.ui.voiceMuted ? 'UNMUTE VOICE' : 'MUTE VOICE';
+                logEvent(app.ui.voiceMuted ? 'Voice Muted' : 'Voice Unmuted');
+            });
+            
+            app.elements.closeInstructions.addEventListener('click', () => {
+                app.elements.instructions.style.display = 'none';
+                logEvent('Scan Session Started');
+            });
         }
 
-        document.getElementById('start-btn').addEventListener('click', async function() {
-            this.style.display = 'none';
-            
-            resize();
-            
-            // Initialize Modules
-            slime = new SlimeBody(window.innerWidth / 2, window.innerHeight / 2);
-            vision = new VisionCortex();
-            bio = new BioSystem();
-            brain = new CoreBrain(slime, bio, vision);
+        // Application Initialization
+        async function initApp() {
+            try {
+                initializeElements();
+                await initCamera();
+                initIMU();
+                bindEvents();
+                updateTracking();
+                
+                logEvent('ORION-AR System Ready');
+                console.log('ORION-AR Scanner initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize ORION-AR:', error);
+                logEvent('System Initialization Failed');
+            }
+        }
 
-            await vision.init();
-            await bio.init();
-
-            log("SYSTEM INITIALIZED SUCCESSFULLY");
-            loop();
-        });
-
+        // Start the application when loaded
+        window.addEventListener('load', initApp);
     </script>
 </body>
 </html>
