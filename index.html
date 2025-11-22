@@ -3,189 +3,501 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ENTITY</title>
-    
-    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiRW50aXR5IiwiYmFja2dyb3VuZF9jb2xvciI6IiMwMDAwMDAiLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsInRoZW1lX2NvbG9yIjoiIzAwMDAwMCIsImljb25zIjpWXX0=">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
+    <title>OMEGA: LIFE MONITOR</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; touch-action: none; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-red: #ff003c;
+            --neon-gold: #ffd700;
+            --glass-bg: rgba(10, 15, 20, 0.65);
+            --glass-border: rgba(0, 243, 255, 0.2);
+            --bg: #020202;
+        }
         
-        #hud {
-            position: absolute; bottom: 40px; left: 0; width: 100%;
-            text-align: center; pointer-events: none;
+        body {
+            margin: 0; overflow: hidden; background-color: var(--bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 2px;
-            text-transform: uppercase;
+            color: var(--neon-blue);
+            touch-action: none; user-select: none;
         }
 
-        #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; font-family: sans-serif; font-size: 12px; letter-spacing: 4px;
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 0; }
+
+        /* --- UI LAYER: APPLE-STYLE DASHBOARD --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 20px; box-sizing: border-box;
+        }
+
+        /* Header */
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        .status-pill {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 5px 12px; border-radius: 20px;
+            font-size: 11px; letter-spacing: 1px; backdrop-filter: blur(10px);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .status-dot { width: 8px; height: 8px; background: var(--neon-blue); border-radius: 50%; box-shadow: 0 0 5px var(--neon-blue); }
+        .status-dot.recording { animation: blink 1s infinite; background: var(--neon-red); box-shadow: 0 0 5px var(--neon-red); }
+
+        /* Central Dashboard */
+        #dashboard-panel {
+            pointer-events: auto;
+            align-self: center;
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 25px;
+            width: 90%; max-width: 350px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .timer-display {
+            font-variant-numeric: tabular-nums;
+            font-size: 48px; font-weight: 200; color: #fff;
+            margin: 10px 0; letter-spacing: -1px;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
+        .sub-stat {
+            display: flex; justify-content: space-between; margin-top: 15px;
+            font-size: 12px; color: rgba(255,255,255,0.5);
+        }
+        .stat-val { color: var(--neon-blue); font-weight: bold; }
+
+        /* Controls */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        
+        button {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: white; padding: 12px; border-radius: 12px; font-size: 12px;
+            cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        button:active { transform: scale(0.96); }
+        
+        .btn-primary { background: var(--neon-blue); color: #000; font-weight: bold; box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); border: none; }
+        .btn-secondary { border-color: var(--neon-gold); color: var(--neon-gold); }
+        .btn-danger { border-color: var(--neon-red); color: var(--neon-red); }
+
+        /* Logs */
+        #log-panel {
+            font-family: 'Consolas', monospace; font-size: 10px;
+            height: 80px; overflow-y: auto;
+            background: linear-gradient(to bottom, transparent, #000);
+            mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+            opacity: 0.7; pointer-events: none;
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-time { opacity: 0.5; margin-right: 5px; }
+
+        /* Bars */
+        .bar-wrap { width: 100%; height: 4px; background: #222; border-radius: 2px; margin-top: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--neon-blue); width: 100%; transition: width 0.5s, background 0.5s; }
+
+        /* Animations */
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes scan { 0% { top: 0%; opacity:0; } 50% { opacity:1; } 100% { top: 100%; opacity:0; } }
+
+        .scan-line {
+            position: absolute; top:0; left:0; width:100%; height:2px;
+            background: var(--neon-blue); opacity: 0.1;
+            animation: scan 4s infinite linear; pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="loading">INITIALIZING NEURAL GPU...</div>
-    <div id="hud">Touch to Disturb • Tilt to Flow</div>
+    <canvas id="main-canvas"></canvas>
+    <div class="scan-line"></div>
 
-    <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-
-        // --- 1. SCENE SETUP ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    <div id="ui-layer">
         
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        <div class="top-bar">
+            <div class="status-pill">
+                <div id="pulse-dot" class="status-dot"></div>
+                <span id="system-state">STANDBY</span>
+            </div>
+            <div class="status-pill" style="border-color:rgba(255,255,255,0.1); background:transparent;">
+                <span id="clock-display">00:00</span>
+            </div>
+        </div>
 
-        // --- 2. THE SHADER (The "Soul" of the visual) ---
-        // This runs on GPU, calculating pixel-by-pixel liquid physics
-        const fragmentShader = `
-            uniform float u_time;
-            uniform vec2 u_resolution;
-            uniform vec2 u_mouse;
-            uniform vec2 u_gyro;
+        <div id="dashboard-panel">
+            <div style="font-size: 10px; color: #888; letter-spacing: 2px; margin-bottom: 10px;">SESSION TIMER</div>
+            <div class="timer-display" id="timer-display">00:00</div>
             
-            // Noise Function
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-            float snoise(vec2 v) {
-                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-                vec2 i  = floor(v + dot(v, C.yy) );
-                vec2 x0 = v - i + dot(i, C.xx);
-                vec2 i1;
-                i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-                vec4 x12 = x0.xyxy + C.xxzz;
-                x12.xy -= i1;
-                i = mod289(i);
-                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
-                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-                m = m*m ;
-                m = m*m ;
-                vec3 x = 2.0 * fract(p * C.www) - 1.0;
-                vec3 h = abs(x) - 0.5;
-                vec3 ox = floor(x + 0.5);
-                vec3 a0 = x - ox;
-                m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-                vec3 g;
-                g.x  = a0.x  * x0.x  + h.x  * x0.y;
-                g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-                return 130.0 * dot(m, g);
-            }
+            <div style="text-align:left; margin-top:15px;">
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#ccc;">
+                    <span>DAILY INTEGRITY</span>
+                    <span id="integrity-txt">100%</span>
+                </div>
+                <div class="bar-wrap"><div id="hp-bar" class="bar-fill"></div></div>
+            </div>
 
-            void main() {
-                vec2 st = gl_FragCoord.xy / u_resolution.xy;
-                st.x *= u_resolution.x / u_resolution.y;
-                
-                // Liquid Distortion based on Gyro and Mouse
-                vec2 pos = st * 3.0;
-                
-                // Physics: Gyro shift
-                pos.x += u_gyro.x * 1.5; 
-                pos.y += u_gyro.y * 1.5;
+            <div style="text-align:left; margin-top:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#ccc;">
+                    <span>NOISE LEVEL</span>
+                    <span id="noise-txt">0%</span>
+                </div>
+                <div class="bar-wrap" style="background:#111;"><div id="noise-bar" class="bar-fill" style="width:0%; background:var(--neon-red);"></div></div>
+            </div>
 
-                // Base Noise (The Organism)
-                float df = 1.0;
-                float a = 0.0;
-                vec2 vel = vec2(u_time * 0.1);
-                df = snoise(pos + vel) * 0.5 + 0.5;
+            <div class="sub-stat">
+                <span>LAST BREAK: <span id="break-stat" class="stat-val">0m ago</span></span>
+                <span>ENV: <span id="env-stat" class="stat-val">STABLE</span></span>
+            </div>
 
-                // Detailed noise layers
-                float n1 = snoise(pos * 2.0 - u_time * 0.2);
-                float n2 = snoise(pos * 4.0 + u_time * 0.1 + (u_mouse * 2.0));
-                
-                // Mix layers to create "Ferrofluid" look
-                float liquid = smoothstep(0.4, 0.6, df + n1 * 0.4 + n2 * 0.1);
-                
-                // Coloring (Sci-Fi Dark Matter)
-                vec3 colorBg = vec3(0.05, 0.05, 0.08); // Dark Void
-                vec3 colorCore = vec3(0.0, 0.8, 0.9); // Cyan Core
-                vec3 colorEdge = vec3(0.6, 0.0, 0.8); // Purple Edge
+            <div class="btn-grid">
+                <button id="btn-action" class="btn-primary" onclick="SYSTEM.toggleSession()">START FOCUS</button>
+                <button id="btn-break" class="btn-secondary" onclick="SYSTEM.registerBreak()">TAKE BREAK</button>
+            </div>
+            <button onclick="LOGGER.export()" style="width:100%; margin-top:10px; background:transparent; color:#666; border:none;">↓ EXPORT LOGS (CSV)</button>
+        </div>
 
-                // Gradient Mix
-                vec3 finalColor = mix(colorBg, colorEdge, liquid);
-                finalColor = mix(finalColor, colorCore, smoothstep(0.6, 0.8, liquid));
-                
-                // Add "Glow"
-                finalColor += vec3(liquid * 0.2);
+        <div id="log-panel"></div>
+    </div>
 
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `;
+    <script>
+        /**
+         * OMEGA: LIFE MONITOR
+         * Architecture:
+         * 1. SENSORS: Mic (Noise), Time (Sessions), Gyro (Visuals)
+         * 2. LOGIC: Calculates integrity based on work/rest balance and environment.
+         * 3. VISUALS: Data-driven particle swarm.
+         */
 
-        // --- 3. UNIFORMS (Connecting JS to GPU) ---
-        const uniforms = {
-            u_time: { value: 0.0 },
-            u_resolution: { value: new THREE.Vector2() },
-            u_mouse: { value: new THREE.Vector2() },
-            u_gyro: { value: new THREE.Vector2() }
+        // --- CONFIG & STATE ---
+        const STATE = {
+            isFocusing: false,
+            startTime: 0,
+            elapsed: 0,
+            lastBreak: Date.now(),
+            integrity: 100, // Health
+            noiseLevel: 0,
+            fatigue: 0 // calculated from time since break
         };
 
-        const material = new THREE.ShaderMaterial({
-            uniforms: uniforms,
-            fragmentShader: fragmentShader
-        });
+        // --- 1. SENSOR MODULE (AUDIO) ---
+        const SENSORS = {
+            audioCtx: null,
+            analyser: null,
+            dataArray: null,
+            isInit: false,
 
-        const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-        scene.add(plane);
+            async init() {
+                if(this.isInit) return;
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioCtx.createAnalyser();
+                    this.analyser.fftSize = 256;
+                    const source = this.audioCtx.createMediaStreamSource(stream);
+                    source.connect(this.analyser);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.isInit = true;
+                    LOGGER.log("SENSORS ACTIVE: MIC ON");
+                } catch(e) {
+                    LOGGER.log("SENSOR ERROR: MIC BLOCKED");
+                }
+            },
 
-        // --- 4. INPUT HANDLERS ---
-        let mouseTarget = { x: 0, y: 0 };
-        let gyroTarget = { x: 0, y: 0 };
+            getNoiseLevel() {
+                if(!this.isInit) return 0;
+                this.analyser.getByteFrequencyData(this.dataArray);
+                let sum = 0;
+                for(let i=0; i<this.dataArray.length; i++) sum += this.dataArray[i];
+                // Normalize to 0-100 scale roughly
+                let avg = sum / this.dataArray.length;
+                return Math.min(100, (avg / 128) * 100);
+            }
+        };
 
-        window.addEventListener('mousemove', (e) => {
-            mouseTarget.x = e.clientX / window.innerWidth;
-            mouseTarget.y = 1.0 - (e.clientY / window.innerHeight);
-        });
+        // --- 2. VOICE MODULE ---
+        const VOICE = {
+            synth: window.speechSynthesis,
+            speak(text) {
+                const u = new SpeechSynthesisUtterance(text);
+                u.rate = 1.1; u.pitch = 1.0;
+                this.synth.speak(u);
+            }
+        };
 
-        window.addEventListener('touchmove', (e) => {
-            mouseTarget.x = e.touches[0].clientX / window.innerWidth;
-            mouseTarget.y = 1.0 - (e.touches[0].clientY / window.innerHeight);
-        }, {passive: false});
-
-        window.addEventListener('deviceorientation', (e) => {
-            gyroTarget.x = e.gamma ? e.gamma / 45 : 0;
-            gyroTarget.y = e.beta ? (e.beta - 45) / 45 : 0;
-        });
-
-        window.addEventListener('resize', () => {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            uniforms.u_resolution.value.x = renderer.domElement.width;
-            uniforms.u_resolution.value.y = renderer.domElement.height;
-        });
-
-        // Init Resolution
-        uniforms.u_resolution.value.x = renderer.domElement.width;
-        uniforms.u_resolution.value.y = renderer.domElement.height;
-
-        // Hide Loading
-        document.getElementById('loading').style.display = 'none';
-
-        // --- 5. RENDER LOOP ---
-        const clock = new THREE.Clock();
-
-        function animate() {
-            const delta = clock.getDelta();
-            uniforms.u_time.value += delta;
-
-            // Smooth interpolation (Lag adds weight/realism)
-            uniforms.u_mouse.value.x += (mouseTarget.x - uniforms.u_mouse.value.x) * 0.1;
-            uniforms.u_mouse.value.y += (mouseTarget.y - uniforms.u_mouse.value.y) * 0.1;
+        // --- 3. LOGGER MODULE ---
+        const LOGGER = {
+            logs: [],
             
-            uniforms.u_gyro.value.x += (gyroTarget.x - uniforms.u_gyro.value.x) * 0.05;
-            uniforms.u_gyro.value.y += (gyroTarget.y - uniforms.u_gyro.value.y) * 0.05;
+            log(msg, type="INFO") {
+                const ts = new Date().toLocaleTimeString([], {hour12:false});
+                this.logs.push({ time: new Date().toISOString(), type, msg });
+                
+                // UI Update
+                const panel = document.getElementById('log-panel');
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.innerHTML = `<span class="log-time">[${ts}]</span> ${msg.toUpperCase()}`;
+                div.style.color = type === "ALERT" ? "var(--neon-red)" : "var(--neon-blue)";
+                panel.prepend(div);
 
-            renderer.render(scene, camera);
-            requestAnimationFrame(animate);
+                // Persist
+                localStorage.setItem('OMEGA_LOGS', JSON.stringify(this.logs));
+            },
+
+            export() {
+                let csv = "Timestamp,Type,Message\n";
+                this.logs.forEach(l => { csv += `${l.time},${l.type},${l.msg}\n`; });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `omega_logs_${Date.now()}.csv`;
+                a.click();
+                VOICE.speak("Exporting data logs.");
+            }
+        };
+
+        // --- 4. VISUAL ENGINE (SWARM) ---
+        const VISUALS = {
+            canvas: document.getElementById('main-canvas'),
+            ctx: document.getElementById('main-canvas').getContext('2d'),
+            particles: [],
+            width: window.innerWidth,
+            height: window.innerHeight,
+
+            init() {
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                for(let i=0; i<150; i++) this.particles.push(new Particle(this.width, this.height));
+                this.animate();
+            },
+
+            resize() {
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+            },
+
+            animate() {
+                // Clear with trail
+                this.ctx.fillStyle = 'rgba(2, 2, 2, 0.2)';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Determine Swarm Mood
+                let color = '#00f3ff'; // Default Blue (Focus)
+                let speed = 1;
+                
+                // Logic mapping visuals to data
+                if (STATE.noiseLevel > 40) {
+                    color = '#ff003c'; // Red (Noise Stress)
+                    speed = 3; 
+                } else if (STATE.fatigue > 45) {
+                    color = '#ffd700'; // Gold (Need Break)
+                    speed = 0.5; // Sluggish
+                }
+
+                const target = { x: this.width/2, y: this.height/2 };
+
+                this.ctx.globalCompositeOperation = 'screen';
+                this.particles.forEach(p => {
+                    p.update(target, speed, STATE.noiseLevel);
+                    p.draw(this.ctx, color);
+                });
+                this.ctx.globalCompositeOperation = 'source-over';
+
+                // Draw "Core Eye" representing Integrity
+                const eyeSize = (STATE.integrity / 100) * 20 + (STATE.noiseLevel/2);
+                this.ctx.fillStyle = '#fff';
+                this.ctx.shadowBlur = 20;
+                this.ctx.shadowColor = color;
+                this.ctx.beginPath();
+                this.ctx.arc(target.x, target.y, eyeSize, 0, Math.PI*2);
+                this.ctx.fill();
+                this.ctx.shadowBlur = 0;
+
+                requestAnimationFrame(() => this.animate());
+            }
+        };
+
+        class Particle {
+            constructor(w, h) {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.vx = Math.random() - 0.5;
+                this.vy = Math.random() - 0.5;
+                this.history = [];
+            }
+
+            update(target, speedMult, noise) {
+                // Orbit logic for Focus state
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (noise > 40) {
+                    // Chaos mode (Scatter)
+                    this.vx += (Math.random()-0.5) * 2;
+                    this.vy += (Math.random()-0.5) * 2;
+                } else {
+                    // Flow mode (Orbit)
+                    this.vx += dx * 0.0001 * speedMult;
+                    this.vy += dy * 0.0001 * speedMult;
+                }
+
+                this.x += this.vx * speedMult;
+                this.y += this.vy * speedMult;
+                
+                // Friction
+                this.vx *= 0.96; this.vy *= 0.96;
+
+                // Trail
+                this.history.push({x:this.x, y:this.y});
+                if(this.history.length > 5) this.history.shift();
+            }
+
+            draw(ctx, color) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                if(this.history.length > 0) {
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    for(let i=1; i<this.history.length; i++) ctx.lineTo(this.history[i].x, this.history[i].y);
+                }
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+            }
         }
 
-        animate();
+        // --- 5. SYSTEM CONTROLLER (THE BRAIN) ---
+        const SYSTEM = {
+            timerInterval: null,
+            
+            init() {
+                VISUALS.init();
+                // Initial Load from LocalStorage
+                const saved = localStorage.getItem('OMEGA_DATA');
+                if(saved) {
+                    const d = JSON.parse(saved);
+                    STATE.integrity = d.integrity || 100;
+                }
+                setInterval(() => this.monitorLoop(), 1000);
+                LOGGER.log("SYSTEM ONLINE. READY.");
+            },
+
+            async toggleSession() {
+                await SENSORS.init();
+                STATE.isFocusing = !STATE.isFocusing;
+                const btn = document.getElementById('btn-action');
+                const dot = document.getElementById('pulse-dot');
+                const sys = document.getElementById('system-state');
+
+                if(STATE.isFocusing) {
+                    STATE.startTime = Date.now() - STATE.elapsed; // Resume logic
+                    this.timerInterval = setInterval(() => {
+                        STATE.elapsed = Date.now() - STATE.startTime;
+                        this.updateTimerUI();
+                    }, 100); // Smooth timer
+                    
+                    btn.innerText = "PAUSE SESSION";
+                    btn.classList.replace('btn-primary', 'btn-danger');
+                    dot.classList.add('recording');
+                    sys.innerText = "MONITORING";
+                    sys.style.color = "var(--neon-red)";
+                    VOICE.speak("Focus session started. entering flow state.");
+                    LOGGER.log("SESSION STARTED", "ACTION");
+                } else {
+                    clearInterval(this.timerInterval);
+                    btn.innerText = "RESUME FOCUS";
+                    btn.classList.replace('btn-danger', 'btn-primary');
+                    dot.classList.remove('recording');
+                    sys.innerText = "PAUSED";
+                    sys.style.color = "var(--neon-blue)";
+                    VOICE.speak("Session paused.");
+                    LOGGER.log(`SESSION PAUSED. DURATION: ${(STATE.elapsed/60000).toFixed(1)} MIN`, "ACTION");
+                }
+            },
+
+            registerBreak() {
+                STATE.lastBreak = Date.now();
+                STATE.integrity = Math.min(100, STATE.integrity + 10); // Heal
+                STATE.fatigue = 0;
+                VOICE.speak("Break registered. Integrity restored.");
+                LOGGER.log("BREAK TAKEN. FATIGUE RESET.", "ACTION");
+                this.updateDOM();
+            },
+
+            monitorLoop() {
+                // 1. Time Logic
+                const now = new Date();
+                document.getElementById('clock-display').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                
+                // Time since last break (Minutes)
+                const minsSinceBreak = Math.floor((Date.now() - STATE.lastBreak) / 60000);
+                STATE.fatigue = minsSinceBreak;
+                document.getElementById('break-stat').innerText = `${minsSinceBreak}m ago`;
+
+                // 2. Environment Logic (Noise)
+                STATE.noiseLevel = SENSORS.getNoiseLevel();
+                document.getElementById('noise-bar').style.width = STATE.noiseLevel + "%";
+                document.getElementById('noise-txt').innerText = Math.round(STATE.noiseLevel) + "%";
+
+                // Alert if too loud
+                if(STATE.noiseLevel > 60 && STATE.isFocusing) {
+                    document.getElementById('env-stat').innerText = "NOISY";
+                    document.getElementById('env-stat').style.color = "var(--neon-red)";
+                    // Reduce integrity rapidly if working in noise
+                    STATE.integrity -= 0.1; 
+                } else {
+                    document.getElementById('env-stat').innerText = "OPTIMAL";
+                    document.getElementById('env-stat').style.color = "var(--neon-blue)";
+                }
+
+                // 3. Fatigue Logic
+                if (minsSinceBreak > 45) {
+                     document.getElementById('break-stat').style.color = "var(--neon-gold)";
+                     if(minsSinceBreak % 5 === 0 && Math.random() < 0.1) VOICE.speak("You have been focusing too long. Take a break.");
+                     STATE.integrity -= 0.05; // Slow decay
+                } else {
+                    document.getElementById('break-stat').style.color = "var(--neon-blue)";
+                }
+
+                // Clamp Integrity
+                if(STATE.integrity < 0) STATE.integrity = 0;
+                this.updateDOM();
+                
+                // Save State
+                localStorage.setItem('OMEGA_DATA', JSON.stringify(STATE));
+            },
+
+            updateTimerUI() {
+                const totalSeconds = Math.floor(STATE.elapsed / 1000);
+                const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const s = (totalSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${m}:${s}`;
+            },
+
+            updateDOM() {
+                // Integrity Bar
+                const hpBar = document.getElementById('hp-bar');
+                hpBar.style.width = STATE.integrity + "%";
+                document.getElementById('integrity-txt').innerText = Math.round(STATE.integrity) + "%";
+                
+                if(STATE.integrity > 70) hpBar.style.background = "var(--neon-blue)";
+                else if(STATE.integrity > 30) hpBar.style.background = "var(--neon-gold)";
+                else hpBar.style.background = "var(--neon-red)";
+            }
+        };
+
+        // Start
+        window.onload = () => SYSTEM.init();
+
     </script>
 </body>
 </html>
