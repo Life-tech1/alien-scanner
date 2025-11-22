@@ -3,409 +3,919 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VANDENBERG | TELEMETRY LOGGER</title>
+    <title>ORION-1 FIELD CONSOLE</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
     <style>
-        /* * ENGINEERING STANDARDS:
-         * - High Contrast (White/Green on Black)
-         * - Monospaced Font (Alignment)
-         * - No Animations (Performance stability)
-         */
+        /* ==========================================================================
+           NASA / JPL DESIGN SYSTEM - TACTICAL DARK THEME
+           ========================================================================== */
         :root {
-            --bg: #000000;
-            --fg-primary: #00ff00; /* Normal State */
-            --fg-warn: #ffff00;    /* Warning */
-            --fg-err: #ff0000;     /* Critical */
-            --fg-dim: #555555;
-            --border: 1px solid #333;
-            --font: 'Consolas', 'Monaco', 'Courier New', monospace;
+            --bg-core: #0b0c10;
+            --bg-panel: #1f2833;
+            --bg-darker: #000000;
+            
+            --accent-cyan: #66fcf1;
+            --accent-cyan-dim: rgba(102, 252, 241, 0.2);
+            --accent-amber: #ffa000;
+            --accent-red: #fc4445;
+            --accent-green: #45a29e;
+            
+            --text-main: #c5c6c7;
+            --text-bright: #ffffff;
+            
+            --font-headers: 'Rajdhani', sans-serif;
+            --font-data: 'Roboto Mono', monospace;
+            
+            --border-radius: 4px;
+            --border-width: 1px;
         }
 
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; user-select: none; }
         
         body {
-            background: var(--bg); color: var(--fg-primary);
-            font-family: var(--font); font-size: 12px;
-            margin: 0; padding: 5px;
-            width: 100vw; height: 100vh;
+            margin: 0; padding: 0;
+            background-color: var(--bg-core);
+            color: var(--text-main);
+            font-family: var(--font-data);
+            font-size: 12px;
+            height: 100vh; width: 100vw;
             overflow: hidden;
-            display: grid;
-            grid-template-rows: 30px 1fr 120px 40px;
-            gap: 5px;
+            display: flex; flex-direction: column;
         }
 
-        /* HEADER */
+        /* --- UTILITIES --- */
+        .flex-row { display: flex; flex-direction: row; gap: 8px; align-items: center; }
+        .flex-col { display: flex; flex-direction: column; gap: 8px; }
+        .grow { flex-grow: 1; }
+        .bright { color: var(--text-bright); font-weight: bold; }
+        .amber { color: var(--accent-amber); }
+        .cyan { color: var(--accent-cyan); }
+        .red { color: var(--accent-red); }
+        .green { color: var(--accent-green); }
+        .mono { font-family: var(--font-data); }
+        
+        /* --- LAYOUT --- */
+        #console-container {
+            display: flex; flex-direction: column;
+            height: 100%; width: 100%;
+            padding: 8px; gap: 8px;
+        }
+
+        /* --- 1. HEADER --- */
         header {
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: var(--border); padding: 0 5px;
+            padding: 8px 12px;
+            background: var(--bg-panel);
+            border-bottom: 2px solid var(--accent-cyan);
+            border-radius: var(--border-radius);
         }
-        .sys-id { font-weight: bold; letter-spacing: 1px; }
-        .clock { color: var(--fg-dim); }
+        .branding h1 { margin: 0; font-family: var(--font-headers); font-size: 20px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-bright); }
+        .branding span { font-size: 10px; color: var(--accent-cyan); letter-spacing: 1px; text-transform: uppercase; }
+        
+        .status-grid { display: flex; gap: 15px; }
+        .sensor-status { display: flex; flex-direction: column; align-items: center; font-size: 9px; }
+        .sensor-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; margin-top: 2px; }
+        .sensor-dot.ok { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+        .sensor-dot.err { background: var(--accent-red); }
+        .sensor-dot.active { animation: pulse 1s infinite; }
 
-        /* MAIN DATA GRID */
-        main {
+        /* --- 2. MAIN GRID --- */
+        #main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* 2 Columns */
-            grid-template-rows: 1fr 1fr;    /* 2 Rows */
-            gap: 5px;
-        }
-
-        .module {
-            border: var(--border);
-            padding: 5px;
-            display: flex; flex-direction: column;
+            grid-template-columns: 250px 1fr 250px; /* Left Controls, Center Vis, Right Metrics */
+            grid-template-rows: 1fr 150px;          /* Top Vis, Bottom Logs */
+            gap: 8px;
+            flex-grow: 1;
             overflow: hidden;
         }
-        .module-head {
-            background: #111; color: var(--fg-dim);
-            padding: 2px 5px; margin: -5px -5px 5px -5px;
-            border-bottom: var(--border); font-weight: bold;
+
+        /* PANEL STYLING */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .panel-header {
+            background: rgba(0,0,0,0.3);
+            padding: 4px 8px;
+            font-size: 10px; font-weight: bold; text-transform: uppercase;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--accent-amber);
             display: flex; justify-content: space-between;
         }
 
-        /* DATA TABLES */
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 2px; vertical-align: top; }
-        .label { color: #888; width: 80px; }
-        .val { color: #fff; font-weight: bold; }
-        .unit { color: #555; font-size: 10px; }
-
-        /* LOG CONSOLE */
-        #log-panel {
-            border: var(--border);
-            font-size: 10px; color: #aaa;
-            overflow-y: auto; padding: 5px;
-            background: #050505;
-        }
-        .log-line { border-bottom: 1px solid #111; display: flex; gap: 10px; }
-        .ts { color: var(--fg-dim); width: 80px; }
-        .msg-err { color: var(--fg-err); }
-        .msg-info { color: var(--fg-primary); }
-
-        /* CONTROLS */
-        footer {
-            display: flex; gap: 5px;
-        }
+        /* CONTROL PANEL (LEFT) */
+        #panel-controls { grid-column: 1; grid-row: 1 / 3; }
+        .control-group { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .control-label { font-size: 10px; color: #888; margin-bottom: 4px; display: block; }
+        
         button {
-            flex: 1; background: #111; border: 1px solid var(--fg-primary);
-            color: var(--fg-primary); font-family: var(--font);
-            cursor: pointer; text-transform: uppercase; font-weight: bold;
+            background: transparent; border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan); padding: 8px; width: 100%;
+            font-family: var(--font-headers); font-weight: bold; text-transform: uppercase;
+            cursor: pointer; transition: 0.2s; margin-bottom: 5px;
         }
-        button:active { background: var(--fg-primary); color: #000; }
-        button:disabled { border-color: #333; color: #333; cursor: not-allowed; }
+        button:hover { background: var(--accent-cyan-dim); }
+        button:active { background: var(--accent-cyan); color: #000; }
+        button.danger { border-color: var(--accent-red); color: var(--accent-red); }
+        button.danger:hover { background: rgba(252, 68, 69, 0.2); }
         
-        .recording { background: var(--fg-err); color: #fff; border-color: var(--fg-err); }
+        input[type="text"], select {
+            background: #111; border: 1px solid #444; color: #fff;
+            width: 100%; padding: 5px; font-family: var(--font-data);
+            margin-bottom: 5px;
+        }
+        input[type="range"] { width: 100%; }
 
-        /* VIDEO PREVIEW (Small, for verification only) */
-        #cam-preview {
-            width: 100%; height: 100px; object-fit: cover;
-            border: 1px solid #333; margin-top: auto; opacity: 0.5;
-        }
+        /* VISUALIZATION (CENTER) */
+        #panel-vis { grid-column: 2; grid-row: 1; position: relative; background: #000; }
         
-        /* Responsive */
-        @media (min-width: 800px) {
-            main { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr; }
+        /* Camera Layer */
+        #video-feed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+        /* HUD Layer */
+        #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        /* Audio Scope Overlay */
+        #audio-scope-container {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 80px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            pointer-events: none;
         }
+        canvas.scope { width: 100%; height: 100%; display: block; }
+
+        /* METRICS (RIGHT) */
+        #panel-metrics { grid-column: 3; grid-row: 1 / 3; overflow-y: auto; }
+        .metric-row {
+            display: flex; justify-content: space-between;
+            padding: 4px 8px; font-size: 11px;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+        }
+        .metric-val { font-weight: bold; }
+
+        /* LOGS (BOTTOM CENTER) */
+        #panel-logs { grid-column: 2; grid-row: 2; }
+        #log-container {
+            flex-grow: 1; overflow-y: auto; padding: 5px;
+            font-size: 10px; line-height: 1.4; color: #aaa;
+        }
+        .log-entry { border-bottom: 1px solid #222; padding: 2px 0; display: flex; }
+        .ts { color: #666; width: 80px; flex-shrink: 0; }
+        .msg { color: #ddd; }
+        .msg.warn { color: var(--accent-amber); }
+        .msg.err { color: var(--accent-red); }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 900px) {
+            #main-grid {
+                display: flex; flex-direction: column;
+                overflow-y: auto;
+            }
+            #panel-vis { height: 300px; flex-shrink: 0; }
+            #panel-controls, #panel-metrics, #panel-logs { height: auto; flex-shrink: 0; }
+            #console-container { overflow-y: auto; }
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="sys-id">VANDENBERG GSE <span style="font-size:10px; color:#555;">v3.1.0</span></div>
-        <div class="clock" id="utc-clock">--:--:--Z</div>
+<div id="console-container">
+    
+    <header id="mission-header">
+        <div class="branding">
+            <h1>ORION-1</h1>
+            <span>Multi-Sensor Field Console</span>
+        </div>
+        <div class="status-grid">
+            <div class="sensor-status">CAM<div id="st-cam" class="sensor-dot"></div></div>
+            <div class="sensor-status">MIC<div id="st-mic" class="sensor-dot"></div></div>
+            <div class="sensor-status">IMU<div id="st-imu" class="sensor-dot"></div></div>
+            <div class="sensor-status">MAG<div id="st-mag" class="sensor-dot"></div></div>
+            <div class="sensor-status">AI<div id="st-ai" class="sensor-dot"></div></div>
+        </div>
+        <div style="text-align: right;">
+            <div id="clock-utc" class="bright">00:00:00 Z</div>
+            <div id="sys-state" class="cyan">IDLE</div>
+        </div>
     </header>
 
-    <main>
-        <div class="module">
-            <div class="module-head"><span>IMU TELEMETRY</span><span id="st-imu">OFF</span></div>
-            <table>
-                <tr><td class="label">ACCEL X</td><td><span id="ax" class="val">0.000</span> <span class="unit">m/s²</span></td></tr>
-                <tr><td class="label">ACCEL Y</td><td><span id="ay" class="val">0.000</span> <span class="unit">m/s²</span></td></tr>
-                <tr><td class="label">ACCEL Z</td><td><span id="az" class="val">0.000</span> <span class="unit">m/s²</span></td></tr>
-                <tr><td class="label">TOTAL G</td><td><span id="gt" class="val">0.000</span> <span class="unit">G</span></td></tr>
-                <tr><td colspan="2" style="height:5px;"></td></tr>
-                <tr><td class="label">GYRO α</td><td><span id="ra" class="val">0.0</span> <span class="unit">deg</span></td></tr>
-                <tr><td class="label">GYRO β</td><td><span id="rb" class="val">0.0</span> <span class="unit">deg</span></td></tr>
-                <tr><td class="label">GYRO γ</td><td><span id="rg" class="val">0.0</span> <span class="unit">deg</span></td></tr>
-            </table>
-        </div>
-
-        <div class="module">
-            <div class="module-head"><span>GPS FIX</span><span id="st-gps">NO LOCK</span></div>
-            <table>
-                <tr><td class="label">LATITUDE</td><td><span id="lat" class="val">--.------</span></td></tr>
-                <tr><td class="label">LONGITUDE</td><td><span id="lon" class="val">--.------</span></td></tr>
-                <tr><td class="label">ALTITUDE</td><td><span id="alt" class="val">--</span> <span class="unit">m</span></td></tr>
-                <tr><td class="label">ACCURACY</td><td><span id="acc" class="val">--</span> <span class="unit">m</span></td></tr>
-                <tr><td class="label">HEADING</td><td><span id="hdg" class="val">--</span> <span class="unit">deg</span></td></tr>
-                <tr><td class="label">SPEED</td><td><span id="spd" class="val">--</span> <span class="unit">m/s</span></td></tr>
-            </table>
-        </div>
-
-        <div class="module">
-            <div class="module-head"><span>ENV SENSORS</span><span id="st-env">STBY</span></div>
-            <table>
-                <tr><td class="label">AUDIO RMS</td><td><span id="rms" class="val">-100.0</span> <span class="unit">dBFS</span></td></tr>
-                <tr><td class="label">PEAK FREQ</td><td><span id="frq" class="val">0</span> <span class="unit">Hz</span></td></tr>
-                <tr><td class="label">LUMINANCE</td><td><span id="lux" class="val">--</span> <span class="unit">est</span></td></tr>
-            </table>
-            <video id="cam-preview" playsinline muted autoplay></video>
-        </div>
-    </main>
-
-    <div id="log-panel">
-        <div class="log-line"><span class="ts">T+00.000</span><span class="msg-info">SYSTEM INITIALIZED. WAITING FOR COMMAND.</span></div>
-    </div>
-
-    <footer>
-        <button id="btn-init" onclick="System.init()">INITIALIZE SENSORS</button>
-        <button id="btn-rec" onclick="System.toggleRecord()" disabled>REC START</button>
-        <button id="btn-exp" onclick="System.exportData()" disabled>DOWNLOAD .CSV</button>
-    </footer>
-
-    <script>
-        "use strict";
-
-        /**
-         * SYSTEM ARCHITECTURE: VANDENBERG
-         * Designed for robustness and raw data integrity.
-         * No libraries. Pure JS.
-         */
-
-        const Config = {
-            sampleRateMs: 100, // 10Hz Logging
-            audioFftSize: 512
-        };
-
-        const State = {
-            startTime: 0,
-            recording: false,
-            buffer: [], // Data Buffer
-            frameCount: 0
-        };
-
-        // --- SENSOR MODULES ---
+    <div id="main-grid">
         
-        const IMU = {
-            active: false,
-            data: { ax:0, ay:0, az:0, alpha:0, beta:0, gamma:0 },
-            init: function() {
-                if(window.DeviceMotionEvent) {
-                    window.addEventListener('devicemotion', e => {
-                        this.data.ax = e.accelerationIncludingGravity.x || 0;
-                        this.data.ay = e.accelerationIncludingGravity.y || 0;
-                        this.data.az = e.accelerationIncludingGravity.z || 0;
-                    });
-                    window.addEventListener('deviceorientation', e => {
-                        this.data.alpha = e.alpha || 0;
-                        this.data.beta = e.beta || 0;
-                        this.data.gamma = e.gamma || 0;
-                    });
-                    this.active = true;
-                    UI.setStatus('st-imu', 'ACTIVE', '#0f0');
-                    Logger.log("IMU SENSORS ENGAGED", "INFO");
-                } else {
-                    Logger.log("IMU HARDWARE NOT FOUND", "ERR");
-                }
-            }
-        };
-
-        const GPS = {
-            active: false,
-            init: function() {
-                if(navigator.geolocation) {
-                    navigator.geolocation.watchPosition(
-                        p => {
-                            UI.updateGPS(p.coords);
-                            this.active = true;
-                            UI.setStatus('st-gps', 'LOCKED', '#0f0');
-                        },
-                        e => Logger.log("GPS ERROR: " + e.message, "ERR"),
-                        { enableHighAccuracy: true }
-                    );
-                    Logger.log("GPS ACQUISITION STARTED", "INFO");
-                }
-            }
-        };
-
-        const AV = { // Audio/Video
-            active: false,
-            context: null,
-            analyser: null,
-            freqData: null,
-            videoEl: document.getElementById('cam-preview'),
-            canvas: document.createElement('canvas'),
+        <aside id="panel-controls" class="panel">
+            <div class="panel-header">MISSION CONTROL</div>
             
-            init: async function() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: true, 
-                        video: { facingMode: 'environment', width: 128 } // Low res for perf
-                    });
-                    
-                    this.videoEl.srcObject = stream;
-                    this.context = new (window.AudioContext || window.webkitAudioContext)();
-                    const src = this.context.createMediaStreamSource(stream);
-                    this.analyser = this.context.createAnalyser();
-                    this.analyser.fftSize = Config.audioFftSize;
-                    src.connect(this.analyser);
-                    this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
-                    
-                    this.canvas.width = 32; this.canvas.height = 32;
-                    this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
+            <div class="control-group">
+                <span class="control-label">ACQUISITION</span>
+                <button id="btn-start" onclick="app.init()">INITIALIZE SYSTEM</button>
+                <button id="btn-record" onclick="app.toggleRecording()" disabled>START LOGGING</button>
+                <button id="btn-sample" onclick="app.logic.takeManualSample()" disabled>MANUAL SAMPLE</button>
+            </div>
 
-                    this.active = true;
-                    UI.setStatus('st-env', 'ACTIVE', '#0f0');
-                    Logger.log("AV SENSORS ENGAGED", "INFO");
-                    return true;
-                } catch(e) {
-                    Logger.log("AV INIT FAILED: " + e.message, "ERR");
-                    return false;
-                }
-            },
-
-            analyze: function() {
-                if(!this.active) return { rms: 0, peak: 0, lux: 0 };
-
-                // Audio
-                this.analyser.getByteFrequencyData(this.freqData);
-                let sum = 0, peakVal = 0, peakIdx = 0;
-                for(let i=0; i<this.freqData.length; i++) {
-                    sum += this.freqData[i];
-                    if(this.freqData[i] > peakVal) { peakVal = this.freqData[i]; peakIdx = i; }
-                }
-                const rms = 20 * Math.log10((sum / this.freqData.length) / 255 || 0.0001);
-                const nyquist = this.context.sampleRate / 2;
-                const peakFreq = peakIdx * (nyquist / this.freqData.length);
-
-                // Video (Luminance)
-                this.ctx.drawImage(this.videoEl, 0, 0, 32, 32);
-                const frame = this.ctx.getImageData(0,0,32,32).data;
-                let lumSum = 0;
-                for(let i=0; i<frame.length; i+=4) {
-                    lumSum += (0.299*frame[i] + 0.587*frame[i+1] + 0.114*frame[i+2]);
-                }
-                const lux = Math.round(lumSum / (32*32));
-
-                return { rms, peak: peakFreq, lux };
-            }
-        };
-
-        // --- CORE SYSTEM ---
-
-        const System = {
-            init: async function() {
-                document.getElementById('btn-init').disabled = true;
-                IMU.init();
-                GPS.init();
-                await AV.init();
+            <div class="control-group">
+                <span class="control-label">CONFIG</span>
+                <label>Sample Rate (ms): <span id="lbl-rate" class="bright">1000</span></label>
+                <input type="range" id="rng-rate" min="100" max="5000" step="100" value="1000" oninput="app.config.sampleInterval=this.value; document.getElementById('lbl-rate').innerText=this.value">
                 
-                document.getElementById('btn-rec').disabled = false;
-                this.loop();
-            },
+                <label style="margin-top:5px; display:block;">FFT Size</label>
+                <select id="sel-fft" onchange="app.sensors.updateFFT(this.value)">
+                    <option value="128">128 (Fast)</option>
+                    <option value="256" selected>256 (Balanced)</option>
+                    <option value="512">512 (Detailed)</option>
+                    <option value="1024">1024 (High Res)</option>
+                </select>
+            </div>
 
-            loop: function() {
-                // Update Clock
-                const now = new Date();
-                document.getElementById('utc-clock').innerText = now.toISOString().split('T')[1].split('.')[0] + "Z";
+            <div class="control-group">
+                <span class="control-label">METADATA</span>
+                <input type="text" id="inp-exp-id" placeholder="EXP-ID (e.g. FIELD-01)">
+                <input type="text" id="inp-label" placeholder="Label (e.g. Baseline)">
+            </div>
 
-                // Get Data
-                const avData = AV.analyze();
-                const gTotal = Math.sqrt(IMU.data.ax**2 + IMU.data.ay**2 + IMU.data.az**2) / 9.81;
+            <div class="control-group">
+                <span class="control-label">DATA EXPORT</span>
+                <div style="font-size:10px; color:#888; margin-bottom:5px;">BUFFER: <span id="lbl-samples" class="bright">0</span> SAMPLES</div>
+                <button onclick="app.data.exportJSON()">EXPORT JSON</button>
+                <button onclick="app.data.exportCSV()">EXPORT CSV</button>
+                <button class="danger" onclick="app.data.clear()">CLEAR BUFFER</button>
+            </div>
+        </aside>
 
-                // Update UI
-                UI.updateIMU(IMU.data, gTotal);
-                UI.updateENV(avData);
+        <section id="panel-vis" class="panel">
+            <video id="video-feed" playsinline muted autoplay></video>
+            <canvas id="hud-canvas"></canvas>
+            <div id="audio-scope-container">
+                <canvas id="scope-canvas" class="scope"></canvas>
+            </div>
+            <canvas id="proc-canvas" width="64" height="48" style="display:none;"></canvas>
+        </section>
 
-                // Record
-                if(State.recording) {
-                    const timestamp = now.toISOString();
-                    State.buffer.push([
-                        timestamp,
-                        IMU.data.ax.toFixed(4), IMU.data.ay.toFixed(4), IMU.data.az.toFixed(4),
-                        IMU.data.alpha.toFixed(2), IMU.data.beta.toFixed(2), IMU.data.gamma.toFixed(2),
-                        avData.rms.toFixed(2), avData.peak.toFixed(0), avData.lux
-                    ]);
-                }
+        <aside id="panel-metrics" class="panel">
+            <div class="panel-header">SENSOR TELEMETRY</div>
+            
+            <div style="background:rgba(255,255,255,0.05); padding:4px; margin-bottom:1px; color:var(--accent-cyan);">OPTICAL</div>
+            <div class="metric-row"><span>Motion Index</span><span id="val-motion" class="metric-val">0.0</span></div>
+            <div class="metric-row"><span>Luminance</span><span id="val-lum" class="metric-val">0</span></div>
+            <div class="metric-row"><span>Contrast</span><span id="val-con" class="metric-val">0</span></div>
+            <div class="metric-row"><span>Stability</span><span id="val-exp" class="metric-val">--</span></div>
 
-                requestAnimationFrame(System.loop);
-            },
+            <div style="background:rgba(255,255,255,0.05); padding:4px; margin-bottom:1px; color:var(--accent-green);">ACOUSTIC</div>
+            <div class="metric-row"><span>RMS (dBFS)</span><span id="val-rms" class="metric-val">-Inf</span></div>
+            <div class="metric-row"><span>Peak Freq</span><span id="val-freq" class="metric-val">0 Hz</span></div>
+            <div class="metric-row"><span>Energy Idx</span><span id="val-aei" class="metric-val">0.0</span></div>
 
-            toggleRecord: function() {
-                State.recording = !State.recording;
-                const btn = document.getElementById('btn-rec');
-                if(State.recording) {
-                    btn.innerText = "STOP RECORDING";
-                    btn.className = "recording";
-                    State.buffer = [["TIMESTAMP_ISO", "ACC_X", "ACC_Y", "ACC_Z", "GYRO_A", "GYRO_B", "GYRO_G", "AUDIO_DB", "PEAK_HZ", "LUX_EST"]]; // Header
-                    Logger.log("DATA LOGGING STARTED", "INFO");
-                } else {
-                    btn.innerText = "REC START";
-                    btn.className = "";
-                    document.getElementById('btn-exp').disabled = false;
-                    Logger.log(`LOGGING STOPPED. ${State.buffer.length-1} SAMPLES CAPTURED.`, "INFO");
-                }
-            },
+            <div style="background:rgba(255,255,255,0.05); padding:4px; margin-bottom:1px; color:var(--accent-amber);">INERTIAL (IMU)</div>
+            <div class="metric-row"><span>G-Total</span><span id="val-g" class="metric-val">1.00</span></div>
+            <div class="metric-row"><span>Vibration</span><span id="val-vib" class="metric-val">0.00</span></div>
+            <div class="metric-row"><span>Ang. Vel</span><span id="val-gyro" class="metric-val">0.0</span></div>
 
-            exportData: function() {
-                if(State.buffer.length < 2) return;
-                let csvContent = "data:text/csv;charset=utf-8,";
-                State.buffer.forEach(row => csvContent += row.join(",") + "\r\n");
+            <div style="background:rgba(255,255,255,0.05); padding:4px; margin-bottom:1px; color:#b19cd9;">MAGNETIC</div>
+            <div class="metric-row"><span>Field (µT)</span><span id="val-mag" class="metric-val">N/A</span></div>
+            <div class="metric-row"><span>Deviation</span><span id="val-mag-dev" class="metric-val">0.0</span></div>
+
+            <div style="background:rgba(255,255,255,0.05); padding:4px; margin-bottom:1px; color:var(--accent-red); border-top:1px solid #333;">AI FUSION ANALYSIS</div>
+            <div class="metric-row"><span>Env Activity</span><span id="val-eai" class="metric-val">0.0</span></div>
+            <div class="metric-row"><span>Struct Instab</span><span id="val-sii" class="metric-val">0.0</span></div>
+            <div style="padding:8px; text-align:center; border-top:1px solid #333;">
+                <div id="ai-label" style="font-size:14px; font-weight:bold; color:#fff;">INITIALIZING...</div>
+                <div id="ai-conf" style="font-size:10px; color:#888;">CONF: 0%</div>
+            </div>
+        </aside>
+
+        <div id="panel-logs" class="panel">
+            <div class="panel-header">
+                <span>MISSION LOG</span>
+                <button onclick="document.getElementById('log-container').innerHTML=''" style="width:auto; padding:2px 8px; font-size:9px;">CLR</button>
+            </div>
+            <div id="log-container"></div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+"use strict";
+
+/**
+ * ORION-1 :: ALL-IN-ONE MULTI-SENSOR FIELD LAB CONSOLE
+ * * Architecture:
+ * 1. App State: Global configuration and runtime flags.
+ * 2. Sensors: Individual modules to manage Camera, Audio, IMU, Magnetometer.
+ * 3. Processing: Math heavy lifting (FFT, Motion Diff, Stats).
+ * 4. Fusion & AI: Heuristic analysis of combined sensor data.
+ * 5. Data: Logging and Exporting.
+ * 6. UI: Visualization and DOM updates.
+ */
+
+// === GLOBAL APP STATE ===
+const app = {
+    config: {
+        sampleInterval: 1000, // ms
+        fftSize: 256,
+        historySize: 50
+    },
+    state: {
+        isRunning: false,
+        isLogging: false,
+        startTime: 0,
+        lastSampleTime: 0,
+        frameCount: 0
+    },
+    // Current instant readings
+    readings: {
+        optical: { motion: 0, lum: 0, con: 0, stable: true },
+        acoustic: { rms: -100, peakFreq: 0, energy: 0, spectrum: [] },
+        imu: { g: 1, gHist: [], vibration: 0, angVel: 0 },
+        mag: { val: 0, base: 0, dev: 0 },
+        fusion: { eai: 0, sii: 0, label: "WAIT", conf: 0 }
+    },
+    // DOM Cache
+    ui: {}
+};
+
+// === INITIALIZATION ===
+app.init = async function() {
+    const btn = document.getElementById('btn-start');
+    btn.innerText = "BOOTING SYSTEMS...";
+    btn.disabled = true;
+    
+    app.log("SYSTEM BOOT SEQUENCE INITIATED...");
+    app.cacheDOM();
+
+    // Start Clock
+    setInterval(() => {
+        const now = new Date();
+        app.ui.clock.innerText = now.toISOString().split('T')[1].split('.')[0] + " Z";
+    }, 1000);
+
+    // Init Sensors
+    await Sensors.initCamera();
+    await Sensors.initAudio();
+    Sensors.initIMU();
+    Sensors.initMagnetometer();
+
+    // Start Processing Loops
+    app.state.isRunning = true;
+    app.state.startTime = performance.now();
+    
+    // Render Loop (60fps target)
+    requestAnimationFrame(app.loop);
+    
+    // Sampling Loop (Configurable)
+    app.samplingTimer = setInterval(app.logic.sampleTick, 100); // Check frequently, save based on interval
+
+    btn.innerText = "SYSTEM ONLINE";
+    app.ui.sysState.innerText = "RUNNING";
+    app.ui.sysState.className = "green";
+    document.getElementById('btn-record').disabled = false;
+    document.getElementById('btn-sample').disabled = false;
+    app.log("ALL SYSTEMS ONLINE. READY FOR ACQUISITION.");
+};
+
+app.toggleRecording = function() {
+    app.state.isLogging = !app.state.isLogging;
+    const btn = document.getElementById('btn-record');
+    if(app.state.isLogging) {
+        btn.innerText = "STOP LOGGING";
+        btn.classList.add('danger');
+        app.log("DATA LOGGING STARTED", "warn");
+    } else {
+        btn.innerText = "START LOGGING";
+        btn.classList.remove('danger');
+        app.log("DATA LOGGING STOPPED", "warn");
+    }
+};
+
+app.cacheDOM = function() {
+    app.ui.clock = document.getElementById('clock-utc');
+    app.ui.sysState = document.getElementById('sys-state');
+    app.ui.log = document.getElementById('log-container');
+    app.ui.hud = document.getElementById('hud-canvas').getContext('2d');
+    app.ui.scope = document.getElementById('scope-canvas').getContext('2d');
+    
+    // Metrics DOM
+    app.ui.m_mot = document.getElementById('val-motion');
+    app.ui.m_lum = document.getElementById('val-lum');
+    app.ui.m_con = document.getElementById('val-con');
+    app.ui.m_exp = document.getElementById('val-exp');
+    app.ui.m_rms = document.getElementById('val-rms');
+    app.ui.m_frq = document.getElementById('val-freq');
+    app.ui.m_aei = document.getElementById('val-aei');
+    app.ui.m_g   = document.getElementById('val-g');
+    app.ui.m_vib = document.getElementById('val-vib');
+    app.ui.m_gyr = document.getElementById('val-gyro');
+    app.ui.m_mag = document.getElementById('val-mag');
+    app.ui.m_mgd = document.getElementById('val-mag-dev');
+    app.ui.m_eai = document.getElementById('val-eai');
+    app.ui.m_sii = document.getElementById('val-sii');
+    app.ui.ai_lbl= document.getElementById('ai-label');
+    app.ui.ai_cnf= document.getElementById('ai-conf');
+};
+
+app.log = function(msg, type="info") {
+    const div = document.createElement('div');
+    div.className = "log-entry";
+    const ts = (performance.now() / 1000).toFixed(3);
+    div.innerHTML = `<div class="ts">T+${ts}</div><div class="msg ${type}">${msg}</div>`;
+    app.ui.log.prepend(div);
+    // Keep log size sane
+    if(app.ui.log.children.length > 100) app.ui.log.lastChild.remove();
+};
+
+// === SENSORS MODULE ===
+const Sensors = {
+    video: document.getElementById('video-feed'),
+    procCanvas: document.getElementById('proc-canvas'),
+    procCtx: null,
+    
+    audioCtx: null,
+    analyser: null,
+    freqData: null,
+    waveData: null,
+
+    initCamera: async function() {
+        const ind = document.getElementById('st-cam');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
+            });
+            Sensors.video.srcObject = stream;
+            Sensors.procCtx = Sensors.procCanvas.getContext('2d', { willReadFrequently: true });
+            ind.classList.add('ok');
+            app.log("OPTICAL SENSOR ONLINE");
+        } catch(e) {
+            ind.classList.add('err');
+            app.log("OPTICAL SENSOR FAIL: " + e.message, "err");
+        }
+    },
+
+    initAudio: async function() {
+        const ind = document.getElementById('st-mic');
+        try {
+            Sensors.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const src = Sensors.audioCtx.createMediaStreamSource(stream);
+            Sensors.analyser = Sensors.audioCtx.createAnalyser();
+            Sensors.updateFFT(app.config.fftSize);
+            src.connect(Sensors.analyser);
+            ind.classList.add('ok');
+            app.log("ACOUSTIC SENSOR ONLINE");
+        } catch(e) {
+            ind.classList.add('err');
+            app.log("ACOUSTIC SENSOR FAIL: " + e.message, "err");
+        }
+    },
+
+    updateFFT: function(size) {
+        if(!Sensors.analyser) return;
+        Sensors.analyser.fftSize = parseInt(size);
+        const bufferLength = Sensors.analyser.frequencyBinCount;
+        Sensors.freqData = new Uint8Array(bufferLength);
+        Sensors.waveData = new Uint8Array(bufferLength);
+        app.config.fftSize = size;
+        app.log("FFT SIZE UPDATED: " + size);
+    },
+
+    initIMU: function() {
+        const ind = document.getElementById('st-imu');
+        if (window.DeviceMotionEvent) {
+            window.addEventListener('devicemotion', (e) => {
+                // Raw Accel including gravity
+                const acc = e.accelerationIncludingGravity;
+                if(acc) Processing.handleAccel(acc);
                 
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `VANDENBERG_LOG_${Date.now()}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                Logger.log("DATA EXPORTED TO CSV", "INFO");
+                // Gyro
+                const rot = e.rotationRate;
+                if(rot) Processing.handleGyro(rot);
+            });
+            ind.classList.add('ok');
+            app.log("IMU ONLINE");
+        } else {
+            ind.classList.add('err');
+            app.log("IMU NOT AVAILABLE", "err");
+        }
+    },
+
+    initMagnetometer: function() {
+        const ind = document.getElementById('st-mag');
+        // Generic Sensor API (Chrome/Android)
+        if ('Magnetometer' in window) {
+            try {
+                const sensor = new Magnetometer({frequency: 10});
+                sensor.addEventListener('reading', () => Processing.handleMag(sensor));
+                sensor.start();
+                ind.classList.add('ok');
+                app.log("MAGNETOMETER ONLINE");
+            } catch(e) {
+                ind.classList.add('err');
+                app.log("MAGNETOMETER ERROR: " + e.message, "err");
             }
-        };
+        } else {
+            // Fallback or Unavailable
+            ind.classList.add('err'); // Or keep grey
+            // app.log("MAG API UNAVAILABLE - DEGRADED", "warn");
+        }
+    }
+};
 
-        // --- UI & UTILS ---
+// === PROCESSING MODULE ===
+const Processing = {
+    lastFrameData: null,
+    
+    processOptical: function() {
+        if(Sensors.video.readyState !== 4) return;
+        
+        const ctx = Sensors.procCtx;
+        const w = Sensors.procCanvas.width; 
+        const h = Sensors.procCanvas.height;
+        
+        // Draw small frame for processing
+        ctx.drawImage(Sensors.video, 0, 0, w, h);
+        const frame = ctx.getImageData(0, 0, w, h);
+        const data = frame.data;
+        
+        let lumSum = 0;
+        let diffSum = 0;
+        let contrastSum = 0;
+        
+        // Loop pixels
+        for(let i=0; i<data.length; i+=4) {
+            // Luminance
+            const lum = (0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2]);
+            lumSum += lum;
 
-        const UI = {
-            setStatus: function(id, text, color) {
-                const el = document.getElementById(id);
-                el.innerText = text;
-                el.style.color = color;
-            },
-            updateIMU: function(d, g) {
-                document.getElementById('ax').innerText = d.ax.toFixed(3);
-                document.getElementById('ay').innerText = d.ay.toFixed(3);
-                document.getElementById('az').innerText = d.az.toFixed(3);
-                document.getElementById('gt').innerText = g.toFixed(3);
-                document.getElementById('ra').innerText = d.alpha.toFixed(1);
-                document.getElementById('rb').innerText = d.beta.toFixed(1);
-                document.getElementById('rg').innerText = d.gamma.toFixed(1);
-            },
-            updateGPS: function(c) {
-                document.getElementById('lat').innerText = c.latitude.toFixed(6);
-                document.getElementById('lon').innerText = c.longitude.toFixed(6);
-                document.getElementById('alt').innerText = (c.altitude || 0).toFixed(1);
-                document.getElementById('acc').innerText = c.accuracy.toFixed(1);
-                document.getElementById('hdg').innerText = (c.heading || 0).toFixed(1);
-                document.getElementById('spd').innerText = (c.speed || 0).toFixed(1);
-            },
-            updateENV: function(d) {
-                document.getElementById('rms').innerText = d.rms.toFixed(1);
-                document.getElementById('frq').innerText = d.peak.toFixed(0);
-                document.getElementById('lux').innerText = d.lux;
+            // Motion (Frame Diff)
+            if(Processing.lastFrameData) {
+                const lastLum = (0.299*Processing.lastFrameData[i] + 0.587*Processing.lastFrameData[i+1] + 0.114*Processing.lastFrameData[i+2]);
+                const diff = Math.abs(lum - lastLum);
+                if(diff > 20) diffSum++; // Threshold
             }
-        };
+        }
+        
+        const meanLum = lumSum / (w*h);
+        
+        // Contrast (Variance of luminance) - simplified
+        // In real app, do a second pass. Here we approximate with min/max logic if needed, 
+        // but let's just skip for perf or do small sample. 
+        // Let's stick to Motion Index.
+        
+        const motionIdx = Math.min(100, (diffSum / (w*h)) * 1000); // Scale up
+        
+        // Store
+        app.readings.optical.lum = meanLum;
+        app.readings.optical.motion = motionIdx;
+        // Simple stability check
+        app.readings.optical.stable = (motionIdx < 5);
+        app.readings.optical.expState = (meanLum < 20) ? "DARK" : (meanLum > 230) ? "BRIGHT" : "OK";
 
-        const Logger = {
-            log: function(msg, type) {
-                const p = document.getElementById('log-panel');
-                const line = document.createElement('div');
-                line.className = 'log-line';
-                const ts = (performance.now() / 1000).toFixed(3);
-                const cls = type === 'ERR' ? 'msg-err' : 'msg-info';
-                line.innerHTML = `<span class="ts">T+${ts}</span><span class="${cls}">${msg}</span>`;
-                p.prepend(line);
+        Processing.lastFrameData = data;
+    },
+
+    processAcoustic: function() {
+        if(!Sensors.analyser) return;
+        
+        Sensors.analyser.getByteFrequencyData(Sensors.freqData);
+        Sensors.analyser.getByteTimeDomainData(Sensors.waveData);
+        
+        // RMS
+        let sumSq = 0;
+        for(let i=0; i<Sensors.waveData.length; i++) {
+            const norm = (Sensors.waveData[i] - 128) / 128;
+            sumSq += (norm * norm);
+        }
+        const rms = Math.sqrt(sumSq / Sensors.waveData.length);
+        const db = 20 * Math.log10(rms || 0.00001);
+        
+        // Dominant Freq
+        let maxVal = 0;
+        let maxIdx = 0;
+        let energySum = 0;
+        for(let i=0; i<Sensors.freqData.length; i++) {
+            const val = Sensors.freqData[i];
+            energySum += val;
+            if(val > maxVal) { maxVal = val; maxIdx = i; }
+        }
+        const nyquist = Sensors.audioCtx.sampleRate / 2;
+        const domFreq = maxIdx * (nyquist / Sensors.freqData.length);
+        
+        app.readings.acoustic.rms = db;
+        app.readings.acoustic.peakFreq = domFreq;
+        app.readings.acoustic.energy = energySum / Sensors.freqData.length; // 0-255 avg
+        // Copy spectrum for logging (subsampled)
+        app.readings.acoustic.spectrum = Array.from(Sensors.freqData).filter((_, i) => i % 4 === 0);
+    },
+
+    handleAccel: function(acc) {
+        const ax = acc.x || 0;
+        const ay = acc.y || 0;
+        const az = acc.z || 0;
+        
+        // Total G (Approx gravity 9.8)
+        const mag = Math.sqrt(ax*ax + ay*ay + az*az);
+        const g = mag / 9.80665;
+        
+        app.readings.imu.g = g;
+        
+        // Vibration (Variance window)
+        const hist = app.readings.imu.gHist;
+        hist.push(g);
+        if(hist.length > 20) hist.shift();
+        
+        // Calc variance
+        let mean = hist.reduce((a,b)=>a+b,0)/hist.length;
+        let vSum = 0;
+        hist.forEach(v => vSum += (v-mean)**2);
+        app.readings.imu.vibration = Math.sqrt(vSum / hist.length) * 100; // Scale up for index
+    },
+
+    handleGyro: function(rot) {
+        const alpha = rot.alpha || 0;
+        const beta = rot.beta || 0;
+        const gamma = rot.gamma || 0;
+        // Magnitude of rotation deg/s
+        app.readings.imu.angVel = Math.sqrt(alpha*alpha + beta*beta + gamma*gamma);
+    },
+
+    handleMag: function(sensor) {
+        const mag = Math.sqrt(sensor.x**2 + sensor.y**2 + sensor.z**2);
+        if(app.readings.mag.base === 0) app.readings.mag.base = mag;
+        
+        app.readings.mag.val = mag;
+        app.readings.mag.dev = Math.abs(mag - app.readings.mag.base);
+    }
+};
+
+// === FUSION & AI MODULE ===
+const Fusion = {
+    update: function() {
+        const r = app.readings;
+        
+        // 1. Environment Activity Index (EAI)
+        // Weighted sum of Motion, Acoustic Energy, Vibration
+        const normMotion = Math.min(1, r.optical.motion / 50);
+        const normAudio = Math.min(1, (r.acoustic.energy) / 100);
+        const normVib = Math.min(1, r.imu.vibration / 5); // 0.05G vibration is a lot
+        
+        r.fusion.eai = (normMotion * 0.4 + normAudio * 0.3 + normVib * 0.3) * 100;
+        
+        // 2. Structural Instability Index (SII)
+        // High vibration + Low freq audio + High G variance
+        const lowFreqWeight = (r.acoustic.peakFreq < 200 && r.acoustic.energy > 50) ? 1.0 : 0.0;
+        r.fusion.sii = (normVib * 0.7 + lowFreqWeight * 0.3) * 100;
+        
+        // 3. AI Heuristic Classification (The "Model")
+        Fusion.runHeuristicModel(r);
+    },
+
+    runHeuristicModel: function(r) {
+        let label = "UNKNOWN";
+        let conf = 0;
+
+        // Logic Tree
+        if (r.fusion.eai < 10) {
+            label = "STABLE / QUIET";
+            conf = 95;
+        } else if (r.fusion.sii > 60) {
+            label = "STRUCTURAL STRESS";
+            conf = 85;
+        } else if (r.acoustic.energy > 150 && r.optical.motion < 20) {
+            label = "LOUD AUDIO SRC";
+            conf = 90;
+        } else if (r.optical.motion > 80) {
+            label = "HIGH VISUAL ACTIVITY";
+            conf = 80;
+        } else if (r.imu.angVel > 100) {
+            label = "DEVICE HANDLING";
+            conf = 99;
+        } else {
+            label = "AMBIENT NOISE";
+            conf = 60;
+        }
+
+        r.fusion.label = label;
+        r.fusion.conf = conf;
+        
+        // Update AI Status Dot
+        const aiDot = document.getElementById('st-ai');
+        aiDot.classList.add('ok'); // Simulating AI running
+    }
+};
+
+// === DATA LOGGING MODULE ===
+const Data = {
+    buffer: [],
+    
+    saveSample: function() {
+        const r = app.readings;
+        const sample = {
+            ts: new Date().toISOString(),
+            expId: document.getElementById('inp-exp-id').value || "NULL",
+            label: document.getElementById('inp-label').value || "NULL",
+            // Metrics
+            motion: r.optical.motion.toFixed(2),
+            lum: r.optical.lum.toFixed(0),
+            rms: r.acoustic.rms.toFixed(1),
+            peakFreq: r.acoustic.peakFreq.toFixed(0),
+            g: r.imu.g.toFixed(3),
+            vib: r.imu.vibration.toFixed(3),
+            mag: r.mag.val.toFixed(1),
+            eai: r.fusion.eai.toFixed(1),
+            class: r.fusion.label
+        };
+        
+        Data.buffer.push(sample);
+        document.getElementById('lbl-samples').innerText = Data.buffer.length;
+        
+        // Visual Log Update
+        if (app.state.isLogging) {
+            app.log(`SAMPLE RECORDED: ${r.fusion.label}`, "info");
+        }
+    },
+
+    exportJSON: function() {
+        const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(Data.buffer, null, 2));
+        Data.triggerDownload(str, "orion_log.json");
+    },
+
+    exportCSV: function() {
+        if (Data.buffer.length === 0) return;
+        const keys = Object.keys(Data.buffer[0]);
+        let csv = keys.join(",") + "\n";
+        Data.buffer.forEach(row => {
+            csv += keys.map(k => row[k]).join(",") + "\n";
+        });
+        const str = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+        Data.triggerDownload(str, "orion_log.csv");
+    },
+
+    triggerDownload: function(url, name) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    },
+
+    clear: function() {
+        Data.buffer = [];
+        document.getElementById('lbl-samples').innerText = "0";
+        app.log("BUFFER CLEARED", "warn");
+    }
+};
+
+// === MAIN LOOP & UI UPDATES ===
+app.logic = {
+    sampleTick: function() {
+        const now = performance.now();
+        if (now - app.state.lastSampleTime > app.config.sampleInterval) {
+            if (app.state.isLogging) {
+                Data.saveSample();
             }
-        };
+            app.state.lastSampleTime = now;
+        }
+    },
 
-    </script>
+    takeManualSample: function() {
+        Data.saveSample();
+        app.log("MANUAL SAMPLE ACQUIRED", "green");
+    }
+};
+
+app.loop = function() {
+    if(!app.state.isRunning) return;
+
+    // 1. Process Signals
+    Processing.processOptical();
+    Processing.processAcoustic();
+    // IMU is event-driven, but fusion happens here
+    Fusion.update();
+
+    // 2. Draw Visuals
+    Visuals.drawHUD();
+    Visuals.drawScopes();
+
+    // 3. Update Numeric UI
+    app.updateMetrics();
+
+    requestAnimationFrame(app.loop);
+};
+
+app.updateMetrics = function() {
+    const r = app.readings;
+    // Optical
+    app.ui.m_mot.innerText = r.optical.motion.toFixed(1);
+    app.ui.m_lum.innerText = r.optical.lum.toFixed(0);
+    // app.ui.m_con.innerText = "-"; // Contrast skipped for perf
+    app.ui.m_exp.innerText = r.optical.expState;
+    app.ui.m_exp.style.color = r.optical.expState === "OK" ? "var(--accent-green)" : "var(--accent-amber)";
+
+    // Acoustic
+    app.ui.m_rms.innerText = r.acoustic.rms.toFixed(1);
+    app.ui.m_frq.innerText = r.acoustic.peakFreq.toFixed(0) + " Hz";
+    app.ui.m_aei.innerText = r.acoustic.energy.toFixed(1);
+
+    // IMU
+    app.ui.m_g.innerText = r.imu.g.toFixed(2);
+    app.ui.m_vib.innerText = r.imu.vibration.toFixed(2);
+    app.ui.m_gyr.innerText = r.imu.angVel.toFixed(1);
+
+    // Mag
+    app.ui.m_mag.innerText = r.mag.val ? r.mag.val.toFixed(1) : "N/A";
+    app.ui.m_mgd.innerText = r.mag.dev.toFixed(1);
+
+    // Fusion
+    app.ui.m_eai.innerText = r.fusion.eai.toFixed(1);
+    app.ui.m_sii.innerText = r.fusion.sii.toFixed(1);
+    
+    // AI
+    app.ui.ai_lbl.innerText = r.fusion.label;
+    app.ui.ai_cnf.innerText = `CONF: ${r.fusion.conf}%`;
+    
+    // Color coding fusion
+    const eaiColor = r.fusion.eai > 50 ? "var(--accent-red)" : r.fusion.eai > 20 ? "var(--accent-amber)" : "#fff";
+    app.ui.m_eai.style.color = eaiColor;
+};
+
+// === VISUALIZATION ENGINE ===
+const Visuals = {
+    drawHUD: function() {
+        const ctx = app.ui.hud;
+        const w = ctx.canvas.width = app.ui.hud.canvas.offsetWidth;
+        const h = ctx.canvas.height = app.ui.hud.canvas.offsetHeight;
+
+        ctx.clearRect(0,0,w,h);
+
+        // Crosshair
+        ctx.strokeStyle = "rgba(102, 252, 241, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(w/2 - 20, h/2); ctx.lineTo(w/2 + 20, h/2);
+        ctx.moveTo(w/2, h/2 - 20); ctx.lineTo(w/2, h/2 + 20);
+        ctx.stroke();
+
+        // Grid Overlay
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(w*0.33, 0); ctx.lineTo(w*0.33, h);
+        ctx.moveTo(w*0.66, 0); ctx.lineTo(w*0.66, h);
+        ctx.moveTo(0, h*0.5); ctx.lineTo(w, h*0.5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Motion Indicator (Border glow)
+        const mot = app.readings.optical.motion;
+        if(mot > 10) {
+            const alpha = Math.min(1, mot/50);
+            ctx.strokeStyle = `rgba(255, 42, 109, ${alpha})`;
+            ctx.lineWidth = 4;
+            ctx.strokeRect(10,10, w-20, h-20);
+        }
+    },
+
+    drawScopes: function() {
+        if(!Sensors.analyser) return;
+        const ctx = app.ui.scope;
+        const w = ctx.canvas.width = app.ui.scope.canvas.offsetWidth;
+        const h = ctx.canvas.height = app.ui.scope.canvas.offsetHeight;
+
+        // Background
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.fillRect(0,0,w,h);
+
+        // 1. Waveform (Line)
+        const wave = Sensors.waveData;
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(102, 252, 241, 0.8)";
+        ctx.lineWidth = 1;
+        const sliceW = w / wave.length;
+        let x = 0;
+        for(let i=0; i<wave.length; i++) {
+            const v = wave[i] / 128.0;
+            const y = v * h/2;
+            if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            x += sliceW;
+        }
+        ctx.stroke();
+
+        // 2. Spectrum (Bars)
+        const freq = Sensors.freqData;
+        ctx.fillStyle = "rgba(255, 160, 0, 0.5)";
+        const barW = (w / freq.length) * 2.5;
+        let barX = 0;
+        for(let i=0; i<freq.length; i++) {
+            const barH = (freq[i] / 255) * h;
+            ctx.fillRect(barX, h-barH, barW, barH);
+            barX += barW + 1;
+        }
+    }
+};
+
+</script>
 </body>
 </html>
