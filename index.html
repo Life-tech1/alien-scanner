@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OMNI-SCANNER: Physics & Exobiology</title>
+    <style>
+        :root {
+            --hud-primary: #00ff41;  /* Matrix Green */
+            --hud-alert: #ff3333;    /* Alert Red */
+            --hud-dim: rgba(0, 255, 65, 0.3);
+            --bg-dark: #000500;
+        }
+
+        * { box-sizing: border-box; touch-action: manipulation; }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: var(--hud-primary);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* LAYOUT LAYERS */
+        #camera-feed {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            filter: contrast(1.2) brightness(0.8);
+        }
+
+        #hud-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+            pointer-events: none; /* Click through to canvas */
+        }
+
+        /* UI ELEMENTS */
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0, 20, 0, 0.7);
+            padding: 10px;
+            border-bottom: 2px solid var(--hud-primary);
+            backdrop-filter: blur(4px);
+        }
+
+        .status-badge {
+            border: 1px solid var(--hud-primary);
+            padding: 2px 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        .alert-mode {
+            border-color: var(--hud-alert);
+            color: var(--hud-alert);
+            background: rgba(255, 50, 50, 0.2);
+            animation: blink 0.5s infinite;
+        }
+
+        .data-panel {
+            pointer-events: auto;
+            background: rgba(0, 10, 0, 0.6);
+            border-left: 4px solid var(--hud-primary);
+            padding: 10px;
+            margin-top: 10px;
+            max-width: 200px;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .bar-track {
+            width: 100%; height: 6px; background: #333;
+            margin-top: 2px;
+        }
+        .bar-fill {
+            height: 100%; background: var(--hud-primary); width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* Footer Controls */
+        .footer-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 20px;
+        }
+
+        .scan-log {
+            width: 100%;
+            height: 60px;
+            font-size: 0.7rem;
+            overflow-y: auto;
+            text-shadow: 0 0 2px black;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        }
+
+        #btn-start {
+            pointer-events: auto;
+            background: var(--hud-dim);
+            border: 2px solid var(--hud-primary);
+            color: var(--hud-primary);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 15px var(--hud-dim);
+        }
+
+        @keyframes blink { 50% { opacity: 0.2; } }
+        
+        /* Alien Info Box (Simulation) */
+        #bio-sim {
+            display: none;
+            border: 1px solid var(--hud-primary);
+            background: rgba(0,0,0,0.8);
+            padding: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <video id="camera-feed" autoplay playsinline muted></video>
+
+    <canvas id="hud-canvas"></canvas>
+
+    <div id="ui-layer">
+        <header class="header-bar">
+            <div>
+                <div style="font-size:1.2rem; font-weight:bold;">OMNI-SCANNER</div>
+                <div style="font-size:0.7rem;">VER 4.2 // PHYSICS CORE</div>
+            </div>
+            <div style="text-align: right;">
+                <div id="status-badge" class="status-badge">STANDBY</div>
+                <div id="clock" style="margin-top:5px; font-size:0.8rem;">--:--:--</div>
+            </div>
+        </header>
+
+        <div class="data-panel">
+            <div class="data-row">
+                <span>GRAVITY (G)</span>
+                <span id="val-g">1.00</span>
+            </div>
+            <div class="bar-track"><div id="bar-g" class="bar-fill" style="width:50%"></div></div>
+            
+            <div class="data-row" style="margin-top:10px;">
+                <span>AUDIO (dB)</span>
+                <span id="val-db">0</span>
+            </div>
+            <div class="bar-track"><div id="bar-audio" class="bar-fill"></div></div>
+
+            <div class="data-row" style="margin-top:10px;">
+                <span>MOTION</span>
+                <span id="val-motion">0%</span>
+            </div>
+            <div class="bar-track"><div id="bar-motion" class="bar-fill"></div></div>
+
+            <div id="bio-sim">
+                <div style="border-bottom:1px solid #444; margin-bottom:5px; font-size:0.7rem; color:#ccc;">BIO-PREDICTION</div>
+                <div id="bio-text" style="font-size:0.7rem;">Analyzing G-Force...</div>
+            </div>
+        </div>
+
+        <div class="footer-bar">
+            <div id="scan-log" class="scan-log">
+                > SYSTEM INITIALIZED...<br>
+                > WAITING FOR USER INPUT...
+            </div>
+            <button id="btn-start">INITIATE SENSORS</button>
+        </div>
+    </div>
+
+    <script>
+        /* * OMNI-SCANNER CORE LOGIC 
+         * Integrates Camera Processing, Audio FFT, and Physics Sensors.
+         */
+
+        // DOM Elements
+        const video = document.getElementById('camera-feed');
+        const canvas = document.getElementById('hud-canvas');
+        const ctx = canvas.getContext('2d');
+        const btnStart = document.getElementById('btn-start');
+        const logDiv = document.getElementById('scan-log');
+        
+        // Variables
+        let isRunning = false;
+        let width, height;
+        let animationId;
+        
+        // Audio Logic
+        let audioCtx, analyser, dataArray;
+        
+        // Motion Logic (Computer Vision)
+        const hiddenCanvas = document.createElement('canvas');
+        const hiddenCtx = hiddenCanvas.getContext('2d');
+        let lastFrameData = null;
+        let motionScore = 0;
+
+        // Physics Logic
+        let currentG = 1.0;
+        let maxG = 1.0;
+
+        // --- INITIALIZATION ---
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        btnStart.addEventListener('click', async () => {
+            btnStart.style.display = 'none';
+            log("Requesting Hardware Access...");
+
+            try {
+                // 1. Camera & Mic Access
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true, 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 640 }, // Lower res for performance
+                        height: { ideal: 480 }
+                    } 
+                });
+                
+                video.srcObject = stream;
+                
+                // 2. Audio Setup
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioCtx.createMediaStreamSource(stream);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256; // For Waveform
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                // 3. Accelerometer (G-Force)
+                if (window.DeviceMotionEvent) {
+                    window.addEventListener('devicemotion', (e) => {
+                        const acc = e.accelerationIncludingGravity;
+                        if(acc) {
+                            const g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.8;
+                            currentG = g;
+                            if(g > maxG) maxG = g;
+                            updatePhysicsUI(g);
+                        }
+                    });
+                }
+
+                // Start Loop
+                isRunning = true;
+                document.getElementById('status-badge').innerText = "SCANNING";
+                document.getElementById('bio-sim').style.display = "block";
+                log("SYSTEM ONLINE. SENSORS ACTIVE.");
+                loop();
+
+            } catch (err) {
+                console.error(err);
+                log("ERROR: " + err.message);
+                alert("ไม่สามารถเข้าถึงกล้อง/ไมค์ได้ โปรดตรวจสอบสิทธิ์ (Permission) หรือลองเปิดผ่าน HTTPS");
+                btnStart.style.display = 'block';
+            }
+        });
+
+        // --- MAIN LOOP ---
+        function loop() {
+            if (!isRunning) return;
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Draw HUD Grid
+            drawHUD(ctx);
+
+            // 2. Process Audio (FFT)
+            analyser.getByteFrequencyData(dataArray);
+            drawAudioVisualizer(ctx, dataArray);
+            
+            // Calculate volume for UI
+            let sum = 0;
+            for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+            let avgVol = sum / dataArray.length;
+            document.getElementById('val-db').innerText = Math.round(avgVol);
+            document.getElementById('bar-audio').style.width = (avgVol/2.55) + "%";
+
+            // 3. Process Video (Motion Detection)
+            detectMotion(avgVol);
+
+            // 4. Exobiology Simulation (Draw Alien based on G)
+            drawAlienSchematic(ctx, currentG);
+
+            // 5. Clock
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- COMPUTER VISION (Motion) ---
+        function detectMotion(volumeTrigger) {
+            // Downsample for performance (32x32 grid)
+            const w = 32; 
+            const h = 32;
+            hiddenCanvas.width = w; 
+            hiddenCanvas.height = h;
+            
+            // Draw current video frame to hidden canvas
+            hiddenCtx.drawImage(video, 0, 0, w, h);
+            const frame = hiddenCtx.getImageData(0, 0, w, h);
+            const data = frame.data;
+            
+            let diffScore = 0;
+
+            if (lastFrameData) {
+                for (let i = 0; i < data.length; i += 4) {
+                    // Simple RGB difference
+                    const r = Math.abs(data[i] - lastFrameData[i]);
+                    const g = Math.abs(data[i+1] - lastFrameData[i+1]);
+                    const b = Math.abs(data[i+2] - lastFrameData[i+2]);
+                    
+                    if (r+g+b > 50) diffScore++; // Threshold
+                }
+            }
+            
+            lastFrameData = data; // Save for next frame
+
+            // Normalize score (0-100)
+            let motionPercent = Math.min(100, (diffScore / (w*h)) * 1000); 
+            
+            // Update UI
+            document.getElementById('val-motion').innerText = Math.round(motionPercent) + "%";
+            document.getElementById('bar-motion').style.width = motionPercent + "%";
+
+            // Alert Logic
+            const statusBadge = document.getElementById('status-badge');
+            if (motionPercent > 20 || volumeTrigger > 40) {
+                statusBadge.innerText = "ANOMALY DETECTED";
+                statusBadge.className = "status-badge alert-mode";
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+                ctx.strokeRect(20, 20, width-40, height-40); // Red Border
+                
+                // Auto-log only once in a while
+                if (Math.random() < 0.02) log(`Movement Detected: Power ${Math.round(motionPercent)}%`);
+            } else {
+                statusBadge.innerText = "SCANNING NORMAL";
+                statusBadge.className = "status-badge";
+            }
+        }
+
+        // --- PHYSICS & BIO LOGIC ---
+        function updatePhysicsUI(g) {
+            document.getElementById('val-g').innerText = g.toFixed(2);
+            // Bar scale: 0 to 3G
+            let pct = (g / 3.0) * 100;
+            document.getElementById('bar-g').style.width = Math.min(100, pct) + "%";
+
+            // Update Alien Text Description
+            const bioText = document.getElementById('bio-text');
+            if (g > 1.5) bioText.innerText = "HIGH G: Target likely stout, multi-legged, thick bone density.";
+            else if (g < 0.8) bioText.innerText = "LOW G: Target likely tall, elongated, fragile structure.";
+            else bioText.innerText = "STD G: Target likely bipedal, balanced structure.";
+        }
+
+        function drawAlienSchematic(ctx, g) {
+            // Draw a small wireframe alien in the corner based on G
+            const centerX = width - 80;
+            const centerY = 100;
+            const time = Date.now() * 0.002;
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            // Adjust Scale based on G (High G = Short/Wide)
+            let scaleY = (g > 1.5) ? 0.6 : (g < 0.8) ? 1.4 : 1.0;
+            let scaleX = (g > 1.5) ? 1.4 : 1.0;
+            
+            ctx.scale(0.5, 0.5); // Mini view
+            ctx.strokeStyle = "#00ff41";
+            ctx.lineWidth = 2;
+
+            // Head
+            ctx.beginPath();
+            ctx.arc(0, -50 * scaleY, 20, 0, Math.PI*2);
+            ctx.stroke();
+
+            // Body
+            ctx.beginPath();
+            ctx.rect(-20 * scaleX, -30 * scaleY, 40 * scaleX, 60 * scaleY);
+            ctx.stroke();
+
+            // Legs (Procedural)
+            const legCount = (g > 1.5) ? 4 : 2; // More legs for high G
+            for(let i=0; i<legCount; i++) {
+                let xOff = (i - (legCount-1)/2) * 30;
+                ctx.beginPath();
+                ctx.moveTo(xOff * scaleX, 30 * scaleY);
+                ctx.lineTo(xOff * 1.5 * scaleX, 80 + Math.sin(time+i)*5); // Animate
+                ctx.stroke();
+            }
+
+            // Label
+            ctx.fillStyle = "#00ff41";
+            ctx.font = "10px Courier New";
+            ctx.fillText("BIO-SIM", -20, 100);
+            
+            ctx.restore();
+        }
+
+        // --- DRAWING HELPERS ---
+        function drawHUD(ctx) {
+            // Crosshair
+            const cx = width/2;
+            const cy = height/2;
+            
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.3)";
+            ctx.lineWidth = 1;
+            
+            // Center Circle
+            ctx.beginPath();
+            ctx.arc(cx, cy, 60, 0, Math.PI*2);
+            ctx.stroke();
+            
+            // Lines
+            ctx.beginPath();
+            ctx.moveTo(cx-80, cy); ctx.lineTo(cx+80, cy);
+            ctx.moveTo(cx, cy-80); ctx.lineTo(cx, cy+80);
+            ctx.stroke();
+
+            // Corner Markers
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.8)";
+            const pad = 20;
+            const len = 30;
+            
+            ctx.beginPath();
+            // TL
+            ctx.moveTo(pad, pad+len); ctx.lineTo(pad, pad); ctx.lineTo(pad+len, pad);
+            // TR
+            ctx.moveTo(width-pad, pad+len); ctx.lineTo(width-pad, pad); ctx.lineTo(width-pad-len, pad);
+            // BL
+            ctx.moveTo(pad, height-pad-len); ctx.lineTo(pad, height-pad); ctx.lineTo(pad+len, height-pad);
+            // BR
+            ctx.moveTo(width-pad, height-pad-len); ctx.lineTo(width-pad, height-pad); ctx.lineTo(width-pad-len, height-pad);
+            ctx.stroke();
+        }
+
+        function drawAudioVisualizer(ctx, data) {
+            const barWidth = (width / data.length);
+            let x = 0;
+            ctx.fillStyle = "rgba(0, 255, 65, 0.5)";
+            
+            for(let i = 0; i < data.length; i++) {
+                const barHeight = data[i] / 2; // Scale down
+                // Draw from bottom
+                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+                x += barWidth;
+            }
+        }
+
+        function log(msg) {
+            const entry = document.createElement('div');
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            entry.innerHTML = `[${time}] ${msg}`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+            if(logDiv.children.length > 20) logDiv.removeChild(logDiv.lastChild);
+        }
+
+    </script>
+</body>
+</html>
