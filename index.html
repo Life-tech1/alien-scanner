@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: HOLOGRAPHIC AR SYSTEM v4.0</title>
+    <title>OMEGA v5.0: SINGULARITY CORE</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
@@ -11,290 +11,428 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 
     <style>
-        /* --- SYSTEM VISUALS (CSS) --- */
+        /* =========================================
+           2. VISUAL INTERFACE (SCI-FI UI)
+           ========================================= */
         :root {
-            --hex-primary: #00ff41;
-            --hex-secondary: #008F11;
-            --hex-alert: #ff003c;
-            --hex-glass: rgba(0, 10, 0, 0.85);
+            --primary: #00ff41;      /* Matrix Green */
+            --hostile: #ff003c;      /* Kill Mode Red */
+            --neutral: #00ccff;      /* Cyber Blue */
+            --glass: rgba(0, 10, 0, 0.85);
+            --font: 'Consolas', 'Menlo', monospace;
         }
 
-        * { box-sizing: border-box; user-select: none; overflow: hidden; }
-        body { margin: 0; background: #000; font-family: 'Courier New', monospace; width: 100vw; height: 100vh; }
+        * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+        
+        body {
+            margin: 0; overflow: hidden; background: #000;
+            font-family: var(--font); color: var(--primary);
+            width: 100vw; height: 100vh;
+        }
 
         #viewport { position: relative; width: 100%; height: 100%; }
 
-        /* Layer 1: Reality (Camera) */
-        #video-feed {
+        /* Layer 0: Reality Feed */
+        #camera-feed {
             position: absolute; inset: 0; width: 100%; height: 100%;
             object-fit: cover; z-index: 0;
-            filter: contrast(1.2) brightness(0.6) grayscale(0.4); /* Cinematic Look */
+            filter: contrast(1.1) brightness(0.7) saturate(0.8);
+            transform: scaleX(-1); /* Mirror Mode */
         }
 
-        /* Layer 2: Holograms (Three.js) */
-        #holo-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+        /* Layer 1: Holographic AR (Three.js) */
+        #holo-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
 
-        /* Layer 3: 2D UI Overlay */
-        #ui-layer {
-            position: absolute; inset: 0; z-index: 20; pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 20px;
-        }
+        /* Layer 2: 2D Tactical HUD */
+        #hud-layer { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
 
+        /* UI Components */
         .panel {
-            background: var(--hex-glass); border-left: 2px solid var(--hex-primary);
-            padding: 10px; margin: 5px; backdrop-filter: blur(5px);
-            color: var(--hex-primary); font-size: 12px; text-shadow: 0 0 5px var(--hex-primary);
-            transform: skewX(-10deg); /* Sci-fi aesthetic */
+            position: absolute; background: var(--glass);
+            border: 1px solid var(--primary); border-left: 4px solid var(--primary);
+            padding: 8px 12px; font-size: 11px; backdrop-filter: blur(6px);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1); pointer-events: auto;
         }
 
-        .loading-screen {
+        /* Top Left: Diagnostics */
+        #pnl-diag { top: 20px; left: 20px; }
+        /* Top Right: Avionics */
+        #pnl-av { top: 20px; right: 20px; text-align: right; }
+        /* Bottom Center: Status */
+        #pnl-status { bottom: 30px; left: 50%; transform: translateX(-50%); text-align: center; border-color: var(--neutral); color: var(--neutral); }
+        
+        /* Radar System */
+        #radar-container {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,30,0,0.9) 0%, rgba(0,10,0,1) 100%);
+            border: 2px solid var(--primary); overflow: hidden; z-index: 30;
+        }
+        #radar-scan {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(transparent 270deg, rgba(0,255,65,0.5) 360deg);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan { to { transform: rotate(360deg); } }
+        
+        .radar-blip {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            transform: translate(-50%, -50%); box-shadow: 0 0 5px currentColor;
+            transition: top 0.2s, left 0.2s;
+        }
+
+        /* Boot Screen */
+        #boot-os {
             position: fixed; inset: 0; background: #000; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: var(--hex-primary);
         }
+        .loader {
+            width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         
-        .loader-ring {
-            width: 50px; height: 50px; border: 4px solid #333;
-            border-top: 4px solid var(--hex-primary); border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 20px;
+        #btn-engage {
+            background: transparent; border: 2px solid var(--primary); color: var(--primary);
+            padding: 15px 50px; font-weight: bold; font-family: inherit; letter-spacing: 2px;
+            cursor: pointer; transition: 0.3s; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        #btn-init {
-            margin-top: 20px; padding: 15px 40px;
-            background: transparent; border: 1px solid var(--hex-primary);
-            color: var(--hex-primary); font-family: inherit; font-weight: bold;
-            cursor: pointer; transition: 0.3s;
-        }
-        #btn-init:hover { background: var(--hex-primary); color: #000; box-shadow: 0 0 20px var(--hex-primary); }
+        #btn-engage:hover { background: var(--primary); color: #000; box-shadow: 0 0 30px var(--primary); }
 
     </style>
 </head>
 <body>
 
-    <div class="loading-screen" id="boot-ui">
-        <div style="font-size: 40px; letter-spacing: 10px; font-weight: 900;">OMEGA</div>
-        <div style="opacity: 0.7; margin-bottom: 20px;">HOLOGRAPHIC CORE v4.0</div>
-        <div class="loader-ring"></div>
-        <div id="log-text">INITIALIZING KERNEL...</div>
-        <button id="btn-init" style="display:none;">ENGAGE SYSTEM</button>
-    </div>
-
     <div id="viewport">
-        <video id="video-feed" autoplay playsinline muted></video>
-        <canvas id="holo-canvas"></canvas>
-
-        <div id="ui-layer">
-            <div style="display:flex; justify-content: space-between;">
-                <div class="panel">
-                    <div>CPU: <span id="stat-cpu">0</span> ms</div>
-                    <div>GPU: <span id="stat-gpu">ONLINE</span></div>
-                    <div>OBJ: <span id="stat-obj">0</span></div>
-                </div>
-                <div class="panel" style="text-align: right;">
-                    <div>GYRO-X: <span id="stat-gx">0</span></div>
-                    <div>GYRO-Y: <span id="stat-gy">0</span></div>
-                </div>
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="holo-layer"></canvas>
+        
+        <div id="hud-layer">
+            <div class="panel" id="pnl-diag">
+                <div>CPU: <span id="val-cpu">0</span>ms</div>
+                <div>FPS: <span id="val-fps">0</span></div>
+                <div>MEM: <span id="val-mem">0</span> TRK</div>
+                <div>BLE: <span id="val-ble">OFFLINE</span></div>
             </div>
-            
-            <div style="text-align: center; margin-bottom: 50px;">
-                <div class="panel" id="target-lock-ui" style="display:inline-block; border-color: var(--hex-alert); color: var(--hex-alert); opacity: 0;">
-                    WARNING: TARGET LOCKED
-                </div>
+
+            <div class="panel" id="pnl-av">
+                <div>PITCH: <span id="val-pitch">0</span>°</div>
+                <div>ROLL: <span id="val-roll">0</span>°</div>
+                <div>VOICE: <span id="val-voice">LISTENING</span></div>
+            </div>
+
+            <div class="panel" id="pnl-status">
+                <div style="font-size: 14px; font-weight: 900; letter-spacing: 2px;">SYSTEM STANDBY</div>
+                <div id="val-target-dist" style="font-size: 10px;">NO TARGET</div>
             </div>
         </div>
+
+        <div id="radar-container">
+            <div id="radar-scan"></div>
+            <div style="position:absolute; top:50%; left:0; width:100%; height:1px; background:rgba(0,255,65,0.3);"></div>
+            <div style="position:absolute; top:0; left:50%; width:1px; height:100%; background:rgba(0,255,65,0.3);"></div>
+            <div id="radar-blips"></div>
+        </div>
+    </div>
+
+    <div id="boot-os">
+        <div style="font-size: 48px; font-weight: 900; letter-spacing: 8px; color: var(--primary);">OMEGA</div>
+        <div style="opacity: 0.6; margin-bottom: 30px; letter-spacing: 2px;">SINGULARITY v5.0</div>
+        <div class="loader"></div>
+        <div id="boot-log" style="font-size: 10px; opacity: 0.8; height: 20px;">Initializing Kernel...</div>
+        <button id="btn-engage" style="display:none; margin-top: 20px;">ENGAGE SYSTEM</button>
     </div>
 
 <script>
 /**
  * ============================================================================
- * OMEGA V4.0 : HOLOGRAPHIC ARCHITECTURE (3D + AI)
- * ============================================================================
- * This system upgrades from 2D Canvas to a full 3D WebGL Scene (Three.js).
- * It maps 2D AI detections into 3D space for true AR visualization.
+ * OMEGA v5.0: SINGULARITY CORE
+ * The Ultimate Convergence of AI, AR, Physics, and Robotics.
  * ============================================================================
  */
 
-// --- 1. CONFIGURATION & CONSTANTS ---
+// --- 1. GLOBAL CONFIGURATION ---
 const CONFIG = {
     AI: {
-        CONFIDENCE: 0.6,
-        TICK_RATE: 100, // AI update rate (ms)
-        SMOOTHING: 0.2
+        CONFIDENCE: 0.60,       // Minimum confidence to track
+        SMOOTHING: 0.3,         // 0.1 (smooth) to 1.0 (instant)
+        IOU_THRESHOLD: 0.3,     // For tracking ID matching
+        MAX_LOST_FRAMES: 30     // Frames to keep memory before deleting
     },
-    HOLO: {
-        FOV: 75,
-        CAMERA_Z: 5, // Distance of virtual camera
-        TARGET_COLOR: 0xff003c,
-        SAFE_COLOR: 0x00ff41
+    PHYSICS: {
+        FOV: 75,                // Camera Field of View
+        RADAR_RANGE: 50,        // Meters
+        EST_PERSON_HEIGHT: 1.7  // Meters (for depth calc)
+    },
+    ROBOTICS: {
+        SERVICE_UUID: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E", // Nordic UART
+        CHAR_UUID:    "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+    },
+    COLORS: {
+        SAFE: 0x00ff41,
+        HOSTILE: 0xff003c,
+        NEUTRAL: 0x00ccff
     }
 };
 
-// --- 2. UTILITIES ---
+// --- 2. UTILITIES (MATH & LOGIC) ---
 const Utils = {
-    log: (msg) => {
-        const el = document.getElementById('log-text');
-        if(el) el.innerText = `> ${msg}`;
-        console.log(`[KERNEL] ${msg}`);
-    },
+    lerp: (start, end, t) => start * (1 - t) + end * t,
+    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
     map: (val, inMin, inMax, outMin, outMax) => (val - inMin) * (outMax - outMin) / (inMax - inMin) + outMin,
-    lerp: (start, end, t) => start * (1 - t) + end * t
+    uuid: () => Math.random().toString(36).substr(2, 9),
+    
+    // Calculate Intersection over Union (IoU) for tracking accuracy
+    getIoU: (boxA, boxB) => {
+        const xA = Math.max(boxA[0], boxB[0]);
+        const yA = Math.max(boxA[1], boxB[1]);
+        const xB = Math.min(boxA[0] + boxA[2], boxB[0] + boxB[2]);
+        const yB = Math.min(boxA[1] + boxA[3], boxB[1] + boxB[3]);
+        const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+        const boxAArea = boxA[2] * boxA[3];
+        const boxBArea = boxB[2] * boxB[3];
+        return interArea / (boxAArea + boxBArea - interArea);
+    }
 };
 
-// --- 3. AVIONICS (SENSORS) ---
-class Avionics {
+// --- 3. ROBOTICS & BLUETOOTH MODULE ---
+class NeuroLink {
     constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.yaw = 0;
+        this.device = null;
+        this.char = null;
+        this.isConnected = false;
     }
 
-    async init() {
-        // Boilerplate for iOS permission
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            await DeviceOrientationEvent.requestPermission();
-        }
-        window.addEventListener('deviceorientation', (e) => {
-            this.pitch = Utils.lerp(this.pitch, e.beta || 0, 0.1);
-            this.roll  = Utils.lerp(this.roll, e.gamma || 0, 0.1);
-            this.yaw   = Utils.lerp(this.yaw, e.alpha || 0, 0.1);
+    async connect() {
+        try {
+            Voice.speak("Initializing Neuro Link protocol.");
+            this.device = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: 'OMEGA' }, { name: 'OMEGA-BODY' }],
+                optionalServices: [CONFIG.ROBOTICS.SERVICE_UUID]
+            });
+            const server = await this.device.gatt.connect();
+            const service = await server.getPrimaryService(CONFIG.ROBOTICS.SERVICE_UUID);
+            this.char = await service.getCharacteristic(CONFIG.ROBOTICS.CHAR_UUID);
             
-            document.getElementById('stat-gx').innerText = this.pitch.toFixed(1);
-            document.getElementById('stat-gy').innerText = this.roll.toFixed(1);
-        });
+            this.isConnected = true;
+            document.getElementById('val-ble').innerText = "ONLINE";
+            document.getElementById('val-ble').style.color = "#00ff41";
+            Voice.speak("Neuro Link established. Robotics systems online.");
+        } catch (e) {
+            console.error(e);
+            Voice.speak("Connection failed.");
+        }
+    }
+
+    sendCoordinates(x, y) {
+        if (!this.isConnected || !this.char) return;
+        // Map -1..1 to 0..180 degrees for servos
+        const pan = Math.floor(Utils.map(x, -1, 1, 180, 0)); // Invert X
+        const tilt = Math.floor(Utils.map(y, -1, 1, 0, 180));
+        const data = new TextEncoder().encode(`${pan},${tilt}\n`);
+        this.char.writeValue(data).catch(e => {});
     }
 }
 
-// --- 4. HOLOGRAPHIC ENGINE (THREE.JS WRAPPER) ---
+// --- 4. VOICE COMMAND MODULE (J.A.R.V.I.S) ---
+class VoiceCore {
+    constructor() {
+        this.synth = window.speechSynthesis;
+        this.recognition = null;
+        this.isSpeaking = false;
+    }
+
+    init() {
+        if ('webkitSpeechRecognition' in window) {
+            this.recognition = new webkitSpeechRecognition();
+            this.recognition.continuous = true;
+            this.recognition.interimResults = false;
+            this.recognition.lang = 'en-US';
+            
+            this.recognition.onresult = (event) => {
+                const cmd = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                console.log("Voice:", cmd);
+                this.processCommand(cmd);
+            };
+            this.recognition.start();
+        }
+    }
+
+    speak(text) {
+        if (this.synth.speaking) return;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.rate = 1.1; utter.pitch = 1.0;
+        this.synth.speak(utter);
+    }
+
+    processCommand(cmd) {
+        if (cmd.includes('connect')) Kernel.robotics.connect();
+        if (cmd.includes('status')) this.speak("All systems nominal. Vision tracking active.");
+        if (cmd.includes('scan')) this.speak("Scanning sector for hostiles.");
+    }
+}
+const Voice = new VoiceCore();
+
+// --- 5. TRACKING & PHYSICS ENGINE (THE BRAIN) ---
+class Tracker {
+    constructor() {
+        this.tracks = []; // Active tracks
+    }
+
+    update(detections, screenW, screenH) {
+        // 1. Predict next position (Simple Motion Model)
+        this.tracks.forEach(t => {
+            t.lostFrames++;
+            t.bbox[0] += t.velocity.x;
+            t.bbox[1] += t.velocity.y;
+        });
+
+        // 2. Match detections to tracks (IoU & Distance)
+        detections.forEach(det => {
+            let bestMatch = null;
+            let maxIoU = 0;
+
+            this.tracks.forEach(t => {
+                const iou = Utils.getIoU(det.bbox, t.bbox);
+                if (iou > maxIoU) { maxIoU = iou; bestMatch = t; }
+            });
+
+            if (bestMatch && maxIoU > CONFIG.AI.IOU_THRESHOLD) {
+                // Update Track
+                const smoothFactor = CONFIG.AI.SMOOTHING;
+                
+                // Calculate velocity
+                const vx = det.bbox[0] - bestMatch.bbox[0];
+                const vy = det.bbox[1] - bestMatch.bbox[1];
+                bestMatch.velocity = { x: vx, y: vy };
+
+                // Smooth Position (EMA)
+                bestMatch.bbox[0] = Utils.lerp(bestMatch.bbox[0], det.bbox[0], smoothFactor);
+                bestMatch.bbox[1] = Utils.lerp(bestMatch.bbox[1], det.bbox[1], smoothFactor);
+                bestMatch.bbox[2] = Utils.lerp(bestMatch.bbox[2], det.bbox[2], smoothFactor);
+                bestMatch.bbox[3] = Utils.lerp(bestMatch.bbox[3], det.bbox[3], smoothFactor);
+                
+                bestMatch.lostFrames = 0;
+                bestMatch.score = det.score;
+            } else {
+                // Create New Track
+                this.tracks.push({
+                    id: Utils.uuid(),
+                    class: det.class,
+                    bbox: det.bbox,
+                    score: det.score,
+                    velocity: {x:0, y:0},
+                    lostFrames: 0,
+                    depth: 0,
+                    bearing: 0
+                });
+                Voice.speak(`New ${det.class} detected.`);
+            }
+        });
+
+        // 3. Prune dead tracks
+        this.tracks = this.tracks.filter(t => t.lostFrames < CONFIG.AI.MAX_LOST_FRAMES);
+
+        // 4. Physics Calculations
+        this.tracks.forEach(t => {
+            const cx = t.bbox[0] + t.bbox[2]/2;
+            const cy = t.bbox[1] + t.bbox[3]/2;
+            
+            // Normalized Coordinates (-1 to 1)
+            t.nx = (cx / screenW) * 2 - 1;
+            t.ny = -(cy / screenH) * 2 + 1;
+
+            // Depth (Meters) - Heuristic: 1.0 / normalized_height
+            const normHeight = t.bbox[3] / screenH;
+            t.depth = Utils.clamp((1.5 / normHeight), 0.5, CONFIG.PHYSICS.RADAR_RANGE);
+            
+            // Bearing (Degrees)
+            t.bearing = t.nx * (CONFIG.PHYSICS.FOV / 2);
+        });
+
+        return this.tracks;
+    }
+}
+
+// --- 6. HOLOGRAPHIC AR ENGINE (THREE.JS) ---
 class HoloDeck {
     constructor() {
-        this.canvas = document.getElementById('holo-canvas');
+        this.canvas = document.getElementById('holo-layer');
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(CONFIG.HOLO.FOV, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(CONFIG.PHYSICS.FOV, window.innerWidth/window.innerHeight, 0.1, 100);
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true });
-        
-        this.targets = new Map(); // Store active 3D target objects
-        this.grid = null;
-        
-        this.initScene();
-    }
-
-    initScene() {
-        // Setup Renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.camera.position.z = CONFIG.HOLO.CAMERA_Z;
+        this.camera.position.z = 5;
 
+        this.targets = new Map(); // Map ID -> Mesh
+        
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        this.scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(0, 10, 5);
-        this.scene.add(dirLight);
-
-        // Sci-fi Grid Floor (Holographic Floor)
-        const gridHelper = new THREE.GridHelper(50, 50, 0x00ff41, 0x003300);
-        gridHelper.rotation.x = Math.PI / 2; // Rotate to face camera
-        gridHelper.position.z = -10;
-        this.scene.add(gridHelper);
-        this.grid = gridHelper;
-
-        // Handle Resize
-        window.addEventListener('resize', () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        
+        // HUD Grid
+        const grid = new THREE.GridHelper(50, 50, 0x00ff41, 0x003300);
+        grid.rotation.x = Math.PI/2;
+        grid.position.z = -10;
+        this.scene.add(grid);
+        this.grid = grid;
     }
 
-    // Creates a cool sci-fi target bracket
-    createTargetMesh() {
+    createTargetMesh(colorHex) {
         const group = new THREE.Group();
         
-        // Material
-        const material = new THREE.LineBasicMaterial({ color: CONFIG.HOLO.TARGET_COLOR, transparent: true, opacity: 0.8 });
-        
-        // Create Corners
-        const s = 0.5; // size
-        const geometry = new THREE.BufferGeometry();
-        const vertices = new Float32Array([
-            -s, s, 0,  -s*0.5, s, 0, // Top Left
-            -s, s, 0,  -s, s*0.5, 0,
-            s, s, 0,   s*0.5, s, 0,  // Top Right
-            s, s, 0,   s, s*0.5, 0,
-            -s, -s, 0, -s*0.5, -s, 0, // Bot Left
-            -s, -s, 0, -s, -s*0.5, 0,
-            s, -s, 0,  s*0.5, -s, 0,  // Bot Right
-            s, -s, 0,  s, -s*0.5, 0
-        ]);
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        
-        const lines = new THREE.LineSegments(geometry, material);
-        group.add(lines);
+        // Bracket
+        const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+        const mat = new THREE.LineBasicMaterial({ color: colorHex });
+        const bracket = new THREE.LineSegments(geo, mat);
+        group.add(bracket);
 
-        // Inner rotating circle
-        const ringGeo = new THREE.RingGeometry(0.2, 0.22, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color: CONFIG.HOLO.TARGET_COLOR, side: THREE.DoubleSide });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        group.add(ring);
-        
-        group.userData = { ring: ring }; // Reference for animation
+        // Text Label (Sprite) - Simplified as a glowing orb for performance
+        const orbGeo = new THREE.SphereGeometry(0.1, 8, 8);
+        const orbMat = new THREE.MeshBasicMaterial({ color: colorHex });
+        const orb = new THREE.Mesh(orbGeo, orbMat);
+        group.add(orb);
+
         return group;
     }
 
-    updateTargets(predictions, screenW, screenH) {
+    render(tracks, avionics) {
         const activeIds = new Set();
 
-        predictions.forEach((pred, index) => {
-            // Generate a stable ID (in a real app we'd track properly, here we use index for simplicity in demo)
-            const id = `target-${index}`; 
-            activeIds.add(id);
-
-            // 1. Convert 2D BBox to 3D Coordinates
-            // Normalized Device Coordinates (NDC): -1 to +1
-            const bbox = pred.bbox;
-            const centerX = bbox[0] + bbox[2]/2;
-            const centerY = bbox[1] + bbox[3]/2;
-
-            const ndcX = (centerX / screenW) * 2 - 1;
-            const ndcY = -(centerY / screenH) * 2 + 1; // Invert Y for 3D
-
-            // Calculate depth based on object size (larger = closer)
-            // Primitive estimation
-            const sizeFactor = Math.max(bbox[2], bbox[3]) / screenW;
-            const depth = Utils.map(sizeFactor, 0.1, 0.8, -20, 0); 
-
-            // Project NDC to 3D World Position
-            const vector = new THREE.Vector3(ndcX, ndcY, 0.5); // 0.5 is arbitrary z for unproject
-            vector.unproject(this.camera);
+        tracks.forEach(t => {
+            activeIds.add(t.id);
             
-            const dir = vector.sub(this.camera.position).normalize();
-            const distance = -depth + CONFIG.HOLO.CAMERA_Z; // Adjust for camera
-            const pos = this.camera.position.clone().add(dir.multiplyScalar(distance));
-
-            // 2. Create or Update Mesh
-            let targetGroup = this.targets.get(id);
+            // Determine Color based on Threat Logic
+            let color = CONFIG.COLORS.NEUTRAL; // Object
+            if (t.class === 'person') color = CONFIG.COLORS.HOSTILE; // Threat
             
-            if (!targetGroup) {
-                targetGroup = this.createTargetMesh();
-                this.scene.add(targetGroup);
-                this.targets.set(id, targetGroup);
+            // Get or Create Mesh
+            let mesh = this.targets.get(t.id);
+            if (!mesh) {
+                mesh = this.createTargetMesh(color);
+                this.scene.add(mesh);
+                this.targets.set(t.id, mesh);
             }
 
-            // Smooth Movement (Lerp)
-            targetGroup.position.lerp(pos, CONFIG.AI.SMOOTHING);
+            // Convert 2D -> 3D Projection
+            // We project the object at z = -depth + cameraZ
+            const zPos = -t.depth + 5; 
             
-            // Dynamic Scaling based on distance
-            const scale = Utils.map(distance, 5, 20, 1, 4);
-            targetGroup.scale.setScalar(scale);
+            // Unproject logic for X/Y
+            const vector = new THREE.Vector3(t.nx, t.ny, 0.5);
+            vector.unproject(this.camera);
+            const dir = vector.sub(this.camera.position).normalize();
+            const distance = -zPos + 5; // relative dist
+            const pos = this.camera.position.clone().add(dir.multiplyScalar(distance));
 
-            // Rotate inner ring
-            targetGroup.userData.ring.rotation.z -= 0.1;
-            targetGroup.userData.ring.rotation.x += 0.05;
+            // Apply position with Lerp (already smoothed by Tracker, but extra visual smoothing)
+            mesh.position.lerp(pos, 0.2);
+            
+            // Rotate bracket
+            mesh.children[0].rotation.z += 0.02;
+            mesh.children[0].rotation.y += 0.02;
         });
 
-        // Remove lost targets
+        // Remove Lost Meshes
         this.targets.forEach((mesh, id) => {
             if (!activeIds.has(id)) {
                 this.scene.remove(mesh);
@@ -302,132 +440,149 @@ class HoloDeck {
             }
         });
 
-        document.getElementById('stat-obj').innerText = activeIds.size;
-        
-        const alertUI = document.getElementById('target-lock-ui');
-        if (activeIds.size > 0) {
-            alertUI.style.opacity = 1;
-        } else {
-            alertUI.style.opacity = 0;
-        }
-    }
-
-    animate(avionics) {
-        // Parallax Effect based on Gyro
-        if(this.grid) {
-            this.grid.rotation.z = avionics.roll * 0.05; // Tilt grid
-            this.grid.rotation.x = (Math.PI / 2) + (avionics.pitch * 0.05);
-        }
-
-        // TWEEN updates
-        TWEEN.update();
+        // Parallax Effect from Gyro
+        this.grid.rotation.z = avionics.roll * 0.05;
+        this.grid.rotation.x = (Math.PI/2) + (avionics.pitch * 0.05);
 
         this.renderer.render(this.scene, this.camera);
     }
 }
 
-// --- 5. AI KERNEL ---
-class NeuralCore {
+// --- 7. KERNEL (THE ORCHESTRATOR) ---
+class OmegaKernel {
     constructor() {
+        this.video = document.getElementById('camera-feed');
+        this.tracker = new Tracker();
+        this.holo = new HoloDeck();
+        this.robotics = new NeuroLink();
         this.model = null;
-    }
-    
-    async init() {
-        Utils.log("LOADING NEURAL NET...");
-        await tf.ready();
-        this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-        Utils.log("NEURAL NET ONLINE");
-        return true;
-    }
-
-    async detect(video) {
-        if (!this.model) return [];
-        return await this.model.detect(video, 10, CONFIG.AI.CONFIDENCE);
-    }
-}
-
-// --- 6. MAIN SYSTEM (OMEGA) ---
-class OmegaSystem {
-    constructor() {
-        this.video = document.getElementById('video-feed');
-        this.avionics = new Avionics();
-        this.holo = null;
-        this.ai = new NeuralCore();
+        
+        this.avionics = { pitch: 0, roll: 0 };
+        this.lastTime = 0;
         this.isRunning = false;
-        this.lastAiTick = 0;
     }
 
     async boot() {
         try {
-            // A. Init Sensors
-            await this.avionics.init();
-            Utils.log("SENSORS CALIBRATED");
-
-            // B. Init Camera
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
-                audio: false
+            // 1. Gyro
+            window.addEventListener('deviceorientation', e => {
+                this.avionics.pitch = Utils.lerp(this.avionics.pitch, e.beta||0, 0.1);
+                this.avionics.roll = Utils.lerp(this.avionics.roll, e.gamma||0, 0.1);
+                document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(0);
+                document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(0);
             });
+
+            // 2. Camera
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
             this.video.srcObject = stream;
             await new Promise(r => this.video.onloadedmetadata = r);
-            this.video.play();
-            Utils.log("OPTICAL FEED SECURE");
 
-            // C. Init AI
-            await this.ai.init();
+            // 3. AI
+            document.getElementById('boot-log').innerText = "Loading Neural Network...";
+            await tf.ready();
+            this.model = await cocoSsd.load();
 
-            // D. Init Holographics
-            this.holo = new HoloDeck();
-            Utils.log("HOLOGRAPHIC DECK READY");
+            // 4. Voice
+            Voice.init();
 
-            // E. Engage
-            document.querySelector('.loader-ring').style.display = 'none';
-            const btn = document.getElementById('btn-init');
+            // Ready
+            document.querySelector('.loader').style.display = 'none';
+            document.getElementById('boot-log').innerText = "SYSTEM READY";
+            const btn = document.getElementById('btn-engage');
             btn.style.display = 'block';
+            
             btn.addEventListener('click', () => {
-                document.getElementById('boot-ui').style.display = 'none';
-                this.start();
+                Voice.speak("Omega System Engaged.");
+                document.getElementById('boot-os').style.display = 'none';
+                this.isRunning = true;
+                this.loop();
             });
 
         } catch (e) {
-            Utils.log("CRITICAL ERROR: " + e.message);
+            alert("BOOT FAILURE: " + e);
         }
-    }
-
-    start() {
-        this.isRunning = true;
-        this.loop();
     }
 
     async loop() {
         if (!this.isRunning) return;
-
-        const now = performance.now();
+        const start = performance.now();
         requestAnimationFrame(() => this.loop());
 
-        // 1. 3D Rendering Loop (High FPS)
-        this.holo.animate(this.avionics);
-
-        // 2. AI Logic Loop (Throttled for Performance)
-        if (now - this.lastAiTick > CONFIG.AI.TICK_RATE) {
-            const startCpu = performance.now();
+        // A. Vision Inference
+        if (this.video.readyState === 4) {
+            const preds = await this.model.detect(this.video, 10, CONFIG.AI.CONFIDENCE);
             
-            if (this.video.readyState === 4) {
-                const preds = await this.ai.detect(this.video);
-                // Pass detection data to Holographic Engine
-                this.holo.updateTargets(preds, this.video.videoWidth, this.video.videoHeight);
-            }
+            // B. Tracking & Physics
+            const tracks = this.tracker.update(preds, this.video.videoWidth, this.video.videoHeight);
 
-            const endCpu = performance.now();
-            document.getElementById('stat-cpu').innerText = (endCpu - startCpu).toFixed(1);
-            this.lastAiTick = now;
+            // C. AR Rendering
+            this.holo.render(tracks, this.avionics);
+
+            // D. Radar & HUD Logic
+            this.updateRadar(tracks);
+            this.updateHUD(tracks);
+
+            // E. Robotics Link
+            // Find primary target (Closest human)
+            const target = tracks.find(t => t.class === 'person');
+            if (target) {
+                this.robotics.sendCoordinates(target.nx, target.ny);
+            }
+        }
+
+        // Performance Stats
+        const delta = performance.now() - start;
+        document.getElementById('val-cpu').innerText = delta.toFixed(1);
+        document.getElementById('val-fps').innerText = (1000/Math.max(1,delta)).toFixed(0);
+        document.getElementById('val-mem').innerText = this.tracker.tracks.length;
+    }
+
+    updateRadar(tracks) {
+        const container = document.getElementById('radar-blips');
+        container.innerHTML = '';
+        
+        tracks.forEach(t => {
+            const blip = document.createElement('div');
+            blip.className = 'radar-blip';
+            
+            // Map polar coordinates to CSS
+            const distNorm = Utils.clamp(t.depth / CONFIG.PHYSICS.RADAR_RANGE, 0, 1);
+            const r = distNorm * 70; // 70px radius
+            const theta = (t.bearing - 90) * (Math.PI / 180);
+            
+            const x = 70 + r * Math.cos(theta);
+            const y = 70 + r * Math.sin(theta);
+            
+            blip.style.left = x + 'px';
+            blip.style.top = y + 'px';
+            blip.style.backgroundColor = t.class === 'person' ? '#ff003c' : '#00ccff';
+            
+            container.appendChild(blip);
+        });
+    }
+
+    updateHUD(tracks) {
+        const statusPnl = document.getElementById('pnl-status');
+        const targetInfo = document.getElementById('val-target-dist');
+        const target = tracks.find(t => t.class === 'person'); // Prioritize Humans
+
+        if (target) {
+            statusPnl.style.borderColor = "#ff003c";
+            statusPnl.style.color = "#ff003c";
+            statusPnl.children[0].innerText = "TARGET LOCKED";
+            targetInfo.innerText = `CLASS: ${target.class.toUpperCase()} | RNG: ${target.depth.toFixed(1)}m | BRG: ${target.bearing.toFixed(0)}°`;
+        } else {
+            statusPnl.style.borderColor = "#00ccff";
+            statusPnl.style.color = "#00ccff";
+            statusPnl.children[0].innerText = "SCANNING SECTOR";
+            targetInfo.innerText = tracks.length > 0 ? `${tracks.length} OBJECTS DETECTED` : "NO SIGNATURES";
         }
     }
 }
 
-// --- LAUNCH SEQUENCE ---
-const OMEGA = new OmegaSystem();
-OMEGA.boot();
+// --- INITIALIZATION ---
+const Kernel = new OmegaKernel();
+Kernel.boot();
 
 </script>
 </body>
