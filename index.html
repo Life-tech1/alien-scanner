@@ -1,1011 +1,348 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>OMEGA: LOCK-ON TRACKER</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OMEGA: IDENTITY TRACKER</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-  <!-- AI Core (เดิม) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <style>
+        :root {
+            --p: #00ff9d; --s: #008f7a; --a: #ff2a6d; --w: #ffae00;
+            --bg: #000; --glass: rgba(0, 20, 10, 0.9);
+            --font: 'Segoe UI', monospace;
+        }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); user-select: none; }
+        
+        #viewport { position: relative; width: 100vw; height: 100vh; }
+        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.9; filter: contrast(1.1) brightness(0.9); }
+        #layer-3d, #hud-canvas { position: absolute; inset: 0; z-index: 10; }
+        #hud-canvas { cursor: crosshair; } /* Cursor เปลี่ยนเป็นเป้าเล็ง */
 
-  <!-- AI Add-on (เดิม+ใหม่ใช้ร่วมกัน) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+        /* UI Overlay */
+        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        .panel {
+            background: var(--glass); border-left: 4px solid var(--p); padding: 10px 15px;
+            margin-bottom: 5px; backdrop-filter: blur(10px); pointer-events: auto;
+            width: fit-content; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .label { font-size: 9px; color: #00a8ff; font-weight: 900; letter-spacing: 2px; }
+        .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
 
-  <!-- Face Recognition (ใหม่) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+        /* Input Prompt (Custom Style) */
+        #tag-input {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); border: 2px solid var(--p); padding: 20px; z-index: 100;
+            text-align: center; border-radius: 10px; box-shadow: 0 0 30px var(--p);
+        }
+        #tag-input input { background: #222; border: 1px solid #555; color: white; padding: 10px; font-size: 16px; width: 200px; text-align: center; }
+        #tag-input button { margin-top: 10px; background: var(--p); border: none; padding: 8px 20px; font-weight: bold; cursor: pointer; }
 
-  <!-- 3D Engine (เดิม) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-  <style>
-    /* --- THEME: TACTICAL HUD --- */
-    :root {
-      --p: #00ff9d; --s: #008f7a; --a: #ff2a6d;
-      --bg: #000; --glass: rgba(0, 15, 10, 0.85);
-      --font: 'Segoe UI', 'Courier New', sans-serif;
-    }
-
-    body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
-
-    #viewport { position: relative; width: 100vw; height: 100vh; touch-action: none; }
-
-    /* LAYERS */
-    #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.8; z-index: 0; }
-    #layer-3d { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-    #hud-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
-
-    /* UI OVERLAY */
-    #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
-
-    .panel {
-      background: var(--glass); border-left: 3px solid var(--p);
-      padding: 10px 15px; margin-bottom: 5px; backdrop-filter: blur(5px);
-      pointer-events: auto; width: fit-content; border-radius: 0 5px 5px 0;
-      box-shadow: 0 0 15px rgba(0,255,157,0.1);
-    }
-    .label { font-size: 10px; color: #00a8ff; font-weight: bold; letter-spacing: 2px; }
-    .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
-
-    /* COMPASS STRIP */
-    #compass-bar {
-      position: absolute; top: 0; left: 0; width: 100%; height: 40px;
-      background: linear-gradient(to bottom, #000, transparent);
-      z-index: 15; display: flex; justify-content: center; overflow: hidden;
-      border-bottom: 1px solid rgba(0,255,157,0.3);
-    }
-    #compass-ticks { display: flex; transition: transform 0.1s; width: 2000px; font-family: monospace; font-weight: bold; }
-    .tick { width: 50px; text-align: center; border-left: 1px solid var(--s); height: 10px; margin-top: 5px; color: #fff; }
-    .compass-marker { position: absolute; top: 0; left: 50%; width: 2px; height: 30px; background: var(--a); transform: translateX(-50%); }
-
-    /* RADAR */
-    #radar {
-      position: absolute; bottom: 30px; right: 20px;
-      width: 120px; height: 120px; border-radius: 50%;
-      background: rgba(0,20,10,0.9); border: 2px solid var(--s);
-      overflow: hidden; pointer-events: auto; z-index: 25;
-    }
-    .blip { position: absolute; width: 6px; height: 6px; background: var(--a); border-radius: 50%; transform: translate(-50%,-50%); box-shadow: 0 0 5px var(--a); transition: all 0.2s; }
-
-    /* BOOT SCREEN */
-    #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    #loader { width: 50px; height: 50px; border: 3px solid #333; border-top: 3px solid var(--p); border-radius: 50%; animation: spin 1s infinite; margin: 20px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    button { background: transparent; border: 1px solid var(--p); color: var(--p); padding: 10px 30px; font-weight: bold; cursor: pointer; border-radius: 20px; }
-    button:hover { background: var(--p); color: #000; }
-
-    /* ปุ่มจิ๋วธีมเดิม */
-    .mini-btn {
-      display: inline-flex; align-items:center; gap:6px;
-      padding: 4px 10px; font-size: 11px; border-radius: 12px;
-      border: 1px solid var(--s); color:#fff; background: rgba(0,0,0,0.3);
-      cursor:pointer; user-select:none;
-    }
-    .mini-btn.active { border-color: var(--a); box-shadow:0 0 8px rgba(255,42,109,0.4); }
-  </style>
+        /* Boot Screen */
+        #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #loader { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 0.8s infinite; margin: 30px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        button.start-btn { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
+    </style>
 </head>
 <body>
 
-  <div id="viewport">
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="layer-3d"></canvas>
-    <canvas id="hud-canvas"></canvas>
+    <div id="viewport">
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="layer-3d"></canvas>
+        <canvas id="hud-canvas"></canvas>
 
-    <!-- COMPASS -->
-    <div id="compass-bar">
-      <div id="compass-ticks"></div>
-      <div class="compass-marker"></div>
+        <!-- Custom Tag Input Modal -->
+        <div id="tag-input">
+            <div style="color:var(--p); margin-bottom:10px; font-weight:bold;">IDENTIFY TARGET</div>
+            <input type="text" id="target-name" placeholder="Enter Name (e.g. Boss)">
+            <br>
+            <button onclick="OMEGA.confirmTag()">CONFIRM</button>
+            <button onclick="OMEGA.cancelTag()" style="background:#333; color:#fff;">CANCEL</button>
+        </div>
+
+        <div id="ui-layer">
+            <div style="display:flex; justify-content:space-between;">
+                <div class="panel">
+                    <div class="label">IDENTITY SYSTEM</div>
+                    <div>STATUS: <span class="val" style="color:var(--p)">ACTIVE</span></div>
+                    <div style="font-size:10px; color:#aaa;">CLICK BOX TO TAG NAME</div>
+                </div>
+                <div class="panel">
+                    <div class="label">TARGETS</div>
+                    <div>COUNT: <span id="count" class="val">0</span></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="ui-layer">
-      <div>
-        <div class="panel">
-          <div class="label">SYSTEM STATUS</div>
-          <div>FPS: <span id="fps" class="val">0</span> | OBJ: <span id="obj-count" class="val">0</span></div>
-        </div>
-        <div class="panel">
-          <div class="label">SENSORS</div>
-          <div>HDG: <span id="hdg" class="val" style="color:var(--a)">--°</span></div>
-        </div>
-
-        <div class="panel">
-          <div class="label">TARGETING</div>
-          <div>
-            PRI: <span id="pri-class" class="val">--</span>
-            | RNG: <span id="pri-dist" class="val">--</span>
-            | BRG: <span id="pri-brg" class="val">--</span>
-          </div>
-          <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
-            <div id="btn-lock" class="mini-btn">LOCK: <span id="lock-status">AUTO</span></div>
-            <div id="btn-voice" class="mini-btn">VOICE: <span id="voice-status">OFF</span></div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="label">CONTEXT AI</div>
-          <div>SCENE: <span id="scene-label" class="val">--</span> (<span id="scene-conf" class="val">--</span>)</div>
-        </div>
-
-        <!-- (ใหม่) Identity Enroll Panel — ธีมเดิม ไม่เปลี่ยนดีไซน์ -->
-        <div class="panel" id="identity-panel">
-          <div class="label">IDENTITY ENROLL</div>
-          <div>MODE: <span id="enroll-mode" class="val" style="color:var(--a)">OFF</span></div>
-          <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-            <div id="btn-enroll-toggle" class="mini-btn">ENROLL MODE</div>
-            <div class="mini-btn" data-label="ME">ADD ME</div>
-            <div class="mini-btn" data-label="GF">ADD GF</div>
-            <div class="mini-btn" data-label="PONYO">ADD PONYO</div>
-            <div class="mini-btn" data-label="PIYO">ADD PIYO</div>
-            <div class="mini-btn" data-label="PIPPO">ADD PIPPO</div>
-            <div id="btn-clear-ids" class="mini-btn">CLEAR IDS</div>
-          </div>
-          <div id="enroll-status" style="margin-top:6px; font-size:10px; color:#88ffaa;">
-            Tap ENROLL MODE then tap a label to collect samples.
-          </div>
-        </div>
-      </div>
-
-      <div id="radar">
-        <div style="position:absolute; inset:0; background: conic-gradient(transparent 270deg, var(--s)); opacity: 0.3; animation: scan 3s linear infinite;"></div>
-        <style>@keyframes scan{to{transform: rotate(360deg);}}</style>
-      </div>
+    <div id="boot">
+        <h1 style="color:var(--p); letter-spacing: 8px; font-size: 32px;">OMEGA</h1>
+        <div style="color:#666;">IDENTITY TRACKING MODULE</div>
+        <div id="loader"></div>
+        <button id="btn-start" class="start-btn" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
     </div>
-  </div>
-
-  <div id="boot">
-    <h1 style="color:var(--p); letter-spacing: 5px; text-shadow: 0 0 20px var(--p);">OMEGA</h1>
-    <div style="color:#888;">LOCK-ON SYSTEM</div>
-    <div id="loader"></div>
-    <div style="margin-top:20px;">
-      <button id="btn-start" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
-    </div>
-  </div>
 
 <script>
-(() => {
-  "use strict";
+/**
+ * OMEGA: IDENTITY EDITION
+ * Features: Sticky Tracking + Manual Tagging System
+ */
 
-  const CFG = {
-    AI_CONF: 0.55,
-    SMOOTH_FACTOR: 0.2,
-    MAX_TRACKS: 15,
-    MAX_LOST: 8,
-    DETECT_INTERVAL: 120,
-    AI_INPUT_W: 640,
-    AI_MIN_W: 320,
-    AI_MAX_W: 960,
-    CONTEXT_INTERVAL: 2000,
-    PHYSICS: { FOV: 60, CAM_H: 1.5 },
-    PRIMARY_SCORE: { centerW: 0.55, areaW: 0.35, personBoost: 0.25 },
-    VOICE_COOLDOWN: 1400,
+const CONFIG = {
+    AI_CONF: 0.5,
+    TRACK: { SMOOTH: 0.15, MAX_LOST: 30, MATCH_DIST: 150 } // หนึบมาก
+};
 
-    // Identity
-    IDENTITY: {
-      CAT_SIM_THRESH: 0.75,
-      PERSON_SIM_THRESH: 0.55, // face-api distance threshold
-      ENROLL_SAMPLES: 25,
-      CAT_ID_INTERVAL: 500,
-      FACE_ID_INTERVAL: 350
-    }
-  };
+const Vector = {
+    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+    lerp: (a, b, t) => a + (b - a) * t,
+    getCenter: (box) => ({ x: box[0] + box[2]/2, y: box[1] + box[3]/2 })
+};
 
-  const MathUtils = {
-    iou: (b1, b2) => {
-      const x1 = Math.max(b1[0], b2[0]), y1 = Math.max(b1[1], b2[1]);
-      const x2 = Math.min(b1[0]+b1[2], b2[0]+b2[2]), y2 = Math.min(b1[1]+b1[3], b2[1]+b2[3]);
-      const inter = Math.max(0, x2-x1) * Math.max(0, y2-y1);
-      const union = (b1[2]*b1[3]) + (b2[2]*b2[3]) - inter;
-      return union <= 0 ? 0 : inter / union;
-    },
-    lerp: (a,b,t) => (1-t)*a + t*b,
-    lerpBox: (o, n, t) => [
-      MathUtils.lerp(o[0], n[0], t),
-      MathUtils.lerp(o[1], n[1], t),
-      MathUtils.lerp(o[2], n[2], t),
-      MathUtils.lerp(o[3], n[3], t)
-    ],
-    clamp: (v,min,max)=>Math.max(min,Math.min(max,v)),
-    cosineSim: (a, b) => {
-      let dot=0, na=0, nb=0;
-      for(let i=0;i<a.length;i++){
-        dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i];
-      }
-      return dot / (Math.sqrt(na)*Math.sqrt(nb) + 1e-8);
-    },
-    normVec: (v) => {
-      let s=0; for(const x of v) s+=x*x;
-      const n = Math.sqrt(s)+1e-8;
-      return v.map(x=>x/n);
-    }
-  };
-
-  class Track {
-    constructor(det, id, now) {
-      this.id = id;
-      this.class = det.class;
-      this.bbox = det.bbox.slice();
-      this.rawBox = det.bbox.slice();
-      this.center = [det.bbox[0]+det.bbox[2]/2, det.bbox[1]+det.bbox[3]/2];
-      this.dist = (1.7 * 800) / det.bbox[3];
-      this.lost = 0;
-      this.lastSeen = now;
-
-      this.vx = 0; this.vy = 0; this.vw = 0; this.vh = 0;
-
-      // Identity fields
-      this.identityName = null;
-      this.identityConf = null;
-      this._lastIdSpeak = null;
-    }
-    predict(dt) {
-      if (!dt || dt > 0.2) return;
-      this.bbox[0] += this.vx * dt;
-      this.bbox[1] += this.vy * dt;
-      this.bbox[2] += this.vw * dt;
-      this.bbox[3] += this.vh * dt;
-    }
-    updateFromDet(det, dt, smoothBase) {
-      const old = this.bbox.slice();
-      const newBox = det.bbox;
-      const iou = MathUtils.iou(this.rawBox, newBox);
-      const t = MathUtils.clamp(smoothBase * (1.2 - iou), 0.08, 0.6);
-      this.bbox = MathUtils.lerpBox(old, newBox, t);
-      this.rawBox = newBox.slice();
-      this.class = det.class;
-      this.lost = 0;
-      if (dt && dt > 0) {
-        this.vx = (this.bbox[0]-old[0]) / dt;
-        this.vy = (this.bbox[1]-old[1]) / dt;
-        this.vw = (this.bbox[2]-old[2]) / dt;
-        this.vh = (this.bbox[3]-old[3]) / dt;
-      }
-      this.center = [this.bbox[0]+this.bbox[2]/2, this.bbox[1]+this.bbox[3]/2];
-      this.dist = (1.7 * 800) / this.bbox[3];
-      this.lastSeen = performance.now();
-    }
-  }
-
-  class StickyTracker {
-    constructor() { this.tracks = []; this.nextId = 1; }
-    update(detections, dtSec) {
-      const now = performance.now();
-      const tracks = this.tracks;
-      tracks.forEach(t => t.predict(dtSec));
-
-      const assignedTracks = new Set();
-      const newTracks = [];
-
-      detections.forEach(det => {
-        let best = null, bestIOU = 0;
-        for (const t of tracks) {
-          if (assignedTracks.has(t.id)) continue;
-          const iou = MathUtils.iou(det.bbox, t.rawBox || t.bbox);
-          if (iou > bestIOU) { bestIOU = iou; best = t; }
-        }
-        if (best && bestIOU > 0.28) {
-          best.updateFromDet(det, dtSec, CFG.SMOOTH_FACTOR);
-          assignedTracks.add(best.id);
-          newTracks.push(best);
-        } else {
-          newTracks.push(new Track(det, this.nextId++, now));
-        }
-      });
-
-      tracks.forEach(t => {
-        if (assignedTracks.has(t.id)) return;
-        t.lost++;
-        if (t.lost <= CFG.MAX_LOST) newTracks.push(t);
-      });
-
-      newTracks.sort((a,b)=>a.lost-b.lost);
-      this.tracks = newTracks.slice(0, CFG.MAX_TRACKS);
-      return this.tracks;
-    }
-  }
-
-  class HUD {
+// --- IDENTITY MANAGER (สมองจำชื่อ) ---
+class IdentityManager {
     constructor() {
-      this.canvas = document.getElementById('hud-canvas');
-      this.ctx = this.canvas.getContext('2d');
-      this.radar = document.getElementById('radar');
-      this.resize();
-      this.lastScale = { sx:1, sy:1, vw:1, vh:1 };
-
-      this.scene = new THREE.Scene();
-      this.camera = new THREE.PerspectiveCamera(
-        CFG.PHYSICS.FOV,
-        window.innerWidth/window.innerHeight,
-        0.1, 1000
-      );
-      this.renderer3D = new THREE.WebGLRenderer({
-        canvas: document.getElementById('layer-3d'), alpha:true
-      });
-      this.renderer3D.setSize(window.innerWidth, window.innerHeight);
+        this.identities = new Map(); // เก็บ ID -> Name
     }
+    setName(trackId, name) {
+        this.identities.set(trackId, name);
+    }
+    getName(trackId) {
+        return this.identities.get(trackId) || null;
+    }
+}
+
+// --- PREDICTIVE TRACKER (ตัวเดิมที่หนึบๆ) ---
+class Tracker {
+    constructor() {
+        this.tracks = [];
+        this.nextId = 1;
+    }
+
+    update(detections) {
+        // 1. Predict
+        this.tracks.forEach(t => {
+            t.x += t.vx; t.y += t.vy; t.lost++;
+        });
+
+        // 2. Match
+        detections.forEach(det => {
+            const center = Vector.getCenter(det.bbox);
+            let bestDist = CONFIG.TRACK.MATCH_DIST;
+            let bestTrack = null;
+
+            this.tracks.forEach(t => {
+                const d = Vector.dist({x: t.x, y: t.y}, center);
+                if (d < bestDist) { bestDist = d; bestTrack = t; }
+            });
+
+            if (bestTrack) {
+                // Update Existing
+                const newVx = center.x - bestTrack.x;
+                const newVy = center.y - bestTrack.y;
+                bestTrack.vx = Vector.lerp(bestTrack.vx, newVx, 0.4);
+                bestTrack.vy = Vector.lerp(bestTrack.vy, newVy, 0.4);
+                bestTrack.x = Vector.lerp(bestTrack.x, center.x, CONFIG.TRACK.SMOOTH);
+                bestTrack.y = Vector.lerp(bestTrack.y, center.y, CONFIG.TRACK.SMOOTH);
+                bestTrack.w = Vector.lerp(bestTrack.w, det.bbox[2], CONFIG.TRACK.SMOOTH);
+                bestTrack.h = Vector.lerp(bestTrack.h, det.bbox[3], CONFIG.TRACK.SMOOTH);
+                bestTrack.lost = 0;
+                // Keep Identity if exists
+            } else {
+                // Create New
+                this.tracks.push({
+                    id: this.nextId++,
+                    x: center.x, y: center.y,
+                    w: det.bbox[2], h: det.bbox[3],
+                    vx: 0, vy: 0,
+                    class: det.class,
+                    lost: 0
+                });
+            }
+        });
+
+        // 3. Prune
+        this.tracks = this.tracks.filter(t => t.lost < CONFIG.TRACK.MAX_LOST);
+        return this.tracks;
+    }
+}
+
+// --- RENDERER ---
+class HUD {
+    constructor(sys) {
+        this.sys = sys;
+        this.canvas = document.getElementById('hud-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        
+        // Event Listener for Tagging
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+    }
+
     resize() {
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-      if(this.renderer3D) {
-        this.renderer3D.setSize(window.innerWidth, window.innerHeight);
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-      }
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
     }
-    render(video, tracks, heading, primaryId, lockedId) {
-      const ctx = this.ctx;
-      ctx.clearRect(0,0, this.canvas.width, this.canvas.height);
-      const sx = this.canvas.width / video.videoWidth;
-      const sy = this.canvas.height / video.videoHeight;
-      this.lastScale = { sx, sy, vw: video.videoWidth, vh: video.videoHeight };
 
-      const cx = this.canvas.width / 2;
-      const cy = this.canvas.height / 2;
+    handleClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
 
-      ctx.strokeStyle = 'rgba(0, 255, 157, 0.5)';
-      ctx.beginPath();
-      ctx.moveTo(cx-10, cy); ctx.lineTo(cx+10, cy);
-      ctx.moveTo(cx, cy-10); ctx.lineTo(cx, cy+10);
-      ctx.stroke();
+        // Find clicked track
+        // ต้องแปลงพิกัดเมาส์กลับไปหาพิกัดวิดีโอ
+        const sx = this.canvas.width / this.sys.video.videoWidth;
+        const sy = this.canvas.height / this.sys.video.videoHeight;
 
-      tracks.forEach(t => {
-        if (t.lost > 0) return;
-        const [x,y,w,h] = t.bbox;
-        const scrX = x*sx, scrY = y*sy, scrW = w*sx, scrH = h*sy;
-        const centerX = scrX + scrW/2;
-        const centerY = scrY + scrH/2;
+        let clickedTrack = null;
+        this.sys.tracker.tracks.forEach(t => {
+            const tx = (t.x - t.w/2) * sx;
+            const ty = (t.y - t.h/2) * sy;
+            const tw = t.w * sx;
+            const th = t.h * sy;
 
-        const isPrimary = t.id === primaryId;
-        const isLocked = t.id === lockedId;
+            if(mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th) {
+                clickedTrack = t;
+            }
+        });
 
-        const color = t.class === 'person' ? '#ff2a6d' : '#00ff9d';
-
-        ctx.strokeStyle = color;
-        ctx.lineWidth = isPrimary ? 1.8 : 1;
-        ctx.setLineDash([2, 4]);
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(centerX, centerY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.lineWidth = isPrimary ? 3 : 2;
-        ctx.beginPath();
-        const L = scrW * 0.2;
-        ctx.moveTo(scrX, scrY+L); ctx.lineTo(scrX, scrY); ctx.lineTo(scrX+L, scrY);
-        ctx.moveTo(scrX+scrW-L, scrY); ctx.lineTo(scrX+scrW, scrY); ctx.lineTo(scrX+scrW, scrY+L);
-        ctx.moveTo(scrX+scrW, scrY+scrH-L); ctx.lineTo(scrX+scrW, scrY+scrH); ctx.lineTo(scrX+scrW-L, scrY+scrH);
-        ctx.moveTo(scrX+L, scrY+scrH); ctx.lineTo(scrX, scrY+scrH); ctx.lineTo(scrX, scrY+scrH-L);
-        ctx.stroke();
-
-        if (isLocked) {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          const r = Math.min(scrW, scrH) * 0.12;
-          ctx.arc(centerX, centerY, r, 0, Math.PI*2);
-          ctx.stroke();
+        if(clickedTrack) {
+            this.sys.openTagModal(clickedTrack.id);
         }
-
-        // label + identity
-        ctx.fillStyle = color;
-        ctx.font = "bold 11px monospace";
-        const idTxt = (t.identityName && t.identityConf != null)
-          ? ` ${t.identityName} ${(t.identityConf*100).toFixed(0)}%`
-          : "";
-        ctx.fillText(`${t.class.toUpperCase()}${idTxt} [${t.dist.toFixed(1)}m]`, scrX, scrY - 10);
-      });
-
-      this.updateRadar(tracks, video.videoWidth);
-      this.camera.rotation.y = THREE.Math.degToRad(-heading);
-      this.renderer3D.render(this.scene, this.camera);
     }
 
-    updateRadar(tracks, vw) {
-      const old = this.radar.getElementsByClassName('blip');
-      while(old[0]) old[0].remove();
-      tracks.forEach(t => {
-        if(t.lost > 0) return;
-        const blip = document.createElement('div');
-        blip.className = 'blip';
-        const centerObjX = t.bbox[0] + t.bbox[2]/2;
-        const angleRatio = (centerObjX / vw) - 0.5;
-        const angle = angleRatio * (CFG.PHYSICS.FOV * Math.PI/180);
-        const r = Math.min(t.dist * 2, 55);
-        const rx = 60 + Math.sin(angle) * r;
-        const ry = 60 - Math.cos(angle) * r;
-        blip.style.left = rx + 'px';
-        blip.style.top = ry + 'px';
-        if(t.class !== 'person') blip.style.background = '#00ff9d';
-        this.radar.appendChild(blip);
-      });
-    }
-    trackCenterScreen(t) {
-      const {sx, sy} = this.lastScale;
-      return [t.center[0]*sx, t.center[1]*sy];
-    }
-  }
+    render(video, tracks, identities) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        const sx = this.canvas.width / video.videoWidth;
+        const sy = this.canvas.height / video.videoHeight;
 
-  class VoiceAgent {
+        tracks.forEach(t => {
+            const x = (t.x - t.w/2) * sx;
+            const y = (t.y - t.h/2) * sy;
+            const w = t.w * sx;
+            const h = t.h * sy;
+
+            // Check for custom name
+            const customName = identities.getName(t.id);
+            const displayName = customName ? customName.toUpperCase() : t.class.toUpperCase();
+            const isTagged = !!customName;
+
+            // Style
+            const color = isTagged ? '#00ff9d' : (t.class === 'person' ? '#ffae00' : '#00a8ff');
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = isTagged ? 3 : 2;
+            this.ctx.shadowBlur = isTagged ? 10 : 0;
+            this.ctx.shadowColor = color;
+
+            // Draw Tech Corners
+            this.ctx.beginPath();
+            const L = w * 0.2;
+            this.ctx.moveTo(x, y+L); this.ctx.lineTo(x, y); this.ctx.lineTo(x+L, y);
+            this.ctx.moveTo(x+w-L, y); this.ctx.lineTo(x+w, y); this.ctx.lineTo(x+w, y+L);
+            this.ctx.moveTo(x+w, y+h-L); this.ctx.lineTo(x+w, y+h); this.ctx.lineTo(x+w-L, y+h);
+            this.ctx.moveTo(x+L, y+h); this.ctx.lineTo(x, y+h); this.ctx.lineTo(x, y+h-L);
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+
+            // Label Box
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x, y-20, isTagged ? w : Math.min(w, 100), 20);
+            
+            // Text
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = "bold 12px monospace";
+            const label = isTagged ? `★ ${displayName}` : `ID_${t.id} ${displayName}`;
+            this.ctx.fillText(label, x+5, y-6);
+
+            // Tag Hint (ถ้ายังไม่ได้ Tag)
+            if(!isTagged) {
+                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                this.ctx.fillText("[TAP TO TAG]", x, y+h+15);
+            }
+        });
+    }
+}
+
+// --- MAIN SYSTEM ---
+class System {
     constructor() {
-      this.enabled = false;
-      this.lastSpeak = 0;
-      this.synth = window.speechSynthesis || null;
-    }
-    toggle() { this.enabled = !this.enabled; return this.enabled; }
-    speak(text) {
-      if(!this.enabled || !this.synth) return;
-      const now = performance.now();
-      if(now - this.lastSpeak < CFG.VOICE_COOLDOWN) return;
-      this.lastSpeak = now;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "en-US"; u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
-      this.synth.cancel(); this.synth.speak(u);
-    }
-  }
-
-  // -------- Identity Stores --------
-  class CatIdentityStore {
-    constructor(storageKey="OMEGA_CAT_IDS_V1") {
-      this.key = storageKey;
-      this.centroids = {}; // label -> {vec: Float32Array, n}
-      this.load();
-    }
-    load() {
-      try {
-        const raw = localStorage.getItem(this.key);
-        if(!raw) return;
-        const obj = JSON.parse(raw);
-        for(const label in obj){
-          const {vec, n} = obj[label];
-          this.centroids[label] = { vec: new Float32Array(vec), n: n||0 };
-        }
-      } catch(_e){}
-    }
-    save() {
-      const out = {};
-      for(const label in this.centroids){
-        const c = this.centroids[label];
-        out[label] = { vec: Array.from(c.vec), n: c.n };
-      }
-      localStorage.setItem(this.key, JSON.stringify(out));
-    }
-    clear() {
-      this.centroids = {};
-      localStorage.removeItem(this.key);
-    }
-    add(label, embVec) {
-      const v = MathUtils.normVec(Array.from(embVec));
-      if(!this.centroids[label]) {
-        this.centroids[label] = { vec: new Float32Array(v), n: 1 };
-      } else {
-        const c = this.centroids[label];
-        const n = c.n;
-        const newVec = new Float32Array(c.vec.length);
-        for(let i=0;i<newVec.length;i++){
-          newVec[i] = (c.vec[i]*n + v[i]) / (n+1);
-        }
-        c.vec = newVec; c.n = n+1;
-      }
-      this.save();
-    }
-    predict(embVec) {
-      const v = MathUtils.normVec(Array.from(embVec));
-      let bestLabel=null, bestSim=-1;
-      for(const label in this.centroids){
-        const c = this.centroids[label];
-        const sim = MathUtils.cosineSim(v, Array.from(c.vec));
-        if(sim>bestSim){ bestSim=sim; bestLabel=label; }
-      }
-      if(bestLabel && bestSim >= CFG.IDENTITY.CAT_SIM_THRESH){
-        return {label: bestLabel, confidence: bestSim};
-      }
-      return null;
-    }
-    count(label){ return this.centroids[label]?.n || 0; }
-  }
-
-  class FaceIdentityStore {
-    constructor(storageKey="OMEGA_FACE_IDS_V1") {
-      this.key = storageKey;
-      this.byLabel = {}; // label -> [Float32Array descriptors]
-      this.matcher = null;
-      this.load();
-    }
-    load() {
-      try{
-        const raw = localStorage.getItem(this.key);
-        if(!raw) return;
-        const obj = JSON.parse(raw);
-        for(const label in obj){
-          this.byLabel[label] = obj[label].map(arr => new Float32Array(arr));
-        }
-      }catch(_e){}
-    }
-    save() {
-      const out = {};
-      for(const label in this.byLabel){
-        out[label] = this.byLabel[label].map(d => Array.from(d));
-      }
-      localStorage.setItem(this.key, JSON.stringify(out));
-    }
-    clear() {
-      this.byLabel = {};
-      localStorage.removeItem(this.key);
-      this.rebuildMatcher();
-    }
-    add(label, desc) {
-      this.byLabel[label] ??= [];
-      if(this.byLabel[label].length >= CFG.IDENTITY.ENROLL_SAMPLES) return;
-      this.byLabel[label].push(new Float32Array(desc));
-      this.save();
-      this.rebuildMatcher();
-    }
-    rebuildMatcher() {
-      if(!window.faceapi) { this.matcher=null; return; }
-      const labeled = [];
-      for(const label in this.byLabel){
-        labeled.push(new faceapi.LabeledFaceDescriptors(label, this.byLabel[label]));
-      }
-      this.matcher = labeled.length ? new faceapi.FaceMatcher(labeled, CFG.IDENTITY.PERSON_SIM_THRESH) : null;
-    }
-    match(desc) {
-      if(!this.matcher) return null;
-      const best = this.matcher.findBestMatch(desc);
-      if(best && best.label !== "unknown"){
-        const conf = Math.max(0, 1 - best.distance);
-        return {label: best.label, confidence: conf};
-      }
-      return null;
-    }
-    count(label){ return this.byLabel[label]?.length || 0; }
-  }
-
-  class OmegaSystem {
-    constructor() {
-      this.video = document.getElementById('camera-feed');
-      this.tracker = new StickyTracker();
-      this.hud = new HUD();
-      this.model = null;
-      this.mob = null; // mobilenet shared
-      this.contextModel = null;
-      this.heading = 0;
-      this.tracks = [];
-      this.primaryId = null;
-      this.lockedId = null;
-      this.voice = new VoiceAgent();
-
-      this.catStore = new CatIdentityStore();
-      this.faceStore = new FaceIdentityStore();
-      this.faceEnabled = false;
-
-      this.enrollMode = false;
-      this.enrollLabel = null;
-      this.enrollCount = 0;
-
-      this.aiCanvas = document.createElement('canvas');
-      this.aiCtx = this.aiCanvas.getContext('2d');
-
-      const strip = document.getElementById('compass-ticks');
-      let h = '';
-      for(let i=0;i<3;i++){
-        for(let d=0; d<360; d+=10){
-          let l = d===0?'N':d===90?'E':d===180?'S':d===270?'W':d;
-          h += `<div class="tick">${l}</div>`;
-        }
-      }
-      strip.innerHTML = h;
-
-      window.onresize = () => this.hud.resize();
-
-      window.addEventListener('deviceorientation', e => {
-        this.heading = e.webkitCompassHeading || Math.abs(e.alpha - 360);
-        document.getElementById('hdg').innerText = Math.round(this.heading) + '°';
-        strip.style.transform = `translateX(-${this.heading * 5}px)`;
-      }, true);
-
-      const viewport = document.getElementById('viewport');
-      viewport.addEventListener('pointerdown', (ev) => {
-        const x = ev.clientX, y = ev.clientY;
-        const t = this.pickTrackAt(x,y);
-        if (t) {
-          this.lockedId = (this.lockedId === t.id) ? null : t.id;
-          this.updateLockUI();
-          if (this.lockedId) this.voice.speak(`Locked on ${t.class}, ${t.dist.toFixed(1)} meters.`);
-        } else {
-          this.lockedId = null;
-          this.updateLockUI();
-        }
-      });
-
-      document.getElementById('btn-lock').onclick = () => {
-        this.lockedId = null;
-        this.updateLockUI();
-      };
-      document.getElementById('btn-voice').onclick = () => {
-        const on = this.voice.toggle();
-        document.getElementById('voice-status').innerText = on ? "ON" : "OFF";
-        document.getElementById('btn-voice').classList.toggle('active', on);
-        if(on) this.voice.speak("Voice online.");
-      };
-
-      // Identity UI hooks
-      document.getElementById('btn-enroll-toggle').onclick = () => {
-        this.enrollMode = !this.enrollMode;
-        document.getElementById('enroll-mode').innerText = this.enrollMode ? "ON" : "OFF";
-        document.getElementById('btn-enroll-toggle').classList.toggle('active', this.enrollMode);
-        this.enrollLabel = null; this.enrollCount = 0;
-        this.updateEnrollStatus();
-      };
-
-      document.querySelectorAll('#identity-panel .mini-btn[data-label]').forEach(btn=>{
-        btn.onclick = () => {
-          if(!this.enrollMode) return;
-          const label = btn.getAttribute('data-label');
-          this.enrollLabel = label;
-          this.enrollCount = 0;
-          this.updateEnrollStatus();
-        };
-      });
-
-      document.getElementById('btn-clear-ids').onclick = () => {
-        this.catStore.clear();
-        this.faceStore.clear();
-        this.updateEnrollStatus("Cleared all identity data.");
-      };
-
-      this.updateLockUI();
-      this.updateEnrollStatus();
-
-      this.faceStore.rebuildMatcher();
-    }
-
-    updateLockUI() {
-      const lockStatus = document.getElementById('lock-status');
-      const btnLock = document.getElementById('btn-lock');
-      if(this.lockedId) {
-        lockStatus.innerText = `ID-${this.lockedId}`;
-        btnLock.classList.add('active');
-      } else {
-        lockStatus.innerText = "AUTO";
-        btnLock.classList.remove('active');
-      }
-    }
-
-    updateEnrollStatus(extra="") {
-      const el = document.getElementById('enroll-status');
-      let s = extra ? extra + " " : "";
-      if(!this.enrollMode) {
-        s += "Enroll OFF.";
-      } else if(!this.enrollLabel) {
-        s += "Select a label to enroll.";
-      } else {
-        const cnt = (this.enrollLabel==="ME"||this.enrollLabel==="GF")
-          ? this.faceStore.count(this.enrollLabel)
-          : this.catStore.count(this.enrollLabel);
-        s += `Enrolling ${this.enrollLabel}... ${this.enrollCount}/${CFG.IDENTITY.ENROLL_SAMPLES} (stored: ${cnt})`;
-      }
-      el.innerText = s;
+        this.video = document.getElementById('camera-feed');
+        this.tracker = new Tracker();
+        this.identities = new IdentityManager();
+        this.hud = new HUD(this);
+        this.model = null;
+        this.isRunning = false;
+        this.pendingTagId = null;
+        
+        window.onresize = () => this.hud.resize();
     }
 
     async start() {
-      const btn = document.getElementById('btn-start');
-      btn.innerText = "LOADING CORE...";
+        document.getElementById('btn-start').innerText = "LOADING AI...";
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
+                audio: false
+            });
+            this.video.srcObject = stream;
+            await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
 
-      try {
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          await DeviceOrientationEvent.requestPermission();
+            this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+            
+            document.getElementById('boot').style.display = 'none';
+            this.isRunning = true;
+            this.loop();
+        } catch(e) { alert("Error: " + e.message); }
+    }
+
+    async loop() {
+        if(!this.isRunning) return;
+        const detections = await this.model.detect(this.video, 20, CONFIG.AI_CONF);
+        const tracks = this.tracker.update(detections);
+        
+        this.hud.render(this.video, tracks, this.identities);
+        document.getElementById('count').innerText = tracks.length;
+        
+        requestAnimationFrame(() => this.loop());
+    }
+
+    // Tagging Logic
+    openTagModal(trackId) {
+        this.pendingTagId = trackId;
+        const modal = document.getElementById('tag-input');
+        const input = document.getElementById('target-name');
+        
+        // Check current name
+        const currentName = this.identities.getName(trackId);
+        input.value = currentName || '';
+        
+        modal.style.display = 'block';
+        input.focus();
+    }
+
+    confirmTag() {
+        const name = document.getElementById('target-name').value;
+        if(this.pendingTagId && name) {
+            this.identities.setName(this.pendingTagId, name);
         }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: {ideal: 1280} },
-          audio: false
-        });
-        this.video.srcObject = stream;
-        await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
-
-        this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
-
-        // Shared MobileNet (context + cat ID)
-        this.mob = await mobilenet.load();
-        this.contextModel = this.mob;
-
-        // Face-api models loading (fail-safe)
-        await this.loadFaceModels();
-
-        document.getElementById('boot').style.display = 'none';
-
-        this.lastDetectTime = performance.now();
-        this.startDetectLoop();
-        this.startContextLoop();
-        this.startCatIdentityLoop();
-        this.startFaceIdentityLoop();
-        this.renderLoop();
-
-      } catch(e) {
-        alert("Error: " + e.message);
-      }
+        this.cancelTag();
     }
 
-    async loadFaceModels(){
-      if(!window.faceapi) { this.faceEnabled=false; return; }
-      const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-      try {
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        this.faceEnabled = true;
-      } catch(_e){
-        this.faceEnabled = false;
-      }
-      this.faceStore.rebuildMatcher();
+    cancelTag() {
+        document.getElementById('tag-input').style.display = 'none';
+        this.pendingTagId = null;
     }
+}
 
-    drawAIInput() {
-      const v = this.video;
-      if(!v.videoWidth) return false;
-      const targetW = CFG.AI_INPUT_W;
-      const scale = targetW / v.videoWidth;
-      const targetH = Math.round(v.videoHeight * scale);
-      this.aiCanvas.width = targetW;
-      this.aiCanvas.height = targetH;
-      this.aiCtx.drawImage(v, 0,0, targetW, targetH);
-      return true;
-    }
+const OMEGA = new System();
+document.getElementById('btn-start').style.display = 'block';
 
-    async startDetectLoop() {
-      const detectOnce = async () => {
-        if(!this.model || !this.video.videoWidth) return;
-        const now = performance.now();
-        const dtSec = (now - this.lastDetectTime) / 1000;
-        this.lastDetectTime = now;
-
-        if(!this.drawAIInput()) return;
-        const detections = await this.model.detect(this.aiCanvas, 20, CFG.AI_CONF);
-
-        const scaleBack = this.video.videoWidth / this.aiCanvas.width;
-        detections.forEach(d => {
-          d.bbox[0] *= scaleBack;
-          d.bbox[1] *= scaleBack;
-          d.bbox[2] *= scaleBack;
-          d.bbox[3] *= scaleBack;
-        });
-
-        this.tracks = this.tracker.update(detections, dtSec);
-
-        const oldPrimary = this.primaryId;
-        this.primaryId = this.selectPrimary(this.tracks);
-        if(oldPrimary !== this.primaryId && this.primaryId != null) {
-          const t = this.tracks.find(x=>x.id===this.primaryId);
-          if(t) this.voice.speak(`Primary target ${t.class}, ${t.dist.toFixed(1)} meters.`);
-        }
-
-        document.getElementById('obj-count').innerText = this.tracks.length;
-
-        const fps = this.lastFPS || 30;
-        if(fps < 18) CFG.AI_INPUT_W = MathUtils.clamp(CFG.AI_INPUT_W - 80, CFG.AI_MIN_W, CFG.AI_MAX_W);
-        if(fps > 35) CFG.AI_INPUT_W = MathUtils.clamp(CFG.AI_INPUT_W + 40, CFG.AI_MIN_W, CFG.AI_MAX_W);
-      };
-
-      const loop = async () => {
-        await detectOnce();
-        setTimeout(loop, CFG.DETECT_INTERVAL);
-      };
-      loop();
-    }
-
-    async startContextLoop() {
-      if(!this.contextModel) return;
-      const loop = async () => {
-        try {
-          if(!this.drawAIInput()) return;
-          const preds = await this.contextModel.classify(this.aiCanvas);
-          if(preds && preds[0]) {
-            document.getElementById('scene-label').innerText = preds[0].className.split(',')[0];
-            document.getElementById('scene-conf').innerText = (preds[0].probability*100).toFixed(0) + "%";
-          }
-        } catch(_e){}
-        setTimeout(loop, CFG.CONTEXT_INTERVAL);
-      };
-      loop();
-    }
-
-    // -------- Cat Identity Loop --------
-    startCatIdentityLoop() {
-      const loop = async () => {
-        try {
-          if(!this.mob || !this.video.videoWidth) { setTimeout(loop, CFG.IDENTITY.CAT_ID_INTERVAL); return; }
-
-          // pick best cat track (primary/locked first)
-          const candidates = this.tracks.filter(t=>t.lost===0 && t.class==='cat');
-          if(!candidates.length){ setTimeout(loop, CFG.IDENTITY.CAT_ID_INTERVAL); return; }
-          const cat = (this.lockedId && candidates.find(t=>t.id===this.lockedId))
-                   || (this.primaryId && candidates.find(t=>t.id===this.primaryId))
-                   || candidates[0];
-
-          const emb = await this.getEmbeddingForBox(cat.bbox);
-          if(!emb){ setTimeout(loop, CFG.IDENTITY.CAT_ID_INTERVAL); return; }
-
-          if(this.enrollMode && this.enrollLabel && ["PONYO","PIYO","PIPPO"].includes(this.enrollLabel)) {
-            if(this.enrollCount < CFG.IDENTITY.ENROLL_SAMPLES){
-              this.catStore.add(this.enrollLabel, emb);
-              this.enrollCount++;
-              this.updateEnrollStatus();
-            }
-          } else {
-            const res = this.catStore.predict(emb);
-            if(res){
-              cat.identityName = res.label;
-              cat.identityConf = res.confidence;
-              if(this.voice.enabled && cat._lastIdSpeak !== res.label){
-                this.voice.speak(`${res.label} detected.`);
-                cat._lastIdSpeak = res.label;
-              }
-            } else {
-              cat.identityName = null; cat.identityConf = null;
-            }
-          }
-
-          tf.dispose(emb);
-        } catch(_e){}
-        setTimeout(loop, CFG.IDENTITY.CAT_ID_INTERVAL);
-      };
-      loop();
-    }
-
-    async getEmbeddingForBox(bbox) {
-      const v = this.video;
-      if(!v.videoWidth) return null;
-      const [x,y,w,h] = bbox.map(n=>Math.round(n));
-      const ix = MathUtils.clamp(x, 0, v.videoWidth-1);
-      const iy = MathUtils.clamp(y, 0, v.videoHeight-1);
-      const iw = MathUtils.clamp(w, 2, v.videoWidth-ix);
-      const ih = MathUtils.clamp(h, 2, v.videoHeight-iy);
-
-      return tf.tidy(() => {
-        const frame = tf.browser.fromPixels(v);
-        const crop = frame.slice([iy, ix, 0],[ih, iw, 3]);
-        const resized = tf.image.resizeBilinear(crop, [224,224]).toFloat().div(255);
-        const batched = resized.expandDims(0);
-        const emb = this.mob.infer(batched, true);
-        frame.dispose();
-        return emb.squeeze();
-      });
-    }
-
-    // -------- Face Identity Loop --------
-    startFaceIdentityLoop() {
-      const loop = async () => {
-        try {
-          if(!this.faceEnabled || !this.video.videoWidth) { setTimeout(loop, CFG.IDENTITY.FACE_ID_INTERVAL); return; }
-
-          if(!this.drawAIInput()) { setTimeout(loop, CFG.IDENTITY.FACE_ID_INTERVAL); return; }
-
-          const faces = await faceapi
-            .detectAllFaces(this.aiCanvas, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-            .withFaceLandmarks()
-            .withFaceDescriptors();
-
-          if(faces && faces.length){
-            const scaleBack = this.video.videoWidth / this.aiCanvas.width;
-
-            for(const f of faces){
-              const box = f.detection.box;
-              const faceBoxVideo = [box.x*scaleBack, box.y*scaleBack, box.width*scaleBack, box.height*scaleBack];
-
-              // nearest person track by IOU
-              const persons = this.tracks.filter(t=>t.lost===0 && t.class==='person');
-              let bestT=null, best=0;
-              for(const t of persons){
-                const iou = MathUtils.iou(faceBoxVideo, t.bbox);
-                if(iou>best){ best=iou; bestT=t; }
-              }
-
-              // enroll face if in enroll mode
-              if(this.enrollMode && this.enrollLabel && ["ME","GF"].includes(this.enrollLabel)) {
-                if(this.enrollCount < CFG.IDENTITY.ENROLL_SAMPLES){
-                  this.faceStore.add(this.enrollLabel, f.descriptor);
-                  this.enrollCount++;
-                  this.updateEnrollStatus();
-                }
-              } else if(bestT) {
-                const res = this.faceStore.match(f.descriptor);
-                if(res){
-                  bestT.identityName = res.label;
-                  bestT.identityConf = res.confidence;
-                  if(this.voice.enabled && bestT._lastIdSpeak !== res.label){
-                    this.voice.speak(`${res.label} identified.`);
-                    bestT._lastIdSpeak = res.label;
-                  }
-                } else {
-                  bestT.identityName = null; bestT.identityConf = null;
-                }
-              }
-            }
-          }
-        } catch(_e){}
-        setTimeout(loop, CFG.IDENTITY.FACE_ID_INTERVAL);
-      };
-      loop();
-    }
-
-    renderLoop() {
-      const start = performance.now();
-      if(this.video.videoWidth) {
-        this.hud.render(this.video, this.tracks, this.heading, this.primaryId, this.lockedId);
-      }
-      const dt = performance.now()-start;
-      const fps = Math.round(1000/dt);
-      this.lastFPS = fps;
-      document.getElementById('fps').innerText = fps;
-      this.updateTargetPanel();
-      requestAnimationFrame(()=>this.renderLoop());
-    }
-
-    updateTargetPanel() {
-      const t = this.getPrimaryTrack();
-      if(!t) {
-        document.getElementById('pri-class').innerText = "--";
-        document.getElementById('pri-dist').innerText = "--";
-        document.getElementById('pri-brg').innerText = "--";
-        return;
-      }
-      const brg = this.computeBearingDeg(t);
-      const idTxt = t.identityName ? `(${t.identityName})` : "";
-      document.getElementById('pri-class').innerText = t.class.toUpperCase() + idTxt + `#${t.id}`;
-      document.getElementById('pri-dist').innerText = t.dist.toFixed(1) + "m";
-      document.getElementById('pri-brg').innerText = (brg>=0?"+":"") + brg.toFixed(0) + "°";
-    }
-
-    getPrimaryTrack() {
-      if(this.lockedId) return this.tracks.find(x=>x.id===this.lockedId) || null;
-      return this.tracks.find(x=>x.id===this.primaryId) || null;
-    }
-
-    selectPrimary(tracks) {
-      if(this.lockedId) return this.lockedId;
-      if(!tracks || tracks.length===0) return null;
-
-      const vw = this.video.videoWidth;
-      const vh = this.video.videoHeight;
-      const cx = vw/2, cy = vh/2;
-
-      let bestId = null, bestScore = -Infinity;
-      for(const t of tracks) {
-        if(t.lost>0) continue;
-        const dx = (t.center[0]-cx)/vw;
-        const dy = (t.center[1]-cy)/vh;
-        const centerScore = 1 - Math.sqrt(dx*dx+dy*dy);
-        const areaScore = MathUtils.clamp((t.bbox[2]*t.bbox[3])/(vw*vh)*6, 0, 1);
-        let score = centerScore*CFG.PRIMARY_SCORE.centerW + areaScore*CFG.PRIMARY_SCORE.areaW;
-        if(t.class==='person') score += CFG.PRIMARY_SCORE.personBoost;
-        if(score>bestScore){ bestScore=score; bestId=t.id; }
-      }
-      return bestId;
-    }
-
-    computeBearingDeg(t) {
-      const vw = this.video.videoWidth;
-      const ratio = (t.center[0]/vw)-0.5;
-      return ratio * CFG.PHYSICS.FOV;
-    }
-
-    pickTrackAt(screenX, screenY) {
-      let best=null, bestDist=1e9;
-      for(const t of this.tracks) {
-        if(t.lost>0) continue;
-        const [sx, sy] = this.hud.trackCenterScreen(t);
-        const d = Math.hypot(sx-screenX, sy-screenY);
-        if(d<bestDist && d<90){ bestDist=d; best=t; }
-      }
-      return best;
-    }
-  }
-
-  window.OMEGA = new OmegaSystem();
-  document.getElementById('btn-start').style.display = 'block';
-
-})();
 </script>
 </body>
 </html>
