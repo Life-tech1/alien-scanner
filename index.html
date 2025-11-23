@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: HEAVY KERNEL SYSTEM</title>
+    <title>OMEGA: HEAVY KERNEL (STABLE)</title>
     
-    <!-- LIBRARIES -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+    <!-- LIBRARIES: FIXED VERSIONS FOR STABILITY -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh@0.0.5"></script> <!-- Switched to stable Facemesh -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 
     <style>
-        /* --- CYBERPUNK UI STYLES (V2) --- */
+        /* --- CYBERPUNK UI STYLES --- */
         :root {
             --primary: #0affc2; --secondary: #008f7a; --accent: #00d2ff;
             --alert: #ff2a6d; --warn: #ffae00; --bg: #000502;
@@ -25,7 +25,7 @@
         canvas { position: absolute; top: 0; left: 0; }
         
         #viewport { position: relative; width: 100vw; height: 100vh; }
-        #camera-feed { width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(0.8) grayscale(0.2); }
+        #camera-feed { width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(0.8) grayscale(0.2); transform: scaleX(-1); /* Mirror effect */ }
         
         /* LAYERS */
         #layer-3d { z-index: 10; opacity: 0.7; pointer-events: none; }
@@ -42,9 +42,7 @@
             padding: 15px; margin: 5px; backdrop-filter: blur(10px); pointer-events: auto;
             width: fit-content; min-width: 200px;
             box-shadow: 0 0 15px rgba(10, 255, 194, 0.15);
-            transition: transform 0.2s;
         }
-        .panel:hover { transform: translateX(5px); box-shadow: 0 0 25px rgba(10, 255, 194, 0.3); }
         .panel-header { font-family: var(--font-tech); font-weight: 900; color: var(--accent); margin-bottom: 8px; letter-spacing: 2px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
         .data-row { display: flex; justify-content: space-between; font-family: var(--font-tech); font-size: 12px; margin-bottom: 4px; color: rgba(255,255,255,0.8); }
         .val { color: var(--primary); font-weight: bold; text-shadow: 0 0 5px var(--primary); }
@@ -67,7 +65,8 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .loader { border: 4px solid #333; border-top: 4px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        #log-output { font-family: var(--font-tech); font-size: 12px; color: #666; height: 100px; overflow: hidden; text-align: center; }
+        #log-output { font-family: var(--font-tech); font-size: 12px; color: #666; height: 100px; overflow: hidden; text-align: center; white-space: pre-wrap; }
+        .error-msg { color: #ff2a6d !important; }
     </style>
 </head>
 <body>
@@ -77,8 +76,8 @@
 
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="layer-3d"></canvas> <!-- THREE.JS LAYER -->
-        <canvas id="layer-hud"></canvas> <!-- 2D HUD LAYER -->
+        <canvas id="layer-3d"></canvas>
+        <canvas id="layer-hud"></canvas>
         
         <div id="layer-ui">
             <!-- TOP BAR -->
@@ -87,15 +86,14 @@
                     <div class="panel-header">SYSTEM METRICS</div>
                     <div class="data-row"><span>CPU TIME</span><span class="val" id="ui-cpu">0ms</span></div>
                     <div class="data-row"><span>FPS</span><span class="val" id="ui-fps">0</span></div>
-                    <div class="data-row"><span>MEMORY</span><span class="val" id="ui-mem">0 MB</span></div>
                     <div class="data-row"><span>OBJECTS</span><span class="val" id="ui-obj">0</span></div>
+                    <div class="data-row"><span>FACES</span><span class="val" id="ui-face">0</span></div>
                 </div>
                 
                 <div class="panel">
                     <div class="panel-header">PHYSICS ENGINE</div>
-                    <div class="data-row"><span>ALTITUDE</span><span class="val">1.7m</span></div>
-                    <div class="data-row"><span>VELOCITY</span><span class="val" id="ui-vel">0 m/s</span></div>
-                    <div class="data-row"><span>HEADING</span><span class="val" id="ui-hdg">0°</span></div>
+                    <div class="data-row"><span>DIST EST</span><span class="val" id="ui-dist">--</span></div>
+                    <div class="data-row"><span>VELOCITY</span><span class="val" id="ui-vel">CALC...</span></div>
                     <div class="data-row"><span>THREAT</span><span class="val alert" id="ui-threat">NONE</span></div>
                 </div>
             </div>
@@ -105,14 +103,13 @@
                 <div class="panel">
                     <div class="panel-header">TACTICAL LOG</div>
                     <div id="tactical-feed" style="font-family: var(--font-tech); font-size: 10px; height: 60px; overflow: hidden; opacity: 0.8;">
-                        > SYSTEM INITIALIZED...
+                        > KERNEL INITIALIZED...
                     </div>
                 </div>
             </div>
 
             <div id="radar-box">
                 <div id="radar-scan"></div>
-                <!-- BLIPS INJECTED HERE -->
             </div>
         </div>
     </div>
@@ -121,41 +118,35 @@
     <div id="boot-screen">
         <div style="font-size: 40px; font-weight: 900; letter-spacing: 10px; color: var(--primary); margin-bottom: 20px; text-shadow: 0 0 20px var(--primary);">OMEGA</div>
         <div class="loader"></div>
-        <div id="log-output">Loading Modules...</div>
+        <div id="log-output">Check Console if stuck...</div>
         <button id="btn-start" style="display:none; margin-top: 20px; padding: 15px 40px; background: transparent; border: 2px solid var(--primary); color: var(--primary); font-weight: bold; cursor: pointer; letter-spacing: 2px;">ENGAGE SYSTEM</button>
     </div>
 
 <script>
 /**
- * OMEGA: HEAVY KERNEL (RESTORATION)
- * This script restores the complex logic architectures:
- * 1. Physics Engine (Real math)
- * 2. Tracker History (ID Persistence)
- * 3. Three.js Integration (3D World)
- * 4. Advanced State Management
+ * OMEGA: HEAVY KERNEL (STABLE EDITION)
  */
 
-// --- GLOBAL CONFIGURATION (The "Settings" File) ---
+// --- CONFIGURATION ---
 const CONFIG = {
     AI: {
         OBJ_CONFIDENCE: 0.6,
-        MAX_OBJECTS: 20,
+        MAX_OBJECTS: 15,
         FACE_MESH: true
     },
     PHYSICS: {
-        FOV_H: 60, // Camera Horizontal FOV in degrees
-        FOCAL_LENGTH: 800, // Approximate pixel focal length
-        EST_PERSON_HEIGHT: 1.7 // Meters
+        FOV_H: 60, 
+        FOCAL_LENGTH: 800,
+        EST_PERSON_HEIGHT: 1.7 
     },
     TRACKING: {
-        MAX_LOST_FRAMES: 10, // Keep ID for 10 frames if lost
+        MAX_LOST_FRAMES: 5,
         IOU_THRESHOLD: 0.4
     }
 };
 
-// --- MATH & UTILITIES MODULE ---
+// --- MATH & UTILITIES ---
 const MathUtils = {
-    // Intersection over Union for tracking
     getIOU: (box1, box2) => {
         const x1 = Math.max(box1[0], box2[0]);
         const y1 = Math.max(box1[1], box2[1]);
@@ -166,25 +157,23 @@ const MathUtils = {
         const area2 = box2[2] * box2[3];
         return intersection / (area1 + area2 - intersection);
     },
-    // Estimate distance based on pixel height
     getDistance: (pixelHeight) => {
-        // Distance = (Real Height * Focal Length) / Pixel Height
+        if(pixelHeight <= 0) return 0;
         return (CONFIG.PHYSICS.EST_PERSON_HEIGHT * CONFIG.PHYSICS.FOCAL_LENGTH) / pixelHeight;
     },
-    // Map 2D screen to 3D world coordinates (Simplified)
     projectTo3D: (x, y, distance, width, height) => {
         const nx = (x - width / 2) / (width / 2);
-        const ny = -(y - height / 2) / (height / 2); // Flip Y
+        const ny = -(y - height / 2) / (height / 2); 
         const tanFOV = Math.tan((CONFIG.PHYSICS.FOV_H / 2) * Math.PI / 180);
         return {
-            x: nx * distance * tanFOV * (width/height), // Aspect ratio correction
+            x: nx * distance * tanFOV * (width/height), 
             y: ny * distance * tanFOV,
             z: -distance
         };
     }
 };
 
-// --- 3D ENGINE MODULE (THREE.JS) ---
+// --- 3D ENGINE (THREE.JS) ---
 class SceneManager {
     constructor() {
         this.canvas = document.getElementById('layer-3d');
@@ -193,29 +182,26 @@ class SceneManager {
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true });
         
         this.initScene();
-        window.addEventListener('resize', () => this.resize());
-        this.resize();
-        
-        this.objects3D = new Map(); // Store 3D meshes by Track ID
+        this.objects3D = new Map();
     }
 
     initScene() {
-        // Lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 2);
         this.scene.add(ambientLight);
         const dirLight = new THREE.DirectionalLight(0x0affc2, 0.5);
         dirLight.position.set(0, 10, 0);
         this.scene.add(dirLight);
 
-        // Ground Grid (Cyberpunk Style)
+        // Grid
         const gridHelper = new THREE.GridHelper(100, 50, 0x008f7a, 0x002211);
         gridHelper.position.y = -2;
         this.scene.add(gridHelper);
     }
 
     updateEntities(trackedObjects) {
-        // Remove stale objects
         const currentIds = trackedObjects.map(t => t.id);
+        
+        // Remove old
         for (let [id, mesh] of this.objects3D) {
             if (!currentIds.includes(id)) {
                 this.scene.remove(mesh);
@@ -223,10 +209,9 @@ class SceneManager {
             }
         }
 
-        // Add/Update objects
+        // Add/Update
         trackedObjects.forEach(obj => {
             if (!this.objects3D.has(obj.id)) {
-                // Create new Mesh
                 const geometry = new THREE.WireframeGeometry(new THREE.BoxGeometry(1, 2, 1));
                 const material = new THREE.LineBasicMaterial({ color: 0x0affc2, linewidth: 2 });
                 const mesh = new THREE.LineSegments(geometry, material);
@@ -234,42 +219,34 @@ class SceneManager {
                 this.objects3D.set(obj.id, mesh);
             }
 
-            // Update Position based on Physics Engine
             const mesh = this.objects3D.get(obj.id);
-            if (obj.worldPos) {
-                // Interpolate for smoothness
-                mesh.position.lerp(new THREE.Vector3(obj.worldPos.x, -1, obj.worldPos.z), 0.2);
-                mesh.rotation.y += 0.02; // Idle animation
+            if (obj.worldPos && !isNaN(obj.worldPos.x)) {
+                mesh.position.lerp(new THREE.Vector3(obj.worldPos.x, -1, obj.worldPos.z), 0.3);
+                mesh.rotation.y += 0.05; 
             }
         });
 
         this.renderer.render(this.scene, this.camera);
     }
 
-    resize() {
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.camera.aspect = window.innerWidth / window.innerHeight;
+    resize(w, h) {
+        this.renderer.setSize(w, h);
+        this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
     }
 }
 
-// --- TRACKING & PHYSICS KERNEL ---
+// --- TRACKING KERNEL ---
 class TrackerKernel {
     constructor() {
-        this.tracks = []; // { id, bbox, label, score, lastSeen, worldPos, velocity }
+        this.tracks = []; 
         this.nextId = 1;
     }
 
     update(detections, videoWidth, videoHeight) {
-        // 1. Prediction Step (Velocity) - Simple Linear Filter
-        this.tracks.forEach(t => {
-            t.lastSeen++;
-            // Predict next position if we had velocity (not implemented fully in this simplified block but structure is here)
-        });
-
         const newTracks = [];
-
-        // 2. Data Association (Hungarian Algorithm simplified to Greedy IOU)
+        
+        // Match detections to tracks
         detections.forEach(det => {
             let bestMatch = null;
             let maxIOU = 0;
@@ -282,24 +259,18 @@ class TrackerKernel {
                 }
             });
 
+            const distance = MathUtils.getDistance(det.bbox[3]);
+            const center = [det.bbox[0] + det.bbox[2]/2, det.bbox[1] + det.bbox[3]/2];
+            const worldPos = MathUtils.projectTo3D(center[0], center[1], distance, videoWidth, videoHeight);
+
             if (bestMatch && maxIOU > CONFIG.TRACKING.IOU_THRESHOLD) {
-                // Update existing track
                 bestMatch.bbox = det.bbox;
                 bestMatch.score = det.score;
-                bestMatch.lastSeen = 0; // Reset counter
-                bestMatch.label = det.class;
-                
-                // 3. Physics Calculation
-                const distance = MathUtils.getDistance(det.bbox[3]); // Height
-                const center = [det.bbox[0] + det.bbox[2]/2, det.bbox[1] + det.bbox[3]/2];
+                bestMatch.lastSeen = 0;
                 bestMatch.distance = distance;
-                bestMatch.worldPos = MathUtils.projectTo3D(center[0], center[1], distance, videoWidth, videoHeight);
-                
+                bestMatch.worldPos = worldPos;
                 newTracks.push(bestMatch);
             } else {
-                // Create new track
-                const distance = MathUtils.getDistance(det.bbox[3]);
-                const center = [det.bbox[0] + det.bbox[2]/2, det.bbox[1] + det.bbox[3]/2];
                 newTracks.push({
                     id: this.nextId++,
                     bbox: det.bbox,
@@ -307,16 +278,19 @@ class TrackerKernel {
                     score: det.score,
                     lastSeen: 0,
                     distance: distance,
-                    worldPos: MathUtils.projectTo3D(center[0], center[1], distance, videoWidth, videoHeight)
+                    worldPos: worldPos
                 });
             }
         });
 
-        // 4. Persistence (Keep lost tracks for a few frames)
+        // Keep lost tracks briefly
         this.tracks.forEach(t => {
-            if (t.lastSeen > 0 && t.lastSeen < CONFIG.TRACKING.MAX_LOST_FRAMES) {
-                // Keep it, but mark as stale
-                newTracks.push(t);
+            if (t.lastSeen >= 0 && t.lastSeen < CONFIG.TRACKING.MAX_LOST_FRAMES) {
+                // Only keep if not matched (checks if it's already in newTracks)
+                if(!newTracks.find(nt => nt.id === t.id)) {
+                    t.lastSeen++;
+                    newTracks.push(t);
+                }
             }
         });
 
@@ -325,15 +299,15 @@ class TrackerKernel {
     }
 }
 
-// --- MAIN SYSTEM CONTROLLER ---
+// --- MAIN SYSTEM ---
 class OmegaSystem {
     constructor() {
         this.video = document.getElementById('camera-feed');
         this.hudCanvas = document.getElementById('layer-hud');
         this.hudCtx = this.hudCanvas.getContext('2d');
         
-        this.sceneManager = new SceneManager(); // 3D System
-        this.tracker = new TrackerKernel();     // Physics & Logic System
+        this.sceneManager = new SceneManager();
+        this.tracker = new TrackerKernel();
         this.models = { object: null, face: null };
         
         this.state = { isRunning: false, frames: 0, lastTime: 0 };
@@ -343,11 +317,11 @@ class OmegaSystem {
         this.resize();
     }
 
-    log(msg) {
-        this.logger.innerHTML += `<div>> ${msg}</div>`;
+    log(msg, isError = false) {
+        const span = isError ? `<span class="error-msg">` : `<span>`;
+        this.logger.innerHTML += `<div>${span}> ${msg}</span></div>`;
         this.logger.scrollTop = this.logger.scrollHeight;
         
-        // Also update tactical feed in UI
         const tacFeed = document.getElementById('tactical-feed');
         if(tacFeed) {
             tacFeed.innerHTML = `<div>> ${msg}</div>` + tacFeed.innerHTML;
@@ -355,30 +329,48 @@ class OmegaSystem {
     }
 
     resize() {
-        this.hudCanvas.width = window.innerWidth;
-        this.hudCanvas.height = window.innerHeight;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        this.hudCanvas.width = w;
+        this.hudCanvas.height = h;
+        if(this.sceneManager) this.sceneManager.resize(w, h);
     }
 
     async boot() {
         try {
-            this.log("Initializing Neural Networks...");
-            this.models.object = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            this.log("Loading Neural Networks...");
             
+            // Parallel Load
+            const loadPromises = [
+                cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(m => this.models.object = m)
+            ];
+
             if (CONFIG.AI.FACE_MESH) {
-                this.log("Loading Biometric Mesh...");
-                this.models.face = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh);
+                // Using Facemesh (older, more stable API for this context)
+                loadPromises.push(facemesh.load().then(m => this.models.face = m));
             }
 
-            this.log("Accessing Optical Sensors...");
+            await Promise.all(loadPromises);
+            this.log("AI Models Loaded.");
+
+            this.log("Initializing Sensors...");
+            
+            // Camera Check
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Browser does not support Camera API (or HTTP block).");
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
                 audio: false
             });
             this.video.srcObject = stream;
             
-            await new Promise(r => this.video.onloadedmetadata = () => {
-                this.video.play();
-                r();
+            await new Promise((resolve) => {
+                this.video.onloadedmetadata = () => {
+                    this.video.play();
+                    resolve();
+                };
             });
 
             this.log("SYSTEM READY.");
@@ -386,7 +378,8 @@ class OmegaSystem {
             document.getElementById('btn-start').style.display = 'block';
             
         } catch (e) {
-            this.log(`CRITICAL ERROR: ${e.message}`);
+            console.error(e);
+            this.log(`CRITICAL ERROR: ${e.message}`, true);
         }
     }
 
@@ -399,29 +392,41 @@ class OmegaSystem {
     async runLoop() {
         if (!this.state.isRunning) return;
 
-        const now = performance.now();
-        const delta = now - this.state.lastTime;
-        this.state.frames++;
-        
-        // 1. AI DETECTION
-        let faces = [];
-        const objects = await this.models.object.detect(this.video, CONFIG.AI.MAX_OBJECTS, CONFIG.AI.OBJ_CONFIDENCE);
-        
-        if (CONFIG.AI.FACE_MESH) {
-            faces = await this.models.face.estimateFaces({ input: this.video });
+        // Safety check for video
+        if (this.video.readyState < 2 || this.video.videoWidth === 0) {
+            requestAnimationFrame(() => this.runLoop());
+            return;
         }
 
-        // 2. PHYSICS & TRACKING UPDATE
+        const now = performance.now();
+        this.state.frames++;
+        
+        // 1. DETECTION
+        let faces = [];
+        let objects = [];
+
+        try {
+            if(this.models.object) {
+                objects = await this.models.object.detect(this.video, CONFIG.AI.MAX_OBJECTS, CONFIG.AI.OBJ_CONFIDENCE);
+            }
+            if (this.models.face) {
+                faces = await this.models.face.estimateFaces(this.video);
+            }
+        } catch(e) {
+            console.warn("AI Inference skipped frame");
+        }
+
+        // 2. LOGIC UPDATE
         const trackedEntities = this.tracker.update(objects, this.video.videoWidth, this.video.videoHeight);
         
-        // 3. 3D SCENE UPDATE
+        // 3. 3D UPDATE
         this.sceneManager.updateEntities(trackedEntities);
 
-        // 4. HUD RENDER
+        // 4. RENDER HUD
         this.renderHUD(trackedEntities, faces);
         
-        // 5. UI & RADAR UPDATE
-        this.updateUI(trackedEntities, now);
+        // 5. UI & STATS
+        this.updateUI(trackedEntities, faces, now);
 
         this.state.lastTime = now;
         requestAnimationFrame(() => this.runLoop());
@@ -431,98 +436,109 @@ class OmegaSystem {
         const ctx = this.hudCtx;
         ctx.clearRect(0, 0, this.hudCanvas.width, this.hudCanvas.height);
         
-        // Scale factors
+        // Mirror calculation
         const sx = this.hudCanvas.width / this.video.videoWidth;
         const sy = this.hudCanvas.height / this.video.videoHeight;
 
         // Draw Object Brackets
         tracks.forEach(t => {
-            if (t.lastSeen > 2) return; // Don't draw ghost tracks
+            if (t.lastSeen > 2) return; 
 
-            const x = t.bbox[0] * sx;
-            const y = t.bbox[1] * sy;
-            const w = t.bbox[2] * sx;
-            const h = t.bbox[3] * sy;
+            // Standardize coords
+            let x = t.bbox[0] * sx;
+            let y = t.bbox[1] * sy;
+            let w = t.bbox[2] * sx;
+            let h = t.bbox[3] * sy;
             
+            // Mirror flip correction for display if using CSS transform
+            x = this.hudCanvas.width - (x + w); 
+
             const color = t.label === 'person' ? '#ff2a6d' : '#0affc2';
 
-            // High-Tech Corners
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            const L = 15;
-            ctx.moveTo(x, y+L); ctx.lineTo(x, y); ctx.lineTo(x+L, y); // TL
-            ctx.moveTo(x+w-L, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+L); // TR
-            ctx.moveTo(x+w, y+h-L); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w-L, y+h); // BR
-            ctx.moveTo(x+L, y+h); ctx.lineTo(x, y+h); ctx.lineTo(x, y+h-L); // BL
+            const L = 20;
+            // Bracket drawing
+            ctx.moveTo(x, y+L); ctx.lineTo(x, y); ctx.lineTo(x+L, y); 
+            ctx.moveTo(x+w-L, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+L); 
+            ctx.moveTo(x+w, y+h-L); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w-L, y+h); 
+            ctx.moveTo(x+L, y+h); ctx.lineTo(x, y+h); ctx.lineTo(x, y+h-L); 
             ctx.stroke();
 
-            // Info Block
+            // Label
             ctx.fillStyle = color;
-            ctx.font = "10px Courier New";
-            ctx.fillText(`ID:${t.id} ${t.label.toUpperCase()}`, x, y - 15);
-            ctx.fillText(`DIST:${t.distance.toFixed(1)}m`, x, y - 5);
+            ctx.font = "bold 12px Courier New";
+            ctx.fillText(`ID:${t.id} ${t.label.toUpperCase()}`, x, y - 20);
+            if(t.distance) ctx.fillText(`${t.distance.toFixed(1)}M`, x, y - 8);
         });
 
         // Draw Face Mesh
-        if (faces) {
+        if (faces && faces.length > 0) {
             ctx.fillStyle = '#00d2ff';
             faces.forEach(face => {
                 face.scaledMesh.forEach((pt, i) => {
-                    if (i % 5 === 0) { // Optimization
-                        ctx.fillRect(pt[0] * sx, pt[1] * sy, 1, 1);
+                    if (i % 3 === 0) { 
+                        // Mirror flip for points
+                        const fx = this.hudCanvas.width - (pt[0] * sx);
+                        const fy = pt[1] * sy;
+                        ctx.fillRect(fx, fy, 2, 2);
                     }
                 });
             });
         }
     }
 
-    updateUI(tracks, now) {
-        // FPS
+    updateUI(tracks, faces, now) {
         if (this.state.frames % 10 === 0) {
-            document.getElementById('ui-fps').innerText = Math.round(1000 / (now - this.state.lastTime));
+            const fps = Math.round(1000 / (now - this.state.lastTime));
+            document.getElementById('ui-fps').innerText = isNaN(fps) ? '--' : fps;
+            document.getElementById('ui-cpu').innerText = Math.round(performance.now() - now) + "ms";
         }
         
-        // Object Count
         document.getElementById('ui-obj').innerText = tracks.length;
+        document.getElementById('ui-face').innerText = faces.length;
 
-        // Threat Level
+        // Nearest Threat
         const persons = tracks.filter(t => t.label === 'person');
-        const threatEl = document.getElementById('ui-threat');
         if (persons.length > 0) {
             const nearest = Math.min(...persons.map(p => p.distance));
+            document.getElementById('ui-dist').innerText = nearest.toFixed(1) + "m";
+            const threatEl = document.getElementById('ui-threat');
             if (nearest < 2.0) {
                 threatEl.innerText = "CRITICAL";
                 threatEl.className = "val alert";
             } else {
-                threatEl.innerText = "CAUTION";
+                threatEl.innerText = "DETECTED";
                 threatEl.className = "val";
                 threatEl.style.color = "#ffae00";
             }
         } else {
-            threatEl.innerText = "SAFE";
-            threatEl.style.color = "#0affc2";
+            document.getElementById('ui-dist').innerText = "--";
+            document.getElementById('ui-threat').innerText = "SAFE";
+            document.getElementById('ui-threat').className = "val";
+            document.getElementById('ui-threat').style.color = "#0affc2";
         }
 
-        // Radar Update
+        // Radar
         const radarBox = document.getElementById('radar-box');
-        // Clear old blips (keep scanner)
-        Array.from(radarBox.getElementsByClassName('blip')).forEach(e => e.remove());
+        // Clear blips only
+        const blips = radarBox.getElementsByClassName('blip');
+        while(blips[0]) blips[0].parentNode.removeChild(blips[0]);
         
         tracks.forEach(t => {
-            if (t.lastSeen > 5) return;
+            if (t.lastSeen > 2) return;
             const blip = document.createElement('div');
             blip.className = 'blip';
             
-            // Map 3D X/Z to 2D radar (Top down view)
-            // Scale: 160px width = 20 meters range
+            // Map 3D to Radar
             const range = 20; 
-            const scale = 80 / range; // Radius 80px
+            const scale = 80 / range; 
             
-            let rx = (t.worldPos.x * scale) + 80;
-            let ry = (-t.worldPos.z * scale) + 80;
+            // Invert X because of mirror effect
+            let rx = 80 - (t.worldPos.x * scale);
+            let ry = 80 + (-t.worldPos.z * scale); 
             
-            // Clamp inside radar
             if (Math.sqrt(Math.pow(rx-80, 2) + Math.pow(ry-80, 2)) < 80) {
                 blip.style.left = `${rx}px`;
                 blip.style.top = `${ry}px`;
@@ -533,7 +549,7 @@ class OmegaSystem {
     }
 }
 
-// --- INITIALIZATION ---
+// --- INIT ---
 const OMEGA = new OmegaSystem();
 window.addEventListener('load', () => OMEGA.boot());
 document.getElementById('btn-start').addEventListener('click', () => OMEGA.start());
