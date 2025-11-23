@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: MILITARY OS</title>
+    <title>OMEGA: MILITARY OS (iOS FIX)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
     <style>
-        /* --- SYSTEM STYLES --- */
         :root {
             --hud-primary: #00ff41; /* Terminal Green */
             --hud-warning: #ffcc00;
@@ -27,57 +26,34 @@
             width: 100vw; height: 100vh;
         }
 
-        /* LAYOUT CONTAINER */
-        #viewport {
-            position: relative; width: 100%; height: 100%;
-        }
-
-        /* FEED LAYER */
+        /* LAYOUT */
+        #viewport { position: relative; width: 100%; height: 100%; }
         #camera-feed {
             position: absolute; width: 100%; height: 100%; object-fit: cover;
             z-index: 0; filter: contrast(1.1) brightness(0.8) grayscale(0.2);
         }
-
-        /* HUD LAYER */
-        #hud-canvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10;
-        }
-
-        /* UI OVERLAY HTML (For text sharpness) */
+        #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
+        
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 20; pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 10px;
+            z-index: 20; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 10px;
+            padding-top: max(20px, env(safe-area-inset-top));
         }
 
-        /* WIDGETS */
         .panel {
             background: var(--glass-panel); border: 1px solid var(--hud-primary);
             padding: 8px; font-size: 10px; width: fit-content;
             box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
         }
-        .panel-header {
-            border-bottom: 1px solid var(--hud-primary); margin-bottom: 4px;
-            font-weight: bold; letter-spacing: 2px;
-        }
-
-        /* TOP BAR */
         .top-bar { display: flex; justify-content: space-between; width: 100%; }
-        
+
         /* CROSSHAIR */
         #crosshair {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px; height: 40px;
-            border: 1px solid rgba(0, 255, 65, 0.5);
-            z-index: 15; pointer-events: none;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; border: 1px solid rgba(0, 255, 65, 0.5); z-index: 15; pointer-events: none;
         }
         #crosshair::after {
-            content: ''; position: absolute; top: 50%; left: 50%;
-            width: 4px; height: 4px; background: var(--hud-primary);
-            transform: translate(-50%, -50%);
+            content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: var(--hud-primary); transform: translate(-50%, -50%);
         }
 
         /* BOOT SCREEN */
@@ -88,18 +64,17 @@
             font-size: 12px;
         }
         .log-scroll {
-            width: 300px; height: 200px; overflow: hidden;
+            width: 300px; height: 150px; overflow-y: auto;
             border: 1px solid #333; padding: 10px; margin-bottom: 20px;
             font-family: monospace; text-align: left;
         }
         #btn-init {
-            background: #003300; color: var(--hud-primary); border: 1px solid var(--hud-primary);
+            background: #003300; color: var(--hud-primary); border: 2px solid var(--hud-primary);
             padding: 15px 40px; cursor: pointer; font-family: monospace; font-weight: bold;
-            text-transform: uppercase; letter-spacing: 2px;
-            transition: all 0.2s;
+            text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s;
+            box-shadow: 0 0 20px var(--hud-primary);
         }
-        #btn-init:hover { background: var(--hud-primary); color: #000; }
-
+        #btn-init:active { background: var(--hud-primary); color: #000; }
     </style>
 </head>
 <body>
@@ -112,352 +87,30 @@
         <div id="ui-layer">
             <div class="top-bar">
                 <div class="panel">
-                    <div class="panel-header">SYS.TELEMETRY</div>
                     <div>CPU: <span id="val-cpu">0</span>ms</div>
                     <div>FPS: <span id="val-fps">0</span></div>
-                    <div>MEM: <span id="val-mem">OK</span></div>
                 </div>
                 <div class="panel" style="text-align: right;">
-                    <div class="panel-header">GNSS / IMU</div>
                     <div>PITCH: <span id="val-pitch">0</span>°</div>
                     <div>ROLL: <span id="val-roll">0</span>°</div>
-                    <div>G-FORCE: <span id="val-g">1.0</span></div>
+                    <div>G: <span id="val-g">1.0</span></div>
                 </div>
             </div>
-
             <div style="align-self: center; margin-bottom: 20px;" class="panel">
-                <div class="panel-header">TARGET ACQUISITION</div>
-                <div id="target-data" style="font-size: 12px; color: var(--hud-warning);">NO TARGET LOCKED</div>
+                <div>TARGET: <span id="target-data" style="color: var(--hud-warning);">SCANNING...</span></div>
             </div>
         </div>
     </div>
 
     <div id="boot-screen">
-        <div style="font-size: 30px; font-weight: bold; margin-bottom: 10px;">OMEGA OS</div>
-        <div style="margin-bottom: 10px;">MILITARY GRADE SURVEILLANCE</div>
+        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">OMEGA OS</div>
+        <div style="margin-bottom: 10px; opacity: 0.7;">iOS COMPATIBLE KERNEL</div>
         <div class="log-scroll" id="boot-log"></div>
         <button id="btn-init">INITIATE SEQUENCE</button>
     </div>
 
 <script>
-/**
- * ------------------------------------------------------------------
- * OMEGA SYSTEM KERNEL
- * Version: 5.0.0 (Enterprise Edition)
- * ------------------------------------------------------------------
- */
-
-// --- 1. MATH LIBRARY (VECTOR PHYSICS) ---
-class Vector2 {
-    constructor(x = 0, y = 0) { this.x = x; this.y = y; }
-    add(v) { return new Vector2(this.x + v.x, this.y + v.y); }
-    sub(v) { return new Vector2(this.x - v.x, this.y - v.y); }
-    mult(n) { return new Vector2(this.x * n, this.y * n); }
-    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
-    normalize() { let m = this.mag(); return m === 0 ? new Vector2(0,0) : this.mult(1/m); }
-    static lerp(v1, v2, t) { return new Vector2(v1.x + (v2.x - v1.x) * t, v1.y + (v2.y - v1.y) * t); }
-}
-
-// --- 2. SIGNAL PROCESSING (KALMAN FILTER) ---
-// Used to smooth out jittery sensor data
-class KalmanFilter {
-    constructor(R = 1, Q = 1, A = 1, B = 0, C = 1) {
-        this.R = R; // Noise covariance
-        this.Q = Q; // Process covariance
-        this.A = A; // State vector
-        this.B = B; // Control vector
-        this.C = C; // Measurement vector
-        this.cov = NaN;
-        this.x = NaN; // Value
-    }
-    filter(measurement) {
-        if (isNaN(this.x)) {
-            this.x = (1 / this.C) * measurement;
-            this.cov = (1 / this.C) * this.R * (1 / this.C);
-        } else {
-            const predX = (this.A * this.x) + (this.B * 0);
-            const predCov = ((this.A * this.cov) * this.A) + this.Q;
-            const K = predCov * this.C * (1 / ((this.C * predCov * this.C) + this.R));
-            this.x = predX + K * (measurement - (this.C * predX));
-            this.cov = predCov - (K * this.C * predCov);
-        }
-        return this.x;
-    }
-}
-
-// --- 3. AVIONICS SYSTEM (SENSORS) ---
-class AvionicsSystem {
-    constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.yaw = 0;
-        this.accel = new Vector2(0, 0);
-        this.gForce = 1.0;
-        
-        // Filters for smoothing
-        this.filterPitch = new KalmanFilter(0.1, 0.1);
-        this.filterRoll = new KalmanFilter(0.1, 0.1);
-    }
-
-    async init() {
-        // iOS Permission Request
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            const response = await DeviceOrientationEvent.requestPermission();
-            if (response !== 'granted') throw new Error("Gyroscope Permission Denied");
-        }
-
-        window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
-        window.addEventListener('devicemotion', (e) => this.handleMotion(e));
-        Logger.log("AVIONICS: SENSORS CALIBRATED");
-    }
-
-    handleOrientation(e) {
-        // Apply Kalman Filter
-        this.pitch = this.filterPitch.filter(e.beta || 0);
-        this.roll = this.filterRoll.filter(e.gamma || 0);
-        this.yaw = e.alpha || 0;
-    }
-
-    handleMotion(e) {
-        const acc = e.accelerationIncludingGravity;
-        if (acc) {
-            const x = acc.x || 0;
-            const y = acc.y || 0;
-            const z = acc.z || 0;
-            this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.8; // Normalize to G
-        }
-    }
-}
-
-// --- 4. NEURAL ENGINE (VISION) ---
-class NeuralEngine {
-    constructor() {
-        this.model = null;
-        this.isLoaded = false;
-        this.predictions = [];
-        this.lastInferenceTime = 0;
-    }
-
-    async init() {
-        Logger.log("NEURAL: LOADING TENSORFLOW BACKEND...");
-        await tf.setBackend('webgl');
-        Logger.log("NEURAL: WEBGL ACCELERATION ENABLED");
-        this.model = await cocoSsd.load();
-        this.isLoaded = true;
-        Logger.log("NEURAL: COCO-SSD MODEL LOADED");
-    }
-
-    async predict(video) {
-        if (!this.isLoaded || video.readyState !== 4) return;
-        
-        const start = performance.now();
-        this.predictions = await this.model.detect(video, 5, 0.5); // Max 5 objects, 50% threshold
-        const end = performance.now();
-        
-        this.lastInferenceTime = Math.floor(end - start);
-        return this.predictions;
-    }
-}
-
-// --- 5. HUD SYSTEM (RENDERING) ---
-class HUDSystem {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-    }
-
-    resize() {
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-    }
-
-    clear() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
-    }
-
-    drawArtificialHorizon(pitch, roll) {
-        const ctx = this.ctx;
-        const cx = this.width / 2;
-        const cy = this.height / 2;
-        
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(roll * Math.PI / 180);
-        ctx.translate(0, pitch * 4); // Pitch sensitivity
-
-        // Horizon Line
-        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-200, 0); ctx.lineTo(200, 0);
-        ctx.stroke();
-
-        // Pitch Ladder
-        ctx.fillStyle = 'rgba(0, 255, 65, 0.3)';
-        for (let i = -40; i <= 40; i += 10) {
-            if (i === 0) continue;
-            const y = i * 4;
-            ctx.beginPath();
-            ctx.moveTo(-50, -y); ctx.lineTo(50, -y);
-            ctx.stroke();
-            ctx.fillText(i, 60, -y + 3);
-        }
-
-        ctx.restore();
-    }
-
-    drawTargetBox(prediction) {
-        const ctx = this.ctx;
-        const [x, y, w, h] = prediction.bbox;
-        
-        // Fancy Bracket Box
-        const color = prediction.class === 'person' ? '#ff0000' : '#00ff41';
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 5; ctx.shadowColor = color;
-
-        const len = w * 0.2;
-        ctx.beginPath();
-        // Corners
-        ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y); // TL
-        ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len); // TR
-        ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h); // BL
-        ctx.moveTo(x + w - len, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - len); // BR
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // Label Tag
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - 20, w, 20);
-        ctx.fillStyle = color;
-        ctx.font = "10px Courier New";
-        ctx.fillText(`${prediction.class.toUpperCase()} [${Math.round(prediction.score*100)}%]`, x + 5, y - 6);
-        
-        // Center Vector
-        ctx.beginPath();
-        ctx.moveTo(this.width/2, this.height/2);
-        ctx.lineTo(x + w/2, y + h/2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.setLineDash([5, 5]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-}
-
-// --- 6. SYSTEM CONTROLLER (MAIN APP) ---
-class App {
-    constructor() {
-        this.avionics = new AvionicsSystem();
-        this.neural = new NeuralEngine();
-        this.hud = new HUDSystem('hud-canvas');
-        this.video = document.getElementById('camera-feed');
-        
-        this.isRunning = false;
-        this.lastTime = 0;
-        this.frames = 0;
-        this.fps = 0;
-    }
-
-    async boot() {
-        try {
-            // 1. Camera Access
-            Logger.log("SYS: REQUESTING OPTICAL SENSORS...");
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                audio: false 
-            });
-            this.video.srcObject = stream;
-            await new Promise(r => this.video.onloadedmetadata = r);
-            this.video.play();
-            Logger.log("SYS: OPTICAL FEED SECURE");
-
-            // 2. Init Subsystems
-            await this.avionics.init();
-            await this.neural.init();
-
-            // 3. Start Loop
-            document.getElementById('boot-screen').style.display = 'none';
-            this.isRunning = true;
-            this.loop(0);
-
-        } catch (e) {
-            Logger.log(`CRITICAL ERROR: ${e.message}`);
-            alert("SYSTEM HALTED: " + e.message);
-        }
-    }
-
-    loop(timestamp) {
-        if (!this.isRunning) return;
-
-        // FPS Counter
-        const dt = timestamp - this.lastTime;
-        if (dt >= 1000) {
-            this.fps = this.frames;
-            this.frames = 0;
-            this.lastTime = timestamp;
-            document.getElementById('val-fps').innerText = this.fps;
-        }
-        this.frames++;
-
-        // 1. Run AI Inference (Async, don't block render)
-        this.neural.predict(this.video);
-
-        // 2. Render HUD
-        this.hud.clear();
-        
-        // 2.1 Artificial Horizon (Pitch/Roll)
-        this.hud.drawArtificialHorizon(this.avionics.pitch, this.avionics.roll);
-
-        // 2.2 Target Bounding Boxes
-        let targetText = "NO TARGET";
-        let targetColor = "#ffcc00";
-
-        if (this.neural.predictions.length > 0) {
-            // Find primary target (Center of screen preference)
-            const center = new Vector2(this.hud.width/2, this.hud.height/2);
-            let minDist = Infinity;
-            let primary = null;
-
-            this.neural.predictions.forEach(p => {
-                this.hud.drawTargetBox(p);
-                
-                // Calculate distance to crosshair
-                const objCenter = new Vector2(p.bbox[0] + p.bbox[2]/2, p.bbox[1] + p.bbox[3]/2);
-                const dist = objCenter.sub(center).mag();
-                
-                if (dist < minDist) {
-                    minDist = dist;
-                    primary = p;
-                }
-            });
-
-            if (primary) {
-                targetText = `LOCKED: ${primary.class.toUpperCase()}`;
-                targetColor = "#ff0000";
-            }
-        }
-
-        // 3. Update DOM UI
-        document.getElementById('val-cpu').innerText = this.neural.lastInferenceTime;
-        document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(1);
-        document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(1);
-        document.getElementById('val-g').innerText = this.avionics.gForce.toFixed(2);
-        
-        const tEl = document.getElementById('target-data');
-        tEl.innerText = targetText;
-        tEl.style.color = targetColor;
-
-        requestAnimationFrame((t) => this.loop(t));
-    }
-}
-
-// --- UTILITIES ---
+// --- UTILS ---
 const Logger = {
     el: document.getElementById('boot-log'),
     log(msg) {
@@ -465,20 +118,200 @@ const Logger = {
         line.innerText = `> ${msg}`;
         this.el.appendChild(line);
         this.el.scrollTop = this.el.scrollHeight;
-        console.log(msg);
     }
 };
 
-// --- ENTRY POINT ---
-const System = new App();
+// --- 1. SENSORS (iOS FIX APPLIED) ---
+class AvionicsSystem {
+    constructor() {
+        this.pitch = 0; this.roll = 0;
+        this.gForce = 1.0;
+    }
 
+    // Requires DIRECT user gesture
+    async requestAccess() {
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const permission = await DeviceOrientationEvent.requestPermission();
+                if (permission === 'granted') {
+                    Logger.log("ACCESS GRANTED: GYROSCOPE");
+                    this.startListeners();
+                    return true;
+                } else {
+                    Logger.log("ACCESS DENIED: GYROSCOPE");
+                    alert("Permission Denied. Please restart and allow sensors.");
+                    return false;
+                }
+            } catch (e) {
+                Logger.log("ERROR: " + e);
+                return false;
+            }
+        } else {
+            // Non-iOS 13+ devices
+            this.startListeners();
+            return true;
+        }
+    }
+
+    startListeners() {
+        window.addEventListener('deviceorientation', (e) => {
+            this.pitch = e.beta || 0;
+            this.roll = e.gamma || 0;
+        });
+        window.addEventListener('devicemotion', (e) => {
+            const acc = e.accelerationIncludingGravity;
+            if(acc) {
+                const x = acc.x || 0; const y = acc.y || 0; const z = acc.z || 0;
+                this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.8;
+            }
+        });
+    }
+}
+
+// --- 2. AI ENGINE ---
+class NeuralEngine {
+    constructor() { this.model = null; this.lastTime = 0; }
+    async init() {
+        Logger.log("LOADING NEURAL NET...");
+        await tf.setBackend('webgl');
+        this.model = await cocoSsd.load();
+        Logger.log("NEURAL NET READY");
+    }
+    async predict(video) {
+        if(!this.model || video.readyState !== 4) return [];
+        const start = performance.now();
+        const res = await this.model.detect(video, 5, 0.5);
+        this.lastTime = Math.floor(performance.now() - start);
+        return res;
+    }
+}
+
+// --- 3. HUD ---
+class HUD {
+    constructor() {
+        this.canvas = document.getElementById('hud-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    }
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.w = this.canvas.width;
+        this.h = this.canvas.height;
+    }
+    clear() { this.ctx.clearRect(0, 0, this.w, this.h); }
+    
+    drawHorizon(pitch, roll) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(this.w/2, this.h/2);
+        ctx.rotate(roll * Math.PI / 180);
+        ctx.translate(0, pitch * 4);
+        
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-300, 0); ctx.lineTo(300, 0); ctx.stroke();
+        
+        // Ladder
+        for(let i=-4; i<=4; i++) {
+            if(i===0) continue;
+            const y = i * 40;
+            ctx.beginPath(); ctx.moveTo(-50, y); ctx.lineTo(50, y); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    drawBox(p) {
+        const ctx = this.ctx;
+        const [x, y, w, h] = p.bbox;
+        const color = p.class === 'person' ? '#ff0000' : '#00ff41';
+        
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Brackets
+        const L = 20;
+        ctx.moveTo(x, y+L); ctx.lineTo(x, y); ctx.lineTo(x+L, y);
+        ctx.moveTo(x+w-L, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+L);
+        ctx.moveTo(x, y+h-L); ctx.lineTo(x, y+h); ctx.lineTo(x+L, y+h);
+        ctx.moveTo(x+w-L, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-L);
+        ctx.stroke();
+
+        ctx.fillStyle = color; ctx.font = "10px monospace";
+        ctx.fillText(`${p.class.toUpperCase()} ${Math.round(p.score*100)}%`, x+5, y-5);
+    }
+}
+
+// --- MAIN ---
+const App = {
+    avionics: new AvionicsSystem(),
+    neural: new NeuralEngine(),
+    hud: new HUD(),
+    video: document.getElementById('camera-feed'),
+    
+    async start() {
+        try {
+            // 1. IMPORTANT: Request Sensors FIRST (Must be direct response to click)
+            const sensorAuth = await this.avionics.requestAccess();
+            if(!sensorAuth) return;
+
+            // 2. Camera
+            Logger.log("ACCESSING OPTICAL SENSORS...");
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' }, audio: false 
+            });
+            this.video.srcObject = stream;
+            
+            // 3. AI
+            await this.neural.init();
+
+            // 4. Launch
+            document.getElementById('boot-screen').style.display = 'none';
+            this.loop();
+
+        } catch(e) {
+            Logger.log("CRITICAL FAILURE: " + e);
+            alert("Error: " + e.message);
+        }
+    },
+
+    loop() {
+        requestAnimationFrame(() => this.loop());
+        
+        // Logic
+        this.neural.predict(this.video).then(preds => {
+            this.hud.clear();
+            this.hud.drawHorizon(this.avionics.pitch, this.avionics.roll);
+            
+            let targetTxt = "NO TARGET";
+            let targetColor = "#ffcc00";
+
+            preds.forEach(p => {
+                this.hud.drawBox(p);
+                if(p.score > 0.6) {
+                    targetTxt = `LOCKED: ${p.class.toUpperCase()}`;
+                    targetColor = "#00ff41";
+                }
+            });
+
+            // UI Update
+            document.getElementById('target-data').innerText = targetTxt;
+            document.getElementById('target-data').style.color = targetColor;
+            document.getElementById('val-cpu').innerText = this.neural.lastTime;
+            document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(0);
+            document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(0);
+            document.getElementById('val-g').innerText = this.avionics.gForce.toFixed(2);
+        });
+    }
+};
+
+// CLICK TRIGGER
 document.getElementById('btn-init').addEventListener('click', () => {
-    System.boot();
+    App.start();
 });
 
-// Initial Log
-Logger.log("KERNEL LOADED.");
-Logger.log("WAITING FOR USER AUTH...");
+Logger.log("SYSTEM STANDBY...");
+Logger.log("WAITING FOR USER INPUT...");
 
 </script>
 </body>
