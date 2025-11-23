@@ -3,466 +3,412 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: HUMANOID VISION SYSTEM v2.0</title>
+    <title>OMEGA: SENTINEL SYSTEM</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
     <style>
+        /* --- VISUAL LANGUAGE: SCI-FI MILITARY --- */
         :root {
-            --hud-primary: #00ff41;   /* Matrix Green */
-            --hud-secondary: #008f11; /* Dimmed Green */
-            --hud-alert: #ff0000;     /* Critical Red */
-            --hud-warn: #ffcc00;      /* Warning Yellow */
-            --bg-dark: #050505;
-            --glass: rgba(0, 20, 0, 0.8);
+            --primary: #00ff41;      /* Matrix Green */
+            --hostile: #ff0000;      /* Kill Red */
+            --neutral: #ffcc00;      /* Warning Yellow */
+            --bg: #000000;
+            --glass: rgba(0, 20, 0, 0.85);
         }
 
-        /* --- CORE SETUP --- */
         * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+        
         body {
-            margin: 0; overflow: hidden; background: var(--bg-dark);
-            font-family: 'Consolas', 'Monaco', monospace;
-            color: var(--hud-primary);
-            width: 100vw; height: 100vh;
+            margin: 0; overflow: hidden; background: var(--bg);
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: var(--primary); width: 100vw; height: 100vh;
         }
 
-        /* --- VIEWPORT & LAYERS --- */
+        /* --- LAYERS --- */
         #viewport { position: relative; width: 100%; height: 100%; }
         
-        /* Video Layer: High Contrast for Machine Vision aesthetic */
-        #camera-feed {
+        #cam-feed {
             position: absolute; width: 100%; height: 100%; object-fit: cover;
-            z-index: 0; filter: sepia(0.5) hue-rotate(70deg) contrast(1.2) brightness(0.8);
-            opacity: 0.6;
+            z-index: 0; filter: brightness(0.7) contrast(1.2) grayscale(0.4) sepia(0.2);
         }
         
-        /* HUD Canvas: Vector Graphics */
         #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
 
-        /* --- UI PANELS --- */
         #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 20; pointer-events: none;
+            position: absolute; inset: 0; z-index: 20; pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: max(20px, env(safe-area-inset-top));
+            padding: max(15px, env(safe-area-inset-top));
         }
 
-        .hud-panel {
-            background: var(--glass); border-left: 3px solid var(--hud-primary);
-            padding: 8px 12px; margin: 10px; width: fit-content;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+        /* --- WIDGETS --- */
+        .panel {
+            background: var(--glass); border-left: 3px solid var(--primary);
+            padding: 5px 10px; margin: 5px; backdrop-filter: blur(4px);
+            font-size: 12px; text-shadow: 0 0 5px var(--primary); width: fit-content;
+            pointer-events: auto;
         }
-        .hud-text { font-size: 12px; letter-spacing: 1px; margin-bottom: 4px; text-shadow: 0 0 5px var(--hud-primary); }
-        .hud-value { font-weight: bold; color: #fff; }
+        
+        .btn {
+            background: rgba(0,30,0,0.9); border: 1px solid var(--primary);
+            color: var(--primary); padding: 10px 20px; font-weight: bold;
+            cursor: pointer; text-transform: uppercase; font-family: inherit;
+            transition: 0.2s; pointer-events: auto;
+        }
+        .btn:active, .btn.active { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
 
-        /* --- RADAR COMPONENT --- */
-        #radar-container {
+        /* --- RADAR --- */
+        #radar {
             position: absolute; bottom: 20px; right: 20px;
-            width: 140px; height: 140px;
-            border-radius: 50%;
-            background: rgba(0, 20, 0, 0.9);
-            border: 2px solid var(--hud-primary);
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-            overflow: hidden;
-            z-index: 30;
+            width: 130px; height: 130px; border-radius: 50%;
+            background: rgba(0, 15, 0, 0.9); border: 2px solid var(--primary);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.15); overflow: hidden; pointer-events: auto;
         }
-        #radar-container::after {
-            /* Scanning Line Animation */
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.4) 360deg);
-            border-radius: 50%;
-            animation: radar-scan 2s linear infinite;
+        #radar::after {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(transparent 270deg, rgba(0,255,65,0.4) 360deg);
+            animation: scan 2s linear infinite;
         }
-        /* Radar Grid Lines */
-        .radar-grid {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            border: 1px solid rgba(0,255,65,0.3); border-radius: 50%; pointer-events: none;
-        }
-        .radar-cross {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 100%; height: 1px; background: rgba(0,255,65,0.3);
-        }
-        .radar-blip {
+        @keyframes scan { to { transform: rotate(360deg); } }
+        
+        .blip {
             position: absolute; width: 6px; height: 6px; border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 5px currentColor;
-            transition: all 0.2s ease-out;
+            transform: translate(-50%, -50%); box-shadow: 0 0 4px currentColor;
+            transition: all 0.3s ease-out;
         }
-        @keyframes radar-scan { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* --- BOOT SCREEN --- */
-        #boot-overlay {
+        #boot {
             position: fixed; inset: 0; background: #000; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: var(--hud-primary);
+            color: var(--primary);
         }
-        #btn-init {
-            background: transparent; color: var(--hud-primary); border: 2px solid var(--hud-primary);
-            padding: 15px 50px; font-family: inherit; font-size: 16px; font-weight: bold;
-            letter-spacing: 3px; cursor: pointer; margin-top: 20px;
-            transition: 0.3s; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        .log-box {
+            font-size: 10px; opacity: 0.8; margin-bottom: 20px; height: 120px; 
+            width: 300px; overflow: hidden; border: 1px solid #333; padding: 10px; text-align: left;
         }
-        #btn-init:hover { background: var(--hud-primary); color: #000; box-shadow: 0 0 30px var(--hud-primary); }
-        
-        .status-led { display: inline-block; width: 8px; height: 8px; background: #333; border-radius: 50%; margin-right: 8px; }
-        .status-led.active { background: var(--hud-primary); box-shadow: 0 0 10px var(--hud-primary); }
+        .typing { border-right: 2px solid var(--primary); animation: blink 0.7s infinite; }
+        @keyframes blink { 50% { border-color: transparent; } }
 
     </style>
 </head>
 <body>
 
-    <div id="viewport">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="hud-canvas"></canvas>
-        
-        <div id="ui-layer">
-            <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel">
-                    <div class="hud-text">SYSTEM CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
-                    <div class="hud-text">VISION FPS: <span id="val-fps" class="hud-value">0</span></div>
-                </div>
-                <div class="hud-panel" style="text-align:right;">
-                    <div class="hud-text">GYRO-X: <span id="val-pitch" class="hud-value">0</span>°</div>
-                    <div class="hud-text">GYRO-Y: <span id="val-roll" class="hud-value">0</span>°</div>
-                    <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.0</span></div>
-                </div>
-            </div>
-
-            <div id="radar-container">
-                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
-                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
-                <div class="radar-cross"></div>
-                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
-                <div id="radar-blips"></div>
-            </div>
-        </div>
+    <div id="boot">
+        <h1 style="font-size: 48px; margin: 0; letter-spacing: 8px;">OMEGA</h1>
+        <p style="opacity:0.6; letter-spacing: 2px;">AI SENTINEL KERNEL v3.0</p>
+        <div class="log-box" id="sys-log"></div>
+        <button class="btn" id="btn-start" style="font-size: 16px; padding: 15px 40px;">INITIALIZE SYSTEM</button>
     </div>
 
-    <div id="boot-overlay">
-        <div style="font-size: 40px; font-weight: 900; margin-bottom: 10px; letter-spacing: 5px;">OMEGA</div>
-        <div style="opacity: 0.7; margin-bottom: 30px;">HUMANOID OPERATING SYSTEM</div>
-        <div style="text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.8;">
-            <div><span class="status-led" id="led-cam"></span> OPTICAL SENSORS</div>
-            <div><span class="status-led" id="led-ai"></span> NEURAL ENGINE (COCO-SSD)</div>
-            <div><span class="status-led" id="led-gyro"></span> AVIONICS / GYRO</div>
+    <div id="viewport">
+        <video id="cam-feed" autoplay playsinline muted></video>
+        <canvas id="hud-canvas"></canvas>
+
+        <div id="ui-layer">
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <div class="panel">CPU: <span id="cpu">0</span>ms | FPS: <span id="fps">0</span></div>
+                    <div class="panel" id="voice-status">MIC: OFF</div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="panel">
+                        P: <span id="pitch">0</span>° R: <span id="roll">0</span>°
+                    </div>
+                    <button class="btn" id="btn-link" style="font-size:10px; margin-top:5px;">CONNECT BODY</button>
+                </div>
+            </div>
+
+            <div style="align-self: center; margin-top: 20px;">
+                <div class="panel" id="target-alert" style="color: var(--neutral);">SCANNING...</div>
+            </div>
+
+            <div id="radar">
+                <div style="position:absolute; top:50%; width:100%; height:1px; background:rgba(0,255,65,0.3);"></div>
+                <div style="position:absolute; left:50%; width:1px; height:100%; background:rgba(0,255,65,0.3);"></div>
+                <div id="radar-content"></div>
+            </div>
         </div>
-        <button id="btn-init">INITIALIZE SYSTEM</button>
     </div>
 
 <script>
 /**
- * OMEGA OS - Humanoid Vision Kernel
- * Standard: World-Class Clean Code
- * Architecture: Event-Driven / Component Based
+ * OMEGA OS - ULTIMATE MERGED EDITION
+ * Includes: Vision (COCO-SSD), Avionics (Gyro), Radar, Bluetooth, Voice AI
  */
 
 // --- CONFIGURATION ---
 const CONFIG = {
-    CONFIDENCE_THRESHOLD: 0.55,
-    RADAR_RANGE_METER: 50, // Simulated max range
-    HUD_COLOR_SAFE: '#00ff41',
-    HUD_COLOR_HOSTILE: '#ff0000',
-    HUD_COLOR_NEUTRAL: '#ffcc00'
+    CONFIDENCE: 0.6,
+    UUID_SVC: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E", // Nordic UART UUID
+    UUID_TX:  "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
+    COLORS: { SAFE: '#00ff41', HOSTILE: '#ff0000', NEUTRAL: '#ffcc00' }
 };
 
-// --- MODULE: UTILITIES ---
-const Utils = {
-    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
-    map: (value, x1, y1, x2, y2) => (value - x1) * (y2 - x2) / (y1 - x1) + x2
+// --- UTILITIES ---
+const Logger = {
+    el: document.getElementById('sys-log'),
+    log(msg) {
+        this.el.innerHTML += `> ${msg}<br>`;
+        this.el.scrollTop = this.el.scrollHeight;
+        console.log(`[SYS] ${msg}`);
+    }
 };
 
-// --- MODULE: RADAR SYSTEM ---
-class RadarSystem {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.width = 140; // Matches CSS
-        this.height = 140;
-    }
+// --- MODULE: VOICE AI (SPEECH SYNTHESIS & RECOGNITION) ---
+const VoiceCore = {
+    synth: window.speechSynthesis,
+    rec: null,
+    isActive: false,
 
-    update(predictions) {
-        this.container.innerHTML = ''; // Clear old blips
+    init() {
+        if ('webkitSpeechRecognition' in window) {
+            this.rec = new webkitSpeechRecognition();
+            this.rec.continuous = true;
+            this.rec.lang = 'en-US';
+            this.rec.interimResults = false;
 
-        predictions.forEach(p => {
-            const blip = document.createElement('div');
-            blip.className = 'radar-blip';
-            
-            // 1. Calculate Azimuth (Angle)
-            // Center of screen is 0 degrees. Left is negative, Right is positive.
-            const centerX = p.bbox[0] + (p.bbox[2] / 2);
-            const screenW = window.innerWidth;
-            // Normalize -1 to 1
-            const azimuth = Utils.map(centerX, 0, screenW, -1, 1); 
+            this.rec.onresult = (event) => {
+                const txt = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                Logger.log(`VOICE CMD: "${txt}"`);
+                this.processCommand(txt);
+            };
 
-            // 2. Calculate Distance (Range)
-            // The larger the object (height), the closer it is.
-            // Inverse relationship.
-            const screenH = window.innerHeight;
-            const heightRatio = p.bbox[3] / screenH; 
-            // Simplified depth estimation: 0 (far) to 1 (close) -> mapped to radius
-            let distance = 1 - Math.min(heightRatio, 1);
-            // Push it out a bit so it's not always center
-            distance = Utils.map(distance, 0, 1, 0.1, 0.9); 
-
-            // 3. Convert Polar to Cartesian for CSS placement
-            // Radar center is (0,0) in logic, but (70,70) in pixels
-            const r = (this.width / 2) * distance;
-            // Spread angle limit (e.g., camera view is approx 60-90 degrees FOV)
-            const theta = azimuth * (Math.PI / 4); // +/- 45 degrees
-
-            const x = r * Math.sin(theta);
-            const y = -r * Math.cos(theta); // Up is negative in CSS
-
-            // 4. Style & Position
-            blip.style.left = `${(this.width/2) + x}px`;
-            blip.style.top = `${(this.height/2) + y}px`;
-            blip.style.backgroundColor = p.class === 'person' ? CONFIG.HUD_COLOR_HOSTILE : CONFIG.HUD_COLOR_NEUTRAL;
-            
-            this.container.appendChild(blip);
-        });
-    }
-}
-
-// --- MODULE: AVIONICS (SENSORS) ---
-class Avionics {
-    constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.gForce = 1.0;
-    }
-
-    async init() {
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            const state = await DeviceOrientationEvent.requestPermission();
-            if (state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
-        }
-        
-        window.addEventListener('deviceorientation', e => {
-            this.pitch = e.beta || 0; // X-axis
-            this.roll = e.gamma || 0; // Y-axis
-        });
-        
-        window.addEventListener('devicemotion', e => {
-            const acc = e.accelerationIncludingGravity;
-            if (acc) {
-                const {x, y, z} = acc;
-                this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
-            }
-        });
-        document.getElementById('led-gyro').classList.add('active');
-    }
-}
-
-// --- MODULE: NEURAL VISION (AI) ---
-class VisionSystem {
-    constructor() {
-        this.model = null;
-        this.isProcessing = false;
-        this.lastInferenceTime = 0;
-        this.predictions = [];
-    }
-
-    async init() {
-        await tf.ready();
-        this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' }); // Use lite version for speed
-        document.getElementById('led-ai').classList.add('active');
-    }
-
-    async detect(videoEl) {
-        if (!this.model || this.isProcessing || videoEl.readyState !== 4) return;
-        
-        this.isProcessing = true;
-        const start = performance.now();
-        
-        try {
-            // Run inference
-            const results = await this.model.detect(videoEl, 10, CONFIG.CONFIDENCE_THRESHOLD);
-            this.predictions = results;
-        } catch (e) {
-            console.error("AI Error", e);
-        }
-        
-        this.lastInferenceTime = Math.floor(performance.now() - start);
-        this.isProcessing = false;
-    }
-}
-
-// --- MODULE: HUD RENDERER ---
-class HUDRenderer {
-    constructor() {
-        this.canvas = document.getElementById('hud-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-    }
-
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    drawHorizon(pitch, roll) {
-        const { width, height } = this.canvas;
-        const ctx = this.ctx;
-        
-        ctx.save();
-        ctx.translate(width/2, height/2);
-        ctx.rotate(roll * Math.PI / 180);
-        ctx.translate(0, pitch * 5); // Sensitivity
-
-        // Artificial Horizon Line
-        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-width, 0); ctx.lineTo(width, 0);
-        ctx.stroke();
-
-        // Pitch Ladder
-        for (let i = -3; i <= 3; i++) {
-            if (i === 0) continue;
-            const y = i * 50;
-            const w = 60 - (Math.abs(i) * 10);
-            ctx.beginPath();
-            ctx.moveTo(-w, y); ctx.lineTo(w, y);
-            ctx.stroke();
-            // Text
-            ctx.fillStyle = 'rgba(0, 255, 65, 0.7)';
-            ctx.font = "10px monospace";
-            ctx.fillText(i * 10, w + 5, y + 3);
-        }
-        ctx.restore();
-    }
-
-    drawTargetBox(p) {
-        const [x, y, w, h] = p.bbox;
-        const isPerson = p.class === 'person';
-        const color = isPerson ? CONFIG.HUD_COLOR_HOSTILE : CONFIG.HUD_COLOR_SAFE;
-        
-        const ctx = this.ctx;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = color;
-
-        // Draw Corners only (Tactical look)
-        const lineLen = w * 0.2;
-        ctx.beginPath();
-        
-        // Top Left
-        ctx.moveTo(x, y + lineLen); ctx.lineTo(x, y); ctx.lineTo(x + lineLen, y);
-        // Top Right
-        ctx.moveTo(x + w - lineLen, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + lineLen);
-        // Bottom Right
-        ctx.moveTo(x + w, y + h - lineLen); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - lineLen, y + h);
-        // Bottom Left
-        ctx.moveTo(x + lineLen, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - lineLen);
-        
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // Label
-        ctx.fillStyle = color;
-        ctx.font = "bold 10px Consolas";
-        const label = `${p.class.toUpperCase()} [${Math.floor(p.score * 100)}%]`;
-        ctx.fillText(label, x, y - 8);
-    }
-
-    drawCrosshair() {
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
-        const ctx = this.ctx;
-
-        ctx.strokeStyle = CONFIG.HUD_COLOR_SAFE;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
-        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx - 30, cy);
-        ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 30, cy);
-        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy - 30);
-        ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 30);
-        ctx.stroke();
-        
-        // Center Dot
-        ctx.fillStyle = CONFIG.HUD_COLOR_HOSTILE;
-        ctx.fillRect(cx - 1, cy - 1, 2, 2);
-    }
-}
-
-// --- CORE: KERNEL ---
-const Kernel = {
-    video: document.getElementById('camera-feed'),
-    avionics: new Avionics(),
-    vision: new VisionSystem(),
-    renderer: new HUDRenderer(),
-    radar: new RadarSystem('radar-blips'),
-    
-    isRunning: false,
-
-    async boot() {
-        try {
-            // 1. Request Sensors (Must be user triggered)
-            await this.avionics.init().catch(e => console.warn("Sensors skipped:", e));
-            
-            // 2. Camera Access
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                audio: false 
-            });
-            this.video.srcObject = stream;
-            document.getElementById('led-cam').classList.add('active');
-
-            // 3. Load AI
-            await this.vision.init();
-
-            // 4. Start Loop
-            document.getElementById('boot-overlay').style.display = 'none';
-            this.isRunning = true;
-            this.cycle();
-
-        } catch (e) {
-            alert("SYSTEM FAILURE: " + e.message);
+            this.rec.start();
+            this.isActive = true;
+            document.getElementById('voice-status').innerText = "MIC: LISTENING";
+            document.getElementById('voice-status').style.color = CONFIG.COLORS.SAFE;
+            this.speak("Voice systems online.");
+        } else {
+            Logger.log("VOICE RECOGNITION NOT SUPPORTED");
         }
     },
 
-    cycle() {
-        if (!this.isRunning) return;
-        requestAnimationFrame(() => this.cycle());
+    speak(text) {
+        if (this.synth.speaking) return;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.rate = 1.2; utter.pitch = 0.8; // Robotic Tone
+        this.synth.speak(utter);
+    },
 
-        // 1. AI Inference (Async - Non-blocking)
-        this.vision.detect(this.video);
-
-        // 2. Render HUD
-        this.renderer.clear();
-        this.renderer.drawHorizon(this.avionics.pitch, this.avionics.roll);
-        this.renderer.drawCrosshair();
-
-        // 3. Draw Objects & Radar
-        const targets = this.vision.predictions;
-        targets.forEach(target => {
-            this.renderer.drawTargetBox(target);
-        });
-        
-        // Update Radar with latest predictions
-        this.radar.update(targets);
-
-        // 4. Update UI Stats
-        document.getElementById('val-cpu').innerText = this.vision.lastInferenceTime;
-        document.getElementById('val-fps').innerText = (1000 / Math.max(1, this.vision.lastInferenceTime)).toFixed(0);
-        document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(0);
-        document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(0);
-        document.getElementById('val-g').innerText = this.avionics.gForce.toFixed(2);
+    processCommand(cmd) {
+        if (cmd.includes('connect')) NeuroLink.connect();
+        else if (cmd.includes('status')) this.speak("All systems nominal. Battery at 100 percent.");
+        else if (cmd.includes('scan')) this.speak("Scanning sector.");
+        else if (cmd.includes('stop')) this.speak("Holding position.");
     }
 };
 
-// --- ENTRY POINT ---
-document.getElementById('btn-init').addEventListener('click', () => {
-    Kernel.boot();
-});
+// --- MODULE: BLUETOOTH (NEURO-LINK) ---
+const NeuroLink = {
+    device: null, char: null,
+    async connect() {
+        try {
+            VoiceCore.speak("Searching for body chassis.");
+            this.device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'OMEGA-BODY' }],
+                optionalServices: [CONFIG.UUID_SVC]
+            });
+            const server = await this.device.gatt.connect();
+            const svc = await server.getPrimaryService(CONFIG.UUID_SVC);
+            this.char = await svc.getCharacteristic(CONFIG.UUID_TX);
+            
+            document.getElementById('btn-link').classList.add('active');
+            document.getElementById('btn-link').innerText = "LINK ESTABLISHED";
+            VoiceCore.speak("Neural link established.");
+        } catch (e) {
+            Logger.log("BT ERROR: " + e);
+            VoiceCore.speak("Connection failed.");
+        }
+    },
+    send(x, y) {
+        if (!this.char) return;
+        // Convert -1..1 to 0..180 degrees
+        const ax = Math.floor(((x + 1) / 2) * 180);
+        const ay = Math.floor(((y + 1) / 2) * 180);
+        const data = new TextEncoder().encode(`${ax},${ay}\n`);
+        this.char.writeValue(data).catch(e => {});
+    }
+};
+
+// --- MODULE: AVIONICS ---
+const Avionics = {
+    pitch: 0, roll: 0,
+    init() {
+        window.addEventListener('deviceorientation', e => {
+            this.pitch = e.beta || 0; this.roll = e.gamma || 0;
+        });
+    }
+};
+
+// --- MODULE: VISUAL RENDERER ---
+const Renderer = {
+    canvas: document.getElementById('hud-canvas'),
+    ctx: document.getElementById('hud-canvas').getContext('2d'),
+    radar: document.getElementById('radar-content'),
+    
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    },
+    
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.radar.innerHTML = '';
+    },
+    
+    drawHorizon(p, r) {
+        const ctx = this.ctx; const w = this.canvas.width; const h = this.canvas.height;
+        ctx.save();
+        ctx.translate(w/2, h/2); ctx.rotate(r * Math.PI / 180); ctx.translate(0, p * 4);
+        
+        ctx.strokeStyle = 'rgba(0,255,65,0.4)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-w, 0); ctx.lineTo(w, 0); ctx.stroke();
+        
+        // Pitch Ladder
+        for(let i=-3; i<=3; i++) {
+            if(i===0) continue;
+            let y = i * 40;
+            ctx.beginPath(); ctx.moveTo(-40, y); ctx.lineTo(40, y); ctx.stroke();
+            ctx.fillStyle = CONFIG.COLORS.SAFE; ctx.font = "10px monospace"; ctx.fillText(i*10, 45, y+3);
+        }
+        ctx.restore();
+    },
+
+    drawHUD(target) {
+        const [x, y, w, h] = target.bbox;
+        const isHostile = target.class === 'person';
+        const color = isHostile ? CONFIG.COLORS.HOSTILE : CONFIG.COLORS.SAFE;
+        
+        // Draw Box
+        this.ctx.strokeStyle = color; this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, w, h);
+        
+        // Label
+        this.ctx.fillStyle = color; this.ctx.font = "bold 12px Courier New";
+        this.ctx.fillText(`${target.class.toUpperCase()} [${Math.round(target.score*100)}%]`, x, y-10);
+
+        // Radar Blip
+        const blip = document.createElement('div');
+        blip.className = 'blip'; blip.style.backgroundColor = color;
+        
+        // Radar Math
+        const cx = x + w/2;
+        const mapX = ((cx / window.innerWidth) * 2 - 1) * 55; // Scale to radar width
+        const dist = (1 - (h / window.innerHeight)) * 55;     // Scale to radar height
+        
+        // Polar Projection approximation
+        blip.style.left = `${65 + mapX}px`;
+        blip.style.top = `${65 - (55 - dist)}px`; // Invert Y
+        this.radar.appendChild(blip);
+
+        return { cx: (cx/window.innerWidth)*2-1, cy: ((y+h/2)/window.innerHeight)*2-1, isHostile };
+    }
+};
+
+// --- CORE KERNEL ---
+const Kernel = {
+    video: document.getElementById('cam-feed'),
+    model: null,
+    isRunning: false,
+    lastTalkTime: 0,
+
+    async boot() {
+        try {
+            Logger.log("INITIALIZING HARDWARE...");
+            
+            // 1. Permissions
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                await DeviceOrientationEvent.requestPermission();
+            }
+            Avionics.init();
+
+            // 2. Camera
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' }, audio: false 
+            });
+            this.video.srcObject = stream;
+            Logger.log("OPTICAL SENSORS: ONLINE");
+
+            // 3. AI
+            Logger.log("LOADING NEURAL NETWORK...");
+            this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            Logger.log("NEURAL NETWORK: ONLINE");
+
+            // 4. Voice
+            VoiceCore.init();
+
+            // Start Loop
+            document.getElementById('boot').style.display = 'none';
+            this.isRunning = true;
+            Renderer.resize();
+            this.loop();
+
+        } catch (e) {
+            Logger.log("CRITICAL FAILURE: " + e);
+            alert("Error: " + e);
+        }
+    },
+
+    async loop() {
+        if (!this.isRunning) return;
+        requestAnimationFrame(() => this.loop());
+        
+        const start = performance.now();
+
+        // Render
+        Renderer.clear();
+        Renderer.drawHorizon(Avionics.pitch, Avionics.roll);
+
+        // Inference
+        if (this.video.readyState === 4) {
+            const preds = await this.model.detect(this.video, 10, CONFIG.CONFIDENCE);
+            
+            let primaryTarget = null;
+            const uiAlert = document.getElementById('target-alert');
+
+            if (preds.length > 0) {
+                preds.forEach(p => {
+                    const info = Renderer.drawHUD(p);
+                    if (info.isHostile) primaryTarget = info;
+                });
+            }
+
+            // Logic Logic
+            if (primaryTarget) {
+                uiAlert.innerText = "TARGET LOCKED";
+                uiAlert.style.color = CONFIG.COLORS.HOSTILE;
+                uiAlert.style.borderColor = CONFIG.COLORS.HOSTILE;
+                
+                // Auto-Aim (Bluetooth) - Invert X for Servo
+                NeuroLink.send(-primaryTarget.cx, primaryTarget.cy);
+
+                // Voice Feedback (Cooldown 5s)
+                if (Date.now() - this.lastTalkTime > 5000) {
+                    VoiceCore.speak("Target locked.");
+                    this.lastTalkTime = Date.now();
+                }
+            } else {
+                uiAlert.innerText = "SCANNING SECTOR";
+                uiAlert.style.color = CONFIG.COLORS.NEUTRAL;
+                uiAlert.style.borderColor = CONFIG.COLORS.SAFE;
+            }
+        }
+
+        // Stats
+        const delta = performance.now() - start;
+        document.getElementById('cpu').innerText = delta.toFixed(0);
+        document.getElementById('fps').innerText = (1000/Math.max(1, delta)).toFixed(0);
+        document.getElementById('pitch').innerText = Avionics.pitch.toFixed(0);
+        document.getElementById('roll').innerText = Avionics.roll.toFixed(0);
+    }
+};
+
+// --- EVENTS ---
+window.addEventListener('resize', () => Renderer.resize());
+document.getElementById('btn-start').addEventListener('click', () => Kernel.boot());
+document.getElementById('btn-link').addEventListener('click', () => NeuroLink.connect());
 
 </script>
 </body>
