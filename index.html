@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: ULTIMATE HYBRID SYSTEM</title>
+    <title>OMEGA: HEAVY KERNEL SYSTEM</title>
     
-    <!-- AI & Core Libraries -->
+    <!-- LIBRARIES -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
@@ -13,529 +13,366 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 
     <style>
-        /* --- V2 STYLE SYSTEM (Cyberpunk Aesthetics) --- */
+        /* --- CYBERPUNK UI STYLES (V2) --- */
         :root {
-            --primary: #0affc2;
-            --secondary: #008f7a;
-            --accent: #00d2ff;
-            --alert: #ff2a6d;
-            --warn: #ffae00;
-            --bg-dark: #050505;
-            --glass: rgba(5, 15, 10, 0.85);
-            --neon-glow: 0 0 10px var(--primary);
-            --scan-line: rgba(0, 255, 194, 0.1);
-            --font-main: 'Segoe UI', 'Courier New', sans-serif;
+            --primary: #0affc2; --secondary: #008f7a; --accent: #00d2ff;
+            --alert: #ff2a6d; --warn: #ffae00; --bg: #000502;
+            --glass: rgba(0, 20, 10, 0.85);
+            --font-tech: 'Courier New', monospace;
+            --font-ui: 'Segoe UI', sans-serif;
         }
-
-        * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--primary); font-family: var(--font-ui); }
+        canvas { position: absolute; top: 0; left: 0; }
         
-        body {
-            margin: 0; overflow: hidden; background: var(--bg-dark);
-            font-family: var(--font-main); color: var(--primary);
-            width: 100vw; height: 100vh;
-        }
-
-        /* CRT & Glitch Effects */
-        .scanlines {
-            position: fixed; inset: 0; z-index: 900; pointer-events: none;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
-            background-size: 100% 4px;
-            animation: scanlineMove 10s linear infinite;
-            opacity: 0.4;
-        }
+        #viewport { position: relative; width: 100vw; height: 100vh; }
+        #camera-feed { width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(0.8) grayscale(0.2); }
         
-        .vignette {
-            position: fixed; inset: 0; z-index: 901; pointer-events: none;
-            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.9) 100%);
-        }
+        /* LAYERS */
+        #layer-3d { z-index: 10; opacity: 0.7; pointer-events: none; }
+        #layer-hud { z-index: 20; pointer-events: none; }
+        #layer-ui { z-index: 30; position: absolute; inset: 0; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
 
-        @keyframes scanlineMove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+        /* FX */
+        .scanlines { position: fixed; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 900; }
+        .vignette { position: fixed; inset: 0; background: radial-gradient(circle, transparent 60%, black 100%); z-index: 901; pointer-events: none; }
 
-        /* Layers */
-        #viewport { position: relative; width: 100%; height: 100%; }
-        
-        #camera-feed {
-            position: absolute; width: 100%; height: 100%; object-fit: cover;
-            filter: contrast(1.2) brightness(0.9) saturate(1.1);
-            z-index: 0;
+        /* PANELS */
+        .panel { 
+            background: var(--glass); border: 1px solid var(--secondary); border-left: 4px solid var(--primary);
+            padding: 15px; margin: 5px; backdrop-filter: blur(10px); pointer-events: auto;
+            width: fit-content; min-width: 200px;
+            box-shadow: 0 0 15px rgba(10, 255, 194, 0.15);
+            transition: transform 0.2s;
         }
-        
-        #hud-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
-        #visualization-3d { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0.6; }
-        
-        #ui-layer {
-            position: absolute; inset: 0; z-index: 20; pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 16px;
-        }
+        .panel:hover { transform: translateX(5px); box-shadow: 0 0 25px rgba(10, 255, 194, 0.3); }
+        .panel-header { font-family: var(--font-tech); font-weight: 900; color: var(--accent); margin-bottom: 8px; letter-spacing: 2px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+        .data-row { display: flex; justify-content: space-between; font-family: var(--font-tech); font-size: 12px; margin-bottom: 4px; color: rgba(255,255,255,0.8); }
+        .val { color: var(--primary); font-weight: bold; text-shadow: 0 0 5px var(--primary); }
+        .val.alert { color: var(--alert); text-shadow: 0 0 5px var(--alert); }
 
-        /* V2 Style Panels with V1 Data */
-        .hud-panel {
-            background: linear-gradient(135deg, rgba(0,20,10,0.8) 0%, rgba(0,0,0,0.6) 100%);
-            border: 1px solid var(--secondary);
-            border-left: 3px solid var(--primary);
-            padding: 12px; margin: 5px;
-            backdrop-filter: blur(5px);
-            box-shadow: 0 0 15px rgba(10, 255, 194, 0.1);
-            width: fit-content; pointer-events: auto;
-            transition: all 0.3s;
+        /* RADAR */
+        #radar-box {
+            position: absolute; bottom: 80px; right: 20px; width: 160px; height: 160px;
+            background: rgba(0,10,5,0.9); border-radius: 50%; border: 2px solid var(--secondary);
+            z-index: 40; overflow: hidden; pointer-events: auto;
         }
-        
-        .panel-title {
-            font-size: 10px; font-weight: 800; color: var(--accent);
-            letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase;
-        }
+        #radar-scan { position: absolute; inset: 0; background: conic-gradient(transparent 270deg, var(--primary)); opacity: 0.3; border-radius: 50%; animation: spin 3s linear infinite; }
+        .blip { position: absolute; width: 6px; height: 6px; background: var(--alert); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 8px var(--alert); transition: all 0.2s; }
 
-        .hud-text { font-size: 12px; margin-bottom: 3px; font-family: 'Courier New', monospace; opacity: 0.9; }
-        .hud-value { font-weight: bold; color: #fff; text-shadow: 0 0 5px var(--primary); margin-left: 5px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* V1 Radar with V2 Styling */
-        #radar-container {
-            position: absolute; bottom: 80px; right: 20px;
-            width: 150px; height: 150px;
-            border-radius: 50%;
-            background: rgba(0, 15, 10, 0.8);
-            border: 2px solid var(--secondary);
-            box-shadow: 0 0 20px rgba(0, 255, 194, 0.2);
-            overflow: hidden; z-index: 30; pointer-events: auto;
-        }
-        #radar-container::after {
-            content: ''; position: absolute; inset: 0;
-            background: conic-gradient(from 0deg, transparent 0deg, rgba(0,255,194,0.4) 360deg);
-            border-radius: 50%; animation: radar-scan 2s linear infinite;
-        }
-        .radar-blip { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 5px currentColor; z-index: 2; }
-        @keyframes radar-scan { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* V1 Control Panel with V2 Style */
-        #control-panel {
-            position: absolute; top: 60px; left: 20px;
-            background: rgba(5, 10, 10, 0.95);
-            border: 1px solid var(--accent);
-            padding: 15px; border-radius: 5px;
-            z-index: 40; pointer-events: auto; display: none;
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
-            min-width: 260px;
-        }
-        
-        .control-btn {
-            background: rgba(0, 255, 194, 0.05); border: 1px solid var(--secondary);
-            color: var(--primary); padding: 6px 10px; margin: 3px;
-            font-size: 10px; cursor: pointer; text-transform: uppercase;
-            transition: 0.2s;
-        }
-        .control-btn:hover { background: var(--secondary); color: #000; }
-        .control-btn.active { background: var(--primary); color: #000; box-shadow: 0 0 10px var(--primary); }
-
-        #toggle-controls {
-            position: absolute; top: 20px; left: 20px; z-index: 35; pointer-events: auto;
-            background: rgba(0,0,0,0.8); border: 1px solid var(--primary); color: var(--primary);
-            padding: 8px 16px; cursor: pointer; font-weight: bold;
-        }
-
-        /* System Status Bar */
-        #system-status {
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            background: rgba(0,0,0,0.9); border-top: 1px solid var(--secondary);
-            padding: 5px 15px; display: flex; gap: 15px; font-size: 10px; z-index: 25;
-        }
-        .status-led { width: 8px; height: 8px; border-radius: 50%; background: #333; display: inline-block; margin-right: 5px; }
-        .status-led.ok { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
-        .status-led.busy { background: var(--warn); animation: pulse 1s infinite; }
-        
-        /* Tactical Log (New from V2) */
-        #tactical-log {
-            position: absolute; bottom: 80px; left: 20px;
-            width: 250px; height: 120px; overflow: hidden;
-            font-family: monospace; font-size: 10px; color: var(--accent);
-            text-shadow: 0 0 2px var(--accent); pointer-events: none;
-            mask-image: linear-gradient(to bottom, transparent, black 10%);
-        }
-
-        /* Boot Screen */
-        #boot-overlay {
-            position: fixed; inset: 0; background: #020202; z-index: 9999;
+        /* BOOT SCREEN */
+        #boot-screen {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .boot-title { font-size: 40px; font-weight: 900; color: var(--primary); text-shadow: 0 0 20px var(--primary); letter-spacing: 5px; }
-        
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loader { border: 4px solid #333; border-top: 4px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        #log-output { font-family: var(--font-tech); font-size: 12px; color: #666; height: 100px; overflow: hidden; text-align: center; }
     </style>
 </head>
 <body>
-
+    
     <div class="scanlines"></div>
     <div class="vignette"></div>
 
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="hud-canvas"></canvas>
-        <div id="visualization-3d"></div> <!-- V1 3D System -->
+        <canvas id="layer-3d"></canvas> <!-- THREE.JS LAYER -->
+        <canvas id="layer-hud"></canvas> <!-- 2D HUD LAYER -->
         
-        <div id="ui-layer">
-            <!-- Top HUD -->
-            <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel">
-                    <div class="panel-title">SYSTEM METRICS</div>
-                    <div class="hud-text">CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
-                    <div class="hud-text">FPS: <span id="val-fps" class="hud-value">0</span></div>
-                    <div class="hud-text">OBJ: <span id="val-objects" class="hud-value">0</span></div>
-                    <div class="hud-text">FACES: <span id="val-faces" class="hud-value">0</span></div>
+        <div id="layer-ui">
+            <!-- TOP BAR -->
+            <div style="display:flex; justify-content: space-between; width: 100%;">
+                <div class="panel">
+                    <div class="panel-header">SYSTEM METRICS</div>
+                    <div class="data-row"><span>CPU TIME</span><span class="val" id="ui-cpu">0ms</span></div>
+                    <div class="data-row"><span>FPS</span><span class="val" id="ui-fps">0</span></div>
+                    <div class="data-row"><span>MEMORY</span><span class="val" id="ui-mem">0 MB</span></div>
+                    <div class="data-row"><span>OBJECTS</span><span class="val" id="ui-obj">0</span></div>
                 </div>
                 
-                <div class="hud-panel">
-                    <div class="panel-title">AVIONICS</div>
-                    <div class="hud-text">HDG: <span id="val-heading" class="hud-value">0°</span></div>
-                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0°</span></div>
-                    <div class="hud-text">THREAT: <span id="val-threat" class="hud-value" style="color:var(--alert)">LOW</span></div>
+                <div class="panel">
+                    <div class="panel-header">PHYSICS ENGINE</div>
+                    <div class="data-row"><span>ALTITUDE</span><span class="val">1.7m</span></div>
+                    <div class="data-row"><span>VELOCITY</span><span class="val" id="ui-vel">0 m/s</span></div>
+                    <div class="data-row"><span>HEADING</span><span class="val" id="ui-hdg">0°</span></div>
+                    <div class="data-row"><span>THREAT</span><span class="val alert" id="ui-threat">NONE</span></div>
                 </div>
             </div>
 
-            <!-- Target Info (V1 Logic) -->
-            <div class="hud-panel" style="position: absolute; top: 50%; right: 20px; transform: translateY(-50%);">
-                <div class="panel-title">PRIMARY TARGET</div>
-                <div class="hud-text">TYPE: <span id="target-type" class="hud-value">--</span></div>
-                <div class="hud-text">DIST: <span id="target-dist" class="hud-value">--</span></div>
-                <div class="hud-text">CONF: <span id="target-conf" class="hud-value">--</span></div>
-                <div class="hud-text">ACT: <span id="target-action" class="hud-value">--</span></div>
+            <!-- BOTTOM -->
+            <div style="margin-top: auto;">
+                <div class="panel">
+                    <div class="panel-header">TACTICAL LOG</div>
+                    <div id="tactical-feed" style="font-family: var(--font-tech); font-size: 10px; height: 60px; overflow: hidden; opacity: 0.8;">
+                        > SYSTEM INITIALIZED...
+                    </div>
+                </div>
             </div>
 
-            <!-- Radar & Logs -->
-            <div id="radar-container"></div>
-            <div id="tactical-log">
-                <div>SYSTEM INITIATED...</div>
-                <div>WAITING FOR INPUT...</div>
+            <div id="radar-box">
+                <div id="radar-scan"></div>
+                <!-- BLIPS INJECTED HERE -->
             </div>
-        </div>
-
-        <!-- Controls (V1 Logic) -->
-        <button id="toggle-controls">CONTROLS</button>
-        <div id="control-panel">
-            <div class="panel-title">COMMAND CENTER</div>
-            <div style="margin-top:10px">
-                <div class="hud-text">VISUALS</div>
-                <button class="control-btn active" id="btn-hud">HUD</button>
-                <button class="control-btn" id="btn-lidar">LIDAR</button>
-                <button class="control-btn" id="btn-3d">3D VIZ</button>
-                <button class="control-btn" id="btn-face">FACE MESH</button>
-            </div>
-            <div style="margin-top:10px">
-                <div class="hud-text">SYSTEM</div>
-                <button class="control-btn" id="btn-voice">VOICE</button>
-                <button class="control-btn" id="btn-record">RECORD</button>
-                <button class="control-btn" id="btn-threat">THREAT SCAN</button>
-            </div>
-        </div>
-
-        <!-- Footer Status -->
-        <div id="system-status">
-            <div><span class="status-led ok" id="led-cam"></span>CAM</div>
-            <div><span class="status-led" id="led-ai"></span>AI CORE</div>
-            <div><span class="status-led" id="led-face"></span>BIOMETRICS</div>
-            <div><span class="status-led" id="led-voice"></span>VOICE</div>
-            <div><span class="status-led" id="led-rec"></span>REC</div>
-            <div style="margin-left:auto; color:var(--secondary)">OMEGA ULTIMATE v3.0</div>
         </div>
     </div>
 
-    <!-- Boot Screen -->
-    <div id="boot-overlay">
-        <div class="boot-title">OMEGA</div>
-        <div style="font-family:monospace; color:var(--secondary); margin-top:10px;">ULTIMATE HYBRID SYSTEM</div>
-        <div id="boot-log" style="font-family:monospace; font-size:12px; margin-top:30px; color:#666;">
-            Initializing...
-        </div>
-        <button id="btn-init" style="margin-top:40px; padding:15px 40px; background:var(--primary); border:none; font-weight:bold; cursor:pointer; display:none;">ENGAGE</button>
+    <!-- BOOT OVERLAY -->
+    <div id="boot-screen">
+        <div style="font-size: 40px; font-weight: 900; letter-spacing: 10px; color: var(--primary); margin-bottom: 20px; text-shadow: 0 0 20px var(--primary);">OMEGA</div>
+        <div class="loader"></div>
+        <div id="log-output">Loading Modules...</div>
+        <button id="btn-start" style="display:none; margin-top: 20px; padding: 15px 40px; background: transparent; border: 2px solid var(--primary); color: var(--primary); font-weight: bold; cursor: pointer; letter-spacing: 2px;">ENGAGE SYSTEM</button>
     </div>
 
 <script>
 /**
- * OMEGA ULTIMATE: Merging V1 Logic with V2 Graphics
+ * OMEGA: HEAVY KERNEL (RESTORATION)
+ * This script restores the complex logic architectures:
+ * 1. Physics Engine (Real math)
+ * 2. Tracker History (ID Persistence)
+ * 3. Three.js Integration (3D World)
+ * 4. Advanced State Management
  */
 
-// --- CONFIGURATION ---
+// --- GLOBAL CONFIGURATION (The "Settings" File) ---
 const CONFIG = {
-    AI: { 
-        OBJ_THRESHOLD: 0.6, 
-        FACE_ENABLED: true 
+    AI: {
+        OBJ_CONFIDENCE: 0.6,
+        MAX_OBJECTS: 20,
+        FACE_MESH: true
     },
     PHYSICS: {
-        FOV: 65,
-        MAX_RANGE: 50
+        FOV_H: 60, // Camera Horizontal FOV in degrees
+        FOCAL_LENGTH: 800, // Approximate pixel focal length
+        EST_PERSON_HEIGHT: 1.7 // Meters
     },
-    COLORS: {
-        PRIMARY: '#0affc2',
-        SECONDARY: '#008f7a',
-        ALERT: '#ff2a6d'
+    TRACKING: {
+        MAX_LOST_FRAMES: 10, // Keep ID for 10 frames if lost
+        IOU_THRESHOLD: 0.4
     }
 };
 
-// --- CORE UTILS (V1) ---
-const Utils = {
-    distance: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
-    playSound: (type) => {
-        // Placeholder sounds using Howler
-        if(type === 'boot') new Howl({src: ['data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=='], volume: 0.5}).play(); // Silent placeholder
-        if(type === 'alert') new Howl({src: ['data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=='], volume: 0.5}).play();
+// --- MATH & UTILITIES MODULE ---
+const MathUtils = {
+    // Intersection over Union for tracking
+    getIOU: (box1, box2) => {
+        const x1 = Math.max(box1[0], box2[0]);
+        const y1 = Math.max(box1[1], box2[1]);
+        const x2 = Math.min(box1[0] + box1[2], box2[0] + box2[2]);
+        const y2 = Math.min(box1[1] + box1[3], box2[1] + box2[3]);
+        const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+        const area1 = box1[2] * box1[3];
+        const area2 = box2[2] * box2[3];
+        return intersection / (area1 + area2 - intersection);
     },
-    log: (msg) => {
-        const log = document.getElementById('tactical-log');
-        const div = document.createElement('div');
-        div.textContent = `> ${msg}`;
-        log.prepend(div);
-        if(log.children.length > 6) log.lastChild.remove();
-    }
-};
-
-// --- VOICE SYSTEM (V1 Logic) ---
-class VoiceSystem {
-    constructor() {
-        this.recognition = null;
-        this.isListening = false;
-        if ('webkitSpeechRecognition' in window) {
-            this.recognition = new webkitSpeechRecognition();
-            this.recognition.continuous = false;
-            this.recognition.lang = 'en-US';
-            this.recognition.onresult = (e) => this.process(e.results[0][0].transcript);
-        }
-    }
-    
-    toggle() {
-        if(!this.recognition) return alert("Voice not supported");
-        if(this.isListening) { this.recognition.stop(); this.isListening = false; }
-        else { this.recognition.start(); this.isListening = true; Utils.log("VOICE LISTENING..."); }
-        document.getElementById('led-voice').className = this.isListening ? "status-led ok" : "status-led";
-        document.getElementById('btn-voice').classList.toggle('active', this.isListening);
-    }
-
-    process(cmd) {
-        cmd = cmd.toLowerCase();
-        Utils.log(`VOICE: "${cmd}"`);
-        if(cmd.includes('record')) OMEGA.recorder.toggle();
-        if(cmd.includes('target')) Utils.log("TARGET LOCKED");
-        if(cmd.includes('status')) Utils.log("SYSTEM OPTIMAL");
-        this.isListening = false;
-        document.getElementById('led-voice').className = "status-led";
-        document.getElementById('btn-voice').classList.remove('active');
-    }
-}
-
-// --- MISSION RECORDER (V1 Logic) ---
-class MissionRecorder {
-    constructor() {
-        this.recording = false;
-        this.data = [];
-    }
-    toggle() {
-        this.recording = !this.recording;
-        document.getElementById('led-rec').className = this.recording ? "status-led busy" : "status-led";
-        document.getElementById('btn-record').classList.toggle('active', this.recording);
-        Utils.log(this.recording ? "RECORDING STARTED" : "RECORDING SAVED");
-    }
-    push(frameData) {
-        if(this.recording) this.data.push(frameData);
-    }
-}
-
-// --- VISION ENGINE (Hybrid V1 + V2) ---
-class VisionEngine {
-    constructor() {
-        this.models = { object: null, face: null };
-        this.isReady = false;
-    }
-
-    async init() {
-        const log = (m) => document.getElementById('boot-log').textContent = m;
-        
-        try {
-            log("Loading COCO-SSD Neural Net...");
-            this.models.object = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-            
-            log("Loading Biometric Mesh...");
-            this.models.face = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh);
-            
-            this.isReady = true;
-            return true;
-        } catch (e) {
-            console.error(e);
-            log("Error Loading Models");
-            return false;
-        }
-    }
-
-    async detect(video) {
-        if (!this.isReady) return { objects: [], faces: [] };
-        
-        const [objects, faces] = await Promise.all([
-            this.models.object.detect(video, 10, CONFIG.AI.OBJ_THRESHOLD),
-            CONFIG.AI.FACE_ENABLED ? this.models.face.estimateFaces({ input: video }) : []
-        ]);
-        
-        return { objects, faces };
-    }
-}
-
-// --- RENDERER (Enhanced with V2 Graphics) ---
-class HUDRenderer {
-    constructor() {
-        this.canvas = document.getElementById('hud-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-        
-        this.settings = {
-            hud: true,
-            lidar: false,
-            faceMesh: true
+    // Estimate distance based on pixel height
+    getDistance: (pixelHeight) => {
+        // Distance = (Real Height * Focal Length) / Pixel Height
+        return (CONFIG.PHYSICS.EST_PERSON_HEIGHT * CONFIG.PHYSICS.FOCAL_LENGTH) / pixelHeight;
+    },
+    // Map 2D screen to 3D world coordinates (Simplified)
+    projectTo3D: (x, y, distance, width, height) => {
+        const nx = (x - width / 2) / (width / 2);
+        const ny = -(y - height / 2) / (height / 2); // Flip Y
+        const tanFOV = Math.tan((CONFIG.PHYSICS.FOV_H / 2) * Math.PI / 180);
+        return {
+            x: nx * distance * tanFOV * (width/height), // Aspect ratio correction
+            y: ny * distance * tanFOV,
+            z: -distance
         };
+    }
+};
+
+// --- 3D ENGINE MODULE (THREE.JS) ---
+class SceneManager {
+    constructor() {
+        this.canvas = document.getElementById('layer-3d');
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true });
+        
+        this.initScene();
+        window.addEventListener('resize', () => this.resize());
+        this.resize();
+        
+        this.objects3D = new Map(); // Store 3D meshes by Track ID
+    }
+
+    initScene() {
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        this.scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0x0affc2, 0.5);
+        dirLight.position.set(0, 10, 0);
+        this.scene.add(dirLight);
+
+        // Ground Grid (Cyberpunk Style)
+        const gridHelper = new THREE.GridHelper(100, 50, 0x008f7a, 0x002211);
+        gridHelper.position.y = -2;
+        this.scene.add(gridHelper);
+    }
+
+    updateEntities(trackedObjects) {
+        // Remove stale objects
+        const currentIds = trackedObjects.map(t => t.id);
+        for (let [id, mesh] of this.objects3D) {
+            if (!currentIds.includes(id)) {
+                this.scene.remove(mesh);
+                this.objects3D.delete(id);
+            }
+        }
+
+        // Add/Update objects
+        trackedObjects.forEach(obj => {
+            if (!this.objects3D.has(obj.id)) {
+                // Create new Mesh
+                const geometry = new THREE.WireframeGeometry(new THREE.BoxGeometry(1, 2, 1));
+                const material = new THREE.LineBasicMaterial({ color: 0x0affc2, linewidth: 2 });
+                const mesh = new THREE.LineSegments(geometry, material);
+                this.scene.add(mesh);
+                this.objects3D.set(obj.id, mesh);
+            }
+
+            // Update Position based on Physics Engine
+            const mesh = this.objects3D.get(obj.id);
+            if (obj.worldPos) {
+                // Interpolate for smoothness
+                mesh.position.lerp(new THREE.Vector3(obj.worldPos.x, -1, obj.worldPos.z), 0.2);
+                mesh.rotation.y += 0.02; // Idle animation
+            }
+        });
+
+        this.renderer.render(this.scene, this.camera);
     }
 
     resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+    }
+}
+
+// --- TRACKING & PHYSICS KERNEL ---
+class TrackerKernel {
+    constructor() {
+        this.tracks = []; // { id, bbox, label, score, lastSeen, worldPos, velocity }
+        this.nextId = 1;
     }
 
-    render(video, data) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        if (this.settings.lidar) this.drawLidar();
-        if (this.settings.hud) this.drawObjects(data.objects);
-        if (this.settings.faceMesh) this.drawFaces(data.faces);
-    }
-
-    drawObjects(objects) {
-        const ctx = this.ctx;
-        objects.forEach(obj => {
-            const [x, y, w, h] = obj.bbox;
-            const color = obj.class === 'person' ? CONFIG.COLORS.ALERT : CONFIG.COLORS.PRIMARY;
-            
-            // V2 Style Brackets
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 10;
-            
-            const len = w * 0.2;
-            ctx.beginPath();
-            // Corners
-            ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
-            ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
-            ctx.moveTo(x + w, y + h - len); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - len, y + h);
-            ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h);
-            ctx.stroke();
-            
-            // Label
-            ctx.fillStyle = color;
-            ctx.font = "bold 12px Courier New";
-            ctx.fillText(`${obj.class.toUpperCase()} ${Math.floor(obj.score*100)}%`, x, y - 10);
+    update(detections, videoWidth, videoHeight) {
+        // 1. Prediction Step (Velocity) - Simple Linear Filter
+        this.tracks.forEach(t => {
+            t.lastSeen++;
+            // Predict next position if we had velocity (not implemented fully in this simplified block but structure is here)
         });
-    }
 
-    drawFaces(faces) {
-        if(!faces || faces.length === 0) return;
-        const ctx = this.ctx;
-        ctx.fillStyle = CONFIG.COLORS.ACCENT;
-        
-        faces.forEach(face => {
-            // V2 Face Mesh Point Cloud
-            face.scaledMesh.forEach((p, i) => {
-                if (i % 5 === 0) ctx.fillRect(p[0], p[1], 1, 1);
+        const newTracks = [];
+
+        // 2. Data Association (Hungarian Algorithm simplified to Greedy IOU)
+        detections.forEach(det => {
+            let bestMatch = null;
+            let maxIOU = 0;
+
+            this.tracks.forEach(track => {
+                const iou = MathUtils.getIOU(det.bbox, track.bbox);
+                if (iou > maxIOU) {
+                    maxIOU = iou;
+                    bestMatch = track;
+                }
             });
-            
-            // Draw ring around face
-            const bb = face.boundingBox;
-            const cx = bb.topLeft[0] + (bb.bottomRight[0] - bb.topLeft[0])/2;
-            const cy = bb.topLeft[1] + (bb.bottomRight[1] - bb.topLeft[1])/2;
-            const r = (bb.bottomRight[0] - bb.topLeft[0]) / 1.5;
-            
-            ctx.beginPath();
-            ctx.strokeStyle = 'rgba(0, 210, 255, 0.3)';
-            ctx.arc(cx, cy, r, 0, Math.PI * 2);
-            ctx.stroke();
-        });
-    }
 
-    drawLidar() {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const scanY = (Date.now() / 20) % h;
-        
-        ctx.strokeStyle = 'rgba(0, 255, 194, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, scanY); ctx.lineTo(w, scanY);
-        ctx.stroke();
+            if (bestMatch && maxIOU > CONFIG.TRACKING.IOU_THRESHOLD) {
+                // Update existing track
+                bestMatch.bbox = det.bbox;
+                bestMatch.score = det.score;
+                bestMatch.lastSeen = 0; // Reset counter
+                bestMatch.label = det.class;
+                
+                // 3. Physics Calculation
+                const distance = MathUtils.getDistance(det.bbox[3]); // Height
+                const center = [det.bbox[0] + det.bbox[2]/2, det.bbox[1] + det.bbox[3]/2];
+                bestMatch.distance = distance;
+                bestMatch.worldPos = MathUtils.projectTo3D(center[0], center[1], distance, videoWidth, videoHeight);
+                
+                newTracks.push(bestMatch);
+            } else {
+                // Create new track
+                const distance = MathUtils.getDistance(det.bbox[3]);
+                const center = [det.bbox[0] + det.bbox[2]/2, det.bbox[1] + det.bbox[3]/2];
+                newTracks.push({
+                    id: this.nextId++,
+                    bbox: det.bbox,
+                    label: det.class,
+                    score: det.score,
+                    lastSeen: 0,
+                    distance: distance,
+                    worldPos: MathUtils.projectTo3D(center[0], center[1], distance, videoWidth, videoHeight)
+                });
+            }
+        });
+
+        // 4. Persistence (Keep lost tracks for a few frames)
+        this.tracks.forEach(t => {
+            if (t.lastSeen > 0 && t.lastSeen < CONFIG.TRACKING.MAX_LOST_FRAMES) {
+                // Keep it, but mark as stale
+                newTracks.push(t);
+            }
+        });
+
+        this.tracks = newTracks;
+        return this.tracks;
     }
 }
 
-// --- RADAR SYSTEM (V1 Logic) ---
-class RadarSystem {
+// --- MAIN SYSTEM CONTROLLER ---
+class OmegaSystem {
     constructor() {
-        this.el = document.getElementById('radar-container');
-    }
-    update(objects) {
-        this.el.innerHTML = ''; // Clear
-        objects.forEach(obj => {
-            const blip = document.createElement('div');
-            blip.className = 'radar-blip';
-            // Mock position mapping
-            const dx = (obj.bbox[0] / window.innerWidth - 0.5) * 140;
-            const dy = (obj.bbox[1] / window.innerHeight - 0.5) * 140;
-            
-            blip.style.left = `${75 + dx}px`;
-            blip.style.top = `${75 + dy}px`;
-            blip.style.width = obj.class === 'person' ? '6px' : '4px';
-            blip.style.height = blip.style.width;
-            blip.style.backgroundColor = obj.class === 'person' ? CONFIG.COLORS.ALERT : CONFIG.COLORS.PRIMARY;
-            this.el.appendChild(blip);
-        });
-    }
-}
-
-// --- OMEGA KERNEL (The Controller) ---
-class OmegaKernel {
-    constructor() {
-        this.vision = new VisionEngine();
-        this.renderer = new HUDRenderer();
-        this.voice = new VoiceSystem();
-        this.recorder = new MissionRecorder();
-        this.radar = new RadarSystem();
-        
         this.video = document.getElementById('camera-feed');
-        this.stats = { fps: 0, lastTime: 0 };
-        this.isRunning = false;
+        this.hudCanvas = document.getElementById('layer-hud');
+        this.hudCtx = this.hudCanvas.getContext('2d');
         
-        this.setupUI();
+        this.sceneManager = new SceneManager(); // 3D System
+        this.tracker = new TrackerKernel();     // Physics & Logic System
+        this.models = { object: null, face: null };
+        
+        this.state = { isRunning: false, frames: 0, lastTime: 0 };
+        this.logger = document.getElementById('log-output');
+        
+        window.addEventListener('resize', () => this.resize());
+        this.resize();
     }
 
-    setupUI() {
-        document.getElementById('btn-init').addEventListener('click', () => this.start());
-        document.getElementById('toggle-controls').addEventListener('click', () => {
-            const p = document.getElementById('control-panel');
-            p.style.display = p.style.display === 'block' ? 'none' : 'block';
-        });
+    log(msg) {
+        this.logger.innerHTML += `<div>> ${msg}</div>`;
+        this.logger.scrollTop = this.logger.scrollHeight;
         
-        // Connect Control Buttons to Settings
-        const bind = (id, prop) => {
-            document.getElementById(id).addEventListener('click', (e) => {
-                this.renderer.settings[prop] = !this.renderer.settings[prop];
-                e.target.classList.toggle('active');
-            });
-        };
-        bind('btn-hud', 'hud');
-        bind('btn-lidar', 'lidar');
-        bind('btn-face', 'faceMesh');
-        
-        document.getElementById('btn-voice').addEventListener('click', () => this.voice.toggle());
-        document.getElementById('btn-record').addEventListener('click', () => this.recorder.toggle());
+        // Also update tactical feed in UI
+        const tacFeed = document.getElementById('tactical-feed');
+        if(tacFeed) {
+            tacFeed.innerHTML = `<div>> ${msg}</div>` + tacFeed.innerHTML;
+        }
+    }
+
+    resize() {
+        this.hudCanvas.width = window.innerWidth;
+        this.hudCanvas.height = window.innerHeight;
     }
 
     async boot() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
-                audio: false 
+            this.log("Initializing Neural Networks...");
+            this.models.object = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            
+            if (CONFIG.AI.FACE_MESH) {
+                this.log("Loading Biometric Mesh...");
+                this.models.face = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh);
+            }
+
+            this.log("Accessing Optical Sensors...");
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
             });
             this.video.srcObject = stream;
             
@@ -544,81 +381,162 @@ class OmegaKernel {
                 r();
             });
 
-            const aiReady = await this.vision.init();
-            if(aiReady) {
-                document.getElementById('boot-log').textContent = "SYSTEM READY";
-                document.getElementById('btn-init').style.display = 'block';
-                // Status LEDs
-                document.getElementById('led-cam').classList.add('ok');
-                document.getElementById('led-ai').classList.add('ok');
-                document.getElementById('led-face').classList.add('ok');
-            }
-        } catch(e) {
-            alert("Camera Error: " + e.message);
+            this.log("SYSTEM READY.");
+            document.querySelector('.loader').style.borderTopColor = "#0affc2";
+            document.getElementById('btn-start').style.display = 'block';
+            
+        } catch (e) {
+            this.log(`CRITICAL ERROR: ${e.message}`);
         }
     }
 
     start() {
-        document.getElementById('boot-overlay').style.display = 'none';
-        this.isRunning = true;
-        Utils.playSound('boot');
-        this.loop();
+        document.getElementById('boot-screen').style.display = 'none';
+        this.state.isRunning = true;
+        this.runLoop();
     }
 
-    async loop() {
-        if(!this.isRunning) return;
+    async runLoop() {
+        if (!this.state.isRunning) return;
 
-        // 1. Calc FPS
         const now = performance.now();
-        const delta = now - this.stats.lastTime;
-        this.stats.fps = Math.round(1000 / delta);
-        this.stats.lastTime = now;
-
-        // 2. AI Detection
-        const data = await this.vision.detect(this.video);
-        const cpuTime = Math.round(performance.now() - now);
-
-        // 3. Render Graphics
-        this.renderer.render(this.video, data);
-        this.radar.update(data.objects);
+        const delta = now - this.state.lastTime;
+        this.state.frames++;
         
-        // 4. Recorder Logic
-        this.recorder.push({ ts: now, data });
+        // 1. AI DETECTION
+        let faces = [];
+        const objects = await this.models.object.detect(this.video, CONFIG.AI.MAX_OBJECTS, CONFIG.AI.OBJ_CONFIDENCE);
+        
+        if (CONFIG.AI.FACE_MESH) {
+            faces = await this.models.face.estimateFaces({ input: this.video });
+        }
 
-        // 5. Update UI Numbers
-        this.updateStats(data, cpuTime);
+        // 2. PHYSICS & TRACKING UPDATE
+        const trackedEntities = this.tracker.update(objects, this.video.videoWidth, this.video.videoHeight);
+        
+        // 3. 3D SCENE UPDATE
+        this.sceneManager.updateEntities(trackedEntities);
 
-        requestAnimationFrame(() => this.loop());
+        // 4. HUD RENDER
+        this.renderHUD(trackedEntities, faces);
+        
+        // 5. UI & RADAR UPDATE
+        this.updateUI(trackedEntities, now);
+
+        this.state.lastTime = now;
+        requestAnimationFrame(() => this.runLoop());
     }
 
-    updateStats(data, cpuTime) {
-        document.getElementById('val-cpu').textContent = cpuTime;
-        document.getElementById('val-fps').textContent = this.stats.fps;
-        document.getElementById('val-objects').textContent = data.objects.length;
-        document.getElementById('val-faces').textContent = data.faces ? data.faces.length : 0;
+    renderHUD(tracks, faces) {
+        const ctx = this.hudCtx;
+        ctx.clearRect(0, 0, this.hudCanvas.width, this.hudCanvas.height);
         
-        // Threat Analysis Logic (Simple V1 version)
-        const persons = data.objects.filter(o => o.class === 'person');
-        const threatVal = document.getElementById('val-threat');
-        if (persons.length > 2) { threatVal.textContent = "HIGH"; threatVal.style.color = CONFIG.COLORS.ALERT; }
-        else if (persons.length > 0) { threatVal.textContent = "MED"; threatVal.style.color = CONFIG.COLORS.WARN; }
-        else { threatVal.textContent = "LOW"; threatVal.style.color = CONFIG.COLORS.PRIMARY; }
+        // Scale factors
+        const sx = this.hudCanvas.width / this.video.videoWidth;
+        const sy = this.hudCanvas.height / this.video.videoHeight;
 
-        // Update Target Panel
-        if(data.objects.length > 0) {
-            const t = data.objects[0]; // Primary target
-            document.getElementById('target-type').textContent = t.class.toUpperCase();
-            document.getElementById('target-conf').textContent = Math.floor(t.score*100) + '%';
-            document.getElementById('target-action').textContent = "TRACKING";
-        } else {
-            document.getElementById('target-action').textContent = "SCANNING";
+        // Draw Object Brackets
+        tracks.forEach(t => {
+            if (t.lastSeen > 2) return; // Don't draw ghost tracks
+
+            const x = t.bbox[0] * sx;
+            const y = t.bbox[1] * sy;
+            const w = t.bbox[2] * sx;
+            const h = t.bbox[3] * sy;
+            
+            const color = t.label === 'person' ? '#ff2a6d' : '#0affc2';
+
+            // High-Tech Corners
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const L = 15;
+            ctx.moveTo(x, y+L); ctx.lineTo(x, y); ctx.lineTo(x+L, y); // TL
+            ctx.moveTo(x+w-L, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+L); // TR
+            ctx.moveTo(x+w, y+h-L); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w-L, y+h); // BR
+            ctx.moveTo(x+L, y+h); ctx.lineTo(x, y+h); ctx.lineTo(x, y+h-L); // BL
+            ctx.stroke();
+
+            // Info Block
+            ctx.fillStyle = color;
+            ctx.font = "10px Courier New";
+            ctx.fillText(`ID:${t.id} ${t.label.toUpperCase()}`, x, y - 15);
+            ctx.fillText(`DIST:${t.distance.toFixed(1)}m`, x, y - 5);
+        });
+
+        // Draw Face Mesh
+        if (faces) {
+            ctx.fillStyle = '#00d2ff';
+            faces.forEach(face => {
+                face.scaledMesh.forEach((pt, i) => {
+                    if (i % 5 === 0) { // Optimization
+                        ctx.fillRect(pt[0] * sx, pt[1] * sy, 1, 1);
+                    }
+                });
+            });
         }
+    }
+
+    updateUI(tracks, now) {
+        // FPS
+        if (this.state.frames % 10 === 0) {
+            document.getElementById('ui-fps').innerText = Math.round(1000 / (now - this.state.lastTime));
+        }
+        
+        // Object Count
+        document.getElementById('ui-obj').innerText = tracks.length;
+
+        // Threat Level
+        const persons = tracks.filter(t => t.label === 'person');
+        const threatEl = document.getElementById('ui-threat');
+        if (persons.length > 0) {
+            const nearest = Math.min(...persons.map(p => p.distance));
+            if (nearest < 2.0) {
+                threatEl.innerText = "CRITICAL";
+                threatEl.className = "val alert";
+            } else {
+                threatEl.innerText = "CAUTION";
+                threatEl.className = "val";
+                threatEl.style.color = "#ffae00";
+            }
+        } else {
+            threatEl.innerText = "SAFE";
+            threatEl.style.color = "#0affc2";
+        }
+
+        // Radar Update
+        const radarBox = document.getElementById('radar-box');
+        // Clear old blips (keep scanner)
+        Array.from(radarBox.getElementsByClassName('blip')).forEach(e => e.remove());
+        
+        tracks.forEach(t => {
+            if (t.lastSeen > 5) return;
+            const blip = document.createElement('div');
+            blip.className = 'blip';
+            
+            // Map 3D X/Z to 2D radar (Top down view)
+            // Scale: 160px width = 20 meters range
+            const range = 20; 
+            const scale = 80 / range; // Radius 80px
+            
+            let rx = (t.worldPos.x * scale) + 80;
+            let ry = (-t.worldPos.z * scale) + 80;
+            
+            // Clamp inside radar
+            if (Math.sqrt(Math.pow(rx-80, 2) + Math.pow(ry-80, 2)) < 80) {
+                blip.style.left = `${rx}px`;
+                blip.style.top = `${ry}px`;
+                if (t.label !== 'person') blip.style.background = '#0affc2';
+                radarBox.appendChild(blip);
+            }
+        });
     }
 }
 
-// --- INITIALIZE ---
-const OMEGA = new OmegaKernel();
+// --- INITIALIZATION ---
+const OMEGA = new OmegaSystem();
 window.addEventListener('load', () => OMEGA.boot());
+document.getElementById('btn-start').addEventListener('click', () => OMEGA.start());
 
 </script>
 </body>
