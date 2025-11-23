@@ -3,101 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA v6.0: TACTICAL HUD</title>
-
+    <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
     <style>
-        /* --- VISUAL THEME: TACTICAL MILITARY --- */
         :root {
-            --hud-safe: #00ff41;    /* Systems Normal */
-            --hud-hostile: #ff0000; /* Threat Detected */
-            --hud-neutral: #00ccff; /* Object */
-            --hud-dim: rgba(0, 255, 65, 0.1);
-            --bg: #000;
-            --font: 'Consolas', 'Courier New', monospace;
+            --hud-primary: #00ff41;   /* Matrix Green */
+            --hud-secondary: #008f11; /* Dimmed Green */
+            --hud-alert: #ff0000;     /* Critical Red */
+            --hud-warn: #ffcc00;      /* Warning Yellow */
+            --hud-info: #0080ff;      /* Information Blue */
+            --bg-dark: #050505;
+            --glass: rgba(0, 20, 0, 0.8);
+            --glass-dark: rgba(0, 10, 0, 0.9);
         }
 
-        * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+        /* --- CORE SETUP --- */
+        * { 
+            box-sizing: border-box; 
+            user-select: none; 
+            -webkit-touch-callout: none; 
+        }
         
         body {
-            margin: 0; overflow: hidden; background: var(--bg);
-            font-family: var(--font); color: var(--hud-safe);
-            width: 100vw; height: 100vh;
+            margin: 0; 
+            overflow: hidden; 
+            background: var(--bg-dark);
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: var(--hud-primary);
+            width: 100vw; 
+            height: 100vh;
         }
 
-        #viewport { position: relative; width: 100%; height: 100%; }
-
-        /* CAMERA FEED (Raw & Gritty) */
+        /* --- VIEWPORT & LAYERS --- */
+        #viewport { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+        }
+        
+        /* Video Layer: High Contrast for Machine Vision aesthetic */
         #camera-feed {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0;
-            filter: contrast(1.2) brightness(0.8) grayscale(0.3) sepia(0.2);
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover;
+            z-index: 0; 
+            filter: sepia(0.5) hue-rotate(70deg) contrast(1.2) brightness(0.8);
+            opacity: 0.6;
+        }
+        
+        /* HUD Canvas: Vector Graphics */
+        #hud-canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 10; 
         }
 
-        /* HUD CANVAS (Sharp Vectors) */
-        #hud-canvas { position: absolute; inset: 0; z-index: 10; }
-
-        /* UI DOM ELEMENTS */
+        /* --- UI PANELS --- */
         #ui-layer {
-            position: absolute; inset: 0; z-index: 20; pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            z-index: 20; 
+            pointer-events: none;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between;
             padding: max(20px, env(safe-area-inset-top));
         }
 
-        .panel {
-            background: rgba(0, 10, 0, 0.8);
-            border: 1px solid var(--hud-safe);
-            border-left: 4px solid var(--hud-safe);
-            padding: 8px 12px; margin-bottom: 10px;
-            font-size: 10px; text-shadow: 0 0 2px var(--hud-safe);
-            width: fit-content; pointer-events: auto;
-            backdrop-filter: blur(2px);
+        .hud-panel {
+            background: var(--glass); 
+            border-left: 3px solid var(--hud-primary);
+            padding: 8px 12px; 
+            margin: 10px; 
+            width: fit-content;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
         }
-
-        /* STATUS BAR */
-        #status-bar {
-            align-self: center; text-align: center;
-            border: 1px solid var(--hud-neutral); color: var(--hud-neutral);
-            padding: 10px 30px; background: rgba(0, 20, 50, 0.8);
-            transform: perspective(500px) rotateX(10deg);
-        }
-        #status-main { font-size: 16px; font-weight: 900; letter-spacing: 3px; }
-        #status-sub { font-size: 10px; opacity: 0.8; }
-
-        /* RADAR */
-        #radar {
-            position: absolute; bottom: 20px; right: 20px;
-            width: 140px; height: 140px; border-radius: 50%;
-            background: rgba(0, 15, 0, 0.9); border: 2px solid var(--hud-safe);
-            overflow: hidden; z-index: 30; box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
-        }
-        #radar::after {
-            content: ''; position: absolute; inset: 0; border-radius: 50%;
-            background: conic-gradient(transparent 270deg, rgba(0,255,65,0.4) 360deg);
-            animation: sweep 2s linear infinite;
-        }
-        @keyframes sweep { to { transform: rotate(360deg); } }
         
-        .blip {
-            position: absolute; width: 4px; height: 4px; border-radius: 50%;
-            transform: translate(-50%, -50%); box-shadow: 0 0 4px currentColor;
+        .hud-panel-wide {
+            width: auto;
+            max-width: 300px;
+        }
+        
+        .hud-text { 
+            font-size: 12px; 
+            letter-spacing: 1px; 
+            margin-bottom: 4px; 
+            text-shadow: 0 0 5px var(--hud-primary); 
+        }
+        
+        .hud-value { 
+            font-weight: bold; 
+            color: #fff; 
+        }
+        
+        .hud-label {
+            color: var(--hud-secondary);
         }
 
-        /* BOOT SCREEN */
-        #boot-screen {
-            position: fixed; inset: 0; background: #000; z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        /* --- RADAR COMPONENT --- */
+        #radar-container {
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px;
+            width: 140px; 
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid var(--hud-primary);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+            overflow: hidden;
+            z-index: 30;
         }
-        .boot-log { font-size: 10px; opacity: 0.7; margin-top: 20px; height: 20px; }
-        #btn-start {
-            margin-top: 30px; padding: 15px 50px;
-            background: transparent; border: 2px solid var(--hud-safe);
-            color: var(--hud-safe); font-weight: bold; cursor: pointer;
-            letter-spacing: 2px; transition: 0.2s;
+        
+        #radar-container::after {
+            /* Scanning Line Animation */
+            content: ''; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.4) 360deg);
+            border-radius: 50%;
+            animation: radar-scan 2s linear infinite;
         }
-        #btn-start:hover { background: var(--hud-safe); color: #000; box-shadow: 0 0 20px var(--hud-safe); }
+        
+        /* Radar Grid Lines */
+        .radar-grid {
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(0,255,65,0.3); 
+            border-radius: 50%; 
+            pointer-events: none;
+        }
+        
+        .radar-cross {
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            width: 100%; 
+            height: 1px; 
+            background: rgba(0,255,65,0.3);
+        }
+        
+        .radar-blip {
+            position: absolute; 
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px currentColor;
+            transition: all 0.2s ease-out;
+        }
+        
+        @keyframes radar-scan { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+
+        /* --- BOOT SCREEN --- */
+        #boot-overlay {
+            position: fixed; 
+            inset: 0; 
+            background: #000; 
+            z-index: 9999;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+            color: var(--hud-primary);
+        }
+        
+        #btn-init {
+            background: transparent; 
+            color: var(--hud-primary); 
+            border: 2px solid var(--hud-primary);
+            padding: 15px 50px; 
+            font-family: inherit; 
+            font-size: 16px; 
+            font-weight: bold;
+            letter-spacing: 3px; 
+            cursor: pointer; 
+            margin-top: 20px;
+            transition: 0.3s; 
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+        
+        #btn-init:hover { 
+            background: var(--hud-primary); 
+            color: #000; 
+            box-shadow: 0 0 30px var(--hud-primary); 
+        }
+        
+        .status-led { 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            background: #333; 
+            border-radius: 50%; 
+            margin-right: 8px; 
+        }
+        
+        .status-led.active { 
+            background: var(--hud-primary); 
+            box-shadow: 0 0 10px var(--hud-primary); 
+        }
+        
+        .status-led.error { 
+            background: var(--hud-alert); 
+            box-shadow: 0 0 10px var(--hud-alert); 
+        }
+        
+        .status-led.warning { 
+            background: var(--hud-warn); 
+            box-shadow: 0 0 10px var(--hud-warn); 
+        }
+
+        /* --- SYSTEM STATUS BAR --- */
+        #system-status {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--glass-dark);
+            border-top: 1px solid var(--hud-secondary);
+            padding: 6px 12px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            z-index: 25;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin-right: 15px;
+        }
+        
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-ok { background: var(--hud-primary); }
+        .status-warn { background: var(--hud-warn); }
+        .status-error { background: var(--hud-alert); }
+        .status-offline { background: #444; }
 
     </style>
 </head>
@@ -106,329 +271,1811 @@
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="hud-canvas"></canvas>
-
+        
         <div id="ui-layer">
-            <div>
-                <div class="panel">
-                    <div>CPU: <span id="ui-cpu">0</span>ms</div>
-                    <div>FPS: <span id="ui-fps">0</span></div>
-                    <div>MEM: <span id="ui-objs">0</span> ACTIVE</div>
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <div class="hud-panel">
+                    <div class="hud-text">SYSTEM CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
+                    <div class="hud-text">VISION FPS: <span id="val-fps" class="hud-value">0</span></div>
+                    <div class="hud-text">TRACKED: <span id="val-tracked" class="hud-value">0</span></div>
+                </div>
+                <div class="hud-panel" style="text-align:right;">
+                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0</span>°</div>
+                    <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0</span>°</div>
+                    <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0</span>°</div>
+                    <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.0</span></div>
                 </div>
             </div>
-
-            <div style="align-self: flex-end;">
-                <div class="panel" style="text-align: right; border-left:none; border-right: 4px solid var(--hud-safe);">
-                    <div>PITCH: <span id="ui-pitch">0</span>°</div>
-                    <div>ROLL: <span id="ui-roll">0</span>°</div>
-                    <div>LINK: <span id="ui-link">OFFLINE</span></div>
-                </div>
+            
+            <!-- Analytics Panel -->
+            <div class="hud-panel hud-panel-wide" style="margin-top: auto; margin-bottom: 160px;">
+                <div class="hud-text">ANALYTICS</div>
+                <div class="hud-text">ACTIVE: <span id="val-active" class="hud-value">0</span> | PERSONS (5M): <span id="val-persons" class="hud-value">0</span></div>
+                <div class="hud-text">CLOSEST PERSON: <span id="val-closest-person" class="hud-value">--</span></div>
+                <div class="hud-text">TOP LABEL: <span id="val-top-label" class="hud-value">--</span></div>
+            </div>
+            
+            <!-- Target Info Panel -->
+            <div class="hud-panel hud-panel-wide" style="margin-left: auto; margin-right: 160px;">
+                <div class="hud-text">PRIMARY TARGET</div>
+                <div class="hud-text"><span id="val-target-label" class="hud-value">--</span></div>
+                <div class="hud-text">DIST: <span id="val-target-dist" class="hud-value">--</span> | BEAR: <span id="val-target-bearing" class="hud-value">--</span></div>
+                <div class="hud-text">STATE: <span id="val-target-state" class="hud-value">--</span></div>
             </div>
 
-            <div id="status-bar">
-                <div id="status-main">SYSTEM READY</div>
-                <div id="status-sub">WAITING FOR TARGET</div>
-            </div>
-
-            <div id="radar">
+            <div id="radar-container">
+                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
+                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
+                <div class="radar-cross"></div>
+                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
                 <div id="radar-blips"></div>
-                <div style="position:absolute;top:50%;left:0;width:100%;height:1px;background:rgba(0,255,65,0.3);"></div>
-                <div style="position:absolute;top:0;left:50%;width:1px;height:100%;background:rgba(0,255,65,0.3);"></div>
+            </div>
+        </div>
+        
+        <!-- System Status Bar -->
+        <div id="system-status">
+            <div style="display: flex;">
+                <div class="status-item">
+                    <span class="status-indicator" id="status-cam"></span>
+                    <span>CAM</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-indicator" id="status-ai"></span>
+                    <span>AI</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-indicator" id="status-gyro"></span>
+                    <span>GYRO</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-indicator" id="status-tracker"></span>
+                    <span>TRACKER</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-indicator" id="status-memory"></span>
+                    <span>MEMORY</span>
+                </div>
+            </div>
+            <div>
+                <span id="status-message">SYSTEM INITIALIZING</span>
             </div>
         </div>
     </div>
 
-    <div id="boot-screen">
-        <div style="font-size:40px; font-weight:900; letter-spacing:5px;">OMEGA</div>
-        <div style="opacity:0.6;">TACTICAL OS v6.0</div>
-        <div class="boot-log" id="boot-log">Loading Neural Network...</div>
-        <button id="btn-start" style="display:none;">INITIALIZE</button>
+    <div id="boot-overlay">
+        <div style="font-size: 40px; font-weight: 900; margin-bottom: 10px; letter-spacing: 5px;">OMEGA</div>
+        <div style="opacity: 0.7; margin-bottom: 30px;">ADVANCED HUMANOID VISION SYSTEM</div>
+        <div style="text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.8;">
+            <div><span class="status-led" id="led-cam"></span> OPTICAL SENSORS</div>
+            <div><span class="status-led" id="led-ai"></span> NEURAL ENGINE (COCO-SSD)</div>
+            <div><span class="status-led" id="led-gyro"></span> AVIONICS / GYRO</div>
+            <div><span class="status-led" id="led-tracker"></span> OBJECT TRACKER</div>
+            <div><span class="status-led" id="led-memory"></span> KNOWLEDGE BASE</div>
+        </div>
+        <button id="btn-init">INITIALIZE SYSTEM</button>
     </div>
 
 <script>
 /**
- * OMEGA v6.0: TACTICAL EDITION
- * Features: High-Precision IoU Tracking, Physics Calc, Voice AI, Bluetooth, 2D Tactical Renderer
+ * OMEGA: ADVANCED HUMANOID VISION SYSTEM
+ * Aerospace-Grade Architecture
+ * World-Class Clean Code Standards
+ * 
+ * Architecture: Modular, Event-Driven, Extensible
  */
 
-// --- CONFIG ---
+// ============================================================================
+// CONFIGURATION MODULE
+// ============================================================================
+
+/**
+ * Global system configuration and constants
+ * @namespace
+ */
 const CONFIG = {
-    AI: { CONFIDENCE: 0.55, IOU_THRESH: 0.3, MAX_LOST: 30, SMOOTH: 0.4 },
-    PHYSICS: { FOV: 70, MAX_RANGE: 50 }, // Meters
-    UUID: { SVC: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E", CHR: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E" },
-    COLORS: { SAFE: '#00ff41', HOSTILE: '#ff0000', NEUTRAL: '#00ccff' }
-};
-
-// --- UTILS ---
-const Utils = {
-    lerp: (s, e, t) => s * (1 - t) + e * t,
-    getIoU: (a, b) => { // Intersection over Union
-        const x = Math.max(a[0], b[0]), y = Math.max(a[1], b[1]);
-        const w = Math.min(a[0]+a[2], b[0]+b[2]) - x, h = Math.min(a[1]+a[3], b[1]+b[3]) - y;
-        if (w < 0 || h < 0) return 0;
-        const areaI = w * h, areaU = (a[2]*a[3]) + (b[2]*b[3]) - areaI;
-        return areaI / areaU;
-    }
-};
-
-// --- MODULE 1: VOICE ---
-const Voice = {
-    synth: window.speechSynthesis,
-    speak(txt) {
-        if(this.synth.speaking) return;
-        const u = new SpeechSynthesisUtterance(txt);
-        u.rate = 1.2; u.pitch = 1;
-        this.synth.speak(u);
+    // AI Model Configuration
+    AI: {
+        MODEL_TYPE: 'lite_mobilenet_v2',
+        CONFIDENCE_THRESHOLD: 0.55,
+        MAX_DETECTIONS: 20,
+        INFERENCE_RATE: 10, // FPS for AI processing (not render FPS)
+        SMOOTHING_FACTOR: 0.7
     },
-    listen() {
-        if(!('webkitSpeechRecognition' in window)) return;
-        const r = new webkitSpeechRecognition();
-        r.continuous = true; r.lang = 'en-US';
-        r.onresult = e => {
-            const t = e.results[e.results.length-1][0].transcript.toLowerCase();
-            if(t.includes('connect')) Robot.connect();
-            if(t.includes('status')) this.speak("Systems nominal.");
-        };
-        r.start();
-    }
-};
-
-// --- MODULE 2: ROBOTICS (BLE) ---
-const Robot = {
-    char: null,
-    async connect() {
-        try {
-            Voice.speak("Connecting to chassis.");
-            const d = await navigator.bluetooth.requestDevice({
-                filters: [{namePrefix:'OMEGA'}, {name:'OMEGA-BODY'}], optionalServices: [CONFIG.UUID.SVC]
-            });
-            const s = await (await d.gatt.connect()).getPrimaryService(CONFIG.UUID.SVC);
-            this.char = await s.getCharacteristic(CONFIG.UUID.CHR);
-            document.getElementById('ui-link').innerText = "ONLINE";
-            document.getElementById('ui-link').style.color = CONFIG.COLORS.SAFE;
-            Voice.speak("Connected.");
-        } catch(e) { Voice.speak("Connection failed."); }
-    },
-    send(x, y) {
-        if(!this.char) return;
-        const p = Math.floor((x+1)/2 * 180), t = Math.floor((y+1)/2 * 180);
-        this.char.writeValue(new TextEncoder().encode(`${p},${t}\n`)).catch(()=>{});
-    }
-};
-
-// --- MODULE 3: THE BRAIN (TRACKER) ---
-class Tracker {
-    constructor() { this.tracks = []; }
     
-    process(preds, w, h) {
-        // 1. Predict
-        this.tracks.forEach(t => { t.lost++; t.box[0]+=t.vel.x; t.box[1]+=t.vel.y; });
+    // Tracking Configuration
+    TRACKING: {
+        MAX_AGE: 30, // frames before considering an object lost
+        MIN_IOU: 0.3, // minimum IoU for association
+        MAX_DISTANCE: 0.4, // normalized screen distance for association
+        VELOCITY_SMOOTHING: 0.8
+    },
+    
+    // Physics & Sensor Configuration
+    PHYSICS: {
+        HORIZONTAL_FOV: 70, // degrees
+        VERTICAL_FOV: 50, // degrees
+        MAX_RANGE: 50, // meters
+        PERSON_HEIGHT: 1.7, // meters (average human height)
+        VEHICLE_HEIGHT: 1.5, // meters (approximate)
+        MOTION_THRESHOLD: 0.01, // normalized speed threshold
+        APPROACH_THRESHOLD: 0.02, // normalized radial speed for approaching
+        RECEDE_THRESHOLD: -0.01 // normalized radial speed for receding
+    },
+    
+    // Radar Configuration
+    RADAR: {
+        RANGE: 50, // meters
+        BLOB_SIZE_MIN: 4,
+        BLOB_SIZE_MAX: 10,
+        SCAN_SPEED: 2 // seconds per rotation
+    },
+    
+    // Memory Configuration
+    MEMORY: {
+        MAX_EVENTS: 1000,
+        PERSIST_INTERVAL: 30000, // ms
+        MAX_HISTORY_MINUTES: 60
+    },
+    
+    // UI Configuration
+    UI: {
+        UPDATE_RATE: 30, // FPS for UI updates
+        STATUS_BLINK_RATE: 1000 // ms
+    },
+    
+    // Colors
+    COLORS: {
+        PRIMARY: '#00ff41',
+        SECONDARY: '#008f11',
+        ALERT: '#ff0000',
+        WARN: '#ffcc00',
+        INFO: '#0080ff',
+        PERSON: '#ff0000',
+        VEHICLE: '#ffcc00',
+        OTHER: '#00ff41'
+    }
+};
+
+// ============================================================================
+// UTILITIES MODULE
+// ============================================================================
+
+/**
+ * Math and utility functions
+ * @namespace
+ */
+const Utils = {
+    /**
+     * Clamp a value between min and max
+     * @param {number} num - Value to clamp
+     * @param {number} min - Minimum value
+     * @param {number} max - Maximum value
+     * @returns {number} Clamped value
+     */
+    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
+    
+    /**
+     * Map a value from one range to another
+     * @param {number} value - Input value
+     * @param {number} x1 - Input range start
+     * @param {number} y1 - Input range end
+     * @param {number} x2 - Output range start
+     * @param {number} y2 - Output range end
+     * @returns {number} Mapped value
+     */
+    map: (value, x1, y1, x2, y2) => (value - x1) * (y2 - x2) / (y1 - x1) + x2,
+    
+    /**
+     * Calculate Euclidean distance between two points
+     * @param {number} x1 - First point x
+     * @param {number} y1 - First point y
+     * @param {number} x2 - Second point x
+     * @param {number} y2 - Second point y
+     * @returns {number} Distance
+     */
+    distance: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
+    
+    /**
+     * Calculate intersection over union of two rectangles
+     * @param {Object} rect1 - First rectangle {x, y, width, height}
+     * @param {Object} rect2 - Second rectangle {x, y, width, height}
+     * @returns {number} IoU value
+     */
+    iou: (rect1, rect2) => {
+        const x1 = Math.max(rect1.x, rect2.x);
+        const y1 = Math.max(rect1.y, rect2.y);
+        const x2 = Math.min(rect1.x + rect1.width, rect2.x + rect2.width);
+        const y2 = Math.min(rect1.y + rect1.height, rect2.y + rect2.height);
         
-        // 2. Match (IoU)
-        preds.forEach(p => {
-            let match = null, maxIoU = 0;
-            this.tracks.forEach(t => {
-                const iou = Utils.getIoU(p.bbox, t.box);
-                if(iou > maxIoU) { maxIoU = iou; match = t; }
+        const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+        const area1 = rect1.width * rect1.height;
+        const area2 = rect2.width * rect2.height;
+        const union = area1 + area2 - intersection;
+        
+        return union > 0 ? intersection / union : 0;
+    },
+    
+    /**
+     * Exponential moving average filter
+     * @param {number} current - Current value
+     * @param {number} previous - Previous value
+     * @param {number} factor - Smoothing factor (0-1)
+     * @returns {number} Smoothed value
+     */
+    ema: (current, previous, factor) => {
+        return previous * factor + current * (1 - factor);
+    },
+    
+    /**
+     * Convert degrees to radians
+     * @param {number} degrees - Angle in degrees
+     * @returns {number} Angle in radians
+     */
+    toRadians: (degrees) => degrees * Math.PI / 180,
+    
+    /**
+     * Convert radians to degrees
+     * @param {number} radians - Angle in radians
+     * @returns {number} Angle in degrees
+     */
+    toDegrees: (radians) => radians * 180 / Math.PI,
+    
+    /**
+     * Generate a unique ID
+     * @returns {string} Unique ID
+     */
+    generateId: () => {
+        return 'id_' + Math.random().toString(36).substr(2, 9);
+    },
+    
+    /**
+     * Format a number with fixed decimal places
+     * @param {number} value - Number to format
+     * @param {number} decimals - Decimal places
+     * @returns {string} Formatted number
+     */
+    formatNumber: (value, decimals = 1) => {
+        return value.toFixed(decimals);
+    }
+};
+
+// ============================================================================
+// SENSORS / AVIONICS MODULE
+// ============================================================================
+
+/**
+ * Handles device sensors (gyroscope, accelerometer)
+ * @class
+ */
+class Avionics {
+    constructor() {
+        this.pitch = 0;
+        this.roll = 0;
+        this.heading = 0;
+        this.gForce = 1.0;
+        this.acceleration = { x: 0, y: 0, z: 0 };
+        this.rotationRate = { alpha: 0, beta: 0, gamma: 0 };
+        this.isAvailable = false;
+        this.isInitialized = false;
+        
+        // Smoothing factors
+        this.smoothing = {
+            orientation: 0.8,
+            acceleration: 0.7
+        };
+    }
+
+    /**
+     * Initialize sensor systems
+     * @returns {Promise<void>}
+     */
+    async init() {
+        try {
+            // Check for sensor availability
+            if (!window.DeviceOrientationEvent && !window.DeviceMotionEvent) {
+                throw new Error("Sensors not available");
+            }
+            
+            // Request permission on iOS
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const state = await DeviceOrientationEvent.requestPermission();
+                if (state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
+            }
+            
+            // Set up orientation event listener
+            window.addEventListener('deviceorientation', (e) => {
+                this._handleOrientation(e);
             });
             
-            if(match && maxIoU > CONFIG.AI.IOU_THRESH) {
-                const a = CONFIG.AI.SMOOTH; // Smoothing factor
-                match.vel = { x: p.bbox[0]-match.box[0], y: p.bbox[1]-match.box[1] };
-                match.box = [
-                    Utils.lerp(match.box[0], p.bbox[0], a), Utils.lerp(match.box[1], p.bbox[1], a),
-                    Utils.lerp(match.box[2], p.bbox[2], a), Utils.lerp(match.box[3], p.bbox[3], a)
-                ];
-                match.lost = 0; match.score = p.score;
-            } else {
-                this.tracks.push({
-                    id: Math.random().toString(36).substr(2,5),
-                    cls: p.class, box: p.bbox, score: p.score,
-                    vel: {x:0,y:0}, lost: 0, dist: 0, ang: 0
-                });
-            }
-        });
-
-        // 3. Prune & Calc Physics
-        this.tracks = this.tracks.filter(t => t.lost < CONFIG.AI.MAX_LOST);
-        this.tracks.forEach(t => {
-            const cx = t.box[0] + t.box[2]/2;
-            const nx = (cx/w)*2 - 1; // -1 to 1
-            t.ang = nx * (CONFIG.PHYSICS.FOV/2);
-            // Estimate depth: taller box = closer
-            const nh = t.box[3]/h;
-            t.dist = Math.min(CONFIG.PHYSICS.MAX_RANGE, 1.6 / nh); // 1.6m avg height logic
+            // Set up motion event listener
+            window.addEventListener('devicemotion', (e) => {
+                this._handleMotion(e);
+            });
             
-            t.nx = nx; t.ny = (t.box[1]+t.box[3]/2)/h*2 - 1; // For robotics
-        });
+            this.isAvailable = true;
+            this.isInitialized = true;
+            
+            console.log("Avionics initialized successfully");
+            return true;
+            
+        } catch (error) {
+            console.warn("Avionics initialization failed:", error);
+            this.isAvailable = false;
+            return false;
+        }
+    }
 
-        return this.tracks;
+    /**
+     * Handle device orientation data
+     * @param {DeviceOrientationEvent} e - Orientation event
+     * @private
+     */
+    _handleOrientation(e) {
+        // Apply smoothing to orientation data
+        this.roll = Utils.ema(e.gamma || 0, this.roll, this.smoothing.orientation);
+        this.pitch = Utils.ema(e.beta || 0, this.pitch, this.smoothing.orientation);
+        this.heading = Utils.ema(e.alpha || 0, this.heading, this.smoothing.orientation);
+        
+        // Update rotation rate
+        this.rotationRate = {
+            alpha: e.rotationRate.alpha || 0,
+            beta: e.rotationRate.beta || 0,
+            gamma: e.rotationRate.gamma || 0
+        };
+    }
+
+    /**
+     * Handle device motion data
+     * @param {DeviceMotionEvent} e - Motion event
+     * @private
+     */
+    _handleMotion(e) {
+        const acc = e.accelerationIncludingGravity;
+        if (acc) {
+            // Apply smoothing to acceleration data
+            this.acceleration.x = Utils.ema(acc.x || 0, this.acceleration.x, this.smoothing.acceleration);
+            this.acceleration.y = Utils.ema(acc.y || 0, this.acceleration.y, this.smoothing.acceleration);
+            this.acceleration.z = Utils.ema(acc.z || 0, this.acceleration.z, this.smoothing.acceleration);
+            
+            // Calculate G-force magnitude
+            const {x, y, z} = this.acceleration;
+            this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
+        }
+    }
+
+    /**
+     * Get current orientation data
+     * @returns {Object} Orientation data
+     */
+    getOrientation() {
+        return {
+            pitch: this.pitch,
+            roll: this.roll,
+            heading: this.heading
+        };
+    }
+
+    /**
+     * Get current motion data
+     * @returns {Object} Motion data
+     */
+    getMotion() {
+        return {
+            acceleration: { ...this.acceleration },
+            gForce: this.gForce,
+            rotationRate: { ...this.rotationRate }
+        };
     }
 }
 
-// --- MODULE 4: RENDERER (TACTICAL HUD) ---
-const HUD = {
-    cvs: document.getElementById('hud-canvas'),
-    ctx: document.getElementById('hud-canvas').getContext('2d'),
-    
-    resize() { this.cvs.width = window.innerWidth; this.cvs.height = window.innerHeight; },
-    
-    draw(tracks, pitch, roll) {
-        const ctx = this.ctx; const w = this.cvs.width; const h = this.cvs.height;
-        ctx.clearRect(0, 0, w, h);
+// ============================================================================
+// VISION ENGINE MODULE
+// ============================================================================
 
-        // 1. Horizon Line (Stabilized)
-        ctx.save();
-        ctx.translate(w/2, h/2); ctx.rotate(roll * Math.PI/180); ctx.translate(0, pitch*4);
-        ctx.strokeStyle = 'rgba(0,255,65,0.3)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(-w, 0); ctx.lineTo(w, 0); ctx.stroke();
-        // Pitch ladder
-        for(let i=-2; i<=2; i++) {
-            if(i===0) continue;
-            let y=i*40; ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(20, y); ctx.stroke();
+/**
+ * Handles AI model loading and inference
+ * @class
+ */
+class VisionEngine {
+    constructor() {
+        this.model = null;
+        this.isProcessing = false;
+        this.lastInferenceTime = 0;
+        this.inferenceCount = 0;
+        this.averageInferenceTime = 0;
+        this.isModelLoaded = false;
+        this.lastDetectionTime = 0;
+    }
+
+    /**
+     * Initialize the vision engine and load AI model
+     * @returns {Promise<void>}
+     */
+    async init() {
+        try {
+            await tf.ready();
+            this.model = await cocoSsd.load({ 
+                base: CONFIG.AI.MODEL_TYPE 
+            });
+            this.isModelLoaded = true;
+            console.log("Vision engine initialized with model:", CONFIG.AI.MODEL_TYPE);
+            return true;
+        } catch (error) {
+            console.error("Vision engine initialization failed:", error);
+            this.isModelLoaded = false;
+            return false;
         }
-        ctx.restore();
+    }
 
-        // 2. Crosshair
-        ctx.strokeStyle = CONFIG.COLORS.SAFE; ctx.lineWidth = 1;
-        ctx.beginPath(); 
-        ctx.moveTo(w/2-20, h/2); ctx.lineTo(w/2-5, h/2);
-        ctx.moveTo(w/2+5, h/2); ctx.lineTo(w/2+20, h/2);
-        ctx.moveTo(w/2, h/2-20); ctx.lineTo(w/2, h/2-5);
-        ctx.moveTo(w/2, h/2+5); ctx.lineTo(w/2, h/2+20);
-        ctx.stroke();
-
-        // 3. Tracks
-        tracks.forEach(t => {
-            const [x, y, bw, bh] = t.box;
-            const isHostile = t.cls === 'person';
-            const color = isHostile ? CONFIG.COLORS.HOSTILE : CONFIG.COLORS.NEUTRAL;
+    /**
+     * Run object detection on video frame
+     * @param {HTMLVideoElement} videoElement - Video element to analyze
+     * @returns {Promise<Array>} Detection results
+     */
+    async detect(videoElement) {
+        if (!this.model || !this.isModelLoaded || this.isProcessing || videoElement.readyState !== 4) {
+            return [];
+        }
+        
+        this.isProcessing = true;
+        const startTime = performance.now();
+        
+        try {
+            const results = await this.model.detect(
+                videoElement, 
+                CONFIG.AI.MAX_DETECTIONS, 
+                CONFIG.AI.CONFIDENCE_THRESHOLD
+            );
             
-            ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.fillStyle = color;
+            this.lastInferenceTime = performance.now() - startTime;
+            this.lastDetectionTime = Date.now();
             
-            // Corners only (Tactical style)
-            const L = 15;
-            ctx.beginPath();
-            ctx.moveTo(x, y+L); ctx.lineTo(x,y); ctx.lineTo(x+L, y); // TL
-            ctx.moveTo(x+bw-L, y); ctx.lineTo(x+bw, y); ctx.lineTo(x+bw, y+L); // TR
-            ctx.moveTo(x+bw, y+bh-L); ctx.lineTo(x+bw, y+bh); ctx.lineTo(x+bw-L, y+bh); // BR
-            ctx.moveTo(x+L, y+bh); ctx.lineTo(x, y+bh); ctx.lineTo(x, y+bh-L); // BL
-            ctx.stroke();
+            // Update average inference time
+            this.inferenceCount++;
+            this.averageInferenceTime = Utils.ema(
+                this.lastInferenceTime, 
+                this.averageInferenceTime, 
+                0.95
+            );
+            
+            return results;
+        } catch (error) {
+            console.error("Detection error:", error);
+            return [];
+        } finally {
+            this.isProcessing = false;
+        }
+    }
 
-            // Label
-            ctx.font = "bold 12px Consolas";
-            ctx.fillText(`${t.cls.toUpperCase()} #${t.id}`, x+5, y-15);
-            ctx.font = "10px Consolas";
-            ctx.fillText(`DST: ${t.dist.toFixed(1)}m`, x+5, y-4);
+    /**
+     * Get engine status and metrics
+     * @returns {Object} Status information
+     */
+    getStatus() {
+        return {
+            isModelLoaded: this.isModelLoaded,
+            isProcessing: this.isProcessing,
+            lastInferenceTime: this.lastInferenceTime,
+            averageInferenceTime: this.averageInferenceTime,
+            inferenceCount: this.inferenceCount
+        };
+    }
+}
 
-            // Tracking Line to Center
-            if(isHostile) {
-                ctx.save();
-                ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.4; ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.moveTo(w/2, h/2); ctx.lineTo(x+bw/2, y+bh/2); ctx.stroke();
-                ctx.restore();
+// ============================================================================
+// OBJECT TRACKER MODULE
+// ============================================================================
+
+/**
+ * Tracks objects across frames with stable IDs
+ * @class
+ */
+class ObjectTracker {
+    constructor() {
+        this.trackedObjects = new Map();
+        this.nextId = 1;
+        this.frameCount = 0;
+    }
+
+    /**
+     * Update tracker with new detections
+     * @param {Array} detections - New detections from vision engine
+     * @param {number} timestamp - Current timestamp
+     * @returns {Array} Updated tracked objects
+     */
+    update(detections, timestamp) {
+        this.frameCount++;
+        
+        // Convert detections to tracker format
+        const currentDetections = detections.map(det => ({
+            bbox: {
+                x: det.bbox[0],
+                y: det.bbox[1],
+                width: det.bbox[2],
+                height: det.bbox[3]
+            },
+            label: det.class,
+            confidence: det.score,
+            timestamp: timestamp
+        }));
+        
+        // Update existing tracks and create new ones
+        this._updateTracks(currentDetections, timestamp);
+        
+        // Remove old tracks
+        this._removeExpiredTracks(timestamp);
+        
+        return Array.from(this.trackedObjects.values());
+    }
+
+    /**
+     * Update existing tracks with new detections
+     * @param {Array} detections - Current frame detections
+     * @param {number} timestamp - Current timestamp
+     * @private
+     */
+    _updateTracks(detections, timestamp) {
+        const usedDetections = new Set();
+        
+        // First pass: update existing tracks
+        for (const [id, track] of this.trackedObjects.entries()) {
+            if (track.status === 'lost') continue;
+            
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            // Find best matching detection
+            for (let i = 0; i < detections.length; i++) {
+                if (usedDetections.has(i)) continue;
+                
+                const detection = detections[i];
+                const iou = Utils.iou(track.bbox, detection.bbox);
+                const centerDist = Utils.distance(
+                    track.bbox.x + track.bbox.width / 2,
+                    track.bbox.y + track.bbox.height / 2,
+                    detection.bbox.x + detection.bbox.width / 2,
+                    detection.bbox.y + detection.bbox.height / 2
+                ) / Math.sqrt(window.innerWidth * window.innerHeight);
+                
+                // Combined score (IoU and distance)
+                const score = iou * 0.7 + (1 - centerDist) * 0.3;
+                
+                if (score > bestScore && score > CONFIG.TRACKING.MIN_IOU) {
+                    bestScore = score;
+                    bestMatch = { index: i, detection };
+                }
+            }
+            
+            if (bestMatch) {
+                // Update track with matched detection
+                this._updateTrack(track, bestMatch.detection, timestamp);
+                usedDetections.add(bestMatch.index);
+            } else {
+                // Mark track as lost
+                track.status = 'lost';
+                track.lastSeen = timestamp;
+            }
+        }
+        
+        // Second pass: create new tracks for unmatched detections
+        for (let i = 0; i < detections.length; i++) {
+            if (!usedDetections.has(i)) {
+                this._createTrack(detections[i], timestamp);
+            }
+        }
+    }
+
+    /**
+     * Update a single track with new detection
+     * @param {Object} track - Track to update
+     * @param {Object} detection - New detection data
+     * @param {number} timestamp - Current timestamp
+     * @private
+     */
+    _updateTrack(track, detection, timestamp) {
+        const dt = (timestamp - track.lastSeen) / 1000; // seconds
+        
+        // Smooth bounding box
+        track.rawBbox = { ...detection.bbox };
+        track.bbox.x = Utils.ema(detection.bbox.x, track.bbox.x, CONFIG.AI.SMOOTHING_FACTOR);
+        track.bbox.y = Utils.ema(detection.bbox.y, track.bbox.y, CONFIG.AI.SMOOTHING_FACTOR);
+        track.bbox.width = Utils.ema(detection.bbox.width, track.bbox.width, CONFIG.AI.SMOOTHING_FACTOR);
+        track.bbox.height = Utils.ema(detection.bbox.height, track.bbox.height, CONFIG.AI.SMOOTHING_FACTOR);
+        
+        // Update track properties
+        track.label = detection.label;
+        track.confidence = detection.confidence;
+        track.lastSeen = timestamp;
+        track.status = track.status === 'new' ? 'active' : track.status;
+        
+        // Calculate velocity if we have previous position
+        if (track.lastPosition && dt > 0) {
+            const dx = (track.bbox.x - track.lastPosition.x) / dt;
+            const dy = (track.bbox.y - track.lastPosition.y) / dt;
+            
+            track.velocity = {
+                vx: Utils.ema(dx, track.velocity?.vx || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING),
+                vy: Utils.ema(dy, track.velocity?.vy || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING)
+            };
+        }
+        
+        track.lastPosition = { x: track.bbox.x, y: track.bbox.y };
+    }
+
+    /**
+     * Create a new track from detection
+     * @param {Object} detection - Detection data
+     * @param {number} timestamp - Current timestamp
+     * @private
+     */
+    _createTrack(detection, timestamp) {
+        const id = this.nextId++;
+        
+        this.trackedObjects.set(id, {
+            id,
+            label: detection.label,
+            confidence: detection.confidence,
+            bbox: { ...detection.bbox },
+            rawBbox: { ...detection.bbox },
+            firstSeen: timestamp,
+            lastSeen: timestamp,
+            status: 'new',
+            velocity: { vx: 0, vy: 0 },
+            lastPosition: { 
+                x: detection.bbox.x, 
+                y: detection.bbox.y 
             }
         });
     }
-};
 
-// --- KERNEL ---
-const Kernel = {
-    video: document.getElementById('camera-feed'),
-    tracker: new Tracker(),
-    avionics: { p: 0, r: 0 },
-    model: null,
-    run: false,
+    /**
+     * Remove tracks that have been lost for too long
+     * @param {number} timestamp - Current timestamp
+     * @private
+     */
+    _removeExpiredTracks(timestamp) {
+        for (const [id, track] of this.trackedObjects.entries()) {
+            if (track.status === 'lost' && 
+                timestamp - track.lastSeen > CONFIG.TRACKING.MAX_AGE * (1000 / CONFIG.AI.INFERENCE_RATE)) {
+                this.trackedObjects.delete(id);
+            }
+        }
+    }
 
+    /**
+     * Get all active tracked objects
+     * @returns {Array} Active tracked objects
+     */
+    getActiveTracks() {
+        return Array.from(this.trackedObjects.values()).filter(track => 
+            track.status !== 'lost'
+        );
+    }
+
+    /**
+     * Get tracker status
+     * @returns {Object} Tracker status information
+     */
+    getStatus() {
+        const active = this.getActiveTracks();
+        return {
+            totalTracks: this.trackedObjects.size,
+            activeTracks: active.length,
+            newTracks: active.filter(t => t.status === 'new').length,
+            frameCount: this.frameCount
+        };
+    }
+}
+
+// ============================================================================
+// PHYSICS / ANALYSIS MODULE
+// ============================================================================
+
+/**
+ * Performs physics-based analysis on tracked objects
+ * @class
+ */
+class PhysicsEngine {
+    constructor() {
+        this.screenWidth = window.innerWidth;
+        this.screenHeight = window.innerHeight;
+        
+        // Update on resize
+        window.addEventListener('resize', () => {
+            this.screenWidth = window.innerWidth;
+            this.screenHeight = window.innerHeight;
+        });
+    }
+
+    /**
+     * Analyze tracked objects and compute physics properties
+     * @param {Array} tracks - Tracked objects
+     * @returns {Array} Enhanced tracks with physics data
+     */
+    analyze(tracks) {
+        return tracks.map(track => {
+            const enhanced = { ...track };
+            
+            // Compute screen position (normalized -1 to 1)
+            const centerX = track.bbox.x + track.bbox.width / 2;
+            const centerY = track.bbox.y + track.bbox.height / 2;
+            
+            enhanced.screenPosition = {
+                xNorm: Utils.map(centerX, 0, this.screenWidth, -1, 1),
+                yNorm: Utils.map(centerY, 0, this.screenHeight, -1, 1)
+            };
+            
+            // Compute bearing angle (degrees from center)
+            enhanced.bearingDeg = this._computeBearing(enhanced.screenPosition.xNorm);
+            
+            // Compute depth estimate
+            enhanced.depthEstimate = this._computeDepth(track);
+            
+            // Compute radial speed and motion state
+            enhanced.radialSpeed = this._computeRadialSpeed(track);
+            enhanced.motionState = this._classifyMotion(enhanced.radialSpeed);
+            
+            return enhanced;
+        });
+    }
+
+    /**
+     * Compute horizontal bearing angle from normalized screen position
+     * @param {number} xNorm - Normalized x position (-1 to 1)
+     * @returns {number} Bearing in degrees
+     * @private
+     */
+    _computeBearing(xNorm) {
+        return xNorm * (CONFIG.PHYSICS.HORIZONTAL_FOV / 2);
+    }
+
+    /**
+     * Compute depth estimate from bounding box size
+     * @param {Object} track - Tracked object
+     * @returns {number} Normalized depth estimate (0-1)
+     * @private
+     */
+    _computeDepth(track) {
+        // Use bounding box height as primary depth indicator
+        const bboxHeight = track.bbox.height / this.screenHeight;
+        
+        // Object type specific scaling
+        let objectHeight;
+        switch (track.label) {
+            case 'person':
+                objectHeight = CONFIG.PHYSICS.PERSON_HEIGHT;
+                break;
+            case 'car':
+            case 'truck':
+            case 'bus':
+                objectHeight = CONFIG.PHYSICS.VEHICLE_HEIGHT;
+                break;
+            default:
+                objectHeight = 1.0; // Default assumption
+        }
+        
+        // Simplified depth calculation based on apparent size
+        // Larger objects appear closer, smaller objects appear farther
+        const apparentSize = bboxHeight;
+        const depth = 1 - Math.min(apparentSize * 2, 1); // Normalized 0-1
+        
+        return Utils.clamp(depth, 0, 1);
+    }
+
+    /**
+     * Compute radial speed (approaching/receding)
+     * @param {Object} track - Tracked object
+     * @returns {number} Radial speed (normalized)
+     * @private
+     */
+    _computeRadialSpeed(track) {
+        // Simplified approach: use change in bounding box size as proxy for radial motion
+        if (!track.velocity || track.status === 'new') return 0;
+        
+        // Use vertical velocity as rough indicator (objects moving up in frame are likely receding)
+        // This is a simplification - real radial speed would require more sophisticated analysis
+        const verticalSpeed = track.velocity.vy / this.screenHeight;
+        
+        return verticalSpeed;
+    }
+
+    /**
+     * Classify motion state based on radial speed
+     * @param {number} radialSpeed - Radial speed value
+     * @returns {string} Motion state classification
+     * @private
+     */
+    _classifyMotion(radialSpeed) {
+        if (radialSpeed > CONFIG.PHYSICS.APPROACH_THRESHOLD) {
+            return 'approaching';
+        } else if (radialSpeed < CONFIG.PHYSICS.RECEDE_THRESHOLD) {
+            return 'receding';
+        } else if (Math.abs(radialSpeed) < CONFIG.PHYSICS.MOTION_THRESHOLD) {
+            return 'static';
+        } else {
+            return 'moving';
+        }
+    }
+}
+
+// ============================================================================
+// RADAR SYSTEM MODULE
+// ============================================================================
+
+/**
+ * Renders radar display with object blips
+ * @class
+ */
+class RadarSystem {
+    constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.width = 140;
+        this.height = 140;
+        this.centerX = this.width / 2;
+        this.centerY = this.height / 2;
+        this.maxRadius = this.width / 2 - 5; // Padding from edge
+    }
+
+    /**
+     * Update radar with tracked objects
+     * @param {Array} tracks - Tracked objects with physics data
+     */
+    update(tracks) {
+        // Clear previous blips
+        this.container.innerHTML = '';
+        
+        tracks.forEach(track => {
+            const blip = this._createBlip(track);
+            if (blip) {
+                this.container.appendChild(blip);
+            }
+        });
+    }
+
+    /**
+     * Create a radar blip for a tracked object
+     * @param {Object} track - Tracked object
+     * @returns {HTMLElement|null} Radar blip element
+     * @private
+     */
+    _createBlip(track) {
+        if (!track.bearingDeg || track.depthEstimate === undefined) {
+            return null;
+        }
+        
+        // Convert bearing to radar angle (radians)
+        const angle = Utils.toRadians(track.bearingDeg);
+        
+        // Convert depth to radar radius (closer objects have smaller radius)
+        const radius = track.depthEstimate * this.maxRadius;
+        
+        // Convert polar to Cartesian coordinates
+        const x = this.centerX + radius * Math.sin(angle);
+        const y = this.centerY - radius * Math.cos(angle); // Negative because CSS Y increases downward
+        
+        // Create blip element
+        const blip = document.createElement('div');
+        blip.className = 'radar-blip';
+        
+        // Set position
+        blip.style.left = `${x}px`;
+        blip.style.top = `${y}px`;
+        
+        // Set size based on object type and motion
+        const baseSize = this._getBaseBlipSize(track.label);
+        const motionSize = this._getMotionSizeModifier(track.motionState);
+        const size = baseSize + motionSize;
+        
+        blip.style.width = `${size}px`;
+        blip.style.height = `${size}px`;
+        
+        // Set color based on object type
+        blip.style.backgroundColor = this._getBlipColor(track.label);
+        
+        // Add pulsing animation for approaching objects
+        if (track.motionState === 'approaching') {
+            blip.style.animation = 'pulse 1s infinite';
+        }
+        
+        return blip;
+    }
+
+    /**
+     * Get base blip size based on object type
+     * @param {string} label - Object label
+     * @returns {number} Base blip size
+     * @private
+     */
+    _getBaseBlipSize(label) {
+        switch (label) {
+            case 'person':
+                return CONFIG.RADAR.BLOB_SIZE_MIN;
+            case 'car':
+            case 'truck':
+            case 'bus':
+                return CONFIG.RADAR.BLOB_SIZE_MAX;
+            default:
+                return (CONFIG.RADAR.BLOB_SIZE_MIN + CONFIG.RADAR.BLOB_SIZE_MAX) / 2;
+        }
+    }
+
+    /**
+     * Get size modifier based on motion state
+     * @param {string} motionState - Motion state
+     * @returns {number} Size modifier
+     * @private
+     */
+    _getMotionSizeModifier(motionState) {
+        switch (motionState) {
+            case 'approaching':
+                return 2;
+            case 'receding':
+                return -1;
+            default:
+                return 0;
+        }
+    }
+
+    /**
+     * Get blip color based on object type
+     * @param {string} label - Object label
+     * @returns {string} CSS color value
+     * @private
+     */
+    _getBlipColor(label) {
+        switch (label) {
+            case 'person':
+                return CONFIG.COLORS.PERSON;
+            case 'car':
+            case 'truck':
+            case 'bus':
+            case 'motorcycle':
+            case 'bicycle':
+                return CONFIG.COLORS.VEHICLE;
+            default:
+                return CONFIG.COLORS.OTHER;
+        }
+    }
+}
+
+// ============================================================================
+// MEMORY / KNOWLEDGE BASE MODULE
+// ============================================================================
+
+/**
+ * Stores and analyzes historical object data
+ * @class
+ */
+class KnowledgeBase {
+    constructor() {
+        this.events = [];
+        this.objectHistory = new Map();
+        this.startTime = Date.now();
+        this.stats = {
+            totalDetections: 0,
+            personDetections: 0,
+            vehicleDetections: 0,
+            uniqueObjects: 0
+        };
+    }
+
+    /**
+     * Record an event in memory
+     * @param {string} type - Event type
+     * @param {Object} data - Event data
+     * @param {number} timestamp - Event timestamp
+     */
+    recordEvent(type, data, timestamp = Date.now()) {
+        const event = {
+            type,
+            data,
+            timestamp,
+            id: Utils.generateId()
+        };
+        
+        this.events.push(event);
+        
+        // Maintain event limit
+        if (this.events.length > CONFIG.MEMORY.MAX_EVENTS) {
+            this.events.shift();
+        }
+        
+        // Update statistics
+        this._updateStats(event);
+        
+        // Update object history
+        if (data.objectId) {
+            this._updateObjectHistory(data.objectId, event);
+        }
+    }
+
+    /**
+     * Update statistics based on event
+     * @param {Object} event - Recorded event
+     * @private
+     */
+    _updateStats(event) {
+        this.stats.totalDetections++;
+        
+        if (event.type === 'object_detected' || event.type === 'object_updated') {
+            const label = event.data.label;
+            
+            if (label === 'person') {
+                this.stats.personDetections++;
+            } else if (['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(label)) {
+                this.stats.vehicleDetections++;
+            }
+        }
+        
+        if (event.type === 'object_detected') {
+            this.stats.uniqueObjects++;
+        }
+    }
+
+    /**
+     * Update history for a specific object
+     * @param {string} objectId - Object identifier
+     * @param {Object} event - Related event
+     * @private
+     */
+    _updateObjectHistory(objectId, event) {
+        if (!this.objectHistory.has(objectId)) {
+            this.objectHistory.set(objectId, []);
+        }
+        
+        const history = this.objectHistory.get(objectId);
+        history.push(event);
+        
+        // Limit history per object
+        if (history.length > 50) {
+            history.shift();
+        }
+    }
+
+    /**
+     * Get active object count
+     * @returns {number} Active object count
+     */
+    getActiveObjectCount() {
+        const recentTime = Date.now() - (5000); // 5 seconds
+        const activeObjects = new Set();
+        
+        for (const event of this.events.slice().reverse()) {
+            if (event.timestamp < recentTime) break;
+            
+            if (event.type === 'object_detected' || event.type === 'object_updated') {
+                activeObjects.add(event.data.objectId);
+            }
+        }
+        
+        return activeObjects.size;
+    }
+
+    /**
+     * Get person detections in last N minutes
+     * @param {number} minutes - Time window in minutes
+     * @returns {number} Person detection count
+     */
+    getPersonDetectionsInLast(minutes) {
+        const cutoff = Date.now() - (minutes * 60 * 1000);
+        return this.events.filter(event => 
+            event.timestamp >= cutoff && 
+            event.data.label === 'person' &&
+            (event.type === 'object_detected' || event.type === 'object_updated')
+        ).length;
+    }
+
+    /**
+     * Get closest person information
+     * @returns {Object|null} Closest person data
+     */
+    getClosestPerson() {
+        const personEvents = this.events.filter(event => 
+            event.data.label === 'person' &&
+            event.type === 'object_updated' &&
+            event.data.depthEstimate !== undefined
+        );
+        
+        if (personEvents.length === 0) return null;
+        
+        // Find event with minimum depth (closest person)
+        const closest = personEvents.reduce((prev, current) => 
+            (prev.data.depthEstimate < current.data.depthEstimate) ? prev : current
+        );
+        
+        return {
+            distance: closest.data.depthEstimate * CONFIG.PHYSICS.MAX_RANGE,
+            bearing: closest.data.bearingDeg,
+            timestamp: closest.timestamp
+        };
+    }
+
+    /**
+     * Get most common label in last N minutes
+     * @param {number} minutes - Time window in minutes
+     * @returns {string} Most common label
+     */
+    getMostCommonLabelInLast(minutes) {
+        const cutoff = Date.now() - (minutes * 60 * 1000);
+        const recentEvents = this.events.filter(event => 
+            event.timestamp >= cutoff && 
+            (event.type === 'object_detected' || event.type === 'object_updated')
+        );
+        
+        const labelCounts = {};
+        recentEvents.forEach(event => {
+            const label = event.data.label;
+            labelCounts[label] = (labelCounts[label] || 0) + 1;
+        });
+        
+        let maxCount = 0;
+        let mostCommon = 'none';
+        
+        for (const [label, count] of Object.entries(labelCounts)) {
+            if (count > maxCount) {
+                maxCount = count;
+                mostCommon = label;
+            }
+        }
+        
+        return mostCommon;
+    }
+
+    /**
+     * Get knowledge base status
+     * @returns {Object} Status information
+     */
+    getStatus() {
+        return {
+            totalEvents: this.events.length,
+            uniqueObjects: this.objectHistory.size,
+            ...this.stats
+        };
+    }
+}
+
+// ============================================================================
+// HUD RENDERER MODULE
+// ============================================================================
+
+/**
+ * Renders the Heads-Up Display overlay
+ * @class
+ */
+class HUDRenderer {
+    constructor() {
+        this.canvas = document.getElementById('hud-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    /**
+     * Resize canvas to match window size
+     */
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+
+    /**
+     * Clear the canvas
+     */
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * Draw artificial horizon
+     * @param {number} pitch - Pitch angle in degrees
+     * @param {number} roll - Roll angle in degrees
+     */
+    drawHorizon(pitch, roll) {
+        const { width, height } = this.canvas;
+        const ctx = this.ctx;
+        
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate(Utils.toRadians(roll));
+        
+        // Sky and ground areas
+        const horizonY = pitch * 2; // Sensitivity factor
+        
+        // Ground (brown)
+        ctx.fillStyle = 'rgba(139, 69, 19, 0.3)';
+        ctx.fillRect(-width, horizonY, width * 2, height);
+        
+        // Sky (blue)
+        ctx.fillStyle = 'rgba(0, 100, 200, 0.3)';
+        ctx.fillRect(-width, -height, width * 2, height + horizonY);
+        
+        // Horizon line
+        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-width, horizonY);
+        ctx.lineTo(width, horizonY);
+        ctx.stroke();
+        
+        // Pitch ladder
+        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
+        ctx.lineWidth = 1;
+        ctx.fillStyle = CONFIG.COLORS.PRIMARY;
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        
+        for (let i = -4; i <= 4; i++) {
+            if (i === 0) continue;
+            
+            const y = horizonY + i * 30; // 30 pixels per 10 degrees
+            const isMajor = i % 2 === 0;
+            const length = isMajor ? 60 : 40;
+            const value = i * 10;
+            
+            ctx.beginPath();
+            ctx.moveTo(-length / 2, y);
+            ctx.lineTo(length / 2, y);
+            ctx.stroke();
+            
+            if (isMajor) {
+                ctx.fillText(`${Math.abs(value)}°`, length / 2 + 20, y + 4);
+            }
+        }
+        
+        ctx.restore();
+        
+        // Aircraft reference (fixed center)
+        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - 20, height / 2);
+        ctx.lineTo(width / 2 + 20, height / 2);
+        ctx.moveTo(width / 2, height / 2 - 10);
+        ctx.lineTo(width / 2, height / 2 + 10);
+        ctx.stroke();
+    }
+
+    /**
+     * Draw crosshair with target information
+     */
+    drawCrosshair() {
+        const cx = this.canvas.width / 2;
+        const cy = this.canvas.height / 2;
+        const ctx = this.ctx;
+
+        // Outer circle
+        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 25, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Crosshair lines
+        ctx.beginPath();
+        ctx.moveTo(cx - 15, cy);
+        ctx.lineTo(cx - 40, cy);
+        ctx.moveTo(cx + 15, cy);
+        ctx.lineTo(cx + 40, cy);
+        ctx.moveTo(cx, cy - 15);
+        ctx.lineTo(cx, cy - 40);
+        ctx.moveTo(cx, cy + 15);
+        ctx.lineTo(cx, cy + 40);
+        ctx.stroke();
+        
+        // Center dot
+        ctx.fillStyle = CONFIG.COLORS.ALERT;
+        ctx.fillRect(cx - 2, cy - 2, 4, 4);
+    }
+
+    /**
+     * Draw target boxes for tracked objects
+     * @param {Array} tracks - Tracked objects
+     */
+    drawTargetBoxes(tracks) {
+        tracks.forEach(track => {
+            this._drawTargetBox(track);
+        });
+    }
+
+    /**
+     * Draw a single target box
+     * @param {Object} track - Tracked object
+     * @private
+     */
+    _drawTargetBox(track) {
+        const { x, y, width, height } = track.bbox;
+        const ctx = this.ctx;
+        
+        // Determine color based on object type
+        let color;
+        switch (track.label) {
+            case 'person':
+                color = CONFIG.COLORS.PERSON;
+                break;
+            case 'car':
+            case 'truck':
+            case 'bus':
+                color = CONFIG.COLORS.VEHICLE;
+                break;
+            default:
+                color = CONFIG.COLORS.OTHER;
+        }
+        
+        // Draw corner brackets (tactical style)
+        const bracketSize = Math.min(width, height) * 0.15;
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = color;
+        
+        // Top left
+        ctx.beginPath();
+        ctx.moveTo(x, y + bracketSize);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + bracketSize, y);
+        
+        // Top right
+        ctx.moveTo(x + width - bracketSize, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + bracketSize);
+        
+        // Bottom right
+        ctx.moveTo(x + width, y + height - bracketSize);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x + width - bracketSize, y + height);
+        
+        // Bottom left
+        ctx.moveTo(x + bracketSize, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x, y + height - bracketSize);
+        
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        // Label with information
+        const label = `${track.label.toUpperCase()} ${Math.floor(track.confidence * 100)}%`;
+        const info = `~${Math.floor(track.depthEstimate * CONFIG.PHYSICS.MAX_RANGE)}m @ ${Utils.formatNumber(track.bearingDeg, 0)}°`;
+        
+        ctx.fillStyle = color;
+        ctx.font = 'bold 11px monospace';
+        
+        // Background for text
+        const textWidth1 = ctx.measureText(label).width;
+        const textWidth2 = ctx.measureText(info).width;
+        const maxWidth = Math.max(textWidth1, textWidth2);
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x, y - 30, maxWidth + 10, 25);
+        
+        // Text
+        ctx.fillStyle = color;
+        ctx.fillText(label, x + 5, y - 15);
+        ctx.fillText(info, x + 5, y - 5);
+    }
+
+    /**
+     * Draw system information and diagnostics
+     * @param {Object} systemInfo - System information
+     */
+    drawSystemInfo(systemInfo) {
+        // This is handled by HTML elements in the UI layer
+        // This method is reserved for future canvas-based system info
+    }
+}
+
+// ============================================================================
+// KERNEL / CORE SYSTEM
+// ============================================================================
+
+/**
+ * Main system kernel that orchestrates all components
+ * @class
+ */
+class OmegaKernel {
+    constructor() {
+        // System components
+        this.avionics = new Avionics();
+        this.vision = new VisionEngine();
+        this.tracker = new ObjectTracker();
+        this.physics = new PhysicsEngine();
+        this.radar = new RadarSystem('radar-blips');
+        this.memory = new KnowledgeBase();
+        this.renderer = new HUDRenderer();
+        
+        // System state
+        this.isRunning = false;
+        this.isInitialized = false;
+        this.lastAITime = 0;
+        this.lastRenderTime = 0;
+        this.aiInterval = 1000 / CONFIG.AI.INFERENCE_RATE;
+        this.renderInterval = 1000 / CONFIG.UI.UPDATE_RATE;
+        
+        // Tracked objects
+        this.trackedObjects = [];
+        this.primaryTarget = null;
+        
+        // UI elements
+        this.video = document.getElementById('camera-feed');
+        
+        // Bind methods
+        this.boot = this.boot.bind(this);
+        this.cycle = this.cycle.bind(this);
+        this.aiCycle = this.aiCycle.bind(this);
+    }
+
+    /**
+     * Initialize the system
+     * @returns {Promise<void>}
+     */
     async boot() {
         try {
-            // Avionics
-            window.addEventListener('deviceorientation', e => {
-                this.avionics.p = Utils.lerp(this.avionics.p, e.beta||0, 0.1);
-                this.avionics.r = Utils.lerp(this.avionics.r, e.gamma||0, 0.1);
-                document.getElementById('ui-pitch').innerText = this.avionics.p.toFixed(0);
-                document.getElementById('ui-roll').innerText = this.avionics.r.toFixed(0);
+            this._updateStatus('SYSTEM INITIALIZING...');
+            
+            // 1. Initialize avionics (sensors)
+            this._updateBootLED('led-gyro', 'loading');
+            const avionicsReady = await this.avionics.init();
+            this._updateBootLED('led-gyro', avionicsReady ? 'active' : 'error');
+            
+            // 2. Initialize camera
+            this._updateBootLED('led-cam', 'loading');
+            const cameraReady = await this._initCamera();
+            this._updateBootLED('led-cam', cameraReady ? 'active' : 'error');
+            
+            // 3. Initialize vision AI
+            this._updateBootLED('led-ai', 'loading');
+            const visionReady = await this.vision.init();
+            this._updateBootLED('led-ai', visionReady ? 'active' : 'error');
+            
+            // 4. Initialize tracker and memory
+            this._updateBootLED('led-tracker', 'active');
+            this._updateBootLED('led-memory', 'active');
+            
+            if (!cameraReady) {
+                throw new Error("Camera initialization failed");
+            }
+            
+            if (!visionReady) {
+                console.warn("Vision AI initialized with limited functionality");
+            }
+            
+            // 5. Start system loops
+            this.isInitialized = true;
+            this.isRunning = true;
+            
+            // Hide boot screen
+            document.getElementById('boot-overlay').style.display = 'none';
+            
+            // Start AI processing loop
+            this.aiCycle();
+            
+            // Start render loop
+            this.cycle();
+            
+            this._updateStatus('SYSTEM OPERATIONAL');
+            console.log("OMEGA System booted successfully");
+            
+        } catch (error) {
+            console.error("System boot failed:", error);
+            this._updateStatus(`SYSTEM ERROR: ${error.message}`);
+            this._updateBootLED('led-cam', 'error');
+        }
+    }
+
+    /**
+     * Initialize camera feed
+     * @returns {Promise<boolean>} Success status
+     * @private
+     */
+    async _initCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'environment', 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 } 
+                }, 
+                audio: false 
             });
             
-            // Cam
-            const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
             this.video.srcObject = stream;
-            await new Promise(r => this.video.onloadedmetadata = r);
             
-            // AI
-            await tf.ready();
-            this.model = await cocoSsd.load();
+            // Wait for video to be ready
+            await new Promise((resolve) => {
+                this.video.onloadedmetadata = () => {
+                    this.video.play();
+                    resolve();
+                };
+            });
             
-            // UI Ready
-            document.getElementById('boot-log').innerText = "SYSTEM READY";
-            document.getElementById('btn-start').style.display = 'block';
-            document.getElementById('btn-start').onclick = () => {
-                document.getElementById('boot-screen').style.display = 'none';
-                this.run = true; Voice.listen(); HUD.resize(); this.loop();
-            };
-        } catch(e) { alert("Error: "+e); }
-    },
-
-    async loop() {
-        if(!this.run) return;
-        requestAnimationFrame(() => this.loop());
-        const start = performance.now();
-
-        HUD.draw(this.tracker.tracks, this.avionics.p, this.avionics.r);
-
-        if(this.video.readyState === 4) {
-            // Inference
-            const preds = await this.model.detect(this.video, 10, CONFIG.AI.CONFIDENCE);
-            const tracks = this.tracker.process(preds, this.video.videoWidth, this.video.videoHeight);
-            
-            // Logic
-            this.updateUI(tracks);
-            
-            // Robot Link (Primary Target)
-            const target = tracks.find(t => t.cls === 'person');
-            if(target) Robot.send(target.nx, target.ny);
+            return true;
+        } catch (error) {
+            console.error("Camera initialization failed:", error);
+            return false;
         }
-        
-        const dt = performance.now() - start;
-        document.getElementById('ui-cpu').innerText = dt.toFixed(0);
-        document.getElementById('ui-fps').innerText = (1000/dt).toFixed(0);
     }
 
-    updateUI(tracks) {
-        // Update Radar
-        const rad = document.getElementById('radar-blips'); rad.innerHTML = '';
-        tracks.forEach(t => {
-            const el = document.createElement('div'); el.className = 'blip';
-            // Polar to CSS
-            const r = (t.dist / CONFIG.PHYSICS.MAX_RANGE) * 70;
-            const a = (t.ang - 90) * Math.PI/180;
-            el.style.left = (70 + r*Math.cos(a)) + 'px';
-            el.style.top = (70 + r*Math.sin(a)) + 'px';
-            el.style.color = t.cls === 'person' ? CONFIG.COLORS.HOSTILE : CONFIG.COLORS.NEUTRAL;
-            rad.appendChild(el);
+    /**
+     * AI processing cycle (runs at AI_INFERENCE_RATE)
+     */
+    async aiCycle() {
+        if (!this.isRunning) return;
+        
+        const now = performance.now();
+        
+        // Throttle AI processing
+        if (now - this.lastAITime >= this.aiInterval) {
+            this.lastAITime = now;
+            
+            try {
+                // Run object detection
+                const detections = await this.vision.detect(this.video);
+                
+                // Update tracker with new detections
+                const rawTracks = this.tracker.update(detections, Date.now());
+                
+                // Apply physics analysis
+                this.trackedObjects = this.physics.analyze(rawTracks);
+                
+                // Record events in memory
+                this._updateMemory(this.trackedObjects);
+                
+                // Update primary target (closest to center)
+                this._updatePrimaryTarget();
+                
+            } catch (error) {
+                console.error("AI cycle error:", error);
+            }
+        }
+        
+        // Schedule next AI cycle
+        setTimeout(() => this.aiCycle(), this.aiInterval);
+    }
+
+    /**
+     * Main render cycle (runs at UI_UPDATE_RATE)
+     */
+    cycle() {
+        if (!this.isRunning) return;
+        
+        const now = performance.now();
+        
+        // Throttle rendering
+        if (now - this.lastRenderTime >= this.renderInterval) {
+            this.lastRenderTime = now;
+            
+            try {
+                // Clear and redraw HUD
+                this.renderer.clear();
+                
+                // Draw horizon and crosshair
+                this.renderer.drawHorizon(this.avionics.pitch, this.avionics.roll);
+                this.renderer.drawCrosshair();
+                
+                // Draw target boxes
+                this.renderer.drawTargetBoxes(this.trackedObjects);
+                
+                // Update radar
+                this.radar.update(this.trackedObjects);
+                
+                // Update UI displays
+                this._updateUI();
+                
+            } catch (error) {
+                console.error("Render cycle error:", error);
+            }
+        }
+        
+        // Schedule next render cycle
+        requestAnimationFrame(() => this.cycle());
+    }
+
+    /**
+     * Update memory with current tracked objects
+     * @param {Array} tracks - Current tracked objects
+     * @private
+     */
+    _updateMemory(tracks) {
+        tracks.forEach(track => {
+            const eventType = track.status === 'new' ? 'object_detected' : 'object_updated';
+            
+            this.memory.recordEvent(eventType, {
+                objectId: track.id,
+                label: track.label,
+                confidence: track.confidence,
+                depthEstimate: track.depthEstimate,
+                bearingDeg: track.bearingDeg,
+                motionState: track.motionState
+            }, Date.now());
         });
-        document.getElementById('ui-objs').innerText = tracks.length;
-
-        // Status Bar
-        const statMain = document.getElementById('status-main');
-        const statSub = document.getElementById('status-sub');
-        const target = tracks.find(t => t.cls === 'person');
         
-        if(target) {
-            statMain.innerText = "TARGET ACQUIRED";
-            statMain.style.color = CONFIG.COLORS.HOSTILE;
-            statSub.innerText = `LOCK: ${target.cls.toUpperCase()} | DIST: ${target.dist.toFixed(1)}M`;
-            document.getElementById('status-bar').style.borderColor = CONFIG.COLORS.HOSTILE;
+        // Record lost objects
+        const lostTracks = this.tracker.trackedObjects.values().filter(t => t.status === 'lost');
+        lostTracks.forEach(track => {
+            this.memory.recordEvent('object_lost', {
+                objectId: track.id,
+                label: track.label
+            }, Date.now());
+        });
+    }
+
+    /**
+     * Update primary target information
+     * @private
+     */
+    _updatePrimaryTarget() {
+        if (this.trackedObjects.length === 0) {
+            this.primaryTarget = null;
+            return;
+        }
+        
+        // Find object closest to screen center
+        this.primaryTarget = this.trackedObjects.reduce((closest, current) => {
+            const closestDist = Math.abs(closest.screenPosition.xNorm) + Math.abs(closest.screenPosition.yNorm);
+            const currentDist = Math.abs(current.screenPosition.xNorm) + Math.abs(current.screenPosition.yNorm);
+            
+            return currentDist < closestDist ? current : closest;
+        });
+    }
+
+    /**
+     * Update all UI elements
+     * @private
+     */
+    _updateUI() {
+        // System metrics
+        const visionStatus = this.vision.getStatus();
+        document.getElementById('val-cpu').innerText = Utils.formatNumber(visionStatus.averageInferenceTime, 1);
+        document.getElementById('val-fps').innerText = Utils.formatNumber(1000 / Math.max(1, visionStatus.averageInferenceTime), 1);
+        
+        // Sensor data
+        document.getElementById('val-pitch').innerText = Utils.formatNumber(this.avionics.pitch, 1);
+        document.getElementById('val-roll').innerText = Utils.formatNumber(this.avionics.roll, 1);
+        document.getElementById('val-heading').innerText = Utils.formatNumber(this.avionics.heading, 1);
+        document.getElementById('val-g').innerText = Utils.formatNumber(this.avionics.gForce, 2);
+        
+        // Tracking info
+        const trackerStatus = this.tracker.getStatus();
+        document.getElementById('val-tracked').innerText = trackerStatus.activeTracks;
+        
+        // Analytics
+        document.getElementById('val-active').innerText = this.memory.getActiveObjectCount();
+        document.getElementById('val-persons').innerText = this.memory.getPersonDetectionsInLast(5);
+        
+        const closestPerson = this.memory.getClosestPerson();
+        document.getElementById('val-closest-person').innerText = closestPerson ? 
+            `~${Utils.formatNumber(closestPerson.distance, 1)}m @ ${Utils.formatNumber(closestPerson.bearing, 0)}°` : 
+            '--';
+        
+        document.getElementById('val-top-label').innerText = this.memory.getMostCommonLabelInLast(5);
+        
+        // Primary target info
+        if (this.primaryTarget) {
+            document.getElementById('val-target-label').innerText = this.primaryTarget.label.toUpperCase();
+            document.getElementById('val-target-dist').innerText = `~${Utils.formatNumber(this.primaryTarget.depthEstimate * CONFIG.PHYSICS.MAX_RANGE, 1)}m`;
+            document.getElementById('val-target-bearing').innerText = `${Utils.formatNumber(this.primaryTarget.bearingDeg, 1)}°`;
+            document.getElementById('val-target-state').innerText = this.primaryTarget.motionState.toUpperCase();
         } else {
-            statMain.innerText = "SYSTEM ACTIVE";
-            statMain.style.color = CONFIG.COLORS.NEUTRAL;
-            statSub.innerText = "SCANNING SECTOR...";
-            document.getElementById('status-bar').style.borderColor = CONFIG.COLORS.NEUTRAL;
+            document.getElementById('val-target-label').innerText = '--';
+            document.getElementById('val-target-dist').innerText = '--';
+            document.getElementById('val-target-bearing').innerText = '--';
+            document.getElementById('val-target-state').innerText = '--';
+        }
+        
+        // System status indicators
+        this._updateSystemStatus();
+    }
+
+    /**
+     * Update system status indicators
+     * @private
+     */
+    _updateSystemStatus() {
+        // Camera status
+        const camStatus = this.video.srcObject && this.video.readyState === 4 ? 'status-ok' : 'status-error';
+        document.getElementById('status-cam').className = `status-indicator ${camStatus}`;
+        
+        // AI status
+        const aiStatus = this.vision.isModelLoaded ? 'status-ok' : 'status-error';
+        document.getElementById('status-ai').className = `status-indicator ${aiStatus}`;
+        
+        // Gyro status
+        const gyroStatus = this.avionics.isAvailable ? 'status-ok' : 'status-offline';
+        document.getElementById('status-gyro').className = `status-indicator ${gyroStatus}`;
+        
+        // Tracker status
+        const trackerStatus = this.tracker.getStatus().activeTracks > 0 ? 'status-ok' : 'status-warn';
+        document.getElementById('status-tracker').className = `status-indicator ${trackerStatus}`;
+        
+        // Memory status
+        const memoryStatus = this.memory.events.length > 0 ? 'status-ok' : 'status-warn';
+        document.getElementById('status-memory').className = `status-indicator ${memoryStatus}`;
+    }
+
+    /**
+     * Update boot screen LED status
+     * @param {string} ledId - LED element ID
+     * @param {string} state - LED state ('loading', 'active', 'error')
+     * @private
+     */
+    _updateBootLED(ledId, state) {
+        const led = document.getElementById(ledId);
+        led.className = 'status-led';
+        
+        if (state === 'active') {
+            led.classList.add('active');
+        } else if (state === 'error') {
+            led.classList.add('error');
+        } else if (state === 'warning') {
+            led.classList.add('warning');
         }
     }
-};
 
-Kernel.boot();
-window.addEventListener('resize', ()=>HUD.resize());
+    /**
+     * Update system status message
+     * @param {string} message - Status message
+     * @private
+     */
+    _updateStatus(message) {
+        document.getElementById('status-message').textContent = message;
+    }
+
+    /**
+     * Shutdown the system
+     */
+    shutdown() {
+        this.isRunning = false;
+        
+        // Stop video stream
+        if (this.video.srcObject) {
+            this.video.srcObject.getTracks().forEach(track => track.stop());
+        }
+        
+        console.log("OMEGA System shutdown");
+    }
+}
+
+// ============================================================================
+// SYSTEM INITIALIZATION
+// ============================================================================
+
+// Create and initialize the kernel
+const OMEGA = new OmegaKernel();
+
+// Set up initialization button
+document.getElementById('btn-init').addEventListener('click', () => {
+    OMEGA.boot();
+});
+
+// Add CSS for pulsing animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes pulse {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.2); }
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+`;
+document.head.appendChild(style);
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        // Page is hidden, potentially reduce processing
+        console.log("OMEGA: Page visibility changed - background mode");
+    } else {
+        // Page is visible, ensure full operation
+        console.log("OMEGA: Page visibility changed - foreground mode");
+    }
+});
+
+// Handle page unload
+window.addEventListener('beforeunload', () => {
+    OMEGA.shutdown();
+});
+
+console.log("OMEGA: Advanced Humanoid Vision System loaded");
 
 </script>
 </body>
