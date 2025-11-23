@@ -3,185 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: IDENTITY TRACKER</title>
+    <title>OMEGA: OMNI-SIGHT (MULTI-AI)</title>
     
+    <!-- CORE AI ENGINE (TENSORFLOW) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    
+    <!-- 1. OBJECT DETECTION MODEL -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- 2. POSE DETECTION MODEL -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6"></script>
+    
+    <!-- 3. FACE MESH MODEL -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.3"></script>
 
     <style>
         :root {
-            --p: #00ff9d; --s: #008f7a; --a: #ff2a6d; --w: #ffae00;
-            --bg: #000; --glass: rgba(0, 20, 10, 0.9);
+            --p: #00ff9d; /* Primary */
+            --s: #00a8ff; /* Skeleton */
+            --f: #ff00ff; /* Face */
+            --bg: #000;
             --font: 'Segoe UI', monospace;
         }
-        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); user-select: none; }
+        
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
         
         #viewport { position: relative; width: 100vw; height: 100vh; }
-        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.9; filter: contrast(1.1) brightness(0.9); }
-        #layer-3d, #hud-canvas { position: absolute; inset: 0; z-index: 10; }
-        #hud-canvas { cursor: crosshair; } /* Cursor เปลี่ยนเป็นเป้าเล็ง */
+        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.8; filter: contrast(1.2) brightness(0.8); }
+        #hud-canvas { position: absolute; inset: 0; z-index: 10; }
 
-        /* UI Overlay */
-        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        /* UI PANELS */
+        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 10px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         
         .panel {
-            background: var(--glass); border-left: 4px solid var(--p); padding: 10px 15px;
-            margin-bottom: 5px; backdrop-filter: blur(10px); pointer-events: auto;
-            width: fit-content; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            background: rgba(0, 10, 5, 0.85); border-left: 3px solid var(--p);
+            padding: 8px 12px; margin-bottom: 5px; backdrop-filter: blur(5px);
+            pointer-events: auto; width: fit-content; border-radius: 0 5px 5px 0;
+            box-shadow: 0 0 10px rgba(0,255,157,0.1);
         }
-        .label { font-size: 9px; color: #00a8ff; font-weight: 900; letter-spacing: 2px; }
-        .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
+        .label { font-size: 9px; color: #888; font-weight: 900; letter-spacing: 1px; }
+        .val { font-size: 12px; color: #fff; font-weight: bold; font-family: monospace; }
+        
+        .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #333; margin-right: 5px; }
+        .led.on { background: var(--p); box-shadow: 0 0 8px var(--p); }
+        .led.busy { background: #ffae00; animation: pulse 0.5s infinite; }
 
-        /* Input Prompt (Custom Style) */
-        #tag-input {
-            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); border: 2px solid var(--p); padding: 20px; z-index: 100;
-            text-align: center; border-radius: 10px; box-shadow: 0 0 30px var(--p);
-        }
-        #tag-input input { background: #222; border: 1px solid #555; color: white; padding: 10px; font-size: 16px; width: 200px; text-align: center; }
-        #tag-input button { margin-top: 10px; background: var(--p); border: none; padding: 8px 20px; font-weight: bold; cursor: pointer; }
-
-        /* Boot Screen */
+        /* BOOT SCREEN */
         #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #loader { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 0.8s infinite; margin: 30px; }
+        .loader-ring { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 1s infinite; margin-bottom: 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        button.start-btn { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
+        @keyframes pulse { 50% { opacity: 0.5; } }
+        
+        button { background: transparent; border: 1px solid var(--p); color: var(--p); padding: 10px 30px; font-weight: bold; cursor: pointer; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
+        button:hover { background: var(--p); color: #000; }
     </style>
 </head>
 <body>
 
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="layer-3d"></canvas>
         <canvas id="hud-canvas"></canvas>
 
-        <!-- Custom Tag Input Modal -->
-        <div id="tag-input">
-            <div style="color:var(--p); margin-bottom:10px; font-weight:bold;">IDENTIFY TARGET</div>
-            <input type="text" id="target-name" placeholder="Enter Name (e.g. Boss)">
-            <br>
-            <button onclick="OMEGA.confirmTag()">CONFIRM</button>
-            <button onclick="OMEGA.cancelTag()" style="background:#333; color:#fff;">CANCEL</button>
-        </div>
-
         <div id="ui-layer">
-            <div style="display:flex; justify-content:space-between;">
+            <!-- TOP LEFT: AI STATUS -->
+            <div>
                 <div class="panel">
-                    <div class="label">IDENTITY SYSTEM</div>
-                    <div>STATUS: <span class="val" style="color:var(--p)">ACTIVE</span></div>
-                    <div style="font-size:10px; color:#aaa;">CLICK BOX TO TAG NAME</div>
+                    <div class="label">NEURAL NETWORKS</div>
+                    <div><span id="led-obj" class="led"></span> OBJECT DETECT</div>
+                    <div><span id="led-pose" class="led"></span> SKELETON TRACK</div>
+                    <div><span id="led-face" class="led"></span> FACE MESH</div>
                 </div>
                 <div class="panel">
-                    <div class="label">TARGETS</div>
-                    <div>COUNT: <span id="count" class="val">0</span></div>
+                    <div class="label">PERFORMANCE</div>
+                    <div>FPS: <span id="fps" class="val">0</span></div>
+                    <div>LATENCY: <span id="ms" class="val">0ms</span></div>
+                </div>
+            </div>
+
+            <!-- BOTTOM: DATA -->
+            <div>
+                <div class="panel">
+                    <div class="label">ANALYSIS</div>
+                    <div>HUMANS: <span id="human-count" class="val">0</span></div>
+                    <div>POSTURE: <span id="posture-status" class="val" style="color:var(--s)">SCANNING</span></div>
                 </div>
             </div>
         </div>
     </div>
 
     <div id="boot">
-        <h1 style="color:var(--p); letter-spacing: 8px; font-size: 32px;">OMEGA</h1>
-        <div style="color:#666;">IDENTITY TRACKING MODULE</div>
-        <div id="loader"></div>
-        <button id="btn-start" class="start-btn" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
+        <h1 style="color:var(--p); letter-spacing: 5px;">OMEGA: OMNI-SIGHT</h1>
+        <div class="loader-ring"></div>
+        <div id="boot-log" style="color:#666; font-size:10px; margin-bottom:20px;">INITIALIZING...</div>
+        <button id="btn-start" onclick="OMEGA.start()" style="display:none;">ACTIVATE ALL SYSTEMS</button>
     </div>
 
 <script>
 /**
- * OMEGA: IDENTITY EDITION
- * Features: Sticky Tracking + Manual Tagging System
+ * OMEGA: OMNI-SIGHT EDITION
+ * Multi-Model AI Fusion (Object + Pose + Face)
  */
 
 const CONFIG = {
-    AI_CONF: 0.5,
-    TRACK: { SMOOTH: 0.15, MAX_LOST: 30, MATCH_DIST: 150 } // หนึบมาก
+    OBJ_CONF: 0.5,
+    POSE_CONF: 0.4,
+    MAX_FACES: 3
 };
 
-const Vector = {
-    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
-    lerp: (a, b, t) => a + (b - a) * t,
-    getCenter: (box) => ({ x: box[0] + box[2]/2, y: box[1] + box[3]/2 })
-};
-
-// --- IDENTITY MANAGER (สมองจำชื่อ) ---
-class IdentityManager {
+// --- AI KERNEL (The Brain) ---
+class MultiAIKernel {
     constructor() {
-        this.identities = new Map(); // เก็บ ID -> Name
+        this.netObject = null;
+        this.netPose = null;
+        this.netFace = null;
+        this.status = { obj: false, pose: false, face: false };
     }
-    setName(trackId, name) {
-        this.identities.set(trackId, name);
+
+    async loadAll(onProgress) {
+        try {
+            // 1. Load Object Detection
+            onProgress("Loading Cortex 1: Objects...");
+            this.netObject = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+            this.status.obj = true;
+
+            // 2. Load Pose Detection (MoveNet Lightning - Fast)
+            onProgress("Loading Cortex 2: Skeleton...");
+            this.netPose = await poseDetection.createDetector(
+                poseDetection.SupportedModels.MoveNet,
+                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+            );
+            this.status.pose = true;
+
+            // 3. Load Face Mesh
+            onProgress("Loading Cortex 3: Biometrics...");
+            this.netFace = await faceLandmarksDetection.load(
+                faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
+            );
+            this.status.face = true;
+
+            return true;
+        } catch (e) {
+            console.error(e);
+            onProgress("Error: " + e.message);
+            return false;
+        }
     }
-    getName(trackId) {
-        return this.identities.get(trackId) || null;
+
+    async analyze(video) {
+        // Run inference in parallel? No, JS is single threaded.
+        // Run sequentially but fast.
+        
+        const results = { objects: [], poses: [], faces: [] };
+
+        if(this.status.obj) results.objects = await this.netObject.detect(video, 10, CONFIG.OBJ_CONF);
+        
+        // Only run heavy pose/face if humans are detected to save battery
+        const hasHuman = results.objects.some(o => o.class === 'person');
+        
+        if(this.status.pose && hasHuman) {
+            const poses = await this.netPose.estimatePoses(video);
+            results.poses = poses;
+        }
+
+        if(this.status.face && hasHuman) {
+            const faces = await this.netFace.estimateFaces({input: video});
+            results.faces = faces;
+        }
+
+        return results;
     }
 }
 
-// --- PREDICTIVE TRACKER (ตัวเดิมที่หนึบๆ) ---
-class Tracker {
+// --- RENDERER (The Visuals) ---
+class OmniRenderer {
     constructor() {
-        this.tracks = [];
-        this.nextId = 1;
-    }
-
-    update(detections) {
-        // 1. Predict
-        this.tracks.forEach(t => {
-            t.x += t.vx; t.y += t.vy; t.lost++;
-        });
-
-        // 2. Match
-        detections.forEach(det => {
-            const center = Vector.getCenter(det.bbox);
-            let bestDist = CONFIG.TRACK.MATCH_DIST;
-            let bestTrack = null;
-
-            this.tracks.forEach(t => {
-                const d = Vector.dist({x: t.x, y: t.y}, center);
-                if (d < bestDist) { bestDist = d; bestTrack = t; }
-            });
-
-            if (bestTrack) {
-                // Update Existing
-                const newVx = center.x - bestTrack.x;
-                const newVy = center.y - bestTrack.y;
-                bestTrack.vx = Vector.lerp(bestTrack.vx, newVx, 0.4);
-                bestTrack.vy = Vector.lerp(bestTrack.vy, newVy, 0.4);
-                bestTrack.x = Vector.lerp(bestTrack.x, center.x, CONFIG.TRACK.SMOOTH);
-                bestTrack.y = Vector.lerp(bestTrack.y, center.y, CONFIG.TRACK.SMOOTH);
-                bestTrack.w = Vector.lerp(bestTrack.w, det.bbox[2], CONFIG.TRACK.SMOOTH);
-                bestTrack.h = Vector.lerp(bestTrack.h, det.bbox[3], CONFIG.TRACK.SMOOTH);
-                bestTrack.lost = 0;
-                // Keep Identity if exists
-            } else {
-                // Create New
-                this.tracks.push({
-                    id: this.nextId++,
-                    x: center.x, y: center.y,
-                    w: det.bbox[2], h: det.bbox[3],
-                    vx: 0, vy: 0,
-                    class: det.class,
-                    lost: 0
-                });
-            }
-        });
-
-        // 3. Prune
-        this.tracks = this.tracks.filter(t => t.lost < CONFIG.TRACK.MAX_LOST);
-        return this.tracks;
-    }
-}
-
-// --- RENDERER ---
-class HUD {
-    constructor(sys) {
-        this.sys = sys;
         this.canvas = document.getElementById('hud-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.resize();
-        
-        // Event Listener for Tagging
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
     }
 
     resize() {
@@ -189,159 +187,177 @@ class HUD {
         this.canvas.height = window.innerHeight;
     }
 
-    handleClick(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
-        // Find clicked track
-        // ต้องแปลงพิกัดเมาส์กลับไปหาพิกัดวิดีโอ
-        const sx = this.canvas.width / this.sys.video.videoWidth;
-        const sy = this.canvas.height / this.sys.video.videoHeight;
-
-        let clickedTrack = null;
-        this.sys.tracker.tracks.forEach(t => {
-            const tx = (t.x - t.w/2) * sx;
-            const ty = (t.y - t.h/2) * sy;
-            const tw = t.w * sx;
-            const th = t.h * sy;
-
-            if(mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th) {
-                clickedTrack = t;
-            }
-        });
-
-        if(clickedTrack) {
-            this.sys.openTagModal(clickedTrack.id);
-        }
-    }
-
-    render(video, tracks, identities) {
+    render(video, data) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
         const sx = this.canvas.width / video.videoWidth;
         const sy = this.canvas.height / video.videoHeight;
 
-        tracks.forEach(t => {
-            const x = (t.x - t.w/2) * sx;
-            const y = (t.y - t.h/2) * sy;
-            const w = t.w * sx;
-            const h = t.h * sy;
+        // 1. RENDER FACES (The Deepest Layer)
+        if(data.faces) {
+            this.ctx.fillStyle = 'rgba(255, 0, 255, 0.6)'; // Magenta for Face
+            data.faces.forEach(face => {
+                face.scaledMesh.forEach((pt, i) => {
+                    // Draw only some points to save FPS
+                    if(i % 4 === 0) {
+                        const x = pt[0] * sx; // Note: FaceMesh coords might need flip based on model
+                        const y = pt[1] * sy;
+                        this.ctx.fillRect(x, y, 2, 2);
+                    }
+                });
+            });
+        }
 
-            // Check for custom name
-            const customName = identities.getName(t.id);
-            const displayName = customName ? customName.toUpperCase() : t.class.toUpperCase();
-            const isTagged = !!customName;
+        // 2. RENDER POSE (Skeleton)
+        if(data.poses && data.poses.length > 0) {
+            const pose = data.poses[0]; // MoveNet SinglePose
+            this.drawSkeleton(pose.keypoints, sx, sy);
+        }
 
-            // Style
-            const color = isTagged ? '#00ff9d' : (t.class === 'person' ? '#ffae00' : '#00a8ff');
+        // 3. RENDER OBJECTS (Boxes)
+        data.objects.forEach(obj => {
+            const [x,y,w,h] = obj.bbox;
+            const scrX = x * sx; const scrY = y * sy;
+            const scrW = w * sx; const scrH = h * sy;
+            
+            const color = obj.class === 'person' ? '#00ff9d' : '#ffae00';
+            
+            // Box
             this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = isTagged ? 3 : 2;
-            this.ctx.shadowBlur = isTagged ? 10 : 0;
-            this.ctx.shadowColor = color;
-
-            // Draw Tech Corners
-            this.ctx.beginPath();
-            const L = w * 0.2;
-            this.ctx.moveTo(x, y+L); this.ctx.lineTo(x, y); this.ctx.lineTo(x+L, y);
-            this.ctx.moveTo(x+w-L, y); this.ctx.lineTo(x+w, y); this.ctx.lineTo(x+w, y+L);
-            this.ctx.moveTo(x+w, y+h-L); this.ctx.lineTo(x+w, y+h); this.ctx.lineTo(x+w-L, y+h);
-            this.ctx.moveTo(x+L, y+h); this.ctx.lineTo(x, y+h); this.ctx.lineTo(x, y+h-L);
-            this.ctx.stroke();
-            this.ctx.shadowBlur = 0;
-
-            // Label Box
-            this.ctx.fillStyle = color;
-            this.ctx.fillRect(x, y-20, isTagged ? w : Math.min(w, 100), 20);
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(scrX, scrY, scrW, scrH);
             
             // Text
-            this.ctx.fillStyle = '#000';
-            this.ctx.font = "bold 12px monospace";
-            const label = isTagged ? `★ ${displayName}` : `ID_${t.id} ${displayName}`;
-            this.ctx.fillText(label, x+5, y-6);
+            this.ctx.fillStyle = color;
+            this.ctx.font = "bold 10px monospace";
+            this.ctx.fillText(`${obj.class.toUpperCase()} ${Math.round(obj.score*100)}%`, scrX, scrY - 5);
+        });
+    }
 
-            // Tag Hint (ถ้ายังไม่ได้ Tag)
-            if(!isTagged) {
-                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                this.ctx.fillText("[TAP TO TAG]", x, y+h+15);
+    drawSkeleton(keypoints, sx, sy) {
+        const ctx = this.ctx;
+        const connect = (a, b, color) => {
+            const p1 = keypoints.find(k => k.name === a);
+            const p2 = keypoints.find(k => k.name === b);
+            if(p1 && p2 && p1.score > 0.3 && p2.score > 0.3) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x * sx, p1.y * sy);
+                ctx.lineTo(p2.x * sx, p2.y * sy);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+        };
+
+        // Draw Bones (Cyan)
+        const c = '#00a8ff';
+        connect('left_shoulder', 'right_shoulder', c);
+        connect('left_shoulder', 'left_elbow', c);
+        connect('left_elbow', 'left_wrist', c);
+        connect('right_shoulder', 'right_elbow', c);
+        connect('right_elbow', 'right_wrist', c);
+        connect('left_shoulder', 'left_hip', c);
+        connect('right_shoulder', 'right_hip', c);
+        connect('left_hip', 'right_hip', c);
+        
+        // Joints (Yellow)
+        ctx.fillStyle = '#ffae00';
+        keypoints.forEach(kp => {
+            if(kp.score > 0.3) {
+                ctx.beginPath();
+                ctx.arc(kp.x * sx, kp.y * sy, 4, 0, 2*Math.PI);
+                ctx.fill();
             }
         });
     }
 }
 
 // --- MAIN SYSTEM ---
-class System {
+class OmegaSystem {
     constructor() {
         this.video = document.getElementById('camera-feed');
-        this.tracker = new Tracker();
-        this.identities = new IdentityManager();
-        this.hud = new HUD(this);
-        this.model = null;
+        this.kernel = new MultiAIKernel();
+        this.renderer = new OmniRenderer();
         this.isRunning = false;
-        this.pendingTagId = null;
+        window.onresize = () => this.renderer.resize();
+    }
+
+    async init() {
+        const log = document.getElementById('boot-log');
+        const btn = document.getElementById('btn-start');
         
-        window.onresize = () => this.hud.resize();
+        const success = await this.kernel.loadAll((msg) => log.innerText = msg);
+        
+        if(success) {
+            log.innerText = "SYSTEM OPTIMAL. STANDBY.";
+            btn.style.display = 'block';
+            // Setup LEDs
+            document.getElementById('led-obj').classList.add('on');
+            document.getElementById('led-pose').classList.add('on');
+            document.getElementById('led-face').classList.add('on');
+        } else {
+            log.style.color = "red";
+        }
     }
 
     async start() {
-        document.getElementById('btn-start').innerText = "LOADING AI...";
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
+                video: { facingMode: 'environment', width: {ideal: 640}, height: {ideal: 480} }, // Lower res for performance
                 audio: false
             });
             this.video.srcObject = stream;
             await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
 
-            this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
-            
             document.getElementById('boot').style.display = 'none';
             this.isRunning = true;
             this.loop();
-        } catch(e) { alert("Error: " + e.message); }
+        } catch(e) { alert("Camera Error: " + e.message); }
     }
 
     async loop() {
         if(!this.isRunning) return;
-        const detections = await this.model.detect(this.video, 20, CONFIG.AI_CONF);
-        const tracks = this.tracker.update(detections);
-        
-        this.hud.render(this.video, tracks, this.identities);
-        document.getElementById('count').innerText = tracks.length;
-        
-        requestAnimationFrame(() => this.loop());
-    }
+        const start = performance.now();
 
-    // Tagging Logic
-    openTagModal(trackId) {
-        this.pendingTagId = trackId;
-        const modal = document.getElementById('tag-input');
-        const input = document.getElementById('target-name');
+        // AI Analysis
+        const data = await this.kernel.analyze(this.video);
         
-        // Check current name
-        const currentName = this.identities.getName(trackId);
-        input.value = currentName || '';
-        
-        modal.style.display = 'block';
-        input.focus();
-    }
+        // Render
+        this.renderer.render(this.video, data);
 
-    confirmTag() {
-        const name = document.getElementById('target-name').value;
-        if(this.pendingTagId && name) {
-            this.identities.setName(this.pendingTagId, name);
+        // Logic & Stats
+        const humans = data.objects.filter(o => o.class === 'person').length;
+        document.getElementById('human-count').innerText = humans;
+        
+        // Analyze Posture Logic (Simple)
+        const statusEl = document.getElementById('posture-status');
+        if(data.poses.length > 0) {
+            const p = data.poses[0].keypoints;
+            const nose = p.find(k=>k.name==='nose');
+            const lWrist = p.find(k=>k.name==='left_wrist');
+            const rWrist = p.find(k=>k.name==='right_wrist');
+            
+            if(lWrist && rWrist && nose && (lWrist.y < nose.y || rWrist.y < nose.y)) {
+                statusEl.innerText = "HANDS RAISED (ALERT)";
+                statusEl.style.color = "#ff2a6d";
+            } else {
+                statusEl.innerText = "NEUTRAL";
+                statusEl.style.color = "#00ff9d";
+            }
+        } else {
+            statusEl.innerText = "NO TARGET";
+            statusEl.style.color = "#888";
         }
-        this.cancelTag();
-    }
 
-    cancelTag() {
-        document.getElementById('tag-input').style.display = 'none';
-        this.pendingTagId = null;
+        const ms = Math.round(performance.now() - start);
+        document.getElementById('ms').innerText = ms + "ms";
+        document.getElementById('fps').innerText = Math.round(1000/Math.max(1,ms));
+
+        requestAnimationFrame(() => this.loop());
     }
 }
 
-const OMEGA = new System();
-document.getElementById('btn-start').style.display = 'block';
+const OMEGA = new OmegaSystem();
+OMEGA.init();
 
 </script>
 </body>
