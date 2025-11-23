@@ -2,484 +2,278 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MOCHI: 14 PRO EDITION</title>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MOCHI: AI VISION</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
+
     <style>
-        :root {
-            --primary: #ff9a9e;
-            --secondary: #fecfef;
-            --accent: #a18cd1;
-            --glass: rgba(255, 255, 255, 0.65);
-            --island-w: 126px; /* Dynamic Island width approx */
-            --island-h: 37px;
-        }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Nunito', sans-serif; }
 
-        * { box-sizing: border-box; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
-
-        body {
-            margin: 0; overflow: hidden; background: #000;
-            font-family: 'Nunito', sans-serif;
-        }
-
-        /* LAYERS */
-        #camera-feed {
+        #camera {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0;
-        }
-        
-        #lidar-canvas { /* Edge Detection Layer */
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1; mix-blend-mode: screen; pointer-events: none;
+            object-fit: cover; opacity: 0.8;
         }
 
-        #game-canvas { /* Mochi Layer */
+        #ar-canvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 2;
         }
 
-        /* UI OVERLAY */
+        /* HUD */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none;
+            z-index: 10; pointer-events: none; padding: 20px;
             display: flex; flex-direction: column; justify-content: space-between;
-            /* iPhone Safe Area Support */
-            padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)) 20px;
         }
 
-        /* DYNAMIC ISLAND VISUALIZER (Hidden hitbox visualization) */
-        #island-zone {
-            position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
-            width: var(--island-w); height: var(--island-h);
-            border-radius: 20px;
-            /* border: 1px solid red; Un-comment to see hitbox */ 
-            z-index: 20; pointer-events: none;
+        .status-pill {
+            background: rgba(0,0,0,0.6); border: 1px solid #00ffcc;
+            color: #00ffcc; padding: 8px 15px; border-radius: 20px;
+            font-size: 12px; text-shadow: 0 0 5px #00ffcc;
+            display: inline-block; backdrop-filter: blur(5px);
         }
 
-        /* HUD CARDS */
-        .hud-top { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; }
-
-        .tech-card {
-            background: var(--glass);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 12px;
-            border: 1px solid rgba(255,255,255,0.4);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-            width: 140px;
-            display: flex; flex-direction: column; gap: 5px;
-        }
-
-        .card-label { font-size: 10px; color: #ff6b81; font-weight: 900; letter-spacing: 1px; }
-        .raw-data { font-family: 'Courier New', monospace; font-size: 9px; color: #333; font-weight: 600; }
-        
-        .mini-graph {
-            width: 100%; height: 40px;
-            background: rgba(255,154,158, 0.1);
-            border-radius: 10px;
-        }
-
-        /* BOTTOM ACTIONS */
-        .action-bar {
-            display: flex; justify-content: center; gap: 20px;
-            pointer-events: auto; margin-bottom: 10px;
-        }
-
-        .btn-tech {
-            width: 65px; height: 65px; border-radius: 22px;
-            border: none; background: rgba(255,255,255,0.9);
-            color: #ff9a9e; font-size: 28px; cursor: pointer;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            transition: transform 0.1s;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .btn-tech span { font-size: 9px; font-weight: 900; margin-top: 2px; color: #aaa; }
-        .btn-tech:active { transform: scale(0.9); background: #fff; }
-        .btn-tech.active { background: #ff9a9e; color: #fff; }
-        .btn-tech.active span { color: #fff; }
-
-        /* START SCREEN */
-        #start-screen {
+        /* AI LOADING SCREEN */
+        #loader {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #fff;
+            background: #000; z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #00f3ff; font-family: 'Fredoka One';
         }
-        #btn-init {
-            background: #fff; color: #000; border: none; padding: 18px 40px;
-            border-radius: 50px; font-size: 18px; font-weight: bold;
-            cursor: pointer; margin-top: 20px;
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333;
+            border-top: 5px solid #00f3ff; border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 20px;
         }
-        .ios-note { font-size: 12px; color: #888; margin-top: 10px; max-width: 80%; text-align: center; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
+        /* START BTN */
+        #btn-start {
+            display: none;
+            padding: 15px 40px; font-size: 20px; background: #00f3ff; border: none;
+            border-radius: 50px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+        }
     </style>
 </head>
 <body>
 
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="lidar-canvas"></canvas>
-    <canvas id="game-canvas"></canvas>
+    <video id="camera" autoplay playsinline muted></video>
+    <canvas id="ar-canvas"></canvas>
 
     <div id="ui-layer">
-        <div id="island-zone"></div> <div class="hud-top">
-            <div class="tech-card">
-                <div class="card-label">GYRO-A16</div>
-                <canvas id="graph-gyro" class="mini-graph"></canvas>
-                <div class="raw-data" id="txt-gyro">CALIBRATING...</div>
+        <div>
+            <div class="status-pill">AI VISION: <span id="ai-stat">OFFLINE</span></div>
+            <div class="status-pill" style="margin-top:5px; border-color:#ff9a9e; color:#ff9a9e;">
+                TARGET: <span id="target-name">NONE</span>
             </div>
-            
-            <div class="tech-card">
-                <div class="card-label">AUDIO-ENGINE</div>
-                <canvas id="graph-audio" class="mini-graph"></canvas>
-                <div class="raw-data" id="txt-db">SILENT</div>
-            </div>
-        </div>
-
-        <div class="action-bar">
-            <button class="btn-tech" id="btn-scan" onclick="Tech.toggleLidar()">
-                👁️<span>LIDAR</span>
-            </button>
-            <button class="btn-tech" onclick="Tech.analyze()">
-                📊<span>STATS</span>
-            </button>
-            <button class="btn-tech" onclick="Tech.reset()">
-                ↺<span>RESET</span>
-            </button>
         </div>
     </div>
 
-    <div id="start-screen">
-        <h1 style="font-family: 'Fredoka One'; font-size: 3rem; margin: 0; background: linear-gradient(to right, #ff9a9e, #fecfef); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MOCHI</h1>
-        <div style="font-weight: bold; letter-spacing: 2px; font-size: 12px; margin-bottom: 20px;">PRO EDITION</div>
-        <button id="btn-init">ALLOW SENSORS</button>
-        <div class="ios-note">Requires Sensor Access for Gyro & Camera.<br>Tap to Grant Permission.</div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="load-text">DOWNLOADING NEURAL NET...</div>
+        <button id="btn-start">ACTIVATE VISION</button>
     </div>
 
 <script>
 /**
- * MOCHI: iPHONE 14 PRO EDITION
- * Optimized for iOS Safari, Retina Displays, and Dynamic Island
+ * PROJECT: MOCHI VISION PRO
+ * Integrates TensorFlow.js COCO-SSD model for Real-Time Object Detection
  */
 
-// --- 1. HARDWARE LAYER (iOS Optimized) ---
-const HAL = {
-    gyro: { x:0, y:0, z:0 },
-    history: [],
-    audioData: null,
-    analyser: null,
-    
-    async requestPermissions() {
-        // 1. Motion Permission (iOS 13+ Requirement)
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            try {
-                const response = await DeviceOrientationEvent.requestPermission();
-                if (response !== 'granted') {
-                    alert('Gyroscope permission denied. Mochi needs balance!');
-                    return false;
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        // 2. Camera/Mic Permission
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, // Optimize res
-                audio: true 
-            });
-            document.getElementById('camera-feed').srcObject = stream;
-            this.initAudio(stream);
-        } catch(e) {
-            alert('Camera/Mic blocked. Please check Settings > Safari > Camera.');
-            return false;
-        }
-
-        this.startSensors();
-        return true;
-    },
-
-    initAudio(stream) {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const src = ctx.createMediaStreamSource(stream);
-        this.analyser = ctx.createAnalyser();
-        this.analyser.fftSize = 64;
-        src.connect(this.analyser);
-        this.audioData = new Uint8Array(this.analyser.frequencyBinCount);
-    },
-
-    startSensors() {
-        window.addEventListener('deviceorientation', e => {
-            this.gyro = { x: e.gamma || 0, y: e.beta || 0, z: e.alpha || 0 };
-        });
-        // Accelerometer not strictly needed for basic movement, saving battery
-    },
-
-    updateGraphs() {
-        // Gyro Graph
-        this.history.push(this.gyro.y);
-        if(this.history.length > 40) this.history.shift();
-        
-        const cvsG = document.getElementById('graph-gyro');
-        const ctxG = cvsG.getContext('2d');
-        ctxG.clearRect(0,0,cvsG.width, cvsG.height);
-        ctxG.strokeStyle = '#ff9a9e'; ctxG.lineWidth = 2; ctxG.beginPath();
-        const step = cvsG.width/40;
-        this.history.forEach((v, i) => {
-            const y = (cvsG.height/2) - (v*1.5); // Sensitivity
-            if(i===0) ctxG.moveTo(i*step, y); else ctxG.lineTo(i*step, y);
-        });
-        ctxG.stroke();
-        document.getElementById('txt-gyro').innerText = `X:${this.gyro.x.toFixed(1)} Y:${this.gyro.y.toFixed(1)}`;
-
-        // Audio Graph
-        if(this.analyser) {
-            this.analyser.getByteFrequencyData(this.audioData);
-            let sum = 0; this.audioData.forEach(v => sum+=v);
-            const avg = sum/this.audioData.length;
-            
-            const cvsA = document.getElementById('graph-audio');
-            const ctxA = cvsA.getContext('2d');
-            ctxA.clearRect(0,0,cvsA.width, cvsA.height);
-            ctxA.fillStyle = avg > 60 ? '#ff6b81' : '#a18cd1';
-            
-            const barW = cvsA.width / this.audioData.length;
-            for(let i=0; i<this.audioData.length; i++) {
-                const h = (this.audioData[i] / 255) * cvsA.height;
-                ctxA.fillRect(i*barW, cvsA.height-h, barW-1, h);
-            }
-            document.getElementById('txt-db').innerText = `NOISE: ${Math.floor(avg)}%`;
-            return avg; // Return volume level
-        }
-        return 0;
-    }
-};
-
-// --- 2. RETINA RENDERER ---
-const Renderer = {
-    canvas: document.getElementById('game-canvas'),
+const SYS = {
+    width: window.innerWidth,
+    height: window.innerHeight,
     ctx: null,
-    dpr: window.devicePixelRatio || 1, // Retina scaling
+    canvas: document.getElementById('ar-canvas'),
+    video: document.getElementById('camera'),
+    model: null,
+    predictions: [],
+    isDetecting: false
+};
 
-    init() {
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
+// --- 1. AI BRAIN (TENSORFLOW) ---
+const AI = {
+    async init() {
+        document.getElementById('load-text').innerText = "LOADING MODEL (10MB)...";
+        // Load COCO-SSD Model
+        SYS.model = await cocoSsd.load();
         
-        // Init Mini Graphs
-        ['graph-gyro', 'graph-audio'].forEach(id => {
-            const c = document.getElementById(id);
-            c.width = c.clientWidth; c.height = c.clientHeight;
-        });
+        document.getElementById('load-text').style.display = 'none';
+        document.getElementById('btn-start').style.display = 'block';
+        document.querySelector('.spinner').style.display = 'none';
     },
 
-    resize() {
-        // High DPI Scaling
-        this.canvas.width = window.innerWidth * this.dpr;
-        this.canvas.height = window.innerHeight * this.dpr;
-        this.ctx.scale(this.dpr, this.dpr);
-        this.canvas.style.width = window.innerWidth + 'px';
-        this.canvas.style.height = window.innerHeight + 'px';
+    async detect() {
+        if (!SYS.isDetecting || !SYS.video.readyState === 4) return;
+        
+        // Predict objects
+        SYS.predictions = await SYS.model.detect(SYS.video);
+        
+        // Loop
+        requestAnimationFrame(AI.detect);
     }
 };
 
-// --- 3. LIDAR SYSTEM ---
-const Lidar = {
-    active: false,
-    canvas: document.getElementById('lidar-canvas'),
-    ctx: null,
-    tmpCvs: document.createElement('canvas'),
-    tmpCtx: null,
-    video: document.getElementById('camera-feed'),
-
-    init() {
-        this.ctx = this.canvas.getContext('2d');
-        this.tmpCtx = this.tmpCvs.getContext('2d');
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-    },
-
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        // Low res buffer for performance
-        this.tmpCvs.width = 160; this.tmpCvs.height = 240; 
-    },
-
-    process() {
-        if(!this.active || this.video.readyState !== 4) {
-            this.ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
-            return;
-        }
-        // Draw video to temp
-        this.tmpCtx.drawImage(this.video, 0, 0, 160, 240);
-        const frame = this.tmpCtx.getImageData(0, 0, 160, 240);
-        const data = frame.data;
-        
-        // Fast Sobel
-        const output = this.tmpCtx.createImageData(160, 240);
-        const out = output.data;
-        
-        for(let i=0; i<data.length; i+=4) {
-            const diff = Math.abs(data[i] - (data[i+4]||0));
-            if(diff > 15) {
-                out[i] = 255; out[i+1] = 192; out[i+2] = 203; out[i+3] = 200; // Pink Lines
-            }
-        }
-        this.tmpCtx.putImageData(output, 0, 0);
-        
-        // Draw scaled
-        this.ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
-        this.ctx.imageSmoothingEnabled = false;
-        this.ctx.drawImage(this.tmpCvs, 0, 0, this.canvas.width, this.canvas.height);
-    }
-};
-
-// --- 4. MOCHI (Dynamic Island Aware) ---
+// --- 2. MOCHI AVATAR ---
 const Mochi = {
-    x: window.innerWidth/2, y: window.innerHeight/2,
-    vx: 0, vy: 0,
+    x: SYS.width/2, y: SYS.height/2,
+    targetX: SYS.width/2, targetY: SYS.height/2,
     r: 60,
+    mood: 'NEUTRAL',
     
-    // Dynamic Island Config
-    islandW: 126,
-    islandH: 37,
-    islandY: 11,
+    update() {
+        // Chase the most interesting object
+        if (SYS.predictions.length > 0) {
+            // Prioritize 'person', then others
+            let target = SYS.predictions.find(p => p.class === 'person') || SYS.predictions[0];
+            
+            // Calculate center of bbox
+            const centerX = target.bbox[0] + (target.bbox[2] / 2);
+            const centerY = target.bbox[1] + (target.bbox[3] / 2);
+            
+            this.targetX = centerX;
+            this.targetY = centerY;
 
-    update(vol) {
-        // Physics (Gyro + Gravity)
-        let gx = HAL.gyro.z * 0.8;
-        let gy = (HAL.gyro.y - 45) * 0.8;
-        
-        this.vx += gx * 0.08;
-        this.vy += gy * 0.08;
-        this.vx *= 0.92; this.vy *= 0.92;
-        
-        this.x += this.vx;
-        this.y += this.vy;
+            // React to object
+            document.getElementById('target-name').innerText = target.class.toUpperCase();
+            
+            if (target.class === 'person') this.mood = 'HAPPY';
+            else if (['cup', 'bottle', 'apple', 'banana'].includes(target.class)) this.mood = 'HUNGRY';
+            else if (['cell phone', 'laptop', 'tv'].includes(target.class)) this.mood = 'TECH';
+            else this.mood = 'CURIOUS';
 
-        // Boundaries (Screen)
-        const W = window.innerWidth; const H = window.innerHeight;
-        if(this.x < this.r) { this.x = this.r; this.vx *= -0.6; }
-        if(this.x > W-this.r) { this.x = W-this.r; this.vx *= -0.6; }
-        if(this.y < this.r) { this.y = this.r; this.vy *= -0.6; }
-        if(this.y > H-this.r) { this.y = H-this.r; this.vy *= -0.6; }
-
-        // --- DYNAMIC ISLAND COLLISION ---
-        const islandLeft = (W/2) - (this.islandW/2);
-        const islandRight = (W/2) + (this.islandW/2);
-        const islandBottom = this.islandY + this.islandH;
-
-        // Check if Mochi hits the island area
-        if (this.y - this.r < islandBottom && this.x > islandLeft - 20 && this.x < islandRight + 20) {
-            // Push down
-            this.y = islandBottom + this.r;
-            this.vy = Math.abs(this.vy) * 0.8 + 2; // Bounce down
-            this.squishY = 0.7; // Squish effect
+        } else {
+            // Center screen if nothing found
+            this.targetX = SYS.width/2;
+            this.targetY = SYS.height/2;
+            this.mood = 'NEUTRAL';
+            document.getElementById('target-name').innerText = "SCANNING...";
         }
-        
-        // Squish Physics
-        const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
-        this.squishX = 1 + (speed*0.02) + (vol/200); // React to speed & sound
-        this.squishY = 1 - (speed*0.02) - (vol/200);
+
+        // Physics (Ease follow)
+        this.x += (this.targetX - this.x) * 0.1;
+        this.y += (this.targetY - this.y) * 0.1;
     },
 
-    draw(ctx, vol) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.scale(this.squishX, this.squishY);
+    draw(ctx) {
+        // Draw AR Boxes first
+        SYS.predictions.forEach(p => {
+            const [x, y, w, h] = p.bbox;
+            
+            // Cyber Box
+            ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+            
+            // Label
+            ctx.fillStyle = 'rgba(0, 255, 204, 0.8)';
+            ctx.fillRect(x, y - 25, w, 25);
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText(`${p.class.toUpperCase()} ${Math.round(p.score*100)}%`, x + 5, y - 7);
+        });
 
-        // Glow
-        ctx.shadowBlur = 30; ctx.shadowColor = 'rgba(255,255,255,0.6)';
+        // Draw Mochi
+        ctx.shadowBlur = 20; ctx.shadowColor = 'rgba(255,255,255,0.5)';
+        
+        let color = '#ff9a9e'; // Pink
+        if (this.mood === 'HUNGRY') color = '#ffcc00'; // Gold
+        if (this.mood === 'TECH') color = '#00f3ff'; // Cyan
+        if (this.mood === 'HAPPY') color = '#ff6b81'; // Dark Pink
+
+        ctx.fillStyle = color;
         
         // Body
-        ctx.fillStyle = '#ff9a9e';
-        ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // Highlights
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.arc(-20,-20,20,0,Math.PI*2); ctx.fill();
-
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.fill();
+        
         // Face
-        this.drawFace(ctx, vol);
+        this.drawFace(ctx);
         ctx.restore();
     },
 
-    drawFace(ctx, vol) {
-        // Eyes follow center
-        const lookX = (this.vx * 1.5);
-        const lookY = (this.vy * 1.5);
-        
+    drawFace(ctx) {
         ctx.fillStyle = '#333';
-        
-        if(Lidar.active) {
-            // Scan Mode Eyes
-            ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(-25+lookX, -5+lookY, 10, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(25+lookX, -5+lookY, 10, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#00ff00'; ctx.fillRect(-30, -5, 60, 2); // Laser
+        ctx.shadowBlur = 0;
+
+        if (this.mood === 'TECH') {
+            // Digital Eyes
+            ctx.fillRect(-25, -10, 15, 15);
+            ctx.fillRect(10, -10, 15, 15);
         } else {
             // Cute Eyes
-            ctx.beginPath(); ctx.arc(-25+lookX, -5+lookY, 8, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(25+lookX, -5+lookY, 8, 0, Math.PI*2); ctx.fill();
-            
-            // Cheeks
-            ctx.fillStyle = 'rgba(255,0,0,0.15)';
-            ctx.beginPath(); ctx.arc(-35, 8, 10, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(35, 8, 10, 0, Math.PI*2); ctx.fill();
-
-            // Mouth
-            ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-            ctx.beginPath();
-            if(vol > 40) {
-                ctx.arc(0, 15, 8, 0, Math.PI*2); // Singing/Surprised
-            } else {
-                ctx.arc(0, 12, 6, 0, Math.PI); // Smile
-            }
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(-20, -10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(20, -10, 8, 0, Math.PI*2); ctx.fill();
         }
+
+        // Mouth
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath();
+        
+        if (this.mood === 'HAPPY') {
+            ctx.arc(0, 10, 10, 0, Math.PI); // Smile
+        } else if (this.mood === 'HUNGRY') {
+             ctx.arc(0, 15, 8, 0, Math.PI*2); // Open mouth
+        } else {
+            ctx.moveTo(-5, 15); ctx.lineTo(5, 15); // Neutral
+        }
+        ctx.stroke();
     }
 };
 
-// --- 5. CONTROLS ---
-const Tech = {
-    toggleLidar() {
-        Lidar.active = !Lidar.active;
-        const btn = document.getElementById('btn-scan');
-        btn.classList.toggle('active', Lidar.active);
-    },
-    analyze() {
-        const speed = Math.sqrt(Mochi.vx**2 + Mochi.vy**2).toFixed(1);
-        alert(`[SYSTEM REPORT]\nSPEED: ${speed} px/f\nCOORDS: ${Mochi.x.toFixed(0)}, ${Mochi.y.toFixed(0)}\nGYRO-X: ${HAL.gyro.x.toFixed(1)}\nISLAND: DETECTED`);
-    },
-    reset() {
-        Mochi.x = window.innerWidth/2; Mochi.y = window.innerHeight/2;
-        Mochi.vx = 0; Mochi.vy = 0;
-    }
-};
-
-// --- 6. MAIN LOOP ---
+// --- 3. SYSTEM ---
 function loop() {
-    const vol = HAL.updateGraphs();
-    Lidar.process();
-    
-    Renderer.ctx.clearRect(0, 0, Renderer.canvas.width/Renderer.dpr, Renderer.canvas.height/Renderer.dpr);
-    
-    Mochi.update(vol);
-    Mochi.draw(Renderer.ctx, vol);
-    
+    SYS.ctx.clearRect(0, 0, SYS.width, SYS.height);
+    Mochi.update();
+    Mochi.draw(SYS.ctx);
     requestAnimationFrame(loop);
 }
 
-// --- START ---
-document.getElementById('btn-init').addEventListener('click', async () => {
-    const granted = await HAL.requestPermissions();
-    if(granted) {
-        document.getElementById('start-screen').style.display = 'none';
-        Renderer.init();
-        Lidar.init();
-        loop();
+document.getElementById('btn-start').addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' }, 
+            audio: false 
+        });
+        SYS.video.srcObject = stream;
+        
+        // Wait for video to load
+        SYS.video.onloadeddata = () => {
+            document.getElementById('loader').style.display = 'none';
+            SYS.isDetecting = true;
+            
+            SYS.canvas.width = window.innerWidth;
+            SYS.canvas.height = window.innerHeight;
+            SYS.ctx = SYS.canvas.getContext('2d');
+
+            document.getElementById('ai-stat').innerText = "ACTIVE";
+            document.getElementById('ai-stat').style.color = "#00ffcc";
+            
+            AI.detect(); // Start Tensor Loop
+            loop(); // Start Visual Loop
+            
+            speak("Visual Cortex Online. I can see now!");
+        };
+
+    } catch(e) {
+        alert("Camera access denied or not supported.");
     }
 });
+
+function speak(txt) {
+    const u = new SpeechSynthesisUtterance(txt);
+    u.pitch = 1.4; u.rate = 1.1;
+    window.speechSynthesis.speak(u);
+}
+
+// Init
+AI.init();
 
 </script>
 </body>
