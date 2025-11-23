@@ -1,2251 +1,1238 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>LUMEN-OPS ΩMEGA — QUANTUM HUMANOID SENSE CONSOLE</title>
 
-    <style>
-        :root {
-            --hud-primary: #00ff41;
-            --hud-secondary: #008f11;
-            --hud-alert: #ff0000;
-            --hud-warn: #ffcc00;
-            --hud-info: #0080ff;
-            --hud-critical: #ff0066;
-            --bg-dark: #050505;
-            --glass: rgba(0, 20, 0, 0.85);
-            --glass-dark: rgba(0, 10, 0, 0.95);
-            --neon-glow: 0 0 10px currentColor;
-        }
+  <!-- Core ML -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js"></script>
 
-        * { 
-            box-sizing: border-box; 
-            user-select: none; 
-            -webkit-touch-callout: none; 
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        body {
-            margin: 0; 
-            overflow: hidden; 
-            background: var(--bg-dark);
-            font-family: 'Courier New', 'Consolas', monospace;
-            color: var(--hud-primary);
-            width: 100vw; 
-            height: 100vh;
-            line-height: 1.2;
-        }
+  <!-- Vision models -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@3.0.0/dist/pose-detection.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-segmentation@1.0.2/dist/body-segmentation.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.6/dist/face-landmarks-detection.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.1/dist/hand-pose-detection.min.js"></script>
 
-        #viewport { 
-            position: relative; 
-            width: 100%; 
-            height: 100%; 
-        }
-        
-        #camera-feed {
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover;
-            z-index: 0; 
-            filter: contrast(1.4) brightness(0.7) hue-rotate(90deg) saturate(1.3);
-            opacity: 0.5;
-        }
-        
-        #hud-canvas { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            z-index: 10; 
-        }
+  <!-- OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 
-        #ui-layer {
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            z-index: 20; 
-            pointer-events: none;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between;
-            padding: max(12px, env(safe-area-inset-top));
-        }
+  <!-- MediaPipe audio tasks -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.22-rc.20250304/audio_bundle.js" crossorigin="anonymous"></script>
 
-        /* Panel anchors (for auto-avoid) */
-        #panel-metrics {
-            position: absolute;
-            top: max(12px, env(safe-area-inset-top));
-            left: 12px;
-        }
-        #panel-avionics {
-            position: absolute;
-            top: max(12px, env(safe-area-inset-top));
-            right: 12px;
-        }
-        #panel-analytics {
-            position: absolute;
-            left: 12px;
-            bottom: 160px;
-        }
-        #panel-target {
-            position: absolute;
-            right: 160px;
-            top: 110px;
-        }
+  <style>
+    :root{
+      --hud:#00ff66;
+      --hud-dim:rgba(0,255,102,.15);
+      --hud-dim2:rgba(0,255,102,.08);
+      --bg: #020402;
+      --glass: rgba(4,14,8,.55);
+      --glass-strong: rgba(4,14,8,.78);
+      --warn:#ffcf40;
+      --danger:#ff5d5d;
+      --ok:#64ff9b;
+      --font: system-ui, -apple-system, Segoe UI, Inter, Roboto, sans-serif;
+    }
+    html,body{margin:0;height:100%;background:#000;color:var(--hud);font-family:var(--font);overflow:hidden;}
+    #stage{position:fixed;inset:0;background:#000;}
+    video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}
+    canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 
-        .hud-panel {
-            background: var(--glass); 
-            border: 1px solid var(--hud-primary);
-            border-left: 3px solid var(--hud-primary);
-            padding: 8px 12px; 
-            margin: 6px; 
-            width: fit-content;
-            backdrop-filter: blur(4px);
-            box-shadow: var(--neon-glow);
-            clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
-            font-size: 11px;
-        }
-        
-        .hud-panel-wide {
-            width: auto;
-            min-width: 240px;
-            max-width: 280px;
-        }
-        
-        .panel-title {
-            font-size: 10px;
-            font-weight: bold;
-            color: var(--hud-secondary);
-            margin-bottom: 6px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        .hud-text { 
-            font-size: 10px; 
-            letter-spacing: 0.5px; 
-            margin-bottom: 3px; 
-            text-shadow: var(--neon-glow);
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .hud-value { 
-            font-weight: bold; 
-            color: #fff;
-            margin-left: 8px;
-        }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            margin-top: 6px;
-        }
+    /* UI */
+    .panel{
+      position:fixed; z-index:10; color:var(--hud);
+      background:linear-gradient(180deg,var(--glass),rgba(2,8,4,.2));
+      border:1px solid var(--hud-dim);
+      border-radius:14px; backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.6), inset 0 0 30px rgba(0,255,102,.05);
+      padding:10px 12px; font-size:12px; letter-spacing:.3px;
+      transition: transform .35s ease, opacity .35s ease;
+      user-select:none;
+    }
+    .panel.hidden{opacity:.2}
+    .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .title{font-weight:700; font-size:12px; opacity:.9;}
+    .sub{opacity:.75; font-size:11px;}
+    .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-top:6px}
+    .kv div:nth-child(odd){opacity:.7}
+    .chip{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:3px 7px;border-radius:999px;
+      background:var(--hud-dim2); border:1px solid var(--hud-dim); font-size:11px;
+    }
+    .dot{width:8px;height:8px;border-radius:50%;background:#244;box-shadow:0 0 0 1px #0f4 inset;}
+    .dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok);}
+    .dot.warn{background:var(--warn);box-shadow:0 0 8px var(--warn);}
+    .dot.danger{background:var(--danger);box-shadow:0 0 8px var(--danger);}
 
-        #radar-container {
-            position: absolute; 
-            bottom: 15px; 
-            right: 15px;
-            width: 140px; 
-            height: 140px;
-            border-radius: 50%;
-            background: var(--glass-dark);
-            border: 2px solid var(--hud-primary);
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
-            overflow: hidden;
-            z-index: 30;
-        }
-        
-        #radar-container::after {
-            content: ''; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.4) 360deg);
-            border-radius: 50%;
-            animation: radar-scan 3s linear infinite;
-        }
-        
-        .radar-grid {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            border: 1px solid rgba(0,255,65,0.3); 
-            border-radius: 50%; 
-            pointer-events: none;
-        }
-        
-        .radar-cross {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            width: 100%; 
-            height: 1px; 
-            background: rgba(0,255,65,0.3);
-        }
-        
-        .radar-blip {
-            position: absolute; 
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: var(--neon-glow);
-            transition: all 0.2s ease-out;
-            z-index: 2;
-        }
-        
-        .radar-range {
-            position: absolute;
-            bottom: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 8px;
-            color: var(--hud-secondary);
-        }
-        
-        @keyframes radar-scan { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
-        }
+    button{
+      background:transparent; color:var(--hud);
+      border:1px solid var(--hud-dim); border-radius:10px;
+      padding:6px 10px; font-size:12px; cursor:pointer;
+      transition:.2s ease; outline:none;
+    }
+    button:hover{background:var(--hud-dim2)}
+    button.active{background:var(--hud-dim); box-shadow:0 0 0 1px var(--hud) inset;}
+    button.danger{border-color:rgba(255,93,93,.5); color:var(--danger);}
+    button.warn{border-color:rgba(255,207,64,.5); color:var(--warn);}
 
-        #boot-overlay {
-            position: fixed; 
-            inset: 0; 
-            background: #000; 
-            z-index: 9999;
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            color: var(--hud-primary);
-            background: radial-gradient(circle at center, #001100 0%, #000000 70%);
-        }
-        
-        .boot-title {
-            font-size: 42px;
-            font-weight: 900;
-            margin-bottom: 8px;
-            letter-spacing: 6px;
-            text-shadow: 0 0 20px var(--hud-primary);
-            background: linear-gradient(90deg, var(--hud-primary), var(--hud-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .boot-subtitle {
-            opacity: 0.7; 
-            margin-bottom: 30px;
-            font-size: 13px;
-            letter-spacing: 2px;
-        }
-        
-        #btn-init {
-            background: transparent; 
-            color: var(--hud-primary); 
-            border: 2px solid var(--hud-primary);
-            padding: 14px 50px; 
-            font-family: inherit; 
-            font-size: 15px; 
-            font-weight: bold;
-            letter-spacing: 3px; 
-            cursor: pointer; 
-            margin-top: 30px;
-            transition: all 0.3s ease;
-            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-            text-transform: uppercase;
-            position: relative;
-            overflow: hidden;
-            pointer-events: auto;
-        }
-        
-        #btn-init::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0,255,65,0.4), transparent);
-            transition: left 0.5s;
-        }
-        
-        #btn-init:hover::before {
-            left: 100%;
-        }
-        
-        #btn-init:hover { 
-            background: var(--hud-primary); 
-            color: #000; 
-            box-shadow: 0 0 25px var(--hud-primary);
-        }
-        
-        .status-list {
-            text-align: left; 
-            font-size: 11px; 
-            line-height: 1.6; 
-            opacity: 0.9;
-            margin-top: 25px;
-        }
-        
-        .status-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .status-led { 
-            display: inline-block; 
-            width: 8px; 
-            height: 8px; 
-            background: #333; 
-            border-radius: 50%; 
-            margin-right: 10px; 
-            position: relative;
-        }
-        
-        .status-led::after {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            bottom: -1px;
-            border-radius: 50%;
-            box-shadow: 0 0 6px currentColor;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .status-led.active { 
-            background: var(--hud-primary);
-        }
-        
-        .status-led.active::after {
-            opacity: 1;
-        }
-        
-        .status-led.error { 
-            background: var(--hud-alert);
-        }
-        
-        .status-led.error::after {
-            opacity: 1;
-        }
-        
-        .status-led.warning { 
-            background: var(--hud-warn);
-        }
-        
-        .status-led.warning::after {
-            opacity: 1;
-        }
-        
-        .status-led.loading {
-            background: var(--hud-info);
-            animation: pulse 1.5s infinite;
-        }
+    #hudTop{top:10px;left:10px;max-width:58vw;}
+    #hudRight{top:10px;right:10px;max-width:36vw;}
+    #hudBottom{bottom:10px;left:10px;max-width:75vw;}
+    #radarPanel{bottom:10px;right:10px;width:220px;}
+    #radarCanvas{width:100%;height:150px;display:block;border-radius:10px;background:#0008;border:1px dashed var(--hud-dim);}
+    #heatCanvas{width:100%;height:90px;display:block;border-radius:10px;background:#0008;border:1px dashed var(--hud-dim);margin-top:6px;}
 
-        #system-status {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--glass-dark);
-            border-top: 1px solid var(--hud-secondary);
-            padding: 6px 12px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 9px;
-            z-index: 25;
-            backdrop-filter: blur(4px);
-        }
-        
-        .status-section {
-            display: flex;
-            align-items: center;
-        }
-        
-        .status-item-compact {
-            display: flex;
-            align-items: center;
-            margin-right: 15px;
-        }
-        
-        .status-indicator {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            margin-right: 5px;
-            position: relative;
-        }
-        
-        .status-indicator::after {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            bottom: -1px;
-            border-radius: 50%;
-            box-shadow: 0 0 4px currentColor;
-        }
-        
-        .status-ok { 
-            background: var(--hud-primary); 
-        }
-        
-        .status-warn { 
-            background: var(--hud-warn); 
-        }
-        
-        .status-error { 
-            background: var(--hud-alert); 
-        }
-        
-        .status-offline { 
-            background: #444; 
-        }
+    #reticle{
+      position:fixed; inset:0; pointer-events:none; z-index:9;
+      background:
+        radial-gradient(closest-side,rgba(0,255,102,.12),transparent 60%),
+        radial-gradient(circle at center, transparent 0 30%, rgba(0,255,102,.1) 31% 31.5%, transparent 33%);
+      mix-blend-mode:screen; opacity:.6;
+    }
 
-        /* Control Panel */
-        #control-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: var(--glass-dark);
-            border: 1px solid var(--hud-primary);
-            padding: 8px;
-            border-radius: 4px;
-            z-index: 40;
-            pointer-events: auto;
-            backdrop-filter: blur(4px);
-            display: none;
-        }
+    #toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background:var(--glass-strong); border:1px solid var(--hud-dim);
+      padding:8px 12px; border-radius:12px; font-size:12px; z-index:30;
+      opacity:0; transition:.25s ease;
+    }
+    #toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
 
-        .control-btn {
-            background: transparent;
-            border: 1px solid var(--hud-secondary);
-            color: var(--hud-primary);
-            padding: 4px 8px;
-            margin: 2px;
-            font-size: 10px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
+    #zoneOverlay{
+      position:fixed; inset:0; z-index:8; pointer-events:none;
+    }
+    #zoneOverlay.edit{pointer-events:auto; cursor:crosshair;}
 
-        .control-btn:hover {
-            background: var(--hud-secondary);
-        }
+    .list{max-height:130px; overflow:auto; padding-right:4px;}
+    .list::-webkit-scrollbar{width:6px}
+    .list::-webkit-scrollbar-thumb{background:var(--hud-dim);border-radius:6px}
 
-        .control-btn.active {
-            background: var(--hud-primary);
-            color: black;
-        }
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+    .tiny{font-size:10px; opacity:.75}
 
-        #toggle-controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 35;
-            pointer-events: auto;
-            background: var(--glass);
-            border: 1px solid var(--hud-primary);
-            color: var(--hud-primary);
-            padding: 4px 8px;
-            font-size: 10px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-
-        /* Permission Overlay */
-        #permission-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 9998;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--hud-primary);
-            text-align: center;
-            padding: 20px;
-        }
-
-        .permission-content {
-            background: var(--glass-dark);
-            border: 2px solid var(--hud-primary);
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 400px;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        @keyframes targetLock {
-            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.7; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-
-        .critical-alert {
-            animation: alertPulse 0.5s infinite;
-        }
-
-        @keyframes alertPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            .hud-panel-wide {
-                min-width: 220px;
-                max-width: 250px;
-            }
-            
-            #radar-container {
-                width: 120px;
-                height: 120px;
-                bottom: 10px;
-                right: 10px;
-            }
-            
-            .boot-title {
-                font-size: 32px;
-                letter-spacing: 4px;
-            }
-
-            .hud-panel {
-                padding: 6px 10px;
-                margin: 4px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .hud-panel {
-                padding: 4px 8px;
-            }
-            
-            .status-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            #system-status {
-                flex-direction: column;
-                gap: 2px;
-                font-size: 8px;
-            }
-
-            #radar-container {
-                width: 100px;
-                height: 100px;
-            }
-        }
-    </style>
+    /* Corner docking via transforms */
+    .dock-tl{transform:translate(0,0);}
+    .dock-tr{transform:translate(0,0);}
+    .dock-bl{transform:translate(0,0);}
+    .dock-br{transform:translate(0,0);}
+  </style>
 </head>
+
 <body>
+  <div id="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <canvas id="segCanvas"></canvas>
+    <canvas id="zoneOverlay"></canvas>
+    <div id="reticle"></div>
+  </div>
 
-    <div id="viewport">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="hud-canvas"></canvas>
-        
-        <div id="ui-layer">
-            <!-- Top Row: System Status -->
-            <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel" id="panel-metrics">
-                    <div class="panel-title">SYSTEM METRICS</div>
-                    <div class="hud-text">AI CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
-                    <div class="hud-text">AI FPS: <span id="val-ai-fps" class="hud-value">0</span></div>
-                    <div class="hud-text">RENDER FPS: <span id="val-render-fps" class="hud-value">0</span></div>
-                    <div class="hud-text">TRACKED: <span id="val-tracked" class="hud-value">0</span></div>
-                </div>
-                
-                <div class="hud-panel" id="panel-avionics">
-                    <div class="panel-title">AVIONICS</div>
-                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0.0°</span></div>
-                    <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0.0°</span></div>
-                    <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0.0°</span></div>
-                    <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.00</span></div>
-                </div>
-            </div>
-            
-            <!-- Middle: Analytics -->
-            <div class="hud-panel hud-panel-wide" id="panel-analytics" style="margin-top: auto; margin-bottom: 160px;">
-                <div class="panel-title">TACTICAL ANALYTICS</div>
-                <div class="hud-text">ACTIVE OBJECTS: <span id="val-active" class="hud-value">0</span></div>
-                <div class="hud-text">PERSONS (5M): <span id="val-persons" class="hud-value">0</span></div>
-                <div class="hud-text">CLOSEST PERSON: <span id="val-closest-person" class="hud-value">--</span></div>
-                <div class="hud-text">DOMINANT CLASS: <span id="val-top-label" class="hud-value">--</span></div>
-            </div>
-            
-            <!-- Target Acquisition -->
-            <div class="hud-panel hud-panel-wide" id="panel-target" style="margin-left: auto; margin-right: 160px;">
-                <div class="panel-title">PRIMARY TARGET</div>
-                <div class="hud-text">CLASS: <span id="val-target-label" class="hud-value">--</span></div>
-                <div class="hud-text">DISTANCE: <span id="val-target-dist" class="hud-value">--</span></div>
-                <div class="hud-text">BEARING: <span id="val-target-bearing" class="hud-value">--</span></div>
-                <div class="hud-text">MOTION: <span id="val-target-state" class="hud-value">--</span></div>
-                <div class="hud-text">CONFIDENCE: <span id="val-target-conf" class="hud-value">--</span></div>
-            </div>
-
-            <!-- Radar -->
-            <div id="radar-container">
-                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
-                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
-                <div class="radar-cross"></div>
-                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
-                <div id="radar-blips"></div>
-                <div class="radar-range">RANGE: 50M</div>
-            </div>
-        </div>
-        
-        <!-- System Status Bar -->
-        <div id="system-status">
-            <div class="status-section">
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-cam"></span>
-                    <span>OPTICAL</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-ai"></span>
-                    <span>AI</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-gyro"></span>
-                    <span>GYRO</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-tracker"></span>
-                    <span>TRACKER</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-memory"></span>
-                    <span>MEMORY</span>
-                </div>
-            </div>
-            <div class="status-section">
-                <span id="status-message">SYSTEM_STANDBY</span>
-            </div>
-        </div>
-
-        <!-- Control Panel Toggle -->
-        <button id="toggle-controls">CONTROLS</button>
-
-        <!-- Control Panel -->
-        <div id="control-panel">
-            <div class="panel-title">CONTROL PANEL</div>
-            <div>
-                <button class="control-btn" id="btn-quality-low">LOW</button>
-                <button class="control-btn active" id="btn-quality-balanced">BALANCED</button>
-                <button class="control-btn" id="btn-quality-high">HIGH</button>
-            </div>
-            <div style="margin-top: 8px;">
-                <button class="control-btn" id="btn-calibrate">CALIBRATE DEPTH</button>
-                <button class="control-btn" id="btn-export">EXPORT DATA</button>
-                <button class="control-btn" id="btn-clear">CLEAR MEMORY</button>
-            </div>
-            <div style="margin-top: 8px;">
-                <button class="control-btn active" id="btn-hud-on">HUD ON</button>
-                <button class="control-btn" id="btn-hud-off">HUD OFF</button>
-            </div>
-        </div>
+  <!-- TOP LEFT -->
+  <div id="hudTop" class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div class="title">LUMEN-OPS ΩMEGA</div>
+        <div class="sub">Quantum Humanoid Sense Console · v5.0</div>
+      </div>
+      <div class="chip mono"><span id="fps">0</span> FPS</div>
     </div>
-
-    <!-- Boot Screen -->
-    <div id="boot-overlay">
-        <div class="boot-title">OMEGA</div>
-        <div class="boot-subtitle">ADVANCED HUMANOID VISION SYSTEM</div>
-        
-        <div class="status-list">
-            <div class="status-item">
-                <span class="status-led" id="led-cam"></span>
-                <span>OPTICAL SENSOR ARRAY</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-ai"></span>
-                <span>NEURAL NETWORK (COCO-SSD)</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-gyro"></span>
-                <span>INERTIAL NAVIGATION</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-tracker"></span>
-                <span>MULTI-OBJECT TRACKER</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-memory"></span>
-                <span>KNOWLEDGE BASE</span>
-            </div>
-        </div>
-        
-        <button id="btn-init">INITIALIZE SYSTEM</button>
+    <div class="row" style="margin-top:8px">
+      <button id="btnInit">INITIALIZE</button>
+      <button id="btnPause" class="warn">PAUSE</button>
+      <button id="btnLock">MAG-LOCK</button>
+      <button id="btnZones">ZONES</button>
+      <button id="btnOCR">OCR SNAP</button>
+      <button id="btnAudio">AUDIO</button>
+      <button id="btnExport">EXPORT</button>
     </div>
+    <div class="kv mono" id="statusKV"></div>
+  </div>
 
-    <!-- Permission Overlay -->
-    <div id="permission-overlay">
-        <div class="permission-content">
-            <div style="font-size: 18px; margin-bottom: 15px;">PERMISSION REQUIRED</div>
-            <div style="margin-bottom: 20px; font-size: 14px;">
-                Camera access is required for the vision system to function. Please allow camera permissions when prompted.
-            </div>
-            <button id="btn-retry-permission" style="
-                background: transparent;
-                border: 2px solid var(--hud-primary);
-                color: var(--hud-primary);
-                padding: 10px 20px;
-                font-family: inherit;
-                cursor: pointer;
-            ">RETRY PERMISSION</button>
-        </div>
+  <!-- TOP RIGHT -->
+  <div id="hudRight" class="panel">
+    <div class="title">MODULES</div>
+    <div class="row" style="margin-top:6px">
+      <div class="chip"><span class="dot" id="dotDet"></span> DETECT</div>
+      <div class="chip"><span class="dot" id="dotPose"></span> POSE</div>
+      <div class="chip"><span class="dot" id="dotSeg"></span> SEG</div>
+      <div class="chip"><span class="dot" id="dotFace"></span> FACE</div>
+      <div class="chip"><span class="dot" id="dotHand"></span> HAND</div>
+      <div class="chip"><span class="dot" id="dotIMU"></span> IMU</div>
+      <div class="chip"><span class="dot" id="dotGPS"></span> GPS</div>
+      <div class="chip"><span class="dot" id="dotAud"></span> AUD</div>
     </div>
+    <div class="row" style="margin-top:8px">
+      <button id="tglPose" class="active">POSE ON</button>
+      <button id="tglSeg">SEG OFF</button>
+      <button id="tglFace">FACE OFF</button>
+      <button id="tglHand">HAND OFF</button>
+    </div>
+    <div class="kv mono" id="imuKV"></div>
+  </div>
+
+  <!-- BOTTOM LEFT -->
+  <div id="hudBottom" class="panel">
+    <div class="title">TARGET MEMORY</div>
+    <div id="memoryList" class="list mono tiny" style="margin-top:6px"></div>
+  </div>
+
+  <!-- BOTTOM RIGHT -->
+  <div id="radarPanel" class="panel">
+    <div class="title">RADAR · HEATMAP</div>
+    <canvas id="radarCanvas" width="220" height="150"></canvas>
+    <canvas id="heatCanvas" width="220" height="90"></canvas>
+    <div class="kv mono tiny" id="threatKV"></div>
+    <div class="tiny" id="audioLine" style="margin-top:6px"></div>
+  </div>
+
+  <div id="toast" class="mono"></div>
 
 <script>
-/**
- * OMEGA: ADVANCED HUMANOID VISION SYSTEM
- * Optimized Version with Critical Fixes
- */
+(() => {
+  "use strict";
 
-// ============================================================================
-// CONFIGURATION - OPTIMIZED
-// ============================================================================
+  // ===== Utilities =====
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const now=()=>performance.now();
+  const fmt=(n,d=2)=>Number.isFinite(n)?n.toFixed(d):"--";
+  const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by;return dx*dx+dy*dy};
 
-const CONFIG = {
-    AI: {
-        MODEL_TYPE: 'lite_mobilenet_v2',
-        CONFIDENCE_THRESHOLD: 0.65,
-        MAX_DETECTIONS: 20,
-        INFERENCE_RATE: 12,
-        QUALITY_PRESETS: {
-            LOW: { rate: 8, blur: 0 },
-            BALANCED: { rate: 12, blur: 4 },
-            HIGH: { rate: 15, blur: 8 }
+  function toast(msg, ms=1600){
+    const t=document.getElementById("toast");
+    t.textContent=msg;
+    t.classList.add("show");
+    clearTimeout(toast._tm);
+    toast._tm=setTimeout(()=>t.classList.remove("show"),ms);
+  }
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  // ===== SensorHub (from v4, extended) =====
+  class SensorHub {
+    constructor(){
+      this.pitch=0; this.roll=0; this.heading=0;
+      this.gForce=1.0;
+      this.rotationRate={alpha:0,beta:0,gamma:0};
+      this.accel={x:0,y:0,z:0}; this.gyro={x:0,y:0,z:0};
+      this.mag={x:0,y:0,z:0}; this.lightLux=null;
+      this.geo={lat:null,lon:null,acc:null,speed:null};
+      this.batt={level:null,charging:null};
+      this.net={type:null,downlink:null,rtt:null};
+      this.isAvailable={imu:false,genericImu:false,mag:false,light:false,geo:false,battery:false,network:false};
+    }
+    async init(){
+      if(!window.isSecureContext){
+        toast("Sensors blocked: use HTTPS / localhost (not file://)");
+        console.warn("Sensors blocked: not on secure context");
+        return false;
+      }
+      try{
+        if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+          const s=await DeviceOrientationEvent.requestPermission();
+          if(s!=="granted") throw new Error("orientation denied");
         }
-    },
-    
-    TRACKING: {
-        MAX_AGE: 30,
-        MIN_IOU: 0.4,
-        MAX_ASSOCIATION_DISTANCE: 0.3,
-        VELOCITY_SMOOTHING: 0.85,
-        MAX_TRACKS: 15
-    },
-    
-    PHYSICS: {
-        HORIZONTAL_FOV: 67.5,
-        VERTICAL_FOV: 52.5,
-        MAX_RANGE: 50,
-        MIN_RANGE: 0.5,
-        PERSON_HEIGHT: 1.75,
-        VEHICLE_HEIGHT: 1.6,
-        IS_CALIBRATED: false
-    },
-    
-    RADAR: {
-        RANGE: 50,
-        MAX_BLIPS: 10
-    },
-    
-    MEMORY: {
-        MAX_EVENTS: 1000,
-        STORAGE_KEY: 'omega_vision_data'
-    },
-    
-    UI: {
-        UPDATE_RATE: 30
-    }
-};
-
-// ============================================================================
-// CORE UTILITIES - OPTIMIZED
-// ============================================================================
-
-const Utils = {
-    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
-    
-    map: (value, x1, y1, x2, y2) => (value - x1) * (y2 - x2) / (y1 - x1) + x2,
-    
-    distance: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
-    
-    iou: (rect1, rect2) => {
-        const x1 = Math.max(rect1.x, rect2.x);
-        const y1 = Math.max(rect1.y, rect2.y);
-        const x2 = Math.min(rect1.x + rect1.width, rect2.x + rect2.width);
-        const y2 = Math.min(rect1.y + rect1.height, rect2.y + rect2.height);
-        
-        const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-        const area1 = rect1.width * rect1.height;
-        const area2 = rect2.width * rect2.height;
-        const union = area1 + area2 - intersection;
-        
-        return union > 0 ? intersection / union : 0;
-    },
-    
-    ema: (current, previous, factor) => {
-        return previous * factor + current * (1 - factor);
-    },
-    
-    generateId: () => 'id_' + Math.random().toString(36).substr(2, 9),
-    
-    formatNumber: (value, decimals = 1) => value.toFixed(decimals)
-};
-
-// ============================================================================
-// AVIONICS - FIXED ROTATION RATE READING
-// ============================================================================
-
-class Avionics {
-    constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.heading = 0;
-        this.gForce = 1.0;
-        this.rotationRate = { alpha: 0, beta: 0, gamma: 0 };
-        this.isAvailable = false;
-    }
-
-    async init() {
-        try {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const state = await DeviceOrientationEvent.requestPermission();
-                if (state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
-            }
-            
-            // DeviceOrientation for orientation
-            window.addEventListener('deviceorientation', e => {
-                this.pitch = e.beta || 0;
-                this.roll = e.gamma || 0;
-                this.heading = e.alpha || 0;
-            });
-            
-            // DeviceMotion for rotation rate and acceleration
-            window.addEventListener('devicemotion', e => {
-                const acc = e.accelerationIncludingGravity;
-                if (acc) {
-                    const {x, y, z} = acc;
-                    this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
-                }
-                
-                // Fix: Read rotationRate from devicemotion, not deviceorientation
-                if (e.rotationRate) {
-                    this.rotationRate = {
-                        alpha: e.rotationRate.alpha || 0,
-                        beta: e.rotationRate.beta || 0,
-                        gamma: e.rotationRate.gamma || 0
-                    };
-                }
-            });
-            
-            this.isAvailable = true;
-            return true;
-            
-        } catch (error) {
-            console.warn("Avionics skipped:", error);
-            this.isAvailable = false;
-            return false;
+        if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+          const s=await DeviceMotionEvent.requestPermission();
+          if(s!=="granted") throw new Error("motion denied");
         }
-    }
+      }catch(e){ console.warn("iOS permission", e); }
 
-    getOrientation() {
-        return {
-            pitch: this.pitch,
-            roll: this.roll,
-            heading: this.heading
-        };
-    }
-
-    getMotion() {
-        return {
-            gForce: this.gForce,
-            rotationRate: { ...this.rotationRate }
-        };
-    }
-}
-
-// ============================================================================
-// VISION ENGINE - ADAPTIVE INFERENCE RATE
-// ============================================================================
-
-class VisionEngine {
-    constructor() {
-        this.model = null;
-        this.isModelLoaded = false;
-        this.inferenceStats = {
-            lastTime: 0,
-            averageTime: 0,
-            aiFps: 0,
-            renderFps: 0
-        };
-        this.qualityPreset = 'BALANCED';
-        this.lastRenderTime = 0;
-    }
-
-    async init() {
-        try {
-            await tf.ready();
-            this.model = await cocoSsd.load({ 
-                base: CONFIG.AI.MODEL_TYPE 
-            });
-            this.isModelLoaded = true;
-            return true;
-        } catch (error) {
-            console.error("Vision engine failed:", error);
-            return false;
+      window.addEventListener("deviceorientation",(e)=>{
+        this.pitch=e.beta||0; this.roll=e.gamma||0; this.heading=e.alpha||0;
+        this.isAvailable.imu=true;
+      },{passive:true});
+      window.addEventListener("devicemotion",(e)=>{
+        const accG=e.accelerationIncludingGravity, acc=e.acceleration;
+        if(acc) this.accel={x:acc.x||0,y:acc.y||0,z:acc.z||0};
+        if(accG){
+          const {x,y,z}=accG;
+          this.gForce=Math.sqrt(x*x+y*y+z*z)/9.81;
         }
-    }
-
-    async detect(videoEl) {
-        if (!this.model || !this.isModelLoaded) return [];
-        
-        const startTime = performance.now();
-        
-        try {
-            const results = await this.model.detect(
-                videoEl, 
-                CONFIG.AI.MAX_DETECTIONS, 
-                CONFIG.AI.CONFIDENCE_THRESHOLD
-            );
-            
-            const processingTime = performance.now() - startTime;
-            this._updateInferenceStats(processingTime);
-            
-            return results;
-        } catch (error) {
-            console.error("Detection error:", error);
-            return [];
+        if(e.rotationRate){
+          this.rotationRate={alpha:e.rotationRate.alpha||0,beta:e.rotationRate.beta||0,gamma:e.rotationRate.gamma||0};
         }
-    }
+        this.isAvailable.imu=true;
+      },{passive:true});
 
-    _updateInferenceStats(processingTime) {
-        this.inferenceStats.lastTime = processingTime;
-        this.inferenceStats.averageTime = Utils.ema(
-            processingTime,
-            this.inferenceStats.averageTime,
-            0.95
-        );
-        this.inferenceStats.aiFps = 1000 / Math.max(1, this.inferenceStats.averageTime);
-    }
-
-    updateRenderFPS() {
-        const now = performance.now();
-        if (this.lastRenderTime > 0) {
-            const frameTime = now - this.lastRenderTime;
-            this.inferenceStats.renderFps = 1000 / Math.max(1, frameTime);
+      try{
+        if("Accelerometer" in window){
+          const a=new Accelerometer({frequency:30});
+          a.addEventListener("reading",()=>{
+            this.accel={x:a.x||0,y:a.y||0,z:a.z||0}; this.isAvailable.genericImu=true;
+          }); a.start();
         }
-        this.lastRenderTime = now;
-    }
-
-    setQualityPreset(preset) {
-        this.qualityPreset = preset;
-    }
-
-    getInferenceRate() {
-        return CONFIG.AI.QUALITY_PRESETS[this.qualityPreset].rate;
-    }
-
-    getStatus() {
-        return {
-            isModelLoaded: this.isModelLoaded,
-            ...this.inferenceStats
-        };
-    }
-}
-
-// ============================================================================
-// OBJECT TRACKER - IMPROVED DATA ASSOCIATION
-// ============================================================================
-
-class ObjectTracker {
-    constructor() {
-        this.tracks = new Map();
-        this.nextId = 1;
-        this.frameCount = 0;
-        this.inferenceRate = CONFIG.AI.INFERENCE_RATE;
-    }
-
-    update(detections, timestamp, inferenceRate = CONFIG.AI.INFERENCE_RATE) {
-        this.frameCount++;
-        this.inferenceRate = inferenceRate;
-
-        const currentDetections = detections.map(det => ({
-            bbox: {
-                x: det.bbox[0],
-                y: det.bbox[1],
-                width: det.bbox[2],
-                height: det.bbox[3]
-            },
-            label: det.class,
-            confidence: det.score,
-            timestamp
-        }));
-
-        this._updateTracks(currentDetections, timestamp);
-        this._removeExpiredTracks(timestamp);
-
-        if (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) this._pruneTracks();
-        return Array.from(this.tracks.values());
-    }
-
-    _predictBbox(track, timestamp) {
-        if (!track.velocity || track.status === 'new') return { ...track.bbox };
-        const dt = (timestamp - track.lastUpdateTime) / 1000;
-        if (dt <= 0) return { ...track.bbox };
-        return {
-            x: track.bbox.x + track.velocity.vx * dt,
-            y: track.bbox.y + track.velocity.vy * dt,
-            width: track.bbox.width,
-            height: track.bbox.height
-        };
-    }
-
-    _updateTracks(detections, timestamp) {
-        const usedDetections = new Set();
-
-        for (const [id, track] of this.tracks.entries()) {
-            if (track.status === 'lost') continue;
-
-            const predicted = this._predictBbox(track, timestamp);
-
-            let bestMatch = null;
-            let bestScore = -Infinity;
-
-            for (let i = 0; i < detections.length; i++) {
-                if (usedDetections.has(i)) continue;
-
-                const detection = detections[i];
-
-                // Predictive IoU + center distance
-                const iouNow  = Utils.iou(track.bbox, detection.bbox);
-                const iouPred = Utils.iou(predicted, detection.bbox);
-                const iouScore = Math.max(iouNow, iouPred);
-
-                const predCx = predicted.x + predicted.width / 2;
-                const predCy = predicted.y + predicted.height / 2;
-                const detCx  = detection.bbox.x + detection.bbox.width / 2;
-                const detCy  = detection.bbox.y + detection.bbox.height / 2;
-
-                const centerDist = Utils.distance(predCx, predCy, detCx, detCy) /
-                    Math.sqrt(window.innerWidth * window.innerHeight);
-
-                const labelScore = track.label === detection.label ? 1 : 0.35;
-                const velocityScore = this._calculateVelocityScore(track, detection, timestamp);
-
-                const totalScore =
-                    iouScore * 0.45 +
-                    (1 - centerDist) * 0.35 +
-                    labelScore * 0.12 +
-                    velocityScore * 0.08;
-
-                const labelGate = (track.label === detection.label);
-                const closeGate = centerDist < CONFIG.TRACKING.MAX_ASSOCIATION_DISTANCE;
-                const accept =
-                    (iouScore > CONFIG.TRACKING.MIN_IOU) ||
-                    (labelGate && closeGate && totalScore > 0.45);
-
-                if (accept && totalScore > bestScore) {
-                    bestScore = totalScore;
-                    bestMatch = { index: i, detection };
-                }
-            }
-
-            if (bestMatch) {
-                this._updateTrack(track, bestMatch.detection, timestamp);
-                usedDetections.add(bestMatch.index);
-            } else {
-                track.status = 'lost';
-                track.lastSeen = timestamp;
-            }
+        if("Gyroscope" in window){
+          const g=new Gyroscope({frequency:30});
+          g.addEventListener("reading",()=>{
+            this.gyro={x:g.x||0,y:g.y||0,z:g.z||0}; this.isAvailable.genericImu=true;
+          }); g.start();
         }
-
-        for (let i = 0; i < detections.length; i++) {
-            if (!usedDetections.has(i)) this._createTrack(detections[i], timestamp);
+        if("Magnetometer" in window){
+          const m=new Magnetometer({frequency:10});
+          m.addEventListener("reading",()=>{
+            this.mag={x:m.x||0,y:m.y||0,z:m.z||0}; this.isAvailable.mag=true;
+          }); m.start();
         }
-    }
-
-    _calculateVelocityScore(track, detection, timestamp) {
-        if (!track.lastPosition || track.status === 'new') return 0.5;
-        const dt = (timestamp - track.lastUpdateTime) / 1000;
-        if (dt <= 0) return 0.5;
-
-        const predX = track.bbox.x + (track.velocity?.vx || 0) * dt;
-        const predY = track.bbox.y + (track.velocity?.vy || 0) * dt;
-        const dist = Utils.distance(predX, predY, detection.bbox.x, detection.bbox.y);
-        const maxDist = Math.sqrt(window.innerWidth * window.innerHeight) * 0.12;
-        return Math.max(0, 1 - (dist / maxDist));
-    }
-
-    _updateTrack(track, detection, timestamp) {
-        const dt = (timestamp - track.lastUpdateTime) / 1000;
-
-        track.rawBbox = { ...detection.bbox };
-        track.bbox.x = Utils.ema(detection.bbox.x, track.bbox.x, 0.7);
-        track.bbox.y = Utils.ema(detection.bbox.y, track.bbox.y, 0.7);
-        track.bbox.width = Utils.ema(detection.bbox.width, track.bbox.width, 0.7);
-        track.bbox.height = Utils.ema(detection.bbox.height, track.bbox.height, 0.7);
-
-        if (track.lastPosition && dt > 0) {
-            const dx = (track.bbox.x - track.lastPosition.x) / dt;
-            const dy = (track.bbox.y - track.lastPosition.y) / dt;
-            track.velocity = {
-                vx: Utils.ema(dx, track.velocity?.vx || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING),
-                vy: Utils.ema(dy, track.velocity?.vy || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING)
-            };
+        if("AmbientLightSensor" in window){
+          const l=new AmbientLightSensor({frequency:2});
+          l.addEventListener("reading",()=>{
+            this.lightLux=l.illuminance; this.isAvailable.light=true;
+          }); l.start();
         }
+      }catch(e){ console.warn("Generic sensors", e); }
 
-        track.lastPosition = { x: track.bbox.x, y: track.bbox.y };
-        track.lastUpdateTime = timestamp;
-        track.status = track.status === 'new' ? 'active' : track.status;
-        track.label = detection.label;
-        track.confidence = detection.confidence;
-    }
-
-    _createTrack(detection, timestamp) {
-        const id = this.nextId++;
-        this.tracks.set(id, {
-            id,
-            label: detection.label,
-            confidence: detection.confidence,
-            bbox: { ...detection.bbox },
-            rawBbox: { ...detection.bbox },
-            firstSeen: timestamp,
-            lastSeen: timestamp,
-            lastUpdateTime: timestamp,
-            status: 'new',
-            velocity: { vx: 0, vy: 0 },
-            lastPosition: { x: detection.bbox.x, y: detection.bbox.y }
-        });
-    }
-
-    _removeExpiredTracks(timestamp) {
-        const tracksArray = Array.from(this.tracks.entries());
-        const frameTTLms = CONFIG.TRACKING.MAX_AGE * (1000 / Math.max(1, this.inferenceRate));
-
-        for (const [id, track] of tracksArray) {
-            if (track.status === 'lost' && timestamp - track.lastSeen > frameTTLms) {
-                this.tracks.delete(id);
-            }
+      try{
+        if(navigator.geolocation){
+          navigator.geolocation.watchPosition((pos)=>{
+            this.geo.lat=pos.coords.latitude;
+            this.geo.lon=pos.coords.longitude;
+            this.geo.acc=pos.coords.accuracy;
+            this.geo.speed=pos.coords.speed;
+            this.isAvailable.geo=true;
+          },(err)=>console.warn("GPS error", err),{enableHighAccuracy:true, maximumAge:1000, timeout:8000});
         }
-    }
+      }catch(e){}
 
-    _pruneTracks() {
-        const arr = Array.from(this.tracks.entries());
-        arr.sort((a, b) => b[1].confidence - a[1].confidence);
-        while (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) {
-            const [id] = arr.pop();
-            this.tracks.delete(id);
+      try{
+        if(navigator.getBattery){
+          const b=await navigator.getBattery();
+          const upd=()=>{
+            this.batt.level=b.level; this.batt.charging=b.charging; this.isAvailable.battery=true;
+          };
+          upd(); b.addEventListener("levelchange",upd); b.addEventListener("chargingchange",upd);
         }
-    }
-
-    getActiveTracks() {
-        return Array.from(this.tracks.values()).filter(t => t.status !== 'lost');
-    }
-
-    getStats() {
-        const active = this.getActiveTracks();
-        return {
-            totalTracks: this.tracks.size,
-            activeTracks: active.length,
-            newTracks: active.filter(t => t.status === 'new').length
-        };
-    }
-}
-
-
-// ============================================================================
-// PHYSICS ENGINE - CORRECTED COORDINATE MAPPING
-// ============================================================================
-
-class PhysicsEngine {
-    constructor() {
-        this.videoWidth = 1280;
-        this.videoHeight = 720;
-        this.scaleX = 1;
-        this.scaleY = 1;
-        this.offsetX = 0;
-        this.offsetY = 0;
-    }
-
-    updateVideoDimensions(video) {
-        if (video.videoWidth && video.videoHeight) {
-            this.videoWidth = video.videoWidth;
-            this.videoHeight = video.videoHeight;
-
-            this.offsetX = 0; 
-            this.offsetY = 0;
-
-            const videoAspect = this.videoWidth / this.videoHeight;
-            const screenAspect = window.innerWidth / window.innerHeight;
-
-            if (videoAspect > screenAspect) {
-                this.scaleX = window.innerWidth / this.videoWidth;
-                this.scaleY = this.scaleX;
-                this.offsetY = (window.innerHeight - this.videoHeight * this.scaleY) / 2;
-            } else {
-                this.scaleY = window.innerHeight / this.videoHeight;
-                this.scaleX = this.scaleY;
-                this.offsetX = (window.innerWidth - this.videoWidth * this.scaleX) / 2;
-            }
+      }catch(e){}
+      try{
+        const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+        if(c){
+          const upd=()=>{
+            this.net.type=c.effectiveType||c.type||null;
+            this.net.downlink=c.downlink||null;
+            this.net.rtt=c.rtt||null;
+            this.isAvailable.network=true;
+          };
+          upd(); c.addEventListener("change",upd);
         }
+      }catch(e){}
+      return true;
     }
+    getOrientation(){return {pitch:this.pitch,roll:this.roll,heading:this.heading};}
+    getMotion(){return {gForce:this.gForce,rotationRate:{...this.rotationRate},accel:{...this.accel},gyro:{...this.gyro},mag:{...this.mag}};}
+    getGeo(){return {...this.geo};}
+    getBattery(){return {...this.batt};}
+    getNetwork(){return {...this.net};}
+    getLight(){return this.lightLux;}
+  }
 
-    analyze(tracks) {
-        return tracks.map(track => {
-            const enhanced = { ...track };
-
-            const screenBbox = this._videoToScreenBbox(track.bbox);
-            enhanced.screenBbox = screenBbox;
-
-            const centerX = screenBbox.x + screenBbox.width / 2;
-            const centerY = screenBbox.y + screenBbox.height / 2;
-
-            enhanced.screenPosition = {
-                xNorm: (centerX / window.innerWidth) * 2 - 1,
-                yNorm: (centerY / window.innerHeight) * 2 - 1
-            };
-
-            enhanced.bearingDeg = this._computeBearing(enhanced.screenPosition.xNorm);
-
-            const depthMeters = this._computeDepthMeters(track);
-            const depthNorm   = Utils.clamp(1 - (depthMeters / CONFIG.PHYSICS.MAX_RANGE), 0, 1);
-
-            enhanced.depthMeters   = depthMeters;
-            enhanced.depthNorm     = depthNorm;
-            enhanced.depthEstimate = depthMeters;
-
-            enhanced.motionAnalysis = this._analyzeMotion(track);
-
-            return enhanced;
-        });
+  // ===== Video Manager =====
+  class VideoManager{
+    constructor(video){
+      this.video=video;
+      this.stream=null;
+      this.ready=false;
     }
-
-    predictVideoBbox(track, horizonSec = 0.75) {
-        if (!track.velocity) return { ...track.bbox };
-        return {
-            x: track.bbox.x + (track.velocity.vx || 0) * horizonSec,
-            y: track.bbox.y + (track.velocity.vy || 0) * horizonSec,
-            width: track.bbox.width,
-            height: track.bbox.height
-        };
-    }
-
-    predictScreenBbox(track, horizonSec = 0.75) {
-        const predVideo = this.predictVideoBbox(track, horizonSec);
-        return this._videoToScreenBbox(predVideo);
-    }
-
-    _videoToScreenBbox(videoBbox) {
-        return {
-            x: videoBbox.x * this.scaleX + this.offsetX,
-            y: videoBbox.y * this.scaleY + this.offsetY,
-            width: videoBbox.width * this.scaleX,
-            height: videoBbox.height * this.scaleY
-        };
-    }
-
-    _computeBearing(xNorm) {
-        return (xNorm || 0) * (CONFIG.PHYSICS.HORIZONTAL_FOV / 2);
-    }
-
-    _computeDepthMeters(track) {
-        const bboxHeightPx = track.bbox.height;
-        const bboxHeightNorm = bboxHeightPx / this.videoHeight;
-
-        let physicalHeight;
-        switch (track.label) {
-            case 'person': physicalHeight = CONFIG.PHYSICS.PERSON_HEIGHT; break;
-            case 'car':
-            case 'truck':
-            case 'bus': physicalHeight = CONFIG.PHYSICS.VEHICLE_HEIGHT; break;
-            default: physicalHeight = 1.0;
+    async start(){
+      const constraints={
+        audio:false,
+        video:{
+          facingMode:"environment",
+          width:{ideal:1280}, height:{ideal:720}
         }
-
-        const focalLengthPx = (this.videoHeight / 2) /
-            Math.tan(CONFIG.PHYSICS.VERTICAL_FOV * Math.PI / 360);
-
-        const denom = Math.max(1e-6, bboxHeightNorm * this.videoHeight);
-        const depth = (focalLengthPx * physicalHeight) / denom;
-
-        return Utils.clamp(depth, CONFIG.PHYSICS.MIN_RANGE, CONFIG.PHYSICS.MAX_RANGE);
+      };
+      this.stream=await navigator.mediaDevices.getUserMedia(constraints);
+      this.video.srcObject=this.stream;
+      await this.video.play();
+      this.ready=true;
+      return true;
     }
+    stop(){
+      if(this.stream) this.stream.getTracks().forEach(t=>t.stop());
+      this.ready=false;
+    }
+  }
 
-    _analyzeMotion(track) {
-        if (!track.velocity || track.status === 'new') {
-            return { motionState: 'unknown', radialSpeed: 0 };
+  // ===== Detection + Tracking (SORT-lite) =====
+  class Kalman1D {
+    constructor(x0=0, v0=0){
+      this.x=x0; this.v=v0;
+      this.pxx=1; this.pvv=1; this.pxv=0;
+      this.q=0.05; this.r=0.8;
+    }
+    predict(dt){
+      this.x += this.v*dt;
+      this.pxx += dt*(2*this.pxv + dt*this.pvv) + this.q;
+      this.pxv += dt*this.pvv;
+      this.pvv += this.q;
+    }
+    update(z){
+      const y=z-this.x;
+      const s=this.pxx+this.r;
+      const kx=this.pxx/s;
+      const kv=this.pxv/s;
+      this.x += kx*y;
+      this.v += kv*y;
+      this.pxx = (1-kx)*this.pxx;
+      this.pxv = (1-kx)*this.pxv;
+      // pvv stays
+    }
+  }
+
+  class Track{
+    constructor(det, id){
+      const [x,y,w,h]=det.bbox;
+      this.id=id;
+      this.label=det.class;
+      this.score=det.score;
+      this.kx=new Kalman1D(x+w/2,0);
+      this.ky=new Kalman1D(y+h/2,0);
+      this.kw=new Kalman1D(w,0);
+      this.kh=new Kalman1D(h,0);
+      this.age=0; this.missed=0; this.hit=1;
+      this.lastUpdate=now();
+      this.history=[];
+      this.lockMag=0;
+    }
+    predict(t){
+      const dt=Math.max(0.001,(t-this.lastUpdate)/1000);
+      this.kx.predict(dt); this.ky.predict(dt); this.kw.predict(dt); this.kh.predict(dt);
+      this.lastUpdate=t; this.age++; this.missed++;
+    }
+    update(det){
+      const [x,y,w,h]=det.bbox;
+      this.kx.update(x+w/2); this.ky.update(y+h/2); this.kw.update(w); this.kh.update(h);
+      this.label=det.class; this.score=det.score;
+      this.missed=0; this.hit++;
+      this.history.push({t:now(), cx:this.cx, cy:this.cy});
+      if(this.history.length>30) this.history.shift();
+    }
+    get cx(){return this.kx.x;}
+    get cy(){return this.ky.x;}
+    get w(){return Math.max(2,this.kw.x);}
+    get h(){return Math.max(2,this.kh.x);}
+    get bbox(){return [this.cx-this.w/2, this.cy-this.h/2, this.w, this.h];}
+    iou(det){
+      const [x,y,w,h]=det.bbox;
+      const [tx,ty,tw,th]=this.bbox;
+      const x1=Math.max(x,tx), y1=Math.max(y,ty), x2=Math.min(x+w,tx+tw), y2=Math.min(y+h,ty+th);
+      const inter=Math.max(0,x2-x1)*Math.max(0,y2-y1);
+      if(inter<=0) return 0;
+      const u=w*h+tw*th-inter;
+      return inter/u;
+    }
+  }
+
+  class Tracker {
+    constructor(){
+      this.tracks=[];
+      this.nextId=1;
+      this.iouThresh=0.22;
+      this.maxMiss=18;
+    }
+    step(dets){
+      const t=now();
+      // predict all
+      for(const tr of this.tracks) tr.predict(t);
+
+      // greedy association by IoU
+      const used=new Set();
+      for(const tr of this.tracks){
+        let best=-1, bestIou=0;
+        for(let i=0;i<dets.length;i++){
+          if(used.has(i)) continue;
+          const iou=tr.iou(dets[i]);
+          if(iou>bestIou){bestIou=iou; best=i;}
         }
-
-        const scaleChange = track.velocity.vy / window.innerHeight;
-        let motionState = 'static';
-
-        if (scaleChange > 0.02) motionState = 'approaching';
-        else if (scaleChange < -0.01) motionState = 'receding';
-        else if (Math.abs(scaleChange) < 0.005) motionState = 'static';
-        else motionState = 'moving';
-
-        return { motionState, radialSpeed: scaleChange };
-    }
-
-    calibrateDepth(knownDistance, track) {
-        CONFIG.PHYSICS.IS_CALIBRATED = true;
-        return knownDistance / Math.max(1e-6, track.depthMeters);
-    }
-}
-
-
-// ============================================================================
-// RADAR SYSTEM - FIXED BEARING HANDLING
-// ============================================================================
-
-class RadarSystem {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.width = 140;
-        this.height = 140;
-        this.centerX = this.width / 2;
-        this.centerY = this.height / 2;
-        this.maxRadius = this.width / 2 - 5;
-    }
-
-    update(tracks) {
-        // Clear previous blips efficiently
-        if (this.container.children.length > 4) { // Keep grid elements
-            const blips = this.container.querySelectorAll('.radar-blip');
-            blips.forEach(blip => blip.remove());
+        if(best>=0 && bestIou>this.iouThresh){
+          tr.update(dets[best]); used.add(best);
         }
-        
-        // Limit number of blips
-        const displayTracks = tracks.slice(0, CONFIG.RADAR.MAX_BLIPS);
-        
-        displayTracks.forEach(track => {
-            // Fix: Check for null/undefined bearingDeg properly
-            if (track.bearingDeg == null) return;
-            
-            const blip = this._createBlip(track);
-            if (blip) {
-                this.container.appendChild(blip);
-            }
-        });
-    }
-
-    _createBlip(track) {
-        // Fix: Handle bearingDeg = 0 case
-        const bearingDeg = track.bearingDeg !== null && track.bearingDeg !== undefined ? track.bearingDeg : 0;
-        const angle = bearingDeg * Math.PI / 180;
-        
-        // Convert depth to radar radius
-        const depth = track.depthEstimate;
-        const range = (depth / CONFIG.PHYSICS.MAX_RANGE) * this.maxRadius;
-        
-        const x = this.centerX + range * Math.sin(angle);
-        const y = this.centerY - range * Math.cos(angle);
-        
-        const blip = document.createElement('div');
-        blip.className = 'radar-blip';
-        blip.style.left = `${x}px`;
-        blip.style.top = `${y}px`;
-        
-        // Size based on object type
-        let size = 6;
-        let color = CONFIG.UI.COLOR_CODING.LOW;
-        
-        switch (track.label) {
-            case 'person':
-                size = 8;
-                color = CONFIG.UI.COLOR_CODING.HIGH;
-                break;
-            case 'car':
-            case 'truck':
-                size = 10;
-                color = CONFIG.UI.COLOR_CODING.MEDIUM;
-                break;
+      }
+      // new tracks
+      for(let i=0;i<dets.length;i++){
+        if(!used.has(i)){
+          this.tracks.push(new Track(dets[i], this.nextId++));
         }
-        
-        // Adjust for motion
-        if (track.motionAnalysis.motionState === 'approaching') {
-            size += 2;
-            blip.style.animation = 'pulse 1s infinite';
+      }
+      // prune
+      this.tracks=this.tracks.filter(tr=>tr.missed<=this.maxMiss);
+      return this.tracks;
+    }
+  }
+
+  // ===== Vision Modules =====
+  class VisionStack {
+    constructor(video){
+      this.video=video;
+      this.detector=null;
+      this.poseDetector=null;
+      this.segModel=null;
+      this.faceDetector=null;
+      this.handDetector=null;
+
+      this.enablePose=true;
+      this.enableSeg=false;
+      this.enableFace=false;
+      this.enableHand=false;
+
+      this.poseEvery=2; // run pose every N frames
+      this.frame=0;
+    }
+
+    async init(){
+      await tf.setBackend("webgl");
+      await tf.ready();
+
+      this.detector = await cocoSsd.load({base:"lite_mobilenet_v2"});
+      this.poseDetector = await poseDetection.createDetector(
+        poseDetection.SupportedModels.MoveNet,
+        {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing:true}
+      );
+
+      this.segModel = await bodySegmentation.createSegmenter(
+        bodySegmentation.SupportedModels.MediaPipeSelfieSegmentation,
+        {runtime:"mediapipe", modelType:"general", solutionPath:"https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation"}
+      );
+
+      this.faceDetector = await faceLandmarksDetection.createDetector(
+        faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+        {runtime:"mediapipe", refineLandmarks:true, solutionPath:"https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"}
+      );
+
+      this.handDetector = await handPoseDetection.createDetector(
+        handPoseDetection.SupportedModels.MediaPipeHands,
+        {runtime:"mediapipe", modelType:"lite", solutionPath:"https://cdn.jsdelivr.net/npm/@mediapipe/hands"}
+      );
+    }
+
+    async detect(){
+      if(!this.detector) return [];
+      return await this.detector.detect(this.video, 25, 0.5);
+    }
+
+    async pose(){
+      if(!this.enablePose || !this.poseDetector) return [];
+      this.frame++;
+      if(this.frame % this.poseEvery !== 0) return this._lastPose || [];
+      this._lastPose = await this.poseDetector.estimatePoses(this.video, {maxPoses:1, flipHorizontal:false});
+      return this._lastPose;
+    }
+
+    async segment(){
+      if(!this.enableSeg || !this.segModel) return null;
+      return await this.segModel.segmentPeople(this.video, {multiSegmentation:false, segmentBodyParts:false});
+    }
+
+    async faces(){
+      if(!this.enableFace || !this.faceDetector) return [];
+      return await this.faceDetector.estimateFaces(this.video, {flipHorizontal:false});
+    }
+
+    async hands(){
+      if(!this.enableHand || !this.handDetector) return [];
+      return await this.handDetector.estimateHands(this.video, {flipHorizontal:false});
+    }
+  }
+
+  // ===== OCR Module =====
+  class OCRStack{
+    constructor(){
+      this.worker=null;
+      this.busy=false;
+      this.lang="eng";
+    }
+    async init(){
+      if(this.worker) return;
+      this.worker = await Tesseract.createWorker(this.lang);
+    }
+    async snap(video){
+      if(this.busy) return null;
+      this.busy=true;
+      try{
+        await this.init();
+        const off=document.createElement("canvas");
+        off.width=video.videoWidth; off.height=video.videoHeight;
+        const octx=off.getContext("2d");
+        octx.drawImage(video,0,0);
+        toast("OCR running…");
+        const { data } = await this.worker.recognize(off);
+        const text=(data.text||"").trim();
+        return text;
+      } finally{
+        this.busy=false;
+      }
+    }
+  }
+
+  // ===== Audio Classifier (MediaPipe) =====
+  class AudioStack{
+    constructor(){
+      this.classifier=null;
+      this.audioCtx=null;
+      this.stream=null;
+      this.running=false;
+      this.lastTop=null;
+    }
+    async init(){
+      if(this.classifier) return;
+      const { FilesetResolver, AudioClassifier } = window;
+      const audioFileset = await FilesetResolver.forAudioTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.22-rc.20250304/wasm"
+      );
+      // default yamnet-like model hosted by MediaPipe (may change in future)
+      const modelPath = "https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite";
+      this.classifier = await AudioClassifier.createFromOptions(audioFileset,{
+        baseOptions:{ modelAssetPath:modelPath },
+        runningMode:"AUDIO_STREAM",
+        maxResults:3, scoreThreshold:0.2
+      });
+    }
+    async start(){
+      await this.init();
+      this.stream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
+      this.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const source=this.audioCtx.createMediaStreamSource(this.stream);
+      const processor=this.audioCtx.createScriptProcessor(4096,1,1);
+      source.connect(processor); processor.connect(this.audioCtx.destination);
+      this.running=true;
+
+      processor.onaudioprocess = (e) => {
+        if(!this.running) return;
+        const input=e.inputBuffer.getChannelData(0);
+        const audioData = { audioBuffer: input.slice(0), sampleRate: this.audioCtx.sampleRate };
+        try{
+          const res=this.classifier.classify(audioData);
+          if(res && res.classifications && res.classifications[0]){
+            const cats=res.classifications[0].categories;
+            if(cats && cats[0]) this.lastTop=cats.slice(0,3);
+          }
+        }catch(err){ /* ignore frame errors */ }
+      };
+    }
+    stop(){
+      this.running=false;
+      if(this.stream) this.stream.getTracks().forEach(t=>t.stop());
+      if(this.audioCtx) this.audioCtx.close();
+    }
+  }
+
+  // ===== Zone/Tripwire =====
+  class ZoneManager{
+    constructor(canvas){
+      this.canvas=canvas;
+      this.ctx=canvas.getContext("2d");
+      this.zones=[];
+      this.edit=false;
+      this._drag=null;
+      this.onChange=()=>{};
+      this._bind();
+    }
+    resize(w,h){this.canvas.width=w; this.canvas.height=h;}
+    toggleEdit(){
+      this.edit=!this.edit;
+      this.canvas.classList.toggle("edit", this.edit);
+      toast(this.edit?"Zone edit: drag to draw":"Zone edit off");
+    }
+    _bind(){
+      const c=this.canvas;
+      c.addEventListener("pointerdown",(e)=>{
+        if(!this.edit) return;
+        const r=c.getBoundingClientRect();
+        const x=(e.clientX-r.left)/r.width*c.width;
+        const y=(e.clientY-r.top)/r.height*c.height;
+        this._drag={x0:x,y0:y,x1:x,y1:y};
+      });
+      c.addEventListener("pointermove",(e)=>{
+        if(!this.edit || !this._drag) return;
+        const r=c.getBoundingClientRect();
+        const x=(e.clientX-r.left)/r.width*c.width;
+        const y=(e.clientY-r.top)/r.height*c.height;
+        this._drag.x1=x; this._drag.y1=y;
+      });
+      c.addEventListener("pointerup",()=>{
+        if(!this.edit || !this._drag) return;
+        const d=this._drag; this._drag=null;
+        const x=Math.min(d.x0,d.x1), y=Math.min(d.y0,d.y1);
+        const w=Math.abs(d.x1-d.x0), h=Math.abs(d.y1-d.y0);
+        if(w>10 && h>10){
+          this.zones.push({x,y,w,h, id:Date.now()});
+          this.onChange(this.zones);
         }
-        
-        blip.style.width = `${size}px`;
-        blip.style.height = `${size}px`;
-        blip.style.backgroundColor = color;
-        
-        return blip;
-    }
-}
-
-// ============================================================================
-// KNOWLEDGE BASE - PERSISTENT STORAGE
-// ============================================================================
-
-class KnowledgeBase {
-    constructor() {
-        this.events = [];
-        this.loadFromStorage();
-    }
-
-    recordEvent(type, data, timestamp = Date.now()) {
-        const event = {
-            type,
-            data,
-            timestamp,
-            id: Utils.generateId()
-        };
-        
-        this.events.push(event);
-        
-        // Maintain size limits
-        if (this.events.length > CONFIG.MEMORY.MAX_EVENTS) {
-            this.events.shift();
+      });
+      window.addEventListener("keydown",(e)=>{
+        if(e.key==="Backspace" && this.edit){
+          this.zones.pop(); this.onChange(this.zones);
         }
-        
-        // Auto-save periodically
-        if (this.events.length % 10 === 0) {
-            this.saveToStorage();
+      });
+    }
+    draw(){
+      const {ctx,canvas}=this;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.save();
+      for(const z of this.zones){
+        ctx.strokeStyle="rgba(0,255,102,0.7)";
+        ctx.setLineDash([6,6]);
+        ctx.lineWidth=2;
+        ctx.strokeRect(z.x,z.y,z.w,z.h);
+        ctx.fillStyle="rgba(0,255,102,0.06)";
+        ctx.fillRect(z.x,z.y,z.w,z.h);
+      }
+      if(this._drag){
+        const d=this._drag;
+        const x=Math.min(d.x0,d.x1), y=Math.min(d.y0,d.y1);
+        const w=Math.abs(d.x1-d.x0), h=Math.abs(d.y1-d.y0);
+        ctx.strokeStyle="rgba(255,207,64,0.9)";
+        ctx.setLineDash([4,4]);
+        ctx.strokeRect(x,y,w,h);
+      }
+      ctx.restore();
+    }
+    check(track){
+      const [x,y,w,h]=track.bbox;
+      const cx=x+w/2, cy=y+h/2;
+      for(const z of this.zones){
+        if(cx>=z.x && cx<=z.x+z.w && cy>=z.y && cy<=z.y+z.h) return z;
+      }
+      return null;
+    }
+  }
+
+  // ===== Memory / Heatmap =====
+  class MemoryCore{
+    constructor(w=40,h=24){
+      this.gridW=w; this.gridH=h;
+      this.grid=new Array(w*h).fill(0);
+      this.events=[];
+      this.maxEvents=80;
+    }
+    pushEvent(type, payload){
+      this.events.unshift({t:Date.now(), type, payload});
+      if(this.events.length>this.maxEvents) this.events.pop();
+    }
+    addPoint(nx,ny){
+      const x=Math.floor(clamp(nx,0,0.999)*this.gridW);
+      const y=Math.floor(clamp(ny,0,0.999)*this.gridH);
+      this.grid[y*this.gridW+x]++;
+    }
+    drawHeat(ctx,w,h){
+      ctx.clearRect(0,0,w,h);
+      const max=Math.max(1,...this.grid);
+      const cellW=w/this.gridW, cellH=h/this.gridH;
+      for(let y=0;y<this.gridH;y++){
+        for(let x=0;x<this.gridW;x++){
+          const v=this.grid[y*this.gridW+x]/max;
+          if(v<=0) continue;
+          ctx.fillStyle=`rgba(0,255,102,${v*0.8})`;
+          ctx.fillRect(x*cellW,y*cellH,cellW,cellH);
         }
-        
-        return event.id;
+      }
+      ctx.strokeStyle="rgba(0,255,102,0.2)";
+      ctx.strokeRect(0,0,w,h);
     }
+  }
 
-    saveToStorage() {
-        try {
-            const data = {
-                events: this.events.slice(-500), // Keep recent events
-                timestamp: Date.now()
-            };
-            localStorage.setItem(CONFIG.MEMORY.STORAGE_KEY, JSON.stringify(data));
-        } catch (error) {
-            console.warn("Failed to save to storage:", error);
+  // ===== OPAL Bridge (BroadcastChannel) =====
+  class OpalBridge{
+    constructor(name="OMEGA_OPAL_BUS"){
+      this.bc=("BroadcastChannel" in window)? new BroadcastChannel(name): null;
+      this.enabled=true;
+    }
+    send(payload){
+      if(!this.enabled||!this.bc) return;
+      this.bc.postMessage(payload);
+    }
+    toggle(){ this.enabled=!this.enabled; toast("OPAL bridge " + (this.enabled?"ON":"OFF")); }
+  }
+
+  // ===== Main Orchestrator =====
+  const videoEl=document.getElementById("video");
+  const overlay=document.getElementById("overlay");
+  const segCanvas=document.getElementById("segCanvas");
+  const zCanvas=document.getElementById("zoneOverlay");
+  const ctx=overlay.getContext("2d");
+  const segCtx=segCanvas.getContext("2d");
+
+  const vm=new VideoManager(videoEl);
+  const sensors=new SensorHub();
+  const vision=new VisionStack(videoEl);
+  const tracker=new Tracker();
+  const ocr=new OCRStack();
+  const audio=new AudioStack();
+  const zones=new ZoneManager(zCanvas);
+  const memory=new MemoryCore();
+  const bridge=new OpalBridge();
+
+  let running=false, paused=false;
+  let lockedId=null;
+  let lockSticky=0.7; // hysteresis
+  let lastFrameT=now();
+  let fpsSmooth=0;
+
+  // heat/radar canvases
+  const radarCanvas=document.getElementById("radarCanvas");
+  const heatCanvas=document.getElementById("heatCanvas");
+  const rctx=radarCanvas.getContext("2d");
+  const hctx=heatCanvas.getContext("2d");
+  const threatKV=document.getElementById("threatKV");
+  const audioLine=document.getElementById("audioLine");
+
+  function resize(){
+    const w=videoEl.videoWidth||window.innerWidth;
+    const h=videoEl.videoHeight||window.innerHeight;
+    overlay.width=w; overlay.height=h;
+    segCanvas.width=w; segCanvas.height=h;
+    zones.resize(w,h);
+    radarCanvas.width=220; radarCanvas.height=150;
+    heatCanvas.width=220; heatCanvas.height=90;
+  }
+
+  // ===== UI bind =====
+  const btnInit=document.getElementById("btnInit");
+  const btnPause=document.getElementById("btnPause");
+  const btnLock=document.getElementById("btnLock");
+  const btnZones=document.getElementById("btnZones");
+  const btnOCR=document.getElementById("btnOCR");
+  const btnAudio=document.getElementById("btnAudio");
+  const btnExport=document.getElementById("btnExport");
+
+  const tglPose=document.getElementById("tglPose");
+  const tglSeg=document.getElementById("tglSeg");
+  const tglFace=document.getElementById("tglFace");
+  const tglHand=document.getElementById("tglHand");
+
+  btnPause.onclick=()=>{paused=!paused; btnPause.classList.toggle("active",paused); toast(paused?"Paused":"Resumed");};
+  btnLock.onclick=()=>{lockedId=null; btnLock.classList.toggle("active",false); toast("Mag-lock cleared");};
+  btnZones.onclick=()=>{zones.toggleEdit(); btnZones.classList.toggle("active",zones.edit);};
+  btnExport.onclick=()=>exportSnapshot();
+  btnOCR.onclick=async()=>doOCR();
+  btnAudio.onclick=async()=>toggleAudio();
+
+  tglPose.onclick=()=>{vision.enablePose=!vision.enablePose; tglPose.classList.toggle("active",vision.enablePose); tglPose.textContent=vision.enablePose?"POSE ON":"POSE OFF";};
+  tglSeg.onclick=()=>{vision.enableSeg=!vision.enableSeg; tglSeg.classList.toggle("active",vision.enableSeg); tglSeg.textContent=vision.enableSeg?"SEG ON":"SEG OFF";};
+  tglFace.onclick=()=>{vision.enableFace=!vision.enableFace; tglFace.classList.toggle("active",vision.enableFace); tglFace.textContent=vision.enableFace?"FACE ON":"FACE OFF";};
+  tglHand.onclick=()=>{vision.enableHand=!vision.enableHand; tglHand.classList.toggle("active",vision.enableHand); tglHand.textContent=vision.enableHand?"HAND ON":"HAND OFF";};
+
+  btnInit.onclick=async()=>{
+    if(running) return;
+    try{
+      toast("Booting sensors…");
+      await vm.start();
+      await sensors.init();
+      await vision.init();
+      resize();
+      running=true;
+      btnInit.classList.add("active");
+      toast("ΩMEGA online");
+      loop();
+    }catch(e){
+      console.error(e);
+      toast("Init failed: "+(e.message||e));
+    }
+  };
+
+  overlay.addEventListener("pointerdown",(e)=>{
+    if(!running || zones.edit) return;
+    const r=overlay.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width*overlay.width;
+    const y=(e.clientY-r.top)/r.height*overlay.height;
+    // find nearest track within radius
+    let best=null, bestD=1e12;
+    for(const tr of tracker.tracks){
+      const [bx,by,bw,bh]=tr.bbox;
+      if(x>=bx && x<=bx+bw && y>=by && y<=by+bh){
+        const d=dist2(x,y,tr.cx,tr.cy);
+        if(d<bestD){best=tr; bestD=d;}
+      }
+    }
+    if(best){
+      lockedId=best.id;
+      btnLock.classList.add("active");
+      toast("Mag-lock T#"+lockedId);
+    }
+  });
+
+  // ===== Dots update =====
+  const dot=(id)=>document.getElementById(id);
+  function setDot(d, on, warn=false){
+    d.className="dot " + (on?(warn?"warn":"ok"):"");
+  }
+
+  // ===== UI auto-dock =====
+  const panels=[document.getElementById("hudTop"), document.getElementById("hudRight"), document.getElementById("hudBottom"), document.getElementById("radarPanel")];
+  function autoDock(targetRect){
+    if(!targetRect) return;
+    const vw=window.innerWidth, vh=window.innerHeight;
+    const corners=[
+      {name:"tl", x:0, y:0},
+      {name:"tr", x:vw, y:0},
+      {name:"bl", x:0, y:vh},
+      {name:"br", x:vw, y:vh},
+    ];
+    for(const p of panels){
+      const pr=p.getBoundingClientRect();
+      let best=corners[0], bestScore=-1;
+      for(const c of corners){
+        const dx=Math.max(0, Math.abs(c.x-(targetRect.left+targetRect.width/2))-pr.width/2);
+        const dy=Math.max(0, Math.abs(c.y-(targetRect.top+targetRect.height/2))-pr.height/2);
+        const score=dx*dx+dy*dy; // farther is better
+        if(score>bestScore){bestScore=score; best=c;}
+      }
+      const pad=10;
+      let tx=0, ty=0;
+      if(best.name==="tl"){tx=pad - pr.left; ty=pad - pr.top;}
+      if(best.name==="tr"){tx=vw - pr.right - pad; ty=pad - pr.top;}
+      if(best.name==="bl"){tx=pad - pr.left; ty=vh - pr.bottom - pad;}
+      if(best.name==="br"){tx=vw - pr.right - pad; ty=vh - pr.bottom - pad;}
+      p.style.transform=`translate(${tx}px,${ty}px)`;
+    }
+  }
+
+  // ===== Radar drawing =====
+  function drawRadar(tracks, locked){
+    rctx.clearRect(0,0,radarCanvas.width, radarCanvas.height);
+    const W=radarCanvas.width, H=radarCanvas.height;
+    const cx=W/2, cy=H*0.9;
+    // rings
+    rctx.strokeStyle="rgba(0,255,102,0.25)";
+    rctx.lineWidth=1;
+    for(let i=1;i<=3;i++){
+      rctx.beginPath();
+      rctx.arc(cx,cy, i*H/3.2, Math.PI, 2*Math.PI);
+      rctx.stroke();
+    }
+    rctx.beginPath(); rctx.moveTo(cx,cy); rctx.lineTo(cx,cy-H*0.95); rctx.stroke();
+
+    for(const tr of tracks){
+      const nx=tr.cx/overlay.width, ny=tr.cy/overlay.height;
+      const bearing=(nx-0.5)*Math.PI; // crude
+      const dist=clamp(1-ny,0,1);
+      const rx=cx + Math.sin(bearing)*dist*H*0.9;
+      const ry=cy - Math.cos(bearing)*dist*H*0.9;
+      rctx.fillStyle= (locked && tr.id===locked.id) ? "rgba(255,207,64,0.95)" : "rgba(0,255,102,0.9)";
+      rctx.beginPath(); rctx.arc(rx,ry, (tr.id===locked?.id)?5:3, 0, Math.PI*2); rctx.fill();
+    }
+  }
+
+  // ===== Threat scoring =====
+  function threatScore(tr){
+    const distNorm=1-(tr.cy/overlay.height);
+    const speed=Math.sqrt(tr.kx.v*tr.kx.v + tr.ky.v*tr.ky.v);
+    let s=distNorm*0.7 + clamp(speed/600,0,1)*0.3;
+    return s;
+  }
+
+  // ===== OCR action =====
+  async function doOCR(){
+    if(!running) return;
+    const text=await ocr.snap(videoEl);
+    if(text){
+      memory.pushEvent("OCR", text.slice(0,140));
+      toast("OCR: " + text.slice(0,40).replace(/\s+/g," ") + (text.length>40?"…":""));
+    }else{
+      toast("OCR: no text");
+    }
+  }
+
+  // ===== Audio toggle =====
+  async function toggleAudio(){
+    if(audio.running){
+      audio.stop();
+      btnAudio.classList.remove("active");
+      toast("Audio off");
+    }else{
+      try{
+        await audio.start();
+        btnAudio.classList.add("active");
+        toast("Audio on");
+      }catch(e){
+        console.warn(e);
+        toast("Audio init failed");
+      }
+    }
+  }
+
+  // ===== Export snapshot =====
+  function exportSnapshot(){
+    const tracks = tracker.tracks.map(t=>({
+      id:t.id, label:t.label, score:t.score,
+      bbox:t.bbox, velocity:{vx:t.kx.v, vy:t.ky.v}
+    }));
+    const payload={
+      t:Date.now(),
+      tracks,
+      lockedId,
+      imu:sensors.getOrientation(),
+      motion:sensors.getMotion(),
+      geo:sensors.getGeo(),
+      audioTop:audio.lastTop||null,
+      zones:zones.zones
+    };
+    memory.pushEvent("EXPORT", `tracks=${tracks.length}`);
+    bridge.send({type:"OMEGA_SNAPSHOT", payload});
+    const blob=new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="omega_snapshot.json";
+    a.click();
+    toast("Exported snapshot");
+  }
+
+  // ===== Render helpers =====
+  function drawBox(tr, color="rgba(0,255,102,0.9)", thick=2){
+    const [x,y,w,h]=tr.bbox;
+    ctx.strokeStyle=color; ctx.lineWidth=thick;
+    ctx.strokeRect(x,y,w,h);
+    // label
+    ctx.fillStyle="rgba(0,0,0,0.5)";
+    ctx.fillRect(x, y-16, ctx.measureText("").width+120, 16);
+    ctx.fillStyle=color;
+    ctx.fillText(`#${tr.id} ${tr.label} ${(tr.score*100).toFixed(0)}%`, x+4, y-4);
+  }
+
+  function drawPrediction(tr, dt=0.75){
+    const px=tr.cx + tr.kx.v*dt*1000;
+    const py=tr.cy + tr.ky.v*dt*1000;
+    const [x,y,w,h]=tr.bbox;
+    const nx=px-w/2, ny=py-h/2;
+    ctx.save();
+    ctx.strokeStyle="rgba(0,255,102,0.5)";
+    ctx.setLineDash([6,4]); ctx.lineWidth=1.5;
+    ctx.strokeRect(nx,ny,w,h);
+    ctx.restore();
+  }
+
+  function drawPose(poses){
+    if(!poses || !poses[0]) return;
+    const kp=poses[0].keypoints || poses[0].keypoints3D || [];
+    ctx.save();
+    ctx.fillStyle="rgba(0,255,102,0.9)";
+    for(const p of kp){
+      if(p.score>0.35){
+        ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+      }
+    }
+    // simple skeleton connections
+    const pairs=[[5,7],[7,9],[6,8],[8,10],[5,6],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
+    ctx.strokeStyle="rgba(0,255,102,0.7)"; ctx.lineWidth=2;
+    for(const [a,b] of pairs){
+      const pa=kp[a], pb=kp[b];
+      if(pa?.score>0.35 && pb?.score>0.35){
+        ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawFaces(faces){
+    ctx.save();
+    for(const f of faces){
+      const box=f.box;
+      if(!box) continue;
+      ctx.strokeStyle="rgba(125,200,255,0.8)";
+      ctx.lineWidth=1.5;
+      ctx.strokeRect(box.xMin,box.yMin,box.width,box.height);
+      const pts=f.keypoints || [];
+      ctx.fillStyle="rgba(125,200,255,0.8)";
+      for(const p of pts){
+        ctx.beginPath(); ctx.arc(p.x,p.y,1.2,0,Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawHands(hands){
+    ctx.save();
+    ctx.strokeStyle="rgba(255,207,64,0.9)";
+    ctx.fillStyle="rgba(255,207,64,0.9)";
+    for(const h of hands){
+      const pts=h.keypoints || [];
+      for(const p of pts){
+        ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawSegmentation(seg){
+    segCtx.clearRect(0,0,segCanvas.width, segCanvas.height);
+    if(!seg || !seg[0]) return;
+    const mask = seg[0].mask;
+    if(!mask) return;
+    bodySegmentation.drawMask(
+      segCanvas, videoEl, mask, 0.6, 0.1, false
+    );
+  }
+
+  // ===== main loop =====
+  async function loop(){
+    requestAnimationFrame(loop);
+    if(!running || paused || !vm.ready) return;
+
+    const t=now();
+    const dt=(t-lastFrameT)/1000;
+    lastFrameT=t;
+    const fps=1/Math.max(1e-6,dt);
+    fpsSmooth=lerp(fpsSmooth,fps,0.08);
+    document.getElementById("fps").textContent=fpsSmooth.toFixed(0);
+
+    ctx.clearRect(0,0,overlay.width, overlay.height);
+    zones.draw();
+
+    // step 1: detect objects
+    let dets=await vision.detect();
+    setDot(dot("dotDet"), true);
+
+    const tracks=tracker.step(dets);
+
+    // step 2: mag-lock & scoring
+    let locked=null;
+    if(lockedId!=null){
+      locked=tracks.find(t=>t.id===lockedId)||null;
+      if(!locked){
+        // attempt sticky re-lock to nearest similar class
+        let best=null, bestScore=0;
+        for(const tr of tracks){
+          const s=tr.label==="person"?1:0.6;
+          const i=locked?tr.iou(locked):0;
+          const score=s*(0.6+i*0.4);
+          if(score>bestScore){bestScore=score; best=tr;}
         }
-    }
-
-    loadFromStorage() {
-        try {
-            const stored = localStorage.getItem(CONFIG.MEMORY.STORAGE_KEY);
-            if (stored) {
-                const data = JSON.parse(stored);
-                this.events = data.events || [];
-            }
-        } catch (error) {
-            console.warn("Failed to load from storage:", error);
+        if(best && bestScore>lockSticky){
+          lockedId=best.id; locked=best;
+        }else{
+          lockedId=null;
+          btnLock.classList.remove("active");
         }
+      }
     }
 
-    clear() {
-        this.events = [];
-        localStorage.removeItem(CONFIG.MEMORY.STORAGE_KEY);
+    // step 3: zones & memory
+    for(const tr of tracks){
+      const z=zones.check(tr);
+      if(z){
+        memory.pushEvent("ZONE", `T#${tr.id} entered`);
+        bridge.send({type:"ZONE_EVENT", payload:{trackId:tr.id, zone:z}});
+        toast(`Tripwire: T#${tr.id}`);
+      }
+      memory.addPoint(tr.cx/overlay.width, tr.cy/overlay.height);
     }
 
-    exportData() {
-        const data = {
-            events: this.events,
-            exportTime: new Date().toISOString(),
-            totalEvents: this.events.length
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `omega_vision_export_${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    getActiveObjectCount() {
-        const recentTime = Date.now() - 5000;
-        const activeObjects = new Set();
-        
-        for (const event of this.events.slice().reverse()) {
-            if (event.timestamp < recentTime) break;
-            if (event.data.objectId && (event.type === 'object_detected' || event.type === 'object_updated')) {
-                activeObjects.add(event.data.objectId);
-            }
-        }
-        
-        return activeObjects.size;
-    }
-
-    getPersonDetectionsInLast(minutes) {
-        const cutoff = Date.now() - (minutes * 60 * 1000);
-        return this.events.filter(event => 
-            event.timestamp >= cutoff && 
-            event.data.label === 'person'
-        ).length;
-    }
-
-    getClosestPerson() {
-        const personEvents = this.events.filter(event => 
-            event.data.label === 'person' &&
-            event.data.depthEstimate !== undefined
-        );
-        
-        if (personEvents.length === 0) return null;
-        
-        const closest = personEvents.reduce((prev, current) => 
-            (prev.data.depthEstimate < current.data.depthEstimate) ? prev : current
-        );
-        
-        return {
-            distance: closest.data.depthEstimate,
-            bearing: closest.data.bearingDeg || 0
-        };
-    }
-
-    getMostCommonLabelInLast(minutes) {
-        const cutoff = Date.now() - (minutes * 60 * 1000);
-        const recentEvents = this.events.filter(event => event.timestamp >= cutoff);
-        
-        const labelCounts = {};
-        recentEvents.forEach(event => {
-            const label = event.data.label;
-            labelCounts[label] = (labelCounts[label] || 0) + 1;
-        });
-        
-        let maxCount = 0;
-        let mostCommon = 'none';
-        
-        for (const [label, count] of Object.entries(labelCounts)) {
-            if (count > maxCount) {
-                maxCount = count;
-                mostCommon = label;
-            }
-        }
-        
-        return mostCommon;
-    }
-}
-
-// ============================================================================
-// HUD RENDERER - OPTIMIZED
-// ============================================================================
-
-class HUDRenderer {
-    constructor() {
-        this.canvas = document.getElementById('hud-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        this.hudEnabled = true;
-        window.addEventListener('resize', () => this.resize());
-    }
-
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    render(avionicsData, tracks, primaryTarget) {
-        if (!this.hudEnabled) { this.clear(); return; }
-        this.clear();
-        this.ctx.imageSmoothingEnabled = false;
-
-        this.drawHorizon(avionicsData);
-        this.drawCrosshair();
-        this.drawTargetBoxes(tracks);
-        if (primaryTarget) this.drawPrimaryTarget(primaryTarget);
-    }
-
-    drawHorizon(avionicsData) {
-        const { width, height } = this.canvas;
-        const ctx = this.ctx;
-        const { pitch, roll } = avionicsData.getOrientation();
-
+    // draw tracks + prediction
+    let topThreat=null, topScore=0;
+    for(const tr of tracks){
+      const s=threatScore(tr);
+      if(s>topScore){topScore=s; topThreat=tr;}
+      drawPrediction(tr, 0.75);
+      drawBox(tr, (locked && tr.id===locked.id) ? "rgba(255,207,64,0.95)" : "rgba(0,255,102,0.9)", (locked && tr.id===locked.id)?3:2);
+      // trajectory
+      if(tr.history.length>1){
         ctx.save();
-        ctx.translate(width/2, height/2);
-        ctx.rotate(roll * Math.PI / 180);
-        const horizonY = pitch * 2;
-
-        ctx.fillStyle = 'rgba(0, 50, 100, 0.3)';
-        ctx.fillRect(-width, -height, width * 2, height + horizonY);
-
-        ctx.fillStyle = 'rgba(101, 67, 33, 0.3)';
-        ctx.fillRect(-width, horizonY, width * 2, height);
-
-        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle="rgba(0,255,102,0.35)";
+        ctx.lineWidth=1.2;
         ctx.beginPath();
-        ctx.moveTo(-width, horizonY);
-        ctx.lineTo(width, horizonY);
+        tr.history.forEach((p,i)=>{ i?ctx.lineTo(p.cx,p.cy):ctx.moveTo(p.cx,p.cy); });
         ctx.stroke();
         ctx.restore();
+      }
     }
 
-    drawCrosshair() {
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
-        const ctx = this.ctx;
+    // step 4: pose, seg, face, hands
+    const poses=await vision.pose();
+    setDot(dot("dotPose"), vision.enablePose);
+    drawPose(poses);
 
-        ctx.strokeStyle = CONFIG.UI.COLOR_CODING.LOW;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
-        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx - 30, cy);
-        ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 30, cy);
-        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy - 30);
-        ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 30);
-        ctx.stroke();
+    const seg=await vision.segment();
+    setDot(dot("dotSeg"), vision.enableSeg);
+    if(vision.enableSeg) drawSegmentation(seg);
 
-        ctx.fillStyle = CONFIG.UI.COLOR_CODING.HIGH;
-        ctx.fillRect(cx - 1, cy - 1, 2, 2);
+    const faces=await vision.faces();
+    setDot(dot("dotFace"), vision.enableFace);
+    if(vision.enableFace) drawFaces(faces);
+
+    const hands=await vision.hands();
+    setDot(dot("dotHand"), vision.enableHand);
+    if(vision.enableHand) drawHands(hands);
+
+    // radar + threats
+    drawRadar(tracks, locked);
+    memory.drawHeat(hctx, heatCanvas.width, heatCanvas.height);
+
+    threatKV.innerHTML=`
+      <div>TOP THREAT</div><div>${topThreat?`#${topThreat.id} ${topThreat.label}`:"--"}</div>
+      <div>SCORE</div><div>${fmt(topScore,2)}</div>
+      <div>LOCK</div><div>${locked?("#"+locked.id):"--"}</div>
+    `;
+
+    // audio line
+    setDot(dot("dotAud"), audio.running);
+    if(audio.lastTop){
+      audioLine.textContent = audio.lastTop.map(c=>`${c.categoryName} ${(c.score*100).toFixed(0)}%`).join(" · ");
+      bridge.send({type:"AUDIO_TOP", payload: audio.lastTop});
+    }else audioLine.textContent="";
+
+    // IMU / GPS dots
+    setDot(dot("dotIMU"), sensors.isAvailable.imu || sensors.isAvailable.genericImu, sensors.isAvailable.imu===false && isMobile);
+    setDot(dot("dotGPS"), sensors.isAvailable.geo);
+
+    // UI readouts
+    const o=sensors.getOrientation();
+    const m=sensors.getMotion();
+    const g=sensors.getGeo();
+    document.getElementById("imuKV").innerHTML=`
+      <div>PITCH</div><div>${fmt(o.pitch,1)}</div>
+      <div>ROLL</div><div>${fmt(o.roll,1)}</div>
+      <div>HEAD</div><div>${fmt(o.heading,1)}</div>
+      <div>G-F</div><div>${fmt(m.gForce,2)}</div>
+      <div>LAT</div><div>${g.lat?fmt(g.lat,5):"--"}</div>
+      <div>LON</div><div>${g.lon?fmt(g.lon,5):"--"}</div>
+    `;
+
+    const batt=sensors.getBattery();
+    const net=sensors.getNetwork();
+    document.getElementById("statusKV").innerHTML=`
+      <div>TRACKS</div><div>${tracks.length}</div>
+      <div>BACKEND</div><div>${tf.getBackend()}</div>
+      <div>BAT</div><div>${batt.level!=null?Math.round(batt.level*100)+"%":"--"} ${batt.charging?"⚡":""}</div>
+      <div>NET</div><div>${net.type||"--"} ${net.downlink?net.downlink+"Mb/s":""}</div>
+      <div>SECURE</div><div>${window.isSecureContext?"YES":"NO"}</div>
+    `;
+
+    // memory list UI
+    const memEl=document.getElementById("memoryList");
+    memEl.innerHTML=memory.events.map(ev=>{
+      const time=new Date(ev.t).toLocaleTimeString();
+      return `[${time}] ${ev.type}: ${String(ev.payload)}`;
+    }).join("<br>");
+
+    // send bridge frame
+    bridge.send({
+      type:"OMEGA_FRAME",
+      payload:{
+        t:Date.now(),
+        tracks:tracks.map(tr=>({id:tr.id,label:tr.label,score:tr.score,bbox:tr.bbox,vel:[tr.kx.v,tr.ky.v]})),
+        poses:poses?.[0]?.keypoints || null,
+        faces:faces.length?faces.map(f=>f.box):null,
+        hands:hands.length?hands.map(h=>h.keypoints):null,
+        lockedId,
+        imu:o, motion:m, geo:g
+      }
+    });
+
+    // auto dock UI away from locked/center mass
+    if(locked){
+      const rect = overlay.getBoundingClientRect();
+      const [bx,by,bw,bh]=locked.bbox;
+      const tx = rect.left + (bx/overlay.width)*rect.width;
+      const ty = rect.top + (by/overlay.height)*rect.height;
+      const tw = (bw/overlay.width)*rect.width;
+      const th = (bh/overlay.height)*rect.height;
+      autoDock({left:tx, top:ty, width:tw, height:th});
     }
 
-    drawTargetBoxes(tracks) { tracks.forEach(t => this.drawTargetBox(t)); }
+  }
 
-    drawTargetBox(track) {
-        const bbox = track.screenBbox || track.bbox;
-        const { x, y, width, height } = bbox;
-        const ctx = this.ctx;
-
-        let color = CONFIG.UI.COLOR_CODING.LOW;
-        if (track.label === 'person') color = CONFIG.UI.COLOR_CODING.HIGH;
-        else if (['car','truck','bus'].includes(track.label)) color = CONFIG.UI.COLOR_CODING.MEDIUM;
-
-        const bracketSize = Math.min(width, height) * 0.15;
-
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = color;
-        ctx.beginPath();
-
-        ctx.moveTo(x, y + bracketSize);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + bracketSize, y);
-
-        ctx.moveTo(x + width - bracketSize, y);
-        ctx.lineTo(x + width, y);
-        ctx.lineTo(x + width, y + bracketSize);
-
-        ctx.moveTo(x + width, y + height - bracketSize);
-        ctx.lineTo(x + width, y + height);
-        ctx.lineTo(x + width - bracketSize, y + height);
-
-        ctx.moveTo(x + bracketSize, y + height);
-        ctx.lineTo(x, y + height);
-        ctx.lineTo(x, y + height - bracketSize);
-
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // ✅ Motion prediction visual: dashed future box
-        if (track.predictedScreenBbox) {
-            const pb = track.predictedScreenBbox;
-            ctx.save();
-            ctx.globalAlpha = 0.35;
-            ctx.setLineDash([4, 4]);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = color;
-            ctx.strokeRect(pb.x, pb.y, pb.width, pb.height);
-            ctx.setLineDash([]);
-            ctx.restore();
-        }
-
-        const label = `${track.label.toUpperCase()} ${Math.floor(track.confidence * 100)}%`;
-        const dist = CONFIG.PHYSICS.IS_CALIBRATED
-            ? `~${Math.floor(track.depthMeters)}m`
-            : `${Math.floor((track.depthNorm ?? 0) * 100)}%`;
-
-        ctx.font = "bold 10px monospace";
-        const textWidth = ctx.measureText(label).width;
-
-        const labelY = Math.max(0, y - 25);
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, labelY, textWidth + 10, 20);
-
-        ctx.fillStyle = color;
-        ctx.fillText(label, x + 5, labelY + 14);
-        ctx.fillStyle = '#fff';
-        ctx.font = "9px monospace";
-        ctx.fillText(dist, x + 5, labelY + 30);
-    }
-
-    drawPrimaryTarget(target) {
-        const bbox = target.predictedScreenBbox || target.screenBbox || target.bbox;
-        const centerX = bbox.x + bbox.width / 2;
-        const centerY = bbox.y + bbox.height / 2;
-        const ctx = this.ctx;
-
-        const pulsePhase = (Date.now() % 1000) / 1000;
-        const radius = Math.max(bbox.width, bbox.height) / 2 + 15 +
-            Math.sin(pulsePhase * Math.PI * 2) * 5;
-
-        ctx.strokeStyle = CONFIG.UI.COLOR_CODING.HIGH;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5,5]);
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-
-    setHudEnabled(enabled) { this.hudEnabled = enabled; }
-}
-
-
-// ============================================================================
-// UI AUTO-AVOIDANCE (PANELS STEER AWAY FROM IMPORTANT AREAS)
-// ============================================================================
-
-class UIAvoider {
-    constructor(panels) {
-        this.panels = panels.filter(Boolean);
-        this.state = new Map();
-        this.refreshAnchors();
-        window.addEventListener('resize', () => this.refreshAnchors());
-    }
-
-    refreshAnchors() {
-        this.state.clear();
-        this.panels.forEach(el => {
-            const r = el.getBoundingClientRect();
-            this.state.set(el.id, {
-                anchor: { l: r.left, t: r.top, w: r.width, h: r.height },
-                offset: { x: 0, y: 0 }
-            });
-            el.style.willChange = 'transform';
-        });
-    }
-
-    update(importantRect) {
-        if (!importantRect) {
-            // ease back to anchor
-            this.state.forEach((s, id) => {
-                s.offset.x = Utils.ema(0, s.offset.x, 0.8);
-                s.offset.y = Utils.ema(0, s.offset.y, 0.8);
-                const el = document.getElementById(id);
-                if (el) el.style.transform = `translate(${s.offset.x}px, ${s.offset.y}px)`;
-            });
-            return;
-        }
-
-        const icx = (importantRect.left + importantRect.right) / 2;
-        const icy = (importantRect.top + importantRect.bottom) / 2;
-
-        this.state.forEach((s, id) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-
-            const { l, t, w, h } = s.anchor;
-
-            const panelRect = {
-                left: l + s.offset.x,
-                top: t + s.offset.y,
-                right: l + s.offset.x + w,
-                bottom: t + s.offset.y + h
-            };
-
-            const overlap = !(
-                panelRect.right < importantRect.left ||
-                panelRect.left > importantRect.right ||
-                panelRect.bottom < importantRect.top ||
-                panelRect.top > importantRect.bottom
-            );
-
-            let desiredX = 0, desiredY = 0;
-
-            if (overlap) {
-                const pcx = panelRect.left + w / 2;
-                const pcy = panelRect.top + h / 2;
-
-                let vx = pcx - icx;
-                let vy = pcy - icy;
-                const mag = Math.hypot(vx, vy) || 1;
-                vx /= mag; vy /= mag;
-
-                const push = Math.min(140, 70 + mag * 0.08);
-                desiredX = vx * push;
-                desiredY = vy * push;
-            }
-
-            // clamp within screen bounds
-            const targetLeft = Utils.clamp(l + desiredX, 6, window.innerWidth - w - 6);
-            const targetTop  = Utils.clamp(t + desiredY, 6, window.innerHeight - h - 6);
-            desiredX = targetLeft - l;
-            desiredY = targetTop - t;
-
-            s.offset.x = Utils.ema(desiredX, s.offset.x, 0.82);
-            s.offset.y = Utils.ema(desiredY, s.offset.y, 0.82);
-
-            el.style.transform = `translate(${s.offset.x}px, ${s.offset.y}px)`;
-        });
-    }
-}
-
-// ============================================================================
-// OMEGA KERNEL - OPTIMIZED WITH ALL FIXES
-// ============================================================================
-
-class OmegaKernel {
-    constructor() {
-        this.avionics = new Avionics();
-        this.vision   = new VisionEngine();
-        this.tracker  = new ObjectTracker();
-        this.physics  = new PhysicsEngine();
-        this.radar    = new RadarSystem('radar-blips');
-        this.memory   = new KnowledgeBase();
-        this.renderer = new HUDRenderer();
-
-        this.predictionHorizonSec = 0.75; // ~0.5–1.0s lookahead
-
-        this.isRunning = false;
-        this.video = document.getElementById('camera-feed');
-        this.trackedObjects = [];
-        this.primaryTarget = null;
-
-        // Magnetic lock state
-        this.lockedTargetId = null;
-        this.lockLostSince = null;
-        this.lockSwitchMargin = 0.12; // hysteresis margin
-
-        this.lastAITime = 0;
-        this._setupControls();
-
-        // UI auto-avoid panels
-        this.uiAvoider = new UIAvoider([
-            document.getElementById('panel-metrics'),
-            document.getElementById('panel-avionics'),
-            document.getElementById('panel-analytics'),
-            document.getElementById('panel-target')
-        ]);
-    }
-
-    _setupControls() {
-        document.getElementById('toggle-controls').addEventListener('click', () => {
-            const panel = document.getElementById('control-panel');
-            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        });
-
-        document.getElementById('btn-quality-low').addEventListener('click', () => this._setQuality('LOW'));
-        document.getElementById('btn-quality-balanced').addEventListener('click', () => this._setQuality('BALANCED'));
-        document.getElementById('btn-quality-high').addEventListener('click', () => this._setQuality('HIGH'));
-
-        document.getElementById('btn-hud-on').addEventListener('click', () => this._setHudEnabled(true));
-        document.getElementById('btn-hud-off').addEventListener('click', () => this._setHudEnabled(false));
-
-        document.getElementById('btn-export').addEventListener('click', () => this.memory.exportData());
-        document.getElementById('btn-clear').addEventListener('click', () => {
-            if (confirm('Clear all memory data?')) this.memory.clear();
-        });
-
-        document.getElementById('btn-calibrate').addEventListener('click', () => this._startCalibration());
-        document.getElementById('btn-retry-permission').addEventListener('click', () => this._retryPermission());
-    }
-
-    _setQuality(preset) {
-        this.vision.setQualityPreset(preset);
-
-        ['low','balanced','high'].forEach(k => {
-            const btn = document.getElementById(`btn-quality-${k}`);
-            btn && btn.classList.remove('active');
-        });
-        document.getElementById(`btn-quality-${preset.toLowerCase()}`).classList.add('active');
-
-        const blur = CONFIG.AI.QUALITY_PRESETS[preset].blur;
-        document.getElementById('ui-layer').style.backdropFilter = `blur(${blur}px)`;
-    }
-
-    _setHudEnabled(enabled) {
-        this.renderer.setHudEnabled(enabled);
-        document.getElementById('btn-hud-on').classList.toggle('active', enabled);
-        document.getElementById('btn-hud-off').classList.toggle('active', !enabled);
-    }
-
-    async boot() {
-        try {
-            this._updateStatus('INITIALIZING...');
-
-            this._updateBootLED('led-gyro', 'loading');
-            const avionicsReady = await this.avionics.init();
-            this._updateBootLED('led-gyro', avionicsReady ? 'active' : 'warning');
-
-            this._updateBootLED('led-cam', 'loading');
-            const cameraReady = await this._initCamera();
-            this._updateBootLED('led-cam', cameraReady ? 'active' : 'error');
-
-            if (!cameraReady) { this._showPermissionOverlay(); return; }
-
-            this._updateBootLED('led-ai', 'loading');
-            const visionReady = await this.vision.init();
-            this._updateBootLED('led-ai', visionReady ? 'active' : 'error');
-
-            this._updateBootLED('led-tracker', 'active');
-            this._updateBootLED('led-memory', 'active');
-
-            document.getElementById('boot-overlay').style.display = 'none';
-            this.isRunning = true;
-            this._updateStatus('SYSTEM_OPERATIONAL');
-
-            this.aiCycle();
-            this.renderCycle();
-        } catch (error) {
-            console.error("Boot failed:", error);
-            this._updateStatus(`ERROR: ${error.message}`);
-        }
-    }
-
-    async _initCamera() {
-        try {
-            if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia not supported');
-
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }, 
-                audio: false 
-            });
-
-            this.video.srcObject = stream;
-            await new Promise(resolve => {
-                this.video.onloadedmetadata = () => this.video.play().then(resolve);
-            });
-
-            this.physics.updateVideoDimensions(this.video);
-            return true;
-        } catch (error) {
-            console.error("Camera init failed:", error);
-            return false;
-        }
-    }
-
-    _showPermissionOverlay() {
-        document.getElementById('permission-overlay').style.display = 'flex';
-        this._updateStatus('CAMERA_PERMISSION_REQUIRED');
-    }
-
-    _retryPermission() {
-        document.getElementById('permission-overlay').style.display = 'none';
-        setTimeout(() => this.boot(), 100);
-    }
-
-    async aiCycle() {
-        if (!this.isRunning) return;
-
-        const now = performance.now();
-        const rate = this.vision.getInferenceRate();
-        const aiInterval = 1000 / rate;
-
-        if (now - this.lastAITime >= aiInterval) {
-            this.lastAITime = now;
-            try {
-                const detections = await this.vision.detect(this.video);
-                const rawTracks = this.tracker.update(detections, Date.now(), rate);
-                this.trackedObjects = this.physics.analyze(rawTracks);
-
-                // Attach prediction (0.5–1s horizon)
-                this.trackedObjects.forEach(t => {
-                    t.predictedScreenBbox = this.physics.predictScreenBbox(t, this.predictionHorizonSec);
-                    const pb = t.predictedScreenBbox;
-                    const cx = pb.x + pb.width / 2;
-                    const cy = pb.y + pb.height / 2;
-                    t.predictedScreenPosition = {
-                        xNorm: (cx / window.innerWidth) * 2 - 1,
-                        yNorm: (cy / window.innerHeight) * 2 - 1
-                    };
-                });
-
-                this._updateMemory(this.trackedObjects);
-                this._updatePrimaryTarget();
-            } catch (error) {
-                console.error("AI cycle error:", error);
-            }
-        }
-
-        const nextCycle = Math.max(0, aiInterval - (performance.now() - this.lastAITime));
-        setTimeout(() => this.aiCycle(), nextCycle);
-    }
-
-    renderCycle() {
-        if (!this.isRunning) return;
-
-        this.vision.updateRenderFPS();
-        this.renderer.render(this.avionics, this.trackedObjects, this.primaryTarget);
-        this.radar.update(this.trackedObjects);
-
-        // UI avoid important area (use predicted primary bbox)
-        if (this.primaryTarget?.predictedScreenBbox) {
-            const b = this.primaryTarget.predictedScreenBbox;
-            const pad = 18;
-            const importantRect = {
-                left: b.x - pad,
-                top: b.y - pad,
-                right: b.x + b.width + pad,
-                bottom: b.y + b.height + pad
-            };
-            this.uiAvoider.update(importantRect);
-        } else {
-            this.uiAvoider.update(null);
-        }
-
-        this._updateUI();
-        performanceMonitor.update();
-
-        requestAnimationFrame(() => this.renderCycle());
-    }
-
-    _updateMemory(tracks) {
-        const tracksArray = Array.from(this.tracker.tracks.values());
-
-        tracks.forEach(track => {
-            const eventType = track.status === 'new' ? 'object_detected' : 'object_updated';
-            this.memory.recordEvent(eventType, {
-                objectId: track.id,
-                label: track.label,
-                confidence: track.confidence,
-                depthMeters: track.depthMeters,
-                depthNorm: track.depthNorm,
-                bearingDeg: track.bearingDeg,
-                motionState: track.motionAnalysis?.motionState
-            });
-        });
-
-        const lostTracks = tracksArray.filter(t => t.status === 'lost');
-        lostTracks.forEach(track => {
-            this.memory.recordEvent('object_lost', {
-                objectId: track.id,
-                label: track.label
-            });
-        });
-    }
-
-    _scoreTrack(track) {
-        const pb = track.predictedScreenBbox || track.screenBbox;
-        const cx = pb.x + pb.width / 2;
-        const cy = pb.y + pb.height / 2;
-        const scx = window.innerWidth / 2;
-        const scy = window.innerHeight / 2;
-
-        const diag = Math.hypot(window.innerWidth, window.innerHeight);
-        const centerDist = Math.hypot(cx - scx, cy - scy) / diag; // 0..1
-        const centerScore = Utils.clamp(1 - centerDist * 1.8, 0, 1);
-
-        const areaNorm = (pb.width * pb.height) / (window.innerWidth * window.innerHeight);
-        const sizeScore = Utils.clamp(areaNorm / 0.20, 0, 1);
-
-        const confScore = track.confidence || 0;
-
-        const labelBonus = track.label === 'person' ? 0.15 : 0;
-
-        let score = centerScore * 0.55 + confScore * 0.25 + sizeScore * 0.20 + labelBonus;
-
-        if (this.lockedTargetId === track.id) score += 0.25; // magnetic boost
-
-        return score;
-    }
-
-    _updatePrimaryTarget() {
-        if (!this.trackedObjects.length) {
-            this.primaryTarget = null;
-            this.lockedTargetId = null;
-            this.lockLostSince = null;
-            return;
-        }
-
-        const candidates = this.trackedObjects;
-        let best = candidates[0];
-        let bestScore = this._scoreTrack(best);
-
-        for (let i = 1; i < candidates.length; i++) {
-            const s = this._scoreTrack(candidates[i]);
-            if (s > bestScore) {
-                bestScore = s;
-                best = candidates[i];
-            }
-        }
-
-        // Resolve current locked target score
-        const locked = this.lockedTargetId != null
-            ? candidates.find(t => t.id === this.lockedTargetId)
-            : null;
-
-        if (locked) {
-            const lockedScore = this._scoreTrack(locked);
-
-            // Only switch if best significantly better
-            if (best.id !== locked.id && bestScore > lockedScore + this.lockSwitchMargin) {
-                this.lockedTargetId = best.id;
-                this.primaryTarget = best;
-                this.lockLostSince = null;
-            } else {
-                this.primaryTarget = locked;
-                this.lockLostSince = null;
-            }
-        } else {
-            // No locked target yet (or lost)
-            if (this.lockLostSince == null) this.lockLostSince = Date.now();
-
-            const lostFor = Date.now() - this.lockLostSince;
-            if (lostFor > 300 || bestScore > 0.25) {  // acquire quickly
-                this.lockedTargetId = best.id;
-                this.primaryTarget = best;
-                this.lockLostSince = null;
-            } else {
-                this.primaryTarget = best;
-            }
-        }
-    }
-
-    _updateUI() {
-        const visionStatus = this.vision.getStatus();
-        document.getElementById('val-cpu').textContent = Utils.formatNumber(visionStatus.lastTime, 1);
-        document.getElementById('val-ai-fps').textContent = Utils.formatNumber(visionStatus.aiFps, 1);
-        document.getElementById('val-render-fps').textContent = Utils.formatNumber(visionStatus.renderFps, 1);
-
-        const orientation = this.avionics.getOrientation();
-        document.getElementById('val-pitch').textContent = Utils.formatNumber(orientation.pitch, 1) + '°';
-        document.getElementById('val-roll').textContent = Utils.formatNumber(orientation.roll, 1) + '°';
-        document.getElementById('val-heading').textContent = Utils.formatNumber(orientation.heading, 1) + '°';
-        document.getElementById('val-g').textContent = Utils.formatNumber(this.avionics.gForce, 2);
-
-        const trackerStats = this.tracker.getStats();
-        document.getElementById('val-tracked').textContent = trackerStats.activeTracks;
-
-        document.getElementById('val-active').textContent = this.memory.getActiveObjectCount();
-        document.getElementById('val-persons').textContent = this.memory.getPersonDetectionsInLast(5);
-
-        const closestPerson = this.memory.getClosestPerson();
-        document.getElementById('val-closest-person').textContent = closestPerson
-            ? `~${Utils.formatNumber(closestPerson.distance, 1)}m @ ${Utils.formatNumber(closestPerson.bearing, 0)}°`
-            : '--';
-
-        document.getElementById('val-top-label').textContent = this.memory.getMostCommonLabelInLast(5);
-
-        if (this.primaryTarget) {
-            document.getElementById('val-target-label').textContent = this.primaryTarget.label.toUpperCase();
-
-            const distText = CONFIG.PHYSICS.IS_CALIBRATED
-                ? `~${Utils.formatNumber(this.primaryTarget.depthMeters, 1)}m`
-                : `${Math.floor((this.primaryTarget.depthNorm ?? 0) * 100)}%`;
-
-            document.getElementById('val-target-dist').textContent = distText;
-
-            // ✅ FIX: bearing could be 0, so don't treat as falsy
-            const bearing = (this.primaryTarget.bearingDeg ?? 0);
-            document.getElementById('val-target-bearing').textContent =
-                `${Utils.formatNumber(bearing, 1)}°`;
-
-            document.getElementById('val-target-state').textContent =
-                (this.primaryTarget.motionAnalysis?.motionState || 'unknown').toUpperCase();
-            document.getElementById('val-target-conf').textContent =
-                `${Math.floor(this.primaryTarget.confidence * 100)}%`;
-        }
-
-        this._updateSystemStatus();
-    }
-
-    _updateSystemStatus() {
-        document.getElementById('status-cam').className =
-            `status-indicator ${this.video.srcObject ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-ai').className =
-            `status-indicator ${this.vision.isModelLoaded ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-gyro').className =
-            `status-indicator ${this.avionics.isAvailable ? 'status-ok' : 'status-offline'}`;
-        document.getElementById('status-tracker').className =
-            `status-indicator ${this.trackedObjects.length ? 'status-ok' : 'status-warn'}`;
-        document.getElementById('status-memory').className =
-            `status-indicator ${this.memory.events.length ? 'status-ok' : 'status-warn'}`;
-    }
-
-    _updateBootLED(ledId, state) {
-        const led = document.getElementById(ledId);
-        led.className = 'status-led';
-        if (state === 'active') led.classList.add('active');
-        else if (state === 'error') led.classList.add('error');
-        else if (state === 'warning') led.classList.add('warning');
-        else if (state === 'loading') led.classList.add('loading');
-    }
-
-    _updateStatus(message) {
-        document.getElementById('status-message').textContent = message;
-    }
-
-    _startCalibration() {
-        if (!this.trackedObjects.length) { alert('No objects detected for calibration'); return; }
-        const distance = prompt('Enter known distance to object (meters):');
-        if (distance && !isNaN(distance)) {
-            const knownDistance = parseFloat(distance);
-            const track = this.trackedObjects[0];
-            this.physics.calibrateDepth(knownDistance, track);
-            alert('Depth calibration completed');
-        }
-    }
-
-    shutdown() {
-        this.isRunning = false;
-        if (this.video.srcObject) {
-            this.video.srcObject.getTracks().forEach(track => track.stop());
-        }
-        this.memory.saveToStorage();
-    }
-}
-
-
-// ============================================================================
-// SYSTEM INITIALIZATION
-// ============================================================================
-
-const OMEGA = new OmegaKernel();
-
-document.getElementById('btn-init').addEventListener('click', () => {
-    const btn = document.getElementById('btn-init');
-    btn.textContent = 'INITIALIZING...';
-    btn.disabled = true;
-    OMEGA.boot();
-});
-
-// Handle visibility changes for performance
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        // Reduce processing when in background
-        OMEGA.vision.setQualityPreset('LOW');
-    }
-});
-
-window.addEventListener('beforeunload', () => {
-    OMEGA.shutdown();
-});
-
-// Add performance monitoring
-const performanceMonitor = {
-    frames: 0,
-    lastTime: performance.now(),
-    update: function() {
-        this.frames++;
-        const now = performance.now();
-        if (now >= this.lastTime + 1000) {
-            const fps = (this.frames * 1000) / (now - this.lastTime);
-            this.frames = 0;
-            this.lastTime = now;
-            
-            // Adaptive quality adjustment
-            if (fps < 20 && OMEGA.vision.qualityPreset !== 'LOW') {
-                OMEGA._setQuality('LOW');
-            }
-        }
-    }
-};
-
-console.log("OMEGA: Advanced Humanoid Vision System - Optimized Version Loaded");
+})();
 </script>
 </body>
 </html>
