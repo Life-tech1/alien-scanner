@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>THERMAL PREDATOR: AI VISION SYSTEM</title>
+    <title>OMEGA: ENTERPRISE AI VISION PLATFORM</title>
     
     <!-- AI CORE -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
@@ -12,820 +12,1091 @@
 
     <style>
         :root {
-            --thermal-hot: #ff2a6d;
-            --thermal-warm: #ffae00;
-            --thermal-cool: #00a8ff;
-            --thermal-cold: #00ff9d;
-            --ui-primary: #00ff9d;
-            --ui-secondary: #ff2a6d;
-            --ui-accent: #00a8ff;
-            --bg-dark: #0a0a0a;
+            --primary: #00ff9d;
+            --secondary: #00a8ff;
+            --accent: #ff2a6d;
+            --warning: #ffae00;
+            --success: #00ff9d;
+            --danger: #ff2a6d;
+            --dark: #0a0a0a;
+            --darker: #050505;
             --glass: rgba(10, 20, 15, 0.95);
-            --font-tech: 'Segoe UI', 'Orbitron', monospace;
+            --glass-light: rgba(10, 20, 15, 0.85);
+            --font-tech: 'Segoe UI', 'Courier New', monospace;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
         body { 
             margin: 0; 
             overflow: hidden; 
-            background: var(--bg-dark); 
-            color: var(--ui-primary); 
+            background: var(--darker); 
+            color: var(--primary); 
             font-family: var(--font-tech); 
             user-select: none;
+            height: 100vh;
+            width: 100vw;
         }
         
-        #viewport { 
-            position: relative; 
-            width: 100vw; 
-            height: 100vh; 
-            overflow: hidden; 
+        #app {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
         }
         
-        /* CAMERA SYSTEMS */
-        #visual-feed, #thermal-overlay {
-            position: absolute; 
-            inset: 0; 
-            width: 100%; 
-            height: 100%;
-            object-fit: cover;
-            transition: opacity 0.5s ease;
-        }
-        
-        #visual-feed { 
-            z-index: 1;
-            filter: contrast(1.2) saturate(1.3);
-        }
-        
-        #thermal-overlay {
-            z-index: 2;
-            opacity: 0;
-            mix-blend-mode: screen;
-        }
-        
-        #hud-canvas { 
-            position: absolute; 
-            inset: 0; 
-            z-index: 10; 
-            pointer-events: none; 
-        }
-
-        /* PREDATOR CROSSHAIR */
-        #predator-sight {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            width: 280px; 
-            height: 280px;
-            z-index: 15; 
-            pointer-events: none;
-        }
-
-        .sight-ring {
+        /* CAMERA SYSTEM */
+        #camera-system {
             position: absolute;
-            border: 2px solid var(--ui-primary);
-            border-radius: 50%;
+            inset: 0;
+            display: flex;
+            gap: 2px;
+            padding: 2px;
+            background: var(--dark);
+        }
+        
+        .camera-feed {
+            flex: 1;
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .camera-video {
             width: 100%;
             height: 100%;
-            animation: pulse-ring 3s infinite;
+            object-fit: cover;
         }
-
-        .sight-ring::before {
-            content: '';
+        
+        .camera-overlay {
             position: absolute;
-            top: -2px; left: -2px; right: -2px; bottom: -2px;
-            border: 1px solid var(--thermal-hot);
-            border-radius: 50%;
-            animation: rotate 8s linear infinite;
+            inset: 0;
+            pointer-events: none;
         }
-
-        .targeting-dot {
+        
+        .camera-hud {
             position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 8px; height: 8px;
-            background: var(--thermal-hot);
-            border-radius: 50%;
-            box-shadow: 0 0 20px var(--thermal-hot);
-            animation: pulse-dot 2s infinite;
+            inset: 0;
+            pointer-events: none;
         }
-
-        @keyframes pulse-ring {
-            0% { opacity: 0.6; transform: scale(0.95); }
-            50% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0.6; transform: scale(0.95); }
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.2); }
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* MODERN UI */
-        #ui-layer { 
-            position: absolute; 
-            inset: 0; 
-            z-index: 20; 
-            padding: 25px; 
-            pointer-events: none; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
+        
+        /* MAIN DASHBOARD */
+        #dashboard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: 1fr 200px;
+            gap: 10px;
+            pointer-events: none;
         }
         
         .panel {
-            background: var(--glass); 
-            border: 1px solid var(--ui-primary);
-            padding: 15px 20px; 
-            backdrop-filter: blur(15px); 
-            width: fit-content;
-            pointer-events: auto; 
-            margin-bottom: 10px;
+            background: var(--glass);
+            border: 1px solid var(--primary);
             border-radius: 12px;
+            padding: 15px;
+            backdrop-filter: blur(20px);
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            overflow: hidden;
         }
-
+        
         .panel-header {
-            font-size: 11px;
-            color: var(--ui-accent);
+            font-size: 12px;
+            color: var(--secondary);
             font-weight: 800;
-            letter-spacing: 3px;
-            margin-bottom: 8px;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
             text-transform: uppercase;
+            border-bottom: 1px solid rgba(0,168,255,0.3);
+            padding-bottom: 5px;
         }
-
-        .data-row {
+        
+        /* LEFT SIDEBAR - SYSTEM STATUS */
+        #system-status {
+            grid-column: 1;
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .status-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin: 5px 0;
-            font-size: 13px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-
-        .data-label {
+        
+        .status-label {
             color: #888;
+            font-size: 11px;
             font-weight: 600;
         }
-
-        .data-value {
+        
+        .status-value {
             color: #fff;
+            font-size: 12px;
             font-weight: 700;
             font-family: 'Courier New', monospace;
         }
-
-        .thermal-gradient {
-            width: 120px;
+        
+        .status-indicator {
+            width: 8px;
             height: 8px;
-            background: linear-gradient(90deg, var(--thermal-cold), var(--thermal-cool), var(--thermal-warm), var(--thermal-hot));
-            border-radius: 4px;
-            margin: 5px 0;
+            border-radius: 50%;
+            margin-right: 8px;
         }
-
-        /* MODE CONTROLS */
-        #mode-controls {
-            position: absolute;
-            bottom: 25px;
-            right: 25px;
+        
+        .status-online { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        .status-warning { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
+        .status-offline { background: #666; }
+        
+        /* CENTER - MAIN VIEW */
+        #main-view {
+            grid-column: 2;
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .view-controls {
             display: flex;
             gap: 10px;
-            pointer-events: auto;
+            margin-bottom: 15px;
         }
-
-        .mode-btn {
-            background: var(--glass);
-            border: 1px solid var(--ui-primary);
-            color: var(--ui-primary);
-            padding: 12px 20px;
-            border-radius: 8px;
+        
+        .view-btn {
+            background: var(--glass-light);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 15px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
-
-        .mode-btn.active {
-            background: var(--ui-primary);
+        
+        .view-btn.active {
+            background: var(--primary);
             color: #000;
-            box-shadow: 0 0 20px var(--ui-primary);
         }
-
-        .mode-btn:hover:not(.active) {
-            background: rgba(0,255,157,0.1);
-            transform: translateY(-2px);
+        
+        .view-btn:hover:not(.active) {
+            background: rgba(0,255,157,0.2);
         }
-
-        /* THERMAL TARGET INFO */
-        #thermal-target {
-            position: absolute;
-            top: 25px;
-            right: 25px;
-            background: var(--glass);
-            border: 1px solid var(--thermal-hot);
-            padding: 15px;
-            border-radius: 10px;
-            min-width: 200px;
-            display: none;
+        
+        /* RIGHT SIDEBAR - ANALYTICS */
+        #live-analytics {
+            grid-column: 3;
+            grid-row: 1;
         }
-
-        .target-header {
-            color: var(--thermal-hot);
-            font-weight: 700;
+        
+        .metric-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 10px;
             margin-bottom: 8px;
-            font-size: 12px;
-            letter-spacing: 2px;
         }
-
-        .thermal-reading {
+        
+        .metric-value {
             font-size: 24px;
             font-weight: 800;
-            color: var(--thermal-hot);
-            text-shadow: 0 0 10px var(--thermal-hot);
+            color: var(--primary);
+            line-height: 1;
         }
-
+        
+        .metric-label {
+            font-size: 10px;
+            color: #888;
+            margin-top: 2px;
+        }
+        
+        /* BOTTOM - ALERTS & CONTROLS */
+        #alert-panel {
+            grid-column: 1 / 4;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .alert-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .alert-item {
+            background: rgba(255,42,109,0.1);
+            border: 1px solid var(--danger);
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+        
+        .alert-item.warning {
+            background: rgba(255,174,0,0.1);
+            border-color: var(--warning);
+        }
+        
+        .alert-item.info {
+            background: rgba(0,168,255,0.1);
+            border-color: var(--secondary);
+        }
+        
+        .control-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .control-btn {
+            flex: 1;
+            background: var(--glass-light);
+            border: 1px solid var(--secondary);
+            color: var(--secondary);
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(0,168,255,0.2);
+            transform: translateY(-1px);
+        }
+        
         /* BOOT SCREEN */
-        #boot { 
-            position: fixed; 
-            inset: 0; 
-            background: #000; 
-            z-index: 9999; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
+        #boot-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--darker);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-tech);
         }
-
+        
         .boot-logo {
             font-size: 48px;
             font-weight: 900;
-            color: var(--ui-primary);
+            color: var(--primary);
             letter-spacing: 8px;
             margin-bottom: 10px;
-            text-shadow: 0 0 20px var(--ui-primary);
+            text-shadow: 0 0 20px var(--primary);
         }
-
+        
         .boot-subtitle {
-            color: var(--ui-accent);
+            color: var(--secondary);
             font-size: 14px;
             letter-spacing: 4px;
             margin-bottom: 40px;
+            text-align: center;
         }
-
-        .system-loader {
-            width: 80px;
-            height: 80px;
+        
+        .boot-loader {
+            width: 60px;
+            height: 60px;
             border: 3px solid #333;
-            border-top: 3px solid var(--thermal-hot);
+            border-top: 3px solid var(--primary);
             border-radius: 50%;
             animation: spin 1.5s linear infinite;
             margin: 20px 0;
         }
-
+        
+        .boot-progress {
+            width: 300px;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .boot-progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
         .boot-status {
             color: #666;
             font-size: 12px;
             margin-top: 20px;
             text-align: center;
+            min-height: 20px;
         }
-
+        
         .activate-btn {
-            background: linear-gradient(45deg, var(--thermal-hot), var(--thermal-warm));
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
             border: none;
             color: #000;
-            padding: 15px 50px;
+            padding: 15px 40px;
             font-weight: 900;
             cursor: pointer;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             border-radius: 8px;
             margin-top: 30px;
             text-transform: uppercase;
             transition: all 0.3s ease;
+            font-size: 14px;
         }
-
+        
         .activate-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 0 30px var(--thermal-hot);
+            box-shadow: 0 0 30px var(--primary);
         }
-
-        /* ALERT SYSTEM */
-        #alert-system {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255,42,109,0.9);
-            color: #fff;
-            padding: 20px 40px;
-            border-radius: 10px;
-            font-weight: 900;
-            letter-spacing: 2px;
-            display: none;
-            z-index: 30;
-            text-align: center;
-            box-shadow: 0 0 50px var(--thermal-hot);
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            #dashboard {
+                grid-template-columns: 250px 1fr 250px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto auto;
+            }
+            
+            #system-status { grid-column: 1; grid-row: 1; }
+            #main-view { grid-column: 1; grid-row: 2; }
+            #live-analytics { grid-column: 1; grid-row: 3; }
+            #alert-panel { grid-column: 1; grid-row: 4; }
+        }
+        
+        /* SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.3);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary);
         }
     </style>
 </head>
 <body>
-
-    <div id="viewport">
-        <!-- DUAL CAMERA SYSTEM -->
-        <video id="visual-feed" autoplay playsinline muted></video>
-        <canvas id="thermal-overlay"></canvas>
-        <canvas id="hud-canvas"></canvas>
-        
-        <!-- PREDATOR TARGETING SYSTEM -->
-        <div id="predator-sight">
-            <div class="sight-ring"></div>
-            <div class="targeting-dot"></div>
+    <div id="app">
+        <!-- CAMERA SYSTEM -->
+        <div id="camera-system">
+            <div class="camera-feed">
+                <video class="camera-video" id="main-camera" autoplay playsinline muted></video>
+                <canvas class="camera-overlay" id="overlay-canvas"></canvas>
+                <canvas class="camera-hud" id="hud-canvas"></canvas>
+            </div>
         </div>
-
-        <div id="ui-layer">
+        
+        <!-- MAIN DASHBOARD -->
+        <div id="dashboard">
             <!-- SYSTEM STATUS -->
-            <div class="panel">
-                <div class="panel-header">Thermal Predator</div>
-                <div class="data-row">
-                    <span class="data-label">SENSOR MODE</span>
-                    <span class="data-value" id="sensor-mode">FUSION</span>
+            <div class="panel" id="system-status">
+                <div class="panel-header">System Status</div>
+                <div class="status-item">
+                    <div style="display:flex;align-items:center;">
+                        <div class="status-indicator status-online"></div>
+                        <span class="status-label">AI CORE</span>
+                    </div>
+                    <span class="status-value" id="ai-status">ONLINE</span>
                 </div>
-                <div class="data-row">
-                    <span class="data-label">TARGET LOCK</span>
-                    <span class="data-value" id="target-lock">--</span>
+                <div class="status-item">
+                    <div style="display:flex;align-items:center;">
+                        <div class="status-indicator status-online"></div>
+                        <span class="status-label">CAMERA SYSTEM</span>
+                    </div>
+                    <span class="status-value" id="camera-status">ACTIVE</span>
                 </div>
-                <div class="data-row">
-                    <span class="data-label">THERMAL SIG</span>
-                    <span class="data-value" id="thermal-signature">--</span>
+                <div class="status-item">
+                    <span class="status-label">PROCESSING FPS</span>
+                    <span class="status-value" id="fps-counter">0</span>
                 </div>
-                <div class="thermal-gradient"></div>
+                <div class="status-item">
+                    <span class="status-label">ACTIVE CAMERAS</span>
+                    <span class="status-value" id="active-cameras">1/4</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">MEMORY USAGE</span>
+                    <span class="status-value" id="memory-usage">--</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">UPTIME</span>
+                    <span class="status-value" id="system-uptime">00:00:00</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">DETECTION MODEL</span>
+                    <span class="status-value">COCO-SSD</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">POSE MODEL</span>
+                    <span class="status-value">MoveNet Thunder</span>
+                </div>
             </div>
-
-            <!-- TARGET DATA -->
-            <div class="panel">
-                <div class="panel-header">Target Analysis</div>
-                <div class="data-row">
-                    <span class="data-label">DISTANCE</span>
-                    <span class="data-value" id="target-distance">-- m</span>
+            
+            <!-- MAIN VIEW -->
+            <div class="panel" id="main-view">
+                <div class="panel-header">Live Analysis</div>
+                <div class="view-controls">
+                    <div class="view-btn active" data-view="overview">Overview</div>
+                    <div class="view-btn" data-view="objects">Objects</div>
+                    <div class="view-btn" data-view="poses">Poses</div>
+                    <div class="view-btn" data-view="analytics">Analytics</div>
                 </div>
-                <div class="data-row">
-                    <span class="data-label">HEAT LEVEL</span>
-                    <span class="data-value" id="heat-level">-- °C</span>
+                <div style="flex:1;background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;">
+                    <div id="view-content">
+                        <!-- Dynamic content will be loaded here -->
+                    </div>
                 </div>
-                <div class="data-row">
-                    <span class="data-label">THREAT INDEX</span>
-                    <span class="data-value" id="threat-index">--</span>
+            </div>
+            
+            <!-- LIVE ANALYTICS -->
+            <div class="panel" id="live-analytics">
+                <div class="panel-header">Live Analytics</div>
+                <div class="metric-card">
+                    <div class="metric-value" id="people-count">0</div>
+                    <div class="metric-label">PEOPLE DETECTED</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="vehicle-count">0</div>
+                    <div class="metric-label">VEHICLES DETECTED</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="activity-level">LOW</div>
+                    <div class="metric-label">AREA ACTIVITY</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="threat-level">LOW</div>
+                    <div class="metric-label">THREAT LEVEL</div>
+                </div>
+                <div style="margin-top:15px;">
+                    <div class="panel-header">Detection Stats</div>
+                    <div class="status-item">
+                        <span class="status-label">Total Detections</span>
+                        <span class="status-value" id="total-detections">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Confidence Avg</span>
+                        <span class="status-value" id="avg-confidence">0%</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Processing Time</span>
+                        <span class="status-value" id="processing-time">0ms</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ALERT PANEL -->
+            <div class="panel" id="alert-panel">
+                <div class="panel-header">Alert System</div>
+                <div class="alert-list" id="alert-list">
+                    <div class="alert-item info">
+                        <strong>SYSTEM ONLINE:</strong> AI Vision Platform initialized successfully
+                    </div>
+                </div>
+                <div class="control-bar">
+                    <div class="control-btn" id="btn-capture">CAPTURE</div>
+                    <div class="control-btn" id="btn-export">EXPORT DATA</div>
+                    <div class="control-btn" id="btn-settings">SETTINGS</div>
                 </div>
             </div>
         </div>
-
-        <!-- MODE CONTROLS -->
-        <div id="mode-controls">
-            <div class="mode-btn active" onclick="PREDATOR.setMode('fusion')">FUSION</div>
-            <div class="mode-btn" onclick="PREDATOR.setMode('thermal')">THERMAL</div>
-            <div class="mode-btn" onclick="PREDATOR.setMode('visual')">VISUAL</div>
+        
+        <!-- BOOT SCREEN -->
+        <div id="boot-screen">
+            <div class="boot-logo">OMEGA</div>
+            <div class="boot-subtitle">ENTERPRISE AI VISION PLATFORM</div>
+            <div class="boot-loader"></div>
+            <div class="boot-progress">
+                <div class="boot-progress-bar" id="boot-progress"></div>
+            </div>
+            <div class="boot-status" id="boot-status">Initializing Core Systems...</div>
+            <button class="activate-btn" id="btn-activate" style="display:none;">ACTIVATE SYSTEM</button>
         </div>
-
-        <!-- THERMAL TARGET INFO -->
-        <div id="thermal-target">
-            <div class="target-header">THERMAL TARGET</div>
-            <div class="thermal-reading" id="target-temp">--°C</div>
-            <div class="data-label">HEAT SIGNATURE DETECTED</div>
-        </div>
-
-        <!-- ALERT SYSTEM -->
-        <div id="alert-system"></div>
     </div>
 
-    <!-- BOOT SCREEN -->
-    <div id="boot">
-        <div class="boot-logo">PREDATOR</div>
-        <div class="boot-subtitle">THERMAL AI VISION</div>
-        <div class="system-loader"></div>
-        <div class="boot-status" id="boot-status">Initializing Neural Networks...</div>
-        <button class="activate-btn" id="btn-activate" onclick="PREDATOR.activate()" style="display:none;">
-            ACTIVATE SYSTEM
-        </button>
-    </div>
+    <script>
+    /**
+     * 🚀 OMEGA: ENTERPRISE AI VISION PLATFORM
+     * Complete Enterprise-Grade Computer Vision System
+     */
 
-<script>
-/**
- * 🔥 THERMAL PREDATOR: Advanced AI Thermal Vision System
- * Modern multi-spectrum targeting with thermal simulation
- */
-
-const CONFIG = {
-    // Detection Settings
-    OBJ_CONF: 0.25,
-    POSE_CONF: 0.25,
-    
-    // Thermal Simulation
-    THERMAL: {
-        BASE_TEMP: 20,      // Ambient temperature °C
-        HUMAN_TEMP: 37,     // Human body temperature
-        VEHICLE_TEMP: 45,   // Vehicle engine temperature
-        ANIMAL_TEMP: 38,    // Animal body temperature
-        RANDOM_VARIANCE: 3  // Temperature variance
-    },
-    
-    // System Modes
-    MODES: {
-        VISUAL: 'visual',
-        THERMAL: 'thermal', 
-        FUSION: 'fusion'
-    }
-};
-
-class ThermalPredatorSystem {
-    constructor() {
-        this.visualFeed = document.getElementById('visual-feed');
-        this.thermalOverlay = document.getElementById('thermal-overlay');
-        this.thermalCtx = this.thermalOverlay.getContext('2d');
-        this.hudCanvas = document.getElementById('hud-canvas');
-        this.hudCtx = this.hudCanvas.getContext('2d');
-        
-        this.netObj = null;
-        this.netPose = null;
-        this.currentMode = CONFIG.MODES.FUSION;
-        this.isActive = false;
-        
-        // Thermal Tracking
-        this.thermalData = new Map();
-        this.targetHistory = new Map();
-        
-        // System State
-        this.zoomLevel = 1;
-        this.frameCount = 0;
-        
-        this.initializeSystem();
-    }
-
-    async initializeSystem() {
-        try {
-            const statusEl = document.getElementById('boot-status');
+    class EnterpriseAIVision {
+        constructor() {
+            // Core Components
+            this.video = document.getElementById('main-camera');
+            this.overlayCanvas = document.getElementById('overlay-canvas');
+            this.overlayCtx = this.overlayCanvas.getContext('2d');
+            this.hudCanvas = document.getElementById('hud-canvas');
+            this.hudCtx = this.hudCanvas.getContext('2d');
             
-            statusEl.textContent = "Loading Object Recognition...";
-            this.netObj = await cocoSsd.load({base: 'lite_mobilenet_v2'});
-
-            statusEl.textContent = "Loading Pose Detection...";
-            this.netPose = await poseDetection.createDetector(
-                poseDetection.SupportedModels.MoveNet,
-                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
-            );
-
-            statusEl.textContent = "Initializing Thermal Sensors...";
-            await this.setupThermalSimulation();
-
-            statusEl.textContent = "Calibrating AI Systems...";
+            // AI Models
+            this.objectDetector = null;
+            this.poseDetector = null;
             
-            document.getElementById('btn-activate').style.display = 'block';
-            statusEl.textContent = "SYSTEM READY FOR ACTIVATION";
-            statusEl.style.color = "#00ff9d";
+            // System State
+            this.isActive = false;
+            this.startTime = Date.now();
+            this.frameCount = 0;
+            this.fps = 0;
+            this.lastFpsUpdate = 0;
             
-        } catch(error) {
-            this.showAlert("SYSTEM INIT FAILED: " + error.message, true);
+            // Analytics Data
+            this.analytics = {
+                totalDetections: 0,
+                peopleCount: 0,
+                vehicleCount: 0,
+                confidenceSum: 0,
+                processingTimes: []
+            };
+            
+            // Alert System
+            this.alerts = [];
+            this.alertHistory = [];
+            
+            this.initializeSystem();
         }
-    }
 
-    async setupThermalSimulation() {
-        // Initialize thermal overlay canvas
-        this.thermalOverlay.width = window.innerWidth;
-        this.thermalOverlay.height = window.innerHeight;
-    }
+        async initializeSystem() {
+            try {
+                this.updateBootProgress(10, "Loading AI Core Engine...");
+                
+                // Load Object Detection
+                this.updateBootProgress(30, "Loading Object Detection Model...");
+                this.objectDetector = await cocoSsd.load({
+                    base: 'lite_mobilenet_v2'
+                });
 
-    async activate() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: false
-            });
-            
-            this.visualFeed.srcObject = stream;
-            await new Promise(resolve => {
-                this.visualFeed.onloadedmetadata = () => {
-                    this.visualFeed.play();
-                    resolve();
-                };
-            });
+                // Load Pose Detection
+                this.updateBootProgress(60, "Loading Pose Detection Model...");
+                this.poseDetector = await poseDetection.createDetector(
+                    poseDetection.SupportedModels.MoveNet,
+                    { 
+                        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER 
+                    }
+                );
 
-            // Initialize canvas sizes
-            this.hudCanvas.width = window.innerWidth;
-            this.hudCanvas.height = window.innerHeight;
-            this.thermalOverlay.width = window.innerWidth;
-            this.thermalOverlay.height = window.innerHeight;
+                this.updateBootProgress(80, "Initializing Camera Systems...");
+                this.setupEventListeners();
+                this.initializeCanvases();
 
-            document.getElementById('boot').style.display = 'none';
-            this.isActive = true;
-            
-            this.showAlert("THERMAL PREDATOR ONLINE", false);
-            this.mainLoop();
-            
-        } catch(error) {
-            this.showAlert("CAMERA ACTIVATION FAILED: " + error.message, true);
-        }
-    }
-
-    setMode(mode) {
-        this.currentMode = mode;
-        
-        // Update UI
-        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        // Update mode display
-        document.getElementById('sensor-mode').textContent = mode.toUpperCase();
-        
-        // Adjust visual feeds
-        switch(mode) {
-            case CONFIG.MODES.VISUAL:
-                this.visualFeed.style.opacity = '1';
-                this.thermalOverlay.style.opacity = '0';
-                break;
-            case CONFIG.MODES.THERMAL:
-                this.visualFeed.style.opacity = '0.3';
-                this.thermalOverlay.style.opacity = '0.7';
-                break;
-            case CONFIG.MODES.FUSION:
-                this.visualFeed.style.opacity = '0.8';
-                this.thermalOverlay.style.opacity = '0.5';
-                break;
-        }
-        
-        this.showAlert(`MODE: ${mode.toUpperCase()} ENGAGED`);
-    }
-
-    simulateThermalSignature(object) {
-        const objectId = `${object.class}_${object.bbox.join('_')}`;
-        
-        if (!this.thermalData.has(objectId)) {
-            let baseTemp;
-            switch(object.class) {
-                case 'person':
-                    baseTemp = CONFIG.THERMAL.HUMAN_TEMP;
-                    break;
-                case 'car':
-                case 'truck':
-                case 'bus':
-                    baseTemp = CONFIG.THERMAL.VEHICLE_TEMP;
-                    break;
-                case 'dog':
-                case 'cat':
-                case 'bird':
-                    baseTemp = CONFIG.THERMAL.ANIMAL_TEMP;
-                    break;
-                default:
-                    baseTemp = CONFIG.THERMAL.BASE_TEMP;
+                this.updateBootProgress(100, "System Ready for Activation");
+                document.getElementById('btn-activate').style.display = 'block';
+                
+            } catch (error) {
+                this.handleSystemError(error);
             }
-            
-            // Add some random variance
-            const variance = (Math.random() - 0.5) * CONFIG.THERMAL.RANDOM_VARIANCE * 2;
-            this.thermalData.set(objectId, baseTemp + variance);
         }
-        
-        return this.thermalData.get(objectId);
-    }
 
-    renderThermalOverlay(objects) {
-        this.thermalCtx.clearRect(0, 0, this.thermalOverlay.width, this.thermalOverlay.height);
-        
-        objects.forEach(obj => {
-            const temp = this.simulateThermalSignature(obj);
-            const color = this.temperatureToColor(temp);
+        updateBootProgress(percent, message) {
+            document.getElementById('boot-progress').style.width = percent + '%';
+            document.getElementById('boot-status').textContent = message;
+        }
+
+        setupEventListeners() {
+            // View Controls
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    this.switchView(e.target.dataset.view);
+                });
+            });
+
+            // Control Buttons
+            document.getElementById('btn-activate').addEventListener('click', () => this.activateSystem());
+            document.getElementById('btn-capture').addEventListener('click', () => this.captureFrame());
+            document.getElementById('btn-export').addEventListener('click', () => this.exportData());
+            document.getElementById('btn-settings').addEventListener('click', () => this.showSettings());
+
+            // Window Resize
+            window.addEventListener('resize', () => this.handleResize());
+        }
+
+        initializeCanvases() {
+            this.overlayCanvas.width = this.video.offsetWidth;
+            this.overlayCanvas.height = this.video.offsetHeight;
+            this.hudCanvas.width = this.video.offsetWidth;
+            this.hudCanvas.height = this.video.offsetHeight;
+        }
+
+        handleResize() {
+            if (this.isActive) {
+                this.initializeCanvases();
+            }
+        }
+
+        async activateSystem() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+
+                this.video.srcObject = stream;
+                
+                await new Promise((resolve) => {
+                    this.video.onloadedmetadata = () => {
+                        this.video.play();
+                        resolve();
+                    };
+                });
+
+                document.getElementById('boot-screen').style.display = 'none';
+                this.isActive = true;
+                
+                this.addAlert('SYSTEM ACTIVATED: AI Vision Platform is now operational', 'info');
+                this.startMainLoop();
+                this.startSystemMonitoring();
+                
+            } catch (error) {
+                this.addAlert('CAMERA ERROR: ' + error.message, 'danger');
+            }
+        }
+
+        async startMainLoop() {
+            if (!this.isActive) return;
+
+            const startTime = performance.now();
+
+            try {
+                // Run AI Detection
+                const objects = await this.objectDetector.detect(this.video, 20, 0.4);
+                
+                // Run Pose Detection if people detected
+                let poses = [];
+                if (objects.some(obj => obj.class === 'person')) {
+                    poses = await this.poseDetector.estimatePoses(this.video);
+                }
+
+                // Update Analytics
+                this.updateAnalytics(objects, poses);
+                
+                // Render Results
+                this.renderOverlay(objects, poses);
+                this.updateDashboard(objects, poses);
+
+            } catch (error) {
+                console.warn('AI Processing Error:', error);
+            }
+
+            // Update Performance Metrics
+            this.updatePerformanceMetrics(performance.now() - startTime);
             
-            const [x, y, width, height] = obj.bbox;
-            const scaleX = this.thermalOverlay.width / this.visualFeed.videoWidth;
-            const scaleY = this.thermalOverlay.height / this.visualFeed.videoHeight;
-            
-            const screenX = x * scaleX;
-            const screenY = y * scaleY;
-            const screenWidth = width * scaleX;
-            const screenHeight = height * scaleY;
-            
-            // Create thermal glow effect
-            this.thermalCtx.fillStyle = color;
-            this.thermalCtx.globalAlpha = 0.6;
-            this.thermalCtx.fillRect(screenX, screenY, screenWidth, screenHeight);
-            
-            // Add heat radiation effect
-            this.thermalCtx.globalAlpha = 0.3;
-            this.thermalCtx.beginPath();
-            this.thermalCtx.arc(
-                screenX + screenWidth/2, 
-                screenY + screenHeight/2, 
-                Math.max(screenWidth, screenHeight) * 0.8, 
-                0, 
-                Math.PI * 2
+            // Continue Loop
+            requestAnimationFrame(() => this.startMainLoop());
+        }
+
+        updateAnalytics(objects, poses) {
+            const people = objects.filter(obj => obj.class === 'person');
+            const vehicles = objects.filter(obj => 
+                ['car', 'truck', 'bus', 'motorcycle'].includes(obj.class)
             );
-            this.thermalCtx.fill();
-        });
-        
-        this.thermalCtx.globalAlpha = 1;
-    }
 
-    temperatureToColor(temp) {
-        if (temp >= 40) return '#ff2a6d'; // Hot - Red
-        if (temp >= 35) return '#ffae00'; // Warm - Orange
-        if (temp >= 25) return '#00a8ff'; // Cool - Blue
-        return '#00ff9d'; // Cold - Green
-    }
+            this.analytics.peopleCount = people.length;
+            this.analytics.vehicleCount = vehicles.length;
+            this.analytics.totalDetections += objects.length;
+            
+            // Calculate average confidence
+            if (objects.length > 0) {
+                const totalConfidence = objects.reduce((sum, obj) => sum + obj.score, 0);
+                this.analytics.confidenceSum = totalConfidence / objects.length;
+            }
 
-    calculateThreatLevel(object, temperature) {
-        if (object.class === 'person') {
-            if (temperature > 38) return 'HIGH';
-            if (temperature > 36) return 'MEDIUM';
+            // Check for alerts
+            this.checkAlerts(people, vehicles, poses);
+        }
+
+        checkAlerts(people, vehicles, poses) {
+            // High density alert
+            if (people.length > 10) {
+                this.addAlert(`HIGH DENSITY: ${people.length} people detected`, 'warning');
+            }
+
+            // Suspicious activity detection
+            if (poses.length > 0) {
+                poses.forEach(pose => {
+                    if (this.detectSuspiciousPose(pose)) {
+                        this.addAlert('SUSPICIOUS ACTIVITY: Unusual pose detected', 'danger');
+                    }
+                });
+            }
+
+            // Vehicle speed estimation (simplified)
+            if (vehicles.length > 5) {
+                this.addAlert('HIGH TRAFFIC: Multiple vehicles detected', 'warning');
+            }
+        }
+
+        detectSuspiciousPose(pose) {
+            // Simplified suspicious pose detection
+            const keypoints = pose.keypoints;
+            const leftWrist = keypoints.find(kp => kp.name === 'left_wrist');
+            const rightWrist = keypoints.find(kp => kp.name === 'right_wrist');
+            const nose = keypoints.find(kp => kp.name === 'nose');
+
+            if (leftWrist && rightWrist && nose) {
+                // Check if hands are above head (potential threat)
+                return (leftWrist.y < nose.y && leftWrist.score > 0.5) ||
+                       (rightWrist.y < nose.y && rightWrist.score > 0.5);
+            }
+            return false;
+        }
+
+        renderOverlay(objects, poses) {
+            // Clear canvases
+            this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+            this.hudCtx.clearRect(0, 0, this.hudCanvas.width, this.hudCanvas.height);
+
+            const scaleX = this.overlayCanvas.width / this.video.videoWidth;
+            const scaleY = this.overlayCanvas.height / this.video.videoHeight;
+
+            // Render object bounding boxes
+            objects.forEach(obj => {
+                const [x, y, width, height] = obj.bbox;
+                const screenX = x * scaleX;
+                const screenY = y * scaleY;
+                const screenWidth = width * scaleX;
+                const screenHeight = height * scaleY;
+
+                const color = this.getClassColor(obj.class);
+                
+                // Bounding box
+                this.overlayCtx.strokeStyle = color;
+                this.overlayCtx.lineWidth = 2;
+                this.overlayCtx.strokeRect(screenX, screenY, screenWidth, screenHeight);
+
+                // Label
+                this.overlayCtx.fillStyle = color;
+                this.overlayCtx.font = 'bold 12px "Courier New", monospace';
+                this.overlayCtx.fillText(
+                    `${obj.class.toUpperCase()} ${Math.round(obj.score * 100)}%`,
+                    screenX,
+                    screenY - 5
+                );
+            });
+
+            // Render pose skeletons
+            if (poses.length > 0) {
+                this.renderSkeletons(poses, scaleX, scaleY);
+            }
+        }
+
+        renderSkeletons(poses, scaleX, scaleY) {
+            const connections = [
+                ['left_shoulder', 'right_shoulder'],
+                ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+                ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+                ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+                ['left_hip', 'right_hip'],
+                ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
+                ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
+            ];
+
+            poses.forEach(pose => {
+                // Draw connections
+                this.overlayCtx.strokeStyle = '#00ff9d';
+                this.overlayCtx.lineWidth = 2;
+
+                connections.forEach(([jointA, jointB]) => {
+                    const pointA = pose.keypoints.find(kp => kp.name === jointA);
+                    const pointB = pose.keypoints.find(kp => kp.name === jointB);
+                    
+                    if (pointA && pointB && pointA.score > 0.3 && pointB.score > 0.3) {
+                        this.overlayCtx.beginPath();
+                        this.overlayCtx.moveTo(pointA.x * scaleX, pointA.y * scaleY);
+                        this.overlayCtx.lineTo(pointB.x * scaleX, pointB.y * scaleY);
+                        this.overlayCtx.stroke();
+                    }
+                });
+
+                // Draw joints
+                this.overlayCtx.fillStyle = '#ff2a6d';
+                pose.keypoints.forEach(kp => {
+                    if (kp.score > 0.3) {
+                        this.overlayCtx.beginPath();
+                        this.overlayCtx.arc(kp.x * scaleX, kp.y * scaleY, 3, 0, Math.PI * 2);
+                        this.overlayCtx.fill();
+                    }
+                });
+            });
+        }
+
+        getClassColor(className) {
+            const colors = {
+                'person': '#ff2a6d',
+                'car': '#00a8ff',
+                'truck': '#00a8ff',
+                'bus': '#00a8ff',
+                'motorcycle': '#00a8ff',
+                'dog': '#ffae00',
+                'cat': '#ffae00'
+            };
+            return colors[className] || '#00ff9d';
+        }
+
+        updateDashboard(objects, poses) {
+            // Update metrics
+            document.getElementById('people-count').textContent = this.analytics.peopleCount;
+            document.getElementById('vehicle-count').textContent = this.analytics.vehicleCount;
+            document.getElementById('total-detections').textContent = this.analytics.totalDetections;
+            document.getElementById('avg-confidence').textContent = 
+                Math.round(this.analytics.confidenceSum * 100) + '%';
+
+            // Update activity level
+            const totalObjects = objects.length;
+            let activityLevel = 'LOW';
+            if (totalObjects > 10) activityLevel = 'HIGH';
+            else if (totalObjects > 5) activityLevel = 'MEDIUM';
+            document.getElementById('activity-level').textContent = activityLevel;
+            document.getElementById('activity-level').style.color = 
+                activityLevel === 'HIGH' ? '#ff2a6d' : 
+                activityLevel === 'MEDIUM' ? '#ffae00' : '#00ff9d';
+
+            // Update threat level (simplified)
+            const threatLevel = this.calculateThreatLevel(objects, poses);
+            document.getElementById('threat-level').textContent = threatLevel;
+            document.getElementById('threat-level').style.color = 
+                threatLevel === 'HIGH' ? '#ff2a6d' : 
+                threatLevel === 'MEDIUM' ? '#ffae00' : '#00ff9d';
+        }
+
+        calculateThreatLevel(objects, poses) {
+            let threatScore = 0;
+            
+            // People count factor
+            const peopleCount = objects.filter(obj => obj.class === 'person').length;
+            if (peopleCount > 15) threatScore += 3;
+            else if (peopleCount > 8) threatScore += 2;
+            else if (peopleCount > 3) threatScore += 1;
+
+            // Suspicious poses
+            const suspiciousPoses = poses.filter(pose => this.detectSuspiciousPose(pose)).length;
+            threatScore += suspiciousPoses * 2;
+
+            // High speed vehicles (simulated)
+            const vehicles = objects.filter(obj => 
+                ['car', 'truck', 'motorcycle'].includes(obj.class)
+            );
+            if (vehicles.length > 5) threatScore += 2;
+
+            if (threatScore >= 5) return 'HIGH';
+            if (threatScore >= 3) return 'MEDIUM';
             return 'LOW';
         }
-        return 'NEUTRAL';
-    }
 
-    async mainLoop() {
-        if (!this.isActive) return;
-
-        try {
-            // Run object detection
-            const objects = await this.netObj.detect(this.visualFeed, 20, CONFIG.OBJ_CONF);
+        updatePerformanceMetrics(processingTime) {
+            this.frameCount++;
+            const currentTime = performance.now();
             
-            // Update thermal simulation
-            this.renderThermalOverlay(objects);
-            
-            // Run pose detection if humans detected
-            let poses = [];
-            if (objects.some(obj => obj.class === 'person')) {
-                poses = await this.netPose.estimatePoses(this.visualFeed);
+            // Update FPS every second
+            if (currentTime - this.lastFpsUpdate >= 1000) {
+                this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdate));
+                this.frameCount = 0;
+                this.lastFpsUpdate = currentTime;
+                
+                document.getElementById('fps-counter').textContent = this.fps;
             }
 
-            // Update tracking and render HUD
-            this.updateTargetTracking(objects);
-            this.renderHUD(objects, poses);
-            
-        } catch (error) {
-            console.warn('AI processing error:', error);
+            // Update processing time
+            document.getElementById('processing-time').textContent = Math.round(processingTime) + 'ms';
+
+            // Update uptime
+            const uptime = Math.floor((Date.now() - this.startTime) / 1000);
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = uptime % 60;
+            document.getElementById('system-uptime').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            // Simulate memory usage
+            const memoryUsage = (70 + Math.random() * 20).toFixed(1) + '%';
+            document.getElementById('memory-usage').textContent = memoryUsage;
         }
 
-        this.frameCount++;
-        requestAnimationFrame(() => this.mainLoop());
-    }
+        addAlert(message, type = 'info') {
+            const alert = {
+                id: Date.now(),
+                message,
+                type,
+                timestamp: new Date().toLocaleTimeString()
+            };
 
-    updateTargetTracking(objects) {
-        let primaryTarget = null;
-        let maxHeat = 0;
+            this.alerts.unshift(alert);
+            this.alertHistory.push(alert);
 
-        objects.forEach(obj => {
-            const temp = this.simulateThermalSignature(obj);
-            const threat = this.calculateThreatLevel(obj, temp);
-            
-            if (temp > maxHeat && obj.class === 'person') {
-                maxHeat = temp;
-                primaryTarget = { obj, temp, threat };
+            // Keep only recent alerts
+            if (this.alerts.length > 10) {
+                this.alerts = this.alerts.slice(0, 10);
             }
-        });
 
-        // Update target info panel
-        if (primaryTarget) {
-            document.getElementById('thermal-target').style.display = 'block';
-            document.getElementById('target-temp').textContent = primaryTarget.temp.toFixed(1) + '°C';
-            document.getElementById('target-temp').style.color = this.temperatureToColor(primaryTarget.temp);
-            
-            // Update main UI
-            document.getElementById('thermal-signature').textContent = 'ACTIVE';
-            document.getElementById('thermal-signature').style.color = this.temperatureToColor(primaryTarget.temp);
-            document.getElementById('heat-level').textContent = primaryTarget.temp.toFixed(1) + '°C';
-            document.getElementById('threat-index').textContent = primaryTarget.threat;
-            document.getElementById('threat-index').style.color = 
-                primaryTarget.threat === 'HIGH' ? '#ff2a6d' : 
-                primaryTarget.threat === 'MEDIUM' ? '#ffae00' : '#00ff9d';
-                
-        } else {
-            document.getElementById('thermal-target').style.display = 'none';
-            document.getElementById('thermal-signature').textContent = '--';
-            document.getElementById('heat-level').textContent = '--°C';
-            document.getElementById('threat-index').textContent = '--';
-        }
-    }
-
-    renderHUD(objects, poses) {
-        this.hudCtx.clearRect(0, 0, this.hudCanvas.width, this.hudCanvas.height);
-        
-        const scaleX = this.hudCanvas.width / this.visualFeed.videoWidth;
-        const scaleY = this.hudCanvas.height / this.visualFeed.videoHeight;
-
-        // Render object bounding boxes with thermal colors
-        objects.forEach(obj => {
-            const temp = this.simulateThermalSignature(obj);
-            const color = this.temperatureToColor(temp);
-            
-            const [x, y, width, height] = obj.bbox;
-            const screenX = x * scaleX;
-            const screenY = y * scaleY;
-            const screenWidth = width * scaleX;
-            const screenHeight = height * scaleY;
-
-            // Bounding box
-            this.hudCtx.strokeStyle = color;
-            this.hudCtx.lineWidth = 3;
-            this.hudCtx.strokeRect(screenX, screenY, screenWidth, screenHeight);
-
-            // Label with temperature
-            this.hudCtx.fillStyle = color;
-            this.hudCtx.font = 'bold 12px "Courier New", monospace';
-            this.hudCtx.fillText(
-                `${obj.class.toUpperCase()} ${temp.toFixed(1)}°C`, 
-                screenX, 
-                screenY - 5
-            );
-        });
-
-        // Render pose skeletons
-        if (poses.length > 0) {
-            this.renderSkeletons(poses, scaleX, scaleY);
+            this.updateAlertDisplay();
         }
 
-        // Update target count and distance
-        const people = objects.filter(obj => obj.class === 'person');
-        document.getElementById('target-lock').textContent = people.length > 0 ? 'ACTIVE' : '--';
-        
-        if (people.length > 0) {
-            const avgHeight = people.reduce((sum, p) => sum + p.bbox[3], 0) / people.length;
-            const distance = (1.7 * 1000) / avgHeight; // Simplified distance calculation
-            document.getElementById('target-distance').textContent = distance.toFixed(1) + ' m';
-        } else {
-            document.getElementById('target-distance').textContent = '-- m';
-        }
-    }
+        updateAlertDisplay() {
+            const alertList = document.getElementById('alert-list');
+            alertList.innerHTML = '';
 
-    renderSkeletons(poses, scaleX, scaleY) {
-        const connections = [
-            ['left_shoulder', 'right_shoulder'],
-            ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
-            ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
-            ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
-            ['left_hip', 'right_hip'],
-            ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
-            ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
-        ];
-
-        poses.forEach(pose => {
-            // Draw connections
-            this.hudCtx.strokeStyle = '#00ff9d';
-            this.hudCtx.lineWidth = 2;
-            
-            connections.forEach(([jointA, jointB]) => {
-                const pointA = pose.keypoints.find(kp => kp.name === jointA);
-                const pointB = pose.keypoints.find(kp => kp.name === jointB);
-                
-                if (pointA && pointB && pointA.score > 0.3 && pointB.score > 0.3) {
-                    this.hudCtx.beginPath();
-                    this.hudCtx.moveTo(pointA.x * scaleX, pointA.y * scaleY);
-                    this.hudCtx.lineTo(pointB.x * scaleX, pointB.y * scaleY);
-                    this.hudCtx.stroke();
-                }
+            this.alerts.forEach(alert => {
+                const alertElement = document.createElement('div');
+                alertElement.className = `alert-item ${alert.type}`;
+                alertElement.innerHTML = `<strong>${alert.timestamp}:</strong> ${alert.message}`;
+                alertList.appendChild(alertElement);
             });
+        }
 
-            // Draw joints
-            this.hudCtx.fillStyle = '#ff2a6d';
-            pose.keypoints.forEach(kp => {
-                if (kp.score > 0.3) {
-                    this.hudCtx.beginPath();
-                    this.hudCtx.arc(kp.x * scaleX, kp.y * scaleY, 4, 0, Math.PI * 2);
-                    this.hudCtx.fill();
+        captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = this.video.videoWidth;
+            canvas.height = this.video.videoHeight;
+            const ctx = canvas.getContext('2d');
+
+            // Draw video frame
+            ctx.drawImage(this.video, 0, 0);
+            
+            // Draw overlay
+            ctx.drawImage(this.overlayCanvas, 0, 0);
+
+            // Create download
+            const link = document.createElement('a');
+            link.download = `omega-capture-${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+
+            this.addAlert('Frame captured successfully', 'info');
+        }
+
+        exportData() {
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                analytics: this.analytics,
+                alertHistory: this.alertHistory,
+                systemInfo: {
+                    uptime: Date.now() - this.startTime,
+                    fps: this.fps,
+                    platform: navigator.platform
                 }
-            });
-        });
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.download = `omega-export-${new Date().getTime()}.json`;
+            link.href = url;
+            link.click();
+
+            URL.revokeObjectURL(url);
+            this.addAlert('Data exported successfully', 'info');
+        }
+
+        switchView(view) {
+            const content = document.getElementById('view-content');
+            
+            switch(view) {
+                case 'overview':
+                    content.innerHTML = `
+                        <div style="color:#888; text-align:center; padding:20px;">
+                            <h3 style="color:#00ff9d; margin-bottom:10px;">SYSTEM OVERVIEW</h3>
+                            <p>Real-time AI Vision Processing Active</p>
+                            <p>Monitoring: Objects, Poses, Activities</p>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'objects':
+                    content.innerHTML = `
+                        <div style="color:#888; padding:10px;">
+                            <h4 style="color:#00a8ff; margin-bottom:10px;">OBJECT DETECTION</h4>
+                            <p>Detecting: People, Vehicles, Animals</p>
+                            <p>Using: COCO-SSD Model</p>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'poses':
+                    content.innerHTML = `
+                        <div style="color:#888; padding:10px;">
+                            <h4 style="color:#ff2a6d; margin-bottom:10px;">POSE ANALYSIS</h4>
+                            <p>Tracking: 17 Body Keypoints</p>
+                            <p>Using: MoveNet Thunder Model</p>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'analytics':
+                    content.innerHTML = `
+                        <div style="color:#888; padding:10px;">
+                            <h4 style="color:#ffae00; margin-bottom:10px;">ANALYTICS DASHBOARD</h4>
+                            <p>Live Data Processing</p>
+                            <p>Behavior Analysis</p>
+                            <p>Threat Assessment</p>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        showSettings() {
+            this.addAlert('Settings panel would open here', 'info');
+        }
+
+        startSystemMonitoring() {
+            setInterval(() => {
+                // Continuous system monitoring
+                if (this.fps < 10) {
+                    this.addAlert('LOW PERFORMANCE: FPS dropped below 10', 'warning');
+                }
+            }, 10000);
+        }
+
+        handleSystemError(error) {
+            console.error('System Error:', error);
+            document.getElementById('boot-status').textContent = 'SYSTEM INITIALIZATION FAILED';
+            document.getElementById('boot-status').style.color = '#ff2a6d';
+            
+            this.addAlert(`SYSTEM ERROR: ${error.message}`, 'danger');
+        }
     }
 
-    showAlert(message, isError = false) {
-        const alert = document.getElementById('alert-system');
-        alert.textContent = message;
-        alert.style.background = isError ? 
-            'rgba(255,42,109,0.9)' : 'rgba(0,255,157,0.9)';
-        alert.style.display = 'block';
-        
-        setTimeout(() => {
-            alert.style.display = 'none';
-        }, 3000);
-    }
-}
+    // Initialize the Enterprise AI Vision System
+    const OMEGA_SYSTEM = new EnterpriseAIVision();
 
-// Initialize the Thermal Predator system
-const PREDATOR = new ThermalPredatorSystem();
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    if (PREDATOR.isActive) {
-        PREDATOR.hudCanvas.width = window.innerWidth;
-        PREDATOR.hudCanvas.height = window.innerHeight;
-        PREDATOR.thermalOverlay.width = window.innerWidth;
-        PREDATOR.thermalOverlay.height = window.innerHeight;
-    }
-});
-
-</script>
+    </script>
 </body>
 </html>
