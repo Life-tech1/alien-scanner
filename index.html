@@ -3,183 +3,371 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: OMNI-SIGHT (MULTI-AI)</title>
+    <title>OMEGA: ADVANCED IDENTITY TRACKER</title>
     
-    <!-- CORE AI ENGINE (TENSORFLOW) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-    
-    <!-- 1. OBJECT DETECTION MODEL -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
-    
-    <!-- 2. POSE DETECTION MODEL -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6"></script>
-    
-    <!-- 3. FACE MESH MODEL -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
         :root {
-            --p: #00ff9d; /* Primary */
-            --s: #00a8ff; /* Skeleton */
-            --f: #ff00ff; /* Face */
-            --bg: #000;
+            --p: #00ff9d; --s: #008f7a; --a: #ff2a6d; --w: #ffae00;
+            --bg: #000; --glass: rgba(0, 20, 10, 0.9);
             --font: 'Segoe UI', monospace;
         }
-        
-        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); user-select: none; }
         
         #viewport { position: relative; width: 100vw; height: 100vh; }
-        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.8; filter: contrast(1.2) brightness(0.8); }
-        #hud-canvas { position: absolute; inset: 0; z-index: 10; }
+        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.9; filter: contrast(1.1) brightness(0.9); }
+        #layer-3d, #hud-canvas { position: absolute; inset: 0; z-index: 10; }
+        #hud-canvas { cursor: crosshair; }
 
-        /* UI PANELS */
-        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 10px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        /* UI Overlay */
+        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         
         .panel {
-            background: rgba(0, 10, 5, 0.85); border-left: 3px solid var(--p);
-            padding: 8px 12px; margin-bottom: 5px; backdrop-filter: blur(5px);
-            pointer-events: auto; width: fit-content; border-radius: 0 5px 5px 0;
-            box-shadow: 0 0 10px rgba(0,255,157,0.1);
+            background: var(--glass); border-left: 4px solid var(--p); padding: 10px 15px;
+            margin-bottom: 5px; backdrop-filter: blur(10px); pointer-events: auto;
+            width: fit-content; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
-        .label { font-size: 9px; color: #888; font-weight: 900; letter-spacing: 1px; }
-        .val { font-size: 12px; color: #fff; font-weight: bold; font-family: monospace; }
-        
-        .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #333; margin-right: 5px; }
-        .led.on { background: var(--p); box-shadow: 0 0 8px var(--p); }
-        .led.busy { background: #ffae00; animation: pulse 0.5s infinite; }
+        .label { font-size: 9px; color: #00a8ff; font-weight: 900; letter-spacing: 2px; }
+        .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
 
-        /* BOOT SCREEN */
+        /* Input Prompt (Custom Style) */
+        #tag-input {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); border: 2px solid var(--p); padding: 20px; z-index: 100;
+            text-align: center; border-radius: 10px; box-shadow: 0 0 30px var(--p);
+        }
+        #tag-input input { background: #222; border: 1px solid #555; color: white; padding: 10px; font-size: 16px; width: 200px; text-align: center; }
+        #tag-input button { margin-top: 10px; background: var(--p); border: none; padding: 8px 20px; font-weight: bold; cursor: pointer; }
+
+        /* Boot Screen */
         #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loader-ring { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 1s infinite; margin-bottom: 20px; }
+        #loader { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 0.8s infinite; margin: 30px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 50% { opacity: 0.5; } }
-        
-        button { background: transparent; border: 1px solid var(--p); color: var(--p); padding: 10px 30px; font-weight: bold; cursor: pointer; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
-        button:hover { background: var(--p); color: #000; }
+        button.start-btn { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
+
+        /* Control Panel */
+        #control-panel { position: absolute; bottom: 20px; right: 20px; z-index: 30; }
+        .control-btn { background: var(--glass); border: 1px solid var(--p); color: var(--p); padding: 8px 15px; margin: 5px; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold; }
+
+        /* Data Panel */
+        #data-panel { position: absolute; top: 20px; right: 20px; width: 300px; max-height: 70vh; overflow-y: auto; background: var(--glass); border: 1px solid var(--p); border-radius: 4px; padding: 10px; display: none; }
+        .data-item { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 12px; }
+        .data-item:last-child { border-bottom: none; }
+        .data-name { color: var(--p); font-weight: bold; }
+        .data-id { color: #aaa; }
+
+        /* Notification */
+        #notification { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--a); padding: 10px 20px; border-radius: 4px; display: none; z-index: 40; color: var(--a); font-weight: bold; }
+
+        /* Filter Panel */
+        #filter-panel { position: absolute; bottom: 80px; right: 20px; background: var(--glass); border: 1px solid var(--p); padding: 10px; border-radius: 4px; display: none; }
+        .filter-option { margin: 5px 0; }
     </style>
 </head>
 <body>
 
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="layer-3d"></canvas>
         <canvas id="hud-canvas"></canvas>
 
+        <!-- Custom Tag Input Modal -->
+        <div id="tag-input">
+            <div style="color:var(--p); margin-bottom:10px; font-weight:bold;">IDENTIFY TARGET</div>
+            <input type="text" id="target-name" placeholder="Enter Name (e.g. Boss)">
+            <br>
+            <button onclick="OMEGA.confirmTag()">CONFIRM</button>
+            <button onclick="OMEGA.cancelTag()" style="background:#333; color:#fff;">CANCEL</button>
+        </div>
+
         <div id="ui-layer">
-            <!-- TOP LEFT: AI STATUS -->
-            <div>
+            <div style="display:flex; justify-content:space-between;">
                 <div class="panel">
-                    <div class="label">NEURAL NETWORKS</div>
-                    <div><span id="led-obj" class="led"></span> OBJECT DETECT</div>
-                    <div><span id="led-pose" class="led"></span> SKELETON TRACK</div>
-                    <div><span id="led-face" class="led"></span> FACE MESH</div>
+                    <div class="label">IDENTITY SYSTEM</div>
+                    <div>STATUS: <span class="val" style="color:var(--p)">ACTIVE</span></div>
+                    <div style="font-size:10px; color:#aaa;">CLICK BOX TO TAG NAME</div>
                 </div>
                 <div class="panel">
-                    <div class="label">PERFORMANCE</div>
-                    <div>FPS: <span id="fps" class="val">0</span></div>
-                    <div>LATENCY: <span id="ms" class="val">0ms</span></div>
+                    <div class="label">TARGETS</div>
+                    <div>COUNT: <span id="count" class="val">0</span></div>
                 </div>
             </div>
+        </div>
 
-            <!-- BOTTOM: DATA -->
-            <div>
-                <div class="panel">
-                    <div class="label">ANALYSIS</div>
-                    <div>HUMANS: <span id="human-count" class="val">0</span></div>
-                    <div>POSTURE: <span id="posture-status" class="val" style="color:var(--s)">SCANNING</span></div>
-                </div>
+        <!-- Control Panel -->
+        <div id="control-panel">
+            <button class="control-btn" onclick="OMEGA.toggleDataPanel()">DATA LOG</button>
+            <button class="control-btn" onclick="OMEGA.toggleFilterPanel()">FILTER</button>
+            <button class="control-btn" onclick="OMEGA.exportData()">EXPORT</button>
+        </div>
+
+        <!-- Data Panel -->
+        <div id="data-panel">
+            <div style="color:var(--p); font-weight:bold; margin-bottom:10px;">TARGET LOG</div>
+            <div id="data-list"></div>
+        </div>
+
+        <!-- Notification -->
+        <div id="notification"></div>
+
+        <!-- Filter Panel -->
+        <div id="filter-panel">
+            <div style="color:var(--p); font-weight:bold; margin-bottom:10px;">FILTER OPTIONS</div>
+            <div class="filter-option">
+                <input type="checkbox" id="filter-person" checked onchange="OMEGA.applyFilters()">
+                <label for="filter-person">Person</label>
+            </div>
+            <div class="filter-option">
+                <input type="checkbox" id="filter-vehicle" checked onchange="OMEGA.applyFilters()">
+                <label for="filter-vehicle">Vehicle</label>
+            </div>
+            <div class="filter-option">
+                <input type="checkbox" id="filter-animal" checked onchange="OMEGA.applyFilters()">
+                <label for="filter-animal">Animal</label>
+            </div>
+            <div class="filter-option">
+                <input type="text" id="filter-name" placeholder="Filter by name" onkeyup="OMEGA.applyFilters()">
             </div>
         </div>
     </div>
 
     <div id="boot">
-        <h1 style="color:var(--p); letter-spacing: 5px;">OMEGA: OMNI-SIGHT</h1>
-        <div class="loader-ring"></div>
-        <div id="boot-log" style="color:#666; font-size:10px; margin-bottom:20px;">INITIALIZING...</div>
-        <button id="btn-start" onclick="OMEGA.start()" style="display:none;">ACTIVATE ALL SYSTEMS</button>
+        <h1 style="color:var(--p); letter-spacing: 8px; font-size: 32px;">OMEGA</h1>
+        <div style="color:#666;">ADVANCED IDENTITY TRACKING MODULE</div>
+        <div id="loader"></div>
+        <button id="btn-start" class="start-btn" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
     </div>
 
 <script>
 /**
- * OMEGA: OMNI-SIGHT EDITION
- * Multi-Model AI Fusion (Object + Pose + Face)
+ * OMEGA: ADVANCED IDENTITY EDITION
+ * Enhanced Features: Sticky Tracking + Manual Tagging + Data Logging + 3D Visualization
  */
 
 const CONFIG = {
-    OBJ_CONF: 0.5,
-    POSE_CONF: 0.4,
-    MAX_FACES: 3
+    AI_CONF: 0.5,
+    TRACK: { SMOOTH: 0.15, MAX_LOST: 30, MATCH_DIST: 150 },
+    NOTIFICATION_TIMEOUT: 3000,
+    DATA_RETENTION: 100 // จำนวนข้อมูลสูงสุดที่จะเก็บ
 };
 
-// --- AI KERNEL (The Brain) ---
-class MultiAIKernel {
+const Vector = {
+    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+    lerp: (a, b, t) => a + (b - a) * t,
+    getCenter: (box) => ({ x: box[0] + box[2]/2, y: box[1] + box[3]/2 })
+};
+
+// --- IDENTITY MANAGER (สมองจำชื่อ) ---
+class IdentityManager {
     constructor() {
-        this.netObject = null;
-        this.netPose = null;
-        this.netFace = null;
-        this.status = { obj: false, pose: false, face: false };
+        this.identities = new Map(); // เก็บ ID -> Name
+        this.detectionHistory = []; // ประวัติการตรวจจับ
     }
-
-    async loadAll(onProgress) {
-        try {
-            // 1. Load Object Detection
-            onProgress("Loading Cortex 1: Objects...");
-            this.netObject = await cocoSsd.load({base: 'lite_mobilenet_v2'});
-            this.status.obj = true;
-
-            // 2. Load Pose Detection (MoveNet Lightning - Fast)
-            onProgress("Loading Cortex 2: Skeleton...");
-            this.netPose = await poseDetection.createDetector(
-                poseDetection.SupportedModels.MoveNet,
-                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-            );
-            this.status.pose = true;
-
-            // 3. Load Face Mesh
-            onProgress("Loading Cortex 3: Biometrics...");
-            this.netFace = await faceLandmarksDetection.load(
-                faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
-            );
-            this.status.face = true;
-
-            return true;
-        } catch (e) {
-            console.error(e);
-            onProgress("Error: " + e.message);
-            return false;
+    
+    setName(trackId, name) {
+        this.identities.set(trackId, name);
+    }
+    
+    getName(trackId) {
+        return this.identities.get(trackId) || null;
+    }
+    
+    addDetection(track) {
+        // เพิ่มข้อมูลการตรวจจับลงในประวัติ
+        const detection = {
+            id: track.id,
+            name: this.getName(track.id) || track.class,
+            class: track.class,
+            timestamp: new Date().toISOString(),
+            x: track.x,
+            y: track.y
+        };
+        
+        this.detectionHistory.unshift(detection);
+        
+        // จำกัดจำนวนข้อมูลที่เก็บ
+        if (this.detectionHistory.length > CONFIG.DATA_RETENTION) {
+            this.detectionHistory = this.detectionHistory.slice(0, CONFIG.DATA_RETENTION);
         }
     }
-
-    async analyze(video) {
-        // Run inference in parallel? No, JS is single threaded.
-        // Run sequentially but fast.
+    
+    getFilteredDetections(filters = {}) {
+        let filtered = [...this.detectionHistory];
         
-        const results = { objects: [], poses: [], faces: [] };
-
-        if(this.status.obj) results.objects = await this.netObject.detect(video, 10, CONFIG.OBJ_CONF);
-        
-        // Only run heavy pose/face if humans are detected to save battery
-        const hasHuman = results.objects.some(o => o.class === 'person');
-        
-        if(this.status.pose && hasHuman) {
-            const poses = await this.netPose.estimatePoses(video);
-            results.poses = poses;
+        if (filters.classes && filters.classes.length > 0) {
+            filtered = filtered.filter(d => filters.classes.includes(d.class));
         }
-
-        if(this.status.face && hasHuman) {
-            const faces = await this.netFace.estimateFaces({input: video});
-            results.faces = faces;
+        
+        if (filters.name) {
+            filtered = filtered.filter(d => 
+                d.name.toLowerCase().includes(filters.name.toLowerCase())
+            );
         }
-
-        return results;
+        
+        return filtered;
     }
 }
 
-// --- RENDERER (The Visuals) ---
-class OmniRenderer {
+// --- PREDICTIVE TRACKER (ตัวเดิมที่หนึบๆ) ---
+class Tracker {
     constructor() {
+        this.tracks = [];
+        this.nextId = 1;
+    }
+
+    update(detections) {
+        // 1. Predict
+        this.tracks.forEach(t => {
+            t.x += t.vx; t.y += t.vy; t.lost++;
+        });
+
+        // 2. Match
+        detections.forEach(det => {
+            const center = Vector.getCenter(det.bbox);
+            let bestDist = CONFIG.TRACK.MATCH_DIST;
+            let bestTrack = null;
+
+            this.tracks.forEach(t => {
+                const d = Vector.dist({x: t.x, y: t.y}, center);
+                if (d < bestDist) { bestDist = d; bestTrack = t; }
+            });
+
+            if (bestTrack) {
+                // Update Existing
+                const newVx = center.x - bestTrack.x;
+                const newVy = center.y - bestTrack.y;
+                bestTrack.vx = Vector.lerp(bestTrack.vx, newVx, 0.4);
+                bestTrack.vy = Vector.lerp(bestTrack.vy, newVy, 0.4);
+                bestTrack.x = Vector.lerp(bestTrack.x, center.x, CONFIG.TRACK.SMOOTH);
+                bestTrack.y = Vector.lerp(bestTrack.y, center.y, CONFIG.TRACK.SMOOTH);
+                bestTrack.w = Vector.lerp(bestTrack.w, det.bbox[2], CONFIG.TRACK.SMOOTH);
+                bestTrack.h = Vector.lerp(bestTrack.h, det.bbox[3], CONFIG.TRACK.SMOOTH);
+                bestTrack.lost = 0;
+                // Keep Identity if exists
+            } else {
+                // Create New
+                this.tracks.push({
+                    id: this.nextId++,
+                    x: center.x, y: center.y,
+                    w: det.bbox[2], h: det.bbox[3],
+                    vx: 0, vy: 0,
+                    class: det.class,
+                    lost: 0
+                });
+            }
+        });
+
+        // 3. Prune
+        this.tracks = this.tracks.filter(t => t.lost < CONFIG.TRACK.MAX_LOST);
+        return this.tracks;
+    }
+}
+
+// --- 3D VISUALIZATION ---
+class ThreeDVisualizer {
+    constructor() {
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.targetMeshes = new Map();
+        this.isInitialized = false;
+        
+        this.init();
+    }
+    
+    init() {
+        try {
+            const canvas = document.getElementById('layer-3d');
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Add some ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            this.scene.add(ambientLight);
+            
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            this.scene.add(directionalLight);
+            
+            this.camera.position.z = 5;
+            this.isInitialized = true;
+        } catch (e) {
+            console.warn("3D visualization not available:", e);
+            this.isInitialized = false;
+        }
+    }
+    
+    updateTargets(tracks, identities) {
+        if (!this.isInitialized) return;
+        
+        // Remove old meshes
+        this.targetMeshes.forEach((mesh, id) => {
+            if (!tracks.some(t => t.id === id)) {
+                this.scene.remove(mesh);
+                this.targetMeshes.delete(id);
+            }
+        });
+        
+        // Add/update meshes
+        tracks.forEach(track => {
+            const customName = identities.getName(track.id);
+            const isTagged = !!customName;
+            const color = isTagged ? 0x00ff9d : (track.class === 'person' ? 0xffae00 : 0x00a8ff);
+            
+            if (!this.targetMeshes.has(track.id)) {
+                // Create new mesh
+                const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+                const material = new THREE.MeshPhongMaterial({ color, transparent: true, opacity: 0.7 });
+                const mesh = new THREE.Mesh(geometry, material);
+                
+                // Position based on track position (normalized)
+                mesh.position.x = (track.x / 640 - 0.5) * 10;
+                mesh.position.y = -(track.y / 480 - 0.5) * 10;
+                mesh.position.z = 0;
+                
+                this.scene.add(mesh);
+                this.targetMeshes.set(track.id, mesh);
+            } else {
+                // Update existing mesh
+                const mesh = this.targetMeshes.get(track.id);
+                mesh.position.x = (track.x / 640 - 0.5) * 10;
+                mesh.position.y = -(track.y / 480 - 0.5) * 10;
+                
+                // Update color if needed
+                if (mesh.material.color.getHex() !== color) {
+                    mesh.material.color.setHex(color);
+                }
+            }
+        });
+        
+        this.renderer.render(this.scene, this.camera);
+    }
+    
+    resize() {
+        if (!this.isInitialized) return;
+        
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+}
+
+// --- RENDERER ---
+class HUD {
+    constructor(sys) {
+        this.sys = sys;
         this.canvas = document.getElementById('hud-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.resize();
+        
+        // Event Listener for Tagging
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
     }
 
     resize() {
@@ -187,177 +375,294 @@ class OmniRenderer {
         this.canvas.height = window.innerHeight;
     }
 
-    render(video, data) {
+    handleClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        // Find clicked track
+        // ต้องแปลงพิกัดเมาส์กลับไปหาพิกัดวิดีโอ
+        const sx = this.canvas.width / this.sys.video.videoWidth;
+        const sy = this.canvas.height / this.sys.video.videoHeight;
+
+        let clickedTrack = null;
+        this.sys.tracker.tracks.forEach(t => {
+            const tx = (t.x - t.w/2) * sx;
+            const ty = (t.y - t.h/2) * sy;
+            const tw = t.w * sx;
+            const th = t.h * sy;
+
+            if(mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th) {
+                clickedTrack = t;
+            }
+        });
+
+        if(clickedTrack) {
+            this.sys.openTagModal(clickedTrack.id);
+        }
+    }
+
+    render(video, tracks, identities) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
         const sx = this.canvas.width / video.videoWidth;
         const sy = this.canvas.height / video.videoHeight;
 
-        // 1. RENDER FACES (The Deepest Layer)
-        if(data.faces) {
-            this.ctx.fillStyle = 'rgba(255, 0, 255, 0.6)'; // Magenta for Face
-            data.faces.forEach(face => {
-                face.scaledMesh.forEach((pt, i) => {
-                    // Draw only some points to save FPS
-                    if(i % 4 === 0) {
-                        const x = pt[0] * sx; // Note: FaceMesh coords might need flip based on model
-                        const y = pt[1] * sy;
-                        this.ctx.fillRect(x, y, 2, 2);
-                    }
-                });
-            });
-        }
+        tracks.forEach(t => {
+            const x = (t.x - t.w/2) * sx;
+            const y = (t.y - t.h/2) * sy;
+            const w = t.w * sx;
+            const h = t.h * sy;
 
-        // 2. RENDER POSE (Skeleton)
-        if(data.poses && data.poses.length > 0) {
-            const pose = data.poses[0]; // MoveNet SinglePose
-            this.drawSkeleton(pose.keypoints, sx, sy);
-        }
+            // Check for custom name
+            const customName = identities.getName(t.id);
+            const displayName = customName ? customName.toUpperCase() : t.class.toUpperCase();
+            const isTagged = !!customName;
 
-        // 3. RENDER OBJECTS (Boxes)
-        data.objects.forEach(obj => {
-            const [x,y,w,h] = obj.bbox;
-            const scrX = x * sx; const scrY = y * sy;
-            const scrW = w * sx; const scrH = h * sy;
-            
-            const color = obj.class === 'person' ? '#00ff9d' : '#ffae00';
-            
-            // Box
+            // Style
+            const color = isTagged ? '#00ff9d' : (t.class === 'person' ? '#ffae00' : '#00a8ff');
             this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(scrX, scrY, scrW, scrH);
+            this.ctx.lineWidth = isTagged ? 3 : 2;
+            this.ctx.shadowBlur = isTagged ? 10 : 0;
+            this.ctx.shadowColor = color;
+
+            // Draw Tech Corners
+            this.ctx.beginPath();
+            const L = w * 0.2;
+            this.ctx.moveTo(x, y+L); this.ctx.lineTo(x, y); this.ctx.lineTo(x+L, y);
+            this.ctx.moveTo(x+w-L, y); this.ctx.lineTo(x+w, y); this.ctx.lineTo(x+w, y+L);
+            this.ctx.moveTo(x+w, y+h-L); this.ctx.lineTo(x+w, y+h); this.ctx.lineTo(x+w-L, y+h);
+            this.ctx.moveTo(x+L, y+h); this.ctx.lineTo(x, y+h); this.ctx.lineTo(x, y+h-L);
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+
+            // Label Box
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x, y-20, isTagged ? w : Math.min(w, 100), 20);
             
             // Text
-            this.ctx.fillStyle = color;
-            this.ctx.font = "bold 10px monospace";
-            this.ctx.fillText(`${obj.class.toUpperCase()} ${Math.round(obj.score*100)}%`, scrX, scrY - 5);
-        });
-    }
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = "bold 12px monospace";
+            const label = isTagged ? `★ ${displayName}` : `ID_${t.id} ${displayName}`;
+            this.ctx.fillText(label, x+5, y-6);
 
-    drawSkeleton(keypoints, sx, sy) {
-        const ctx = this.ctx;
-        const connect = (a, b, color) => {
-            const p1 = keypoints.find(k => k.name === a);
-            const p2 = keypoints.find(k => k.name === b);
-            if(p1 && p2 && p1.score > 0.3 && p2.score > 0.3) {
-                ctx.beginPath();
-                ctx.moveTo(p1.x * sx, p1.y * sy);
-                ctx.lineTo(p2.x * sx, p2.y * sy);
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
-        };
-
-        // Draw Bones (Cyan)
-        const c = '#00a8ff';
-        connect('left_shoulder', 'right_shoulder', c);
-        connect('left_shoulder', 'left_elbow', c);
-        connect('left_elbow', 'left_wrist', c);
-        connect('right_shoulder', 'right_elbow', c);
-        connect('right_elbow', 'right_wrist', c);
-        connect('left_shoulder', 'left_hip', c);
-        connect('right_shoulder', 'right_hip', c);
-        connect('left_hip', 'right_hip', c);
-        
-        // Joints (Yellow)
-        ctx.fillStyle = '#ffae00';
-        keypoints.forEach(kp => {
-            if(kp.score > 0.3) {
-                ctx.beginPath();
-                ctx.arc(kp.x * sx, kp.y * sy, 4, 0, 2*Math.PI);
-                ctx.fill();
+            // Tag Hint (ถ้ายังไม่ได้ Tag)
+            if(!isTagged) {
+                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                this.ctx.fillText("[TAP TO TAG]", x, y+h+15);
             }
         });
     }
 }
 
 // --- MAIN SYSTEM ---
-class OmegaSystem {
+class System {
     constructor() {
         this.video = document.getElementById('camera-feed');
-        this.kernel = new MultiAIKernel();
-        this.renderer = new OmniRenderer();
+        this.tracker = new Tracker();
+        this.identities = new IdentityManager();
+        this.hud = new HUD(this);
+        this.visualizer = new ThreeDVisualizer();
+        this.model = null;
         this.isRunning = false;
-        window.onresize = () => this.renderer.resize();
-    }
-
-    async init() {
-        const log = document.getElementById('boot-log');
-        const btn = document.getElementById('btn-start');
+        this.pendingTagId = null;
+        this.activeFilters = {
+            classes: ['person', 'car', 'truck', 'dog', 'cat'],
+            name: ''
+        };
         
-        const success = await this.kernel.loadAll((msg) => log.innerText = msg);
-        
-        if(success) {
-            log.innerText = "SYSTEM OPTIMAL. STANDBY.";
-            btn.style.display = 'block';
-            // Setup LEDs
-            document.getElementById('led-obj').classList.add('on');
-            document.getElementById('led-pose').classList.add('on');
-            document.getElementById('led-face').classList.add('on');
-        } else {
-            log.style.color = "red";
-        }
+        window.onresize = () => {
+            this.hud.resize();
+            this.visualizer.resize();
+        };
     }
 
     async start() {
+        document.getElementById('btn-start').innerText = "LOADING AI...";
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: {ideal: 640}, height: {ideal: 480} }, // Lower res for performance
+                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
                 audio: false
             });
             this.video.srcObject = stream;
             await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
 
+            this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+            
             document.getElementById('boot').style.display = 'none';
             this.isRunning = true;
             this.loop();
-        } catch(e) { alert("Camera Error: " + e.message); }
+        } catch(e) { 
+            console.error("Error starting system:", e);
+            alert("Error: " + e.message); 
+        }
     }
 
     async loop() {
         if(!this.isRunning) return;
-        const start = performance.now();
-
-        // AI Analysis
-        const data = await this.kernel.analyze(this.video);
         
-        // Render
-        this.renderer.render(this.video, data);
-
-        // Logic & Stats
-        const humans = data.objects.filter(o => o.class === 'person').length;
-        document.getElementById('human-count').innerText = humans;
-        
-        // Analyze Posture Logic (Simple)
-        const statusEl = document.getElementById('posture-status');
-        if(data.poses.length > 0) {
-            const p = data.poses[0].keypoints;
-            const nose = p.find(k=>k.name==='nose');
-            const lWrist = p.find(k=>k.name==='left_wrist');
-            const rWrist = p.find(k=>k.name==='right_wrist');
+        try {
+            const detections = await this.model.detect(this.video, 20, CONFIG.AI_CONF);
+            const tracks = this.tracker.update(detections);
             
-            if(lWrist && rWrist && nose && (lWrist.y < nose.y || rWrist.y < nose.y)) {
-                statusEl.innerText = "HANDS RAISED (ALERT)";
-                statusEl.style.color = "#ff2a6d";
-            } else {
-                statusEl.innerText = "NEUTRAL";
-                statusEl.style.color = "#00ff9d";
-            }
-        } else {
-            statusEl.innerText = "NO TARGET";
-            statusEl.style.color = "#888";
+            // Log detections
+            tracks.forEach(track => {
+                this.identities.addDetection(track);
+            });
+            
+            // Update UI
+            this.hud.render(this.video, tracks, this.identities);
+            this.visualizer.updateTargets(tracks, this.identities);
+            document.getElementById('count').innerText = tracks.length;
+            
+            // Check for important targets
+            this.checkForImportantTargets(tracks);
+            
+            requestAnimationFrame(() => this.loop());
+        } catch(e) {
+            console.error("Error in main loop:", e);
+            // Continue loop even if there's an error
+            requestAnimationFrame(() => this.loop());
         }
+    }
 
-        const ms = Math.round(performance.now() - start);
-        document.getElementById('ms').innerText = ms + "ms";
-        document.getElementById('fps').innerText = Math.round(1000/Math.max(1,ms));
+    checkForImportantTargets(tracks) {
+        // Check if any tagged targets are detected
+        const taggedTargets = tracks.filter(t => this.identities.getName(t.id));
+        
+        if (taggedTargets.length > 0 && !this.notificationShown) {
+            this.showNotification(`TAGGED TARGET${taggedTargets.length > 1 ? 'S' : ''} DETECTED: ${taggedTargets.length}`);
+            this.notificationShown = true;
+            
+            // Reset after timeout
+            setTimeout(() => {
+                this.notificationShown = false;
+            }, CONFIG.NOTIFICATION_TIMEOUT);
+        }
+    }
 
-        requestAnimationFrame(() => this.loop());
+    showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.style.display = 'block';
+        
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, CONFIG.NOTIFICATION_TIMEOUT);
+    }
+
+    // Tagging Logic
+    openTagModal(trackId) {
+        this.pendingTagId = trackId;
+        const modal = document.getElementById('tag-input');
+        const input = document.getElementById('target-name');
+        
+        // Check current name
+        const currentName = this.identities.getName(trackId);
+        input.value = currentName || '';
+        
+        modal.style.display = 'block';
+        input.focus();
+    }
+
+    confirmTag() {
+        const name = document.getElementById('target-name').value;
+        if(this.pendingTagId && name) {
+            this.identities.setName(this.pendingTagId, name);
+            this.showNotification(`TARGET ${this.pendingTagId} TAGGED AS: ${name}`);
+        }
+        this.cancelTag();
+    }
+
+    cancelTag() {
+        document.getElementById('tag-input').style.display = 'none';
+        this.pendingTagId = null;
+    }
+
+    // Data Panel
+    toggleDataPanel() {
+        const panel = document.getElementById('data-panel');
+        if (panel.style.display === 'block') {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'block';
+            this.updateDataPanel();
+        }
+    }
+
+    updateDataPanel() {
+        const dataList = document.getElementById('data-list');
+        const filteredData = this.identities.getFilteredDetections(this.activeFilters);
+        
+        dataList.innerHTML = '';
+        
+        if (filteredData.length === 0) {
+            dataList.innerHTML = '<div style="color:#666; text-align:center;">No data to display</div>';
+            return;
+        }
+        
+        filteredData.forEach(detection => {
+            const item = document.createElement('div');
+            item.className = 'data-item';
+            item.innerHTML = `
+                <div class="data-name">${detection.name}</div>
+                <div class="data-id">ID: ${detection.id} | ${detection.class} | ${new Date(detection.timestamp).toLocaleTimeString()}</div>
+            `;
+            dataList.appendChild(item);
+        });
+    }
+
+    // Filter Panel
+    toggleFilterPanel() {
+        const panel = document.getElementById('filter-panel');
+        if (panel.style.display === 'block') {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'block';
+        }
+    }
+
+    applyFilters() {
+        // Get filter values
+        const personChecked = document.getElementById('filter-person').checked;
+        const vehicleChecked = document.getElementById('filter-vehicle').checked;
+        const animalChecked = document.getElementById('filter-animal').checked;
+        const nameFilter = document.getElementById('filter-name').value;
+        
+        // Update active filters
+        this.activeFilters.classes = [];
+        if (personChecked) this.activeFilters.classes.push('person');
+        if (vehicleChecked) this.activeFilters.classes.push('car', 'truck', 'bus', 'motorcycle');
+        if (animalChecked) this.activeFilters.classes.push('dog', 'cat', 'bird', 'horse', 'sheep', 'cow');
+        
+        this.activeFilters.name = nameFilter;
+        
+        // Update data panel if visible
+        if (document.getElementById('data-panel').style.display === 'block') {
+            this.updateDataPanel();
+        }
+    }
+
+    // Export Data
+    exportData() {
+        const data = this.identities.detectionHistory;
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `omega-tracking-data-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showNotification('DATA EXPORTED SUCCESSFULLY');
     }
 }
 
-const OMEGA = new OmegaSystem();
-OMEGA.init();
+const OMEGA = new System();
+document.getElementById('btn-start').style.display = 'block';
 
 </script>
 </body>
