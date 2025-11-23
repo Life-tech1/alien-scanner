@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OMEGA 2.0: GENESIS VISION</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OMEGA: ULTIMATE HYBRID SYSTEM</title>
     
-    <!-- Core AI & Graphics Engines -->
+    <!-- AI & Core Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
@@ -13,573 +13,612 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 
     <style>
+        /* --- V2 STYLE SYSTEM (Cyberpunk Aesthetics) --- */
         :root {
             --primary: #0affc2;
             --secondary: #008f7a;
             --accent: #00d2ff;
             --alert: #ff2a6d;
-            --warning: #ffae00;
-            --bg: #050505;
-            --glass: rgba(10, 20, 15, 0.75);
+            --warn: #ffae00;
+            --bg-dark: #050505;
+            --glass: rgba(5, 15, 10, 0.85);
+            --neon-glow: 0 0 10px var(--primary);
             --scan-line: rgba(0, 255, 194, 0.1);
-            --font-main: 'Rajdhani', 'Segoe UI', sans-serif;
-        }
-
-        @font-face {
-            font-family: 'HUD';
-            src: local('Arial'); /* Fallback */
+            --font-main: 'Segoe UI', 'Courier New', sans-serif;
         }
 
         * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
         
         body {
-            margin: 0; overflow: hidden; background: var(--bg);
+            margin: 0; overflow: hidden; background: var(--bg-dark);
             font-family: var(--font-main); color: var(--primary);
             width: 100vw; height: 100vh;
         }
 
-        /* CRT / Scanline Effects */
+        /* CRT & Glitch Effects */
         .scanlines {
             position: fixed; inset: 0; z-index: 900; pointer-events: none;
             background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
             background-size: 100% 4px;
             animation: scanlineMove 10s linear infinite;
-            opacity: 0.6;
+            opacity: 0.4;
         }
         
         .vignette {
             position: fixed; inset: 0; z-index: 901; pointer-events: none;
-            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.8) 100%);
-        }
-
-        .glitch-overlay {
-            position: fixed; inset: 0; z-index: 902; pointer-events: none;
-            mix-blend-mode: overlay;
-            opacity: 0;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.9) 100%);
         }
 
         @keyframes scanlineMove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
-        
-        /* Layout */
+
+        /* Layers */
         #viewport { position: relative; width: 100%; height: 100%; }
         
         #camera-feed {
             position: absolute; width: 100%; height: 100%; object-fit: cover;
-            filter: contrast(1.2) brightness(0.9) saturate(1.2) grayscale(0.2);
+            filter: contrast(1.2) brightness(0.9) saturate(1.1);
             z-index: 0;
         }
-
-        /* Advanced Layers */
-        #lidar-canvas { position: absolute; inset: 0; z-index: 5; opacity: 0.6; mix-blend-mode: screen; pointer-events: none; }
+        
         #hud-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
-        #biometric-canvas { position: absolute; inset: 0; z-index: 15; pointer-events: none; }
-
-        /* UI Containers */
+        #visualization-3d { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0.6; }
+        
         #ui-layer {
-            position: absolute; inset: 0; z-index: 50;
-            display: grid;
-            grid-template-columns: 300px 1fr 300px;
-            grid-template-rows: auto 1fr auto;
-            padding: 20px;
-            pointer-events: none;
+            position: absolute; inset: 0; z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 16px;
         }
 
-        /* Widgets */
-        .hud-widget {
+        /* V2 Style Panels with V1 Data */
+        .hud-panel {
             background: linear-gradient(135deg, rgba(0,20,10,0.8) 0%, rgba(0,0,0,0.6) 100%);
             border: 1px solid var(--secondary);
             border-left: 3px solid var(--primary);
-            padding: 10px;
-            margin-bottom: 10px;
-            backdrop-filter: blur(4px);
-            clip-path: polygon(0 0, 100% 0, 100% 90%, 95% 100%, 0 100%);
+            padding: 12px; margin: 5px;
+            backdrop-filter: blur(5px);
             box-shadow: 0 0 15px rgba(10, 255, 194, 0.1);
-        }
-
-        .widget-title {
-            font-size: 10px; letter-spacing: 2px; color: var(--accent);
-            margin-bottom: 5px; font-weight: 800; display: flex; justify-content: space-between;
-        }
-
-        .data-row {
-            font-size: 12px; display: flex; justify-content: space-between;
-            font-family: 'Courier New', monospace; margin-bottom: 2px;
-        }
-
-        .data-val { color: #fff; font-weight: bold; text-shadow: 0 0 5px var(--primary); }
-
-        /* Tactical Log */
-        #tactical-log {
-            font-family: 'Courier New', monospace;
-            font-size: 10px; color: var(--primary);
-            height: 150px; overflow: hidden;
-            border-left: 1px solid var(--primary);
-            padding-left: 8px;
-            mask-image: linear-gradient(to bottom, transparent, black 20%);
+            width: fit-content; pointer-events: auto;
+            transition: all 0.3s;
         }
         
-        .log-entry { margin-bottom: 4px; opacity: 0.8; }
-        .log-entry::before { content: '> '; color: var(--accent); }
+        .panel-title {
+            font-size: 10px; font-weight: 800; color: var(--accent);
+            letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase;
+        }
 
-        /* Central Reticle */
-        #reticle {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 200px; height: 200px;
-            border: 1px solid rgba(10, 255, 194, 0.3);
+        .hud-text { font-size: 12px; margin-bottom: 3px; font-family: 'Courier New', monospace; opacity: 0.9; }
+        .hud-value { font-weight: bold; color: #fff; text-shadow: 0 0 5px var(--primary); margin-left: 5px; }
+
+        /* V1 Radar with V2 Styling */
+        #radar-container {
+            position: absolute; bottom: 80px; right: 20px;
+            width: 150px; height: 150px;
             border-radius: 50%;
-            z-index: 20;
-            display: flex; justify-content: center; align-items: center;
+            background: rgba(0, 15, 10, 0.8);
+            border: 2px solid var(--secondary);
+            box-shadow: 0 0 20px rgba(0, 255, 194, 0.2);
+            overflow: hidden; z-index: 30; pointer-events: auto;
+        }
+        #radar-container::after {
+            content: ''; position: absolute; inset: 0;
+            background: conic-gradient(from 0deg, transparent 0deg, rgba(0,255,194,0.4) 360deg);
+            border-radius: 50%; animation: radar-scan 2s linear infinite;
+        }
+        .radar-blip { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 5px currentColor; z-index: 2; }
+        @keyframes radar-scan { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* V1 Control Panel with V2 Style */
+        #control-panel {
+            position: absolute; top: 60px; left: 20px;
+            background: rgba(5, 10, 10, 0.95);
+            border: 1px solid var(--accent);
+            padding: 15px; border-radius: 5px;
+            z-index: 40; pointer-events: auto; display: none;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+            min-width: 260px;
         }
         
-        #reticle::after {
-            content: ''; position: absolute; width: 4px; height: 4px;
-            background: var(--alert); box-shadow: 0 0 10px var(--alert);
+        .control-btn {
+            background: rgba(0, 255, 194, 0.05); border: 1px solid var(--secondary);
+            color: var(--primary); padding: 6px 10px; margin: 3px;
+            font-size: 10px; cursor: pointer; text-transform: uppercase;
+            transition: 0.2s;
+        }
+        .control-btn:hover { background: var(--secondary); color: #000; }
+        .control-btn.active { background: var(--primary); color: #000; box-shadow: 0 0 10px var(--primary); }
+
+        #toggle-controls {
+            position: absolute; top: 20px; left: 20px; z-index: 35; pointer-events: auto;
+            background: rgba(0,0,0,0.8); border: 1px solid var(--primary); color: var(--primary);
+            padding: 8px 16px; cursor: pointer; font-weight: bold;
         }
 
-        .reticle-ring {
-            position: absolute; border: 1px dashed var(--accent);
-            border-radius: 50%; width: 100%; height: 100%;
-            animation: spin 10s linear infinite;
+        /* System Status Bar */
+        #system-status {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: rgba(0,0,0,0.9); border-top: 1px solid var(--secondary);
+            padding: 5px 15px; display: flex; gap: 15px; font-size: 10px; z-index: 25;
         }
-
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* Footer Status */
-        #system-footer {
-            grid-column: 1 / -1;
-            display: flex; gap: 20px;
-            border-top: 1px solid var(--secondary);
-            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-            padding-top: 10px; font-size: 10px; letter-spacing: 1px;
-            align-items: center;
-        }
-
-        .status-pill {
-            background: rgba(0, 255, 194, 0.1); padding: 2px 8px;
-            border: 1px solid var(--secondary); color: var(--primary);
+        .status-led { width: 8px; height: 8px; border-radius: 50%; background: #333; display: inline-block; margin-right: 5px; }
+        .status-led.ok { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+        .status-led.busy { background: var(--warn); animation: pulse 1s infinite; }
+        
+        /* Tactical Log (New from V2) */
+        #tactical-log {
+            position: absolute; bottom: 80px; left: 20px;
+            width: 250px; height: 120px; overflow: hidden;
+            font-family: monospace; font-size: 10px; color: var(--accent);
+            text-shadow: 0 0 2px var(--accent); pointer-events: none;
+            mask-image: linear-gradient(to bottom, transparent, black 10%);
         }
 
         /* Boot Screen */
-        #boot-screen {
-            position: fixed; inset: 0; background: #000; z-index: 9999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: var(--primary);
+        #boot-overlay {
+            position: fixed; inset: 0; background: #020202; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-
-        .loader-ring {
-            width: 80px; height: 80px; border: 4px solid rgba(10, 255, 194, 0.2);
-            border-top-color: var(--primary); border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 20px;
-        }
-
-        #boot-text { font-family: monospace; font-size: 14px; text-align: center; line-height: 1.5; }
+        .boot-title { font-size: 40px; font-weight: 900; color: var(--primary); text-shadow: 0 0 20px var(--primary); letter-spacing: 5px; }
         
-        button#init-btn {
-            background: transparent; border: 1px solid var(--primary); color: var(--primary);
-            padding: 15px 40px; font-size: 18px; letter-spacing: 4px; margin-top: 30px;
-            cursor: pointer; transition: 0.3s;
-            box-shadow: 0 0 15px rgba(10, 255, 194, 0.2);
-        }
-        button#init-btn:hover { background: var(--primary); color: #000; box-shadow: 0 0 30px var(--primary); }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            #ui-layer { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
-            .mobile-hide { display: none; }
-            #reticle { width: 120px; height: 120px; }
-        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
     <div class="scanlines"></div>
     <div class="vignette"></div>
-    <div class="glitch-overlay" id="glitch-layer"></div>
-
-    <div id="boot-screen">
-        <div class="loader-ring"></div>
-        <div id="boot-text">
-            OMEGA KERNEL v2.0<br>
-            INITIALIZING NEURAL NETWORKS...<br>
-            LOADING BIOMETRIC DATABASE...
-        </div>
-        <button id="init-btn" style="display:none">ENGAGE SYSTEM</button>
-    </div>
 
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="lidar-canvas"></canvas>
-        <canvas id="biometric-canvas"></canvas>
         <canvas id="hud-canvas"></canvas>
-
-        <div id="reticle">
-            <div class="reticle-ring" style="width: 140%; height: 140%; opacity: 0.3; border-style: solid; border-width: 1px;"></div>
-            <div class="reticle-ring" style="animation-direction: reverse; width: 80%; height: 80%;"></div>
-        </div>
+        <div id="visualization-3d"></div> <!-- V1 3D System -->
         
         <div id="ui-layer">
-            <!-- Left Column -->
-            <div style="pointer-events: auto;">
-                <div class="hud-widget">
-                    <div class="widget-title">SYSTEM STATUS <span>ONLINE</span></div>
-                    <div class="data-row"><span>CPU LOAD</span><span class="data-val" id="cpu-val">12%</span></div>
-                    <div class="data-row"><span>NET LATENCY</span><span class="data-val">4ms</span></div>
-                    <div class="data-row"><span>VISION ENGINE</span><span class="data-val" style="color:var(--primary)">ACTIVE</span></div>
+            <!-- Top HUD -->
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <div class="hud-panel">
+                    <div class="panel-title">SYSTEM METRICS</div>
+                    <div class="hud-text">CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
+                    <div class="hud-text">FPS: <span id="val-fps" class="hud-value">0</span></div>
+                    <div class="hud-text">OBJ: <span id="val-objects" class="hud-value">0</span></div>
+                    <div class="hud-text">FACES: <span id="val-faces" class="hud-value">0</span></div>
                 </div>
                 
-                <div class="hud-widget">
-                    <div class="widget-title">BIOMETRICS</div>
-                    <div class="data-row"><span>FACES DETECTED</span><span class="data-val" id="faces-val">0</span></div>
-                    <div class="data-row"><span>NEAREST ID</span><span class="data-val" id="face-id">SCANNING...</span></div>
-                    <div class="data-row"><span>THREAT LEVEL</span><span class="data-val" id="threat-val" style="color:var(--primary)">LOW</span></div>
+                <div class="hud-panel">
+                    <div class="panel-title">AVIONICS</div>
+                    <div class="hud-text">HDG: <span id="val-heading" class="hud-value">0°</span></div>
+                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0°</span></div>
+                    <div class="hud-text">THREAT: <span id="val-threat" class="hud-value" style="color:var(--alert)">LOW</span></div>
                 </div>
             </div>
 
-            <!-- Middle (Spacer) -->
-            <div></div>
-
-            <!-- Right Column -->
-            <div class="mobile-hide" style="pointer-events: auto;">
-                <div class="hud-widget">
-                    <div class="widget-title">ENVIRONMENT</div>
-                    <div class="data-row"><span>LIGHT LEVEL</span><span class="data-val">LUX 450</span></div>
-                    <div class="data-row"><span>TEMP</span><span class="data-val">24°C</span></div>
-                    <div class="data-row"><span>HUMIDITY</span><span class="data-val">65%</span></div>
-                </div>
-
-                <div class="hud-widget">
-                    <div class="widget-title">TACTICAL LOG</div>
-                    <div id="tactical-log"></div>
-                </div>
+            <!-- Target Info (V1 Logic) -->
+            <div class="hud-panel" style="position: absolute; top: 50%; right: 20px; transform: translateY(-50%);">
+                <div class="panel-title">PRIMARY TARGET</div>
+                <div class="hud-text">TYPE: <span id="target-type" class="hud-value">--</span></div>
+                <div class="hud-text">DIST: <span id="target-dist" class="hud-value">--</span></div>
+                <div class="hud-text">CONF: <span id="target-conf" class="hud-value">--</span></div>
+                <div class="hud-text">ACT: <span id="target-action" class="hud-value">--</span></div>
             </div>
 
-            <!-- Footer -->
-            <div id="system-footer">
-                <span class="status-pill">REC: OFF</span>
-                <span class="status-pill">MIC: ACTIVE</span>
-                <span class="status-pill">GPS: TRIANGULATING</span>
-                <span style="margin-left:auto; color:var(--secondary)">OMEGA CORP // CLASSIFIED</span>
+            <!-- Radar & Logs -->
+            <div id="radar-container"></div>
+            <div id="tactical-log">
+                <div>SYSTEM INITIATED...</div>
+                <div>WAITING FOR INPUT...</div>
             </div>
         </div>
+
+        <!-- Controls (V1 Logic) -->
+        <button id="toggle-controls">CONTROLS</button>
+        <div id="control-panel">
+            <div class="panel-title">COMMAND CENTER</div>
+            <div style="margin-top:10px">
+                <div class="hud-text">VISUALS</div>
+                <button class="control-btn active" id="btn-hud">HUD</button>
+                <button class="control-btn" id="btn-lidar">LIDAR</button>
+                <button class="control-btn" id="btn-3d">3D VIZ</button>
+                <button class="control-btn" id="btn-face">FACE MESH</button>
+            </div>
+            <div style="margin-top:10px">
+                <div class="hud-text">SYSTEM</div>
+                <button class="control-btn" id="btn-voice">VOICE</button>
+                <button class="control-btn" id="btn-record">RECORD</button>
+                <button class="control-btn" id="btn-threat">THREAT SCAN</button>
+            </div>
+        </div>
+
+        <!-- Footer Status -->
+        <div id="system-status">
+            <div><span class="status-led ok" id="led-cam"></span>CAM</div>
+            <div><span class="status-led" id="led-ai"></span>AI CORE</div>
+            <div><span class="status-led" id="led-face"></span>BIOMETRICS</div>
+            <div><span class="status-led" id="led-voice"></span>VOICE</div>
+            <div><span class="status-led" id="led-rec"></span>REC</div>
+            <div style="margin-left:auto; color:var(--secondary)">OMEGA ULTIMATE v3.0</div>
+        </div>
+    </div>
+
+    <!-- Boot Screen -->
+    <div id="boot-overlay">
+        <div class="boot-title">OMEGA</div>
+        <div style="font-family:monospace; color:var(--secondary); margin-top:10px;">ULTIMATE HYBRID SYSTEM</div>
+        <div id="boot-log" style="font-family:monospace; font-size:12px; margin-top:30px; color:#666;">
+            Initializing...
+        </div>
+        <button id="btn-init" style="margin-top:40px; padding:15px 40px; background:var(--primary); border:none; font-weight:bold; cursor:pointer; display:none;">ENGAGE</button>
     </div>
 
 <script>
 /**
- * OMEGA 2.0: GENESIS VISION KERNEL
- * Integrated Biometrics, LiDAR Simulation, and Cyberpunk UI
+ * OMEGA ULTIMATE: Merging V1 Logic with V2 Graphics
  */
 
+// --- CONFIGURATION ---
 const CONFIG = {
-    AI: { DETECT_INTERVAL: 50, FACE_MESH_INTERVAL: 100 },
-    COLORS: { PRIMARY: '#0affc2', ALERT: '#ff2a6d', ACCENT: '#00d2ff' },
-    AUDIO: { ENABLED: true }
+    AI: { 
+        OBJ_THRESHOLD: 0.6, 
+        FACE_ENABLED: true 
+    },
+    PHYSICS: {
+        FOV: 65,
+        MAX_RANGE: 50
+    },
+    COLORS: {
+        PRIMARY: '#0affc2',
+        SECONDARY: '#008f7a',
+        ALERT: '#ff2a6d'
+    }
 };
 
-// --- SYSTEM CORE ---
-class OmegaSystem {
-    constructor() {
-        this.video = document.getElementById('camera-feed');
-        this.hudCanvas = document.getElementById('hud-canvas');
-        this.bioCanvas = document.getElementById('biometric-canvas');
-        this.lidarCanvas = document.getElementById('lidar-canvas');
-        
-        this.ctx = {
-            hud: this.hudCanvas.getContext('2d'),
-            bio: this.bioCanvas.getContext('2d'),
-            lidar: this.lidarCanvas.getContext('2d')
-        };
+// --- CORE UTILS (V1) ---
+const Utils = {
+    distance: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
+    playSound: (type) => {
+        // Placeholder sounds using Howler
+        if(type === 'boot') new Howl({src: ['data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=='], volume: 0.5}).play(); // Silent placeholder
+        if(type === 'alert') new Howl({src: ['data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=='], volume: 0.5}).play();
+    },
+    log: (msg) => {
+        const log = document.getElementById('tactical-log');
+        const div = document.createElement('div');
+        div.textContent = `> ${msg}`;
+        log.prepend(div);
+        if(log.children.length > 6) log.lastChild.remove();
+    }
+};
 
+// --- VOICE SYSTEM (V1 Logic) ---
+class VoiceSystem {
+    constructor() {
+        this.recognition = null;
+        this.isListening = false;
+        if ('webkitSpeechRecognition' in window) {
+            this.recognition = new webkitSpeechRecognition();
+            this.recognition.continuous = false;
+            this.recognition.lang = 'en-US';
+            this.recognition.onresult = (e) => this.process(e.results[0][0].transcript);
+        }
+    }
+    
+    toggle() {
+        if(!this.recognition) return alert("Voice not supported");
+        if(this.isListening) { this.recognition.stop(); this.isListening = false; }
+        else { this.recognition.start(); this.isListening = true; Utils.log("VOICE LISTENING..."); }
+        document.getElementById('led-voice').className = this.isListening ? "status-led ok" : "status-led";
+        document.getElementById('btn-voice').classList.toggle('active', this.isListening);
+    }
+
+    process(cmd) {
+        cmd = cmd.toLowerCase();
+        Utils.log(`VOICE: "${cmd}"`);
+        if(cmd.includes('record')) OMEGA.recorder.toggle();
+        if(cmd.includes('target')) Utils.log("TARGET LOCKED");
+        if(cmd.includes('status')) Utils.log("SYSTEM OPTIMAL");
+        this.isListening = false;
+        document.getElementById('led-voice').className = "status-led";
+        document.getElementById('btn-voice').classList.remove('active');
+    }
+}
+
+// --- MISSION RECORDER (V1 Logic) ---
+class MissionRecorder {
+    constructor() {
+        this.recording = false;
+        this.data = [];
+    }
+    toggle() {
+        this.recording = !this.recording;
+        document.getElementById('led-rec').className = this.recording ? "status-led busy" : "status-led";
+        document.getElementById('btn-record').classList.toggle('active', this.recording);
+        Utils.log(this.recording ? "RECORDING STARTED" : "RECORDING SAVED");
+    }
+    push(frameData) {
+        if(this.recording) this.data.push(frameData);
+    }
+}
+
+// --- VISION ENGINE (Hybrid V1 + V2) ---
+class VisionEngine {
+    constructor() {
         this.models = { object: null, face: null };
-        this.state = { isRunning: false, frameCount: 0, objects: [], faces: [] };
+        this.isReady = false;
+    }
+
+    async init() {
+        const log = (m) => document.getElementById('boot-log').textContent = m;
         
+        try {
+            log("Loading COCO-SSD Neural Net...");
+            this.models.object = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            
+            log("Loading Biometric Mesh...");
+            this.models.face = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh);
+            
+            this.isReady = true;
+            return true;
+        } catch (e) {
+            console.error(e);
+            log("Error Loading Models");
+            return false;
+        }
+    }
+
+    async detect(video) {
+        if (!this.isReady) return { objects: [], faces: [] };
+        
+        const [objects, faces] = await Promise.all([
+            this.models.object.detect(video, 10, CONFIG.AI.OBJ_THRESHOLD),
+            CONFIG.AI.FACE_ENABLED ? this.models.face.estimateFaces({ input: video }) : []
+        ]);
+        
+        return { objects, faces };
+    }
+}
+
+// --- RENDERER (Enhanced with V2 Graphics) ---
+class HUDRenderer {
+    constructor() {
+        this.canvas = document.getElementById('hud-canvas');
+        this.ctx = this.canvas.getContext('2d');
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
-        this.audio = {
-            boot: new Howl({ src: ['data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...'], volume: 0.5 }), // Placeholder
-            target: new Howl({ src: ['data:audio/mp3;base64,...'], volume: 0.2 }) // Placeholder
+        this.settings = {
+            hud: true,
+            lidar: false,
+            faceMesh: true
         };
     }
 
     resize() {
-        const w = window.innerWidth, h = window.innerHeight;
-        [this.hudCanvas, this.bioCanvas, this.lidarCanvas].forEach(c => { c.width = w; c.height = h; });
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+
+    render(video, data) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        if (this.settings.lidar) this.drawLidar();
+        if (this.settings.hud) this.drawObjects(data.objects);
+        if (this.settings.faceMesh) this.drawFaces(data.faces);
+    }
+
+    drawObjects(objects) {
+        const ctx = this.ctx;
+        objects.forEach(obj => {
+            const [x, y, w, h] = obj.bbox;
+            const color = obj.class === 'person' ? CONFIG.COLORS.ALERT : CONFIG.COLORS.PRIMARY;
+            
+            // V2 Style Brackets
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10;
+            
+            const len = w * 0.2;
+            ctx.beginPath();
+            // Corners
+            ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+            ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
+            ctx.moveTo(x + w, y + h - len); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - len, y + h);
+            ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h);
+            ctx.stroke();
+            
+            // Label
+            ctx.fillStyle = color;
+            ctx.font = "bold 12px Courier New";
+            ctx.fillText(`${obj.class.toUpperCase()} ${Math.floor(obj.score*100)}%`, x, y - 10);
+        });
+    }
+
+    drawFaces(faces) {
+        if(!faces || faces.length === 0) return;
+        const ctx = this.ctx;
+        ctx.fillStyle = CONFIG.COLORS.ACCENT;
+        
+        faces.forEach(face => {
+            // V2 Face Mesh Point Cloud
+            face.scaledMesh.forEach((p, i) => {
+                if (i % 5 === 0) ctx.fillRect(p[0], p[1], 1, 1);
+            });
+            
+            // Draw ring around face
+            const bb = face.boundingBox;
+            const cx = bb.topLeft[0] + (bb.bottomRight[0] - bb.topLeft[0])/2;
+            const cy = bb.topLeft[1] + (bb.bottomRight[1] - bb.topLeft[1])/2;
+            const r = (bb.bottomRight[0] - bb.topLeft[0]) / 1.5;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.3)';
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+    }
+
+    drawLidar() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const scanY = (Date.now() / 20) % h;
+        
+        ctx.strokeStyle = 'rgba(0, 255, 194, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, scanY); ctx.lineTo(w, scanY);
+        ctx.stroke();
+    }
+}
+
+// --- RADAR SYSTEM (V1 Logic) ---
+class RadarSystem {
+    constructor() {
+        this.el = document.getElementById('radar-container');
+    }
+    update(objects) {
+        this.el.innerHTML = ''; // Clear
+        objects.forEach(obj => {
+            const blip = document.createElement('div');
+            blip.className = 'radar-blip';
+            // Mock position mapping
+            const dx = (obj.bbox[0] / window.innerWidth - 0.5) * 140;
+            const dy = (obj.bbox[1] / window.innerHeight - 0.5) * 140;
+            
+            blip.style.left = `${75 + dx}px`;
+            blip.style.top = `${75 + dy}px`;
+            blip.style.width = obj.class === 'person' ? '6px' : '4px';
+            blip.style.height = blip.style.width;
+            blip.style.backgroundColor = obj.class === 'person' ? CONFIG.COLORS.ALERT : CONFIG.COLORS.PRIMARY;
+            this.el.appendChild(blip);
+        });
+    }
+}
+
+// --- OMEGA KERNEL (The Controller) ---
+class OmegaKernel {
+    constructor() {
+        this.vision = new VisionEngine();
+        this.renderer = new HUDRenderer();
+        this.voice = new VoiceSystem();
+        this.recorder = new MissionRecorder();
+        this.radar = new RadarSystem();
+        
+        this.video = document.getElementById('camera-feed');
+        this.stats = { fps: 0, lastTime: 0 };
+        this.isRunning = false;
+        
+        this.setupUI();
+    }
+
+    setupUI() {
+        document.getElementById('btn-init').addEventListener('click', () => this.start());
+        document.getElementById('toggle-controls').addEventListener('click', () => {
+            const p = document.getElementById('control-panel');
+            p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        });
+        
+        // Connect Control Buttons to Settings
+        const bind = (id, prop) => {
+            document.getElementById(id).addEventListener('click', (e) => {
+                this.renderer.settings[prop] = !this.renderer.settings[prop];
+                e.target.classList.toggle('active');
+            });
+        };
+        bind('btn-hud', 'hud');
+        bind('btn-lidar', 'lidar');
+        bind('btn-face', 'faceMesh');
+        
+        document.getElementById('btn-voice').addEventListener('click', () => this.voice.toggle());
+        document.getElementById('btn-record').addEventListener('click', () => this.recorder.toggle());
     }
 
     async boot() {
-        this.log("INITIALIZING KERNEL...");
-        
         try {
-            // Load Object Detection
-            this.log("LOADING COCO-SSD MODEL...");
-            this.models.object = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
+                audio: false 
+            });
+            this.video.srcObject = stream;
             
-            // Load Face Mesh
-            this.log("LOADING FACIAL GEOMETRY ENGINE...");
-            this.models.face = await faceLandmarksDetection.load(
-                faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
-            );
-
-            this.log("CONNECTING OPTICAL SENSORS...");
-            await this.setupCamera();
-            
-            this.log("SYSTEM READY. WAITING FOR USER INPUT.");
-            document.getElementById('init-btn').style.display = 'block';
-            document.querySelector('.loader-ring').style.display = 'none';
-
-        } catch (e) {
-            this.log(`CRITICAL ERROR: ${e.message}`);
-            document.getElementById('boot-text').style.color = 'red';
-        }
-    }
-
-    log(msg) {
-        const log = document.getElementById('tactical-log');
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.textContent = msg;
-        log.prepend(entry);
-        if(log.children.length > 10) log.lastChild.remove();
-        
-        // Also update boot screen if visible
-        const bootText = document.getElementById('boot-text');
-        if(document.getElementById('boot-screen').style.display !== 'none') {
-            bootText.innerHTML += `<br>${msg}`;
-        }
-    }
-
-    async setupCamera() {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false
-        });
-        this.video.srcObject = stream;
-        return new Promise(resolve => {
-            this.video.onloadedmetadata = () => {
+            await new Promise(r => this.video.onloadedmetadata = () => {
                 this.video.play();
-                resolve();
-            };
-        });
+                r();
+            });
+
+            const aiReady = await this.vision.init();
+            if(aiReady) {
+                document.getElementById('boot-log').textContent = "SYSTEM READY";
+                document.getElementById('btn-init').style.display = 'block';
+                // Status LEDs
+                document.getElementById('led-cam').classList.add('ok');
+                document.getElementById('led-ai').classList.add('ok');
+                document.getElementById('led-face').classList.add('ok');
+            }
+        } catch(e) {
+            alert("Camera Error: " + e.message);
+        }
     }
 
     start() {
-        document.getElementById('boot-screen').style.display = 'none';
-        this.state.isRunning = true;
-        this.log("HUD ENABLED. TACTICAL OVERLAY ACTIVE.");
+        document.getElementById('boot-overlay').style.display = 'none';
+        this.isRunning = true;
+        Utils.playSound('boot');
         this.loop();
-        this.aiLoop();
-        this.lidarLoop();
     }
 
-    loop() {
-        if (!this.state.isRunning) return;
-        this.state.frameCount++;
+    async loop() {
+        if(!this.isRunning) return;
 
-        // Clear Canvases
-        this.ctx.hud.clearRect(0, 0, this.hudCanvas.width, this.hudCanvas.height);
-        this.ctx.bio.clearRect(0, 0, this.bioCanvas.width, this.bioCanvas.height);
+        // 1. Calc FPS
+        const now = performance.now();
+        const delta = now - this.stats.lastTime;
+        this.stats.fps = Math.round(1000 / delta);
+        this.stats.lastTime = now;
 
-        // Render Layers
-        this.renderHUD();
-        this.renderBiometrics();
+        // 2. AI Detection
+        const data = await this.vision.detect(this.video);
+        const cpuTime = Math.round(performance.now() - now);
+
+        // 3. Render Graphics
+        this.renderer.render(this.video, data);
+        this.radar.update(data.objects);
+        
+        // 4. Recorder Logic
+        this.recorder.push({ ts: now, data });
+
+        // 5. Update UI Numbers
+        this.updateStats(data, cpuTime);
 
         requestAnimationFrame(() => this.loop());
     }
 
-    // --- AI PROCESSING ---
+    updateStats(data, cpuTime) {
+        document.getElementById('val-cpu').textContent = cpuTime;
+        document.getElementById('val-fps').textContent = this.stats.fps;
+        document.getElementById('val-objects').textContent = data.objects.length;
+        document.getElementById('val-faces').textContent = data.faces ? data.faces.length : 0;
+        
+        // Threat Analysis Logic (Simple V1 version)
+        const persons = data.objects.filter(o => o.class === 'person');
+        const threatVal = document.getElementById('val-threat');
+        if (persons.length > 2) { threatVal.textContent = "HIGH"; threatVal.style.color = CONFIG.COLORS.ALERT; }
+        else if (persons.length > 0) { threatVal.textContent = "MED"; threatVal.style.color = CONFIG.COLORS.WARN; }
+        else { threatVal.textContent = "LOW"; threatVal.style.color = CONFIG.COLORS.PRIMARY; }
 
-    async aiLoop() {
-        if (!this.state.isRunning) return;
-        const now = Date.now();
-
-        // Object Detection
-        if (this.models.object) {
-            const detections = await this.models.object.detect(this.video);
-            this.state.objects = detections;
-            
-            // Tactical Log Update
-            if(detections.length > 0 && Math.random() > 0.9) {
-                const target = detections[0];
-                this.log(`TARGET: ${target.class.toUpperCase()} (${Math.floor(target.score*100)}%)`);
-            }
+        // Update Target Panel
+        if(data.objects.length > 0) {
+            const t = data.objects[0]; // Primary target
+            document.getElementById('target-type').textContent = t.class.toUpperCase();
+            document.getElementById('target-conf').textContent = Math.floor(t.score*100) + '%';
+            document.getElementById('target-action').textContent = "TRACKING";
+        } else {
+            document.getElementById('target-action').textContent = "SCANNING";
         }
-
-        // Face Detection (Heavy, run less often)
-        if (this.models.face) {
-            const faces = await this.models.face.estimateFaces({ input: this.video });
-            this.state.faces = faces;
-            document.getElementById('faces-val').textContent = faces.length;
-            
-            if(faces.length > 0) {
-                document.getElementById('face-id').textContent = "MATCHING...";
-                document.getElementById('face-id').style.color = CONFIG.COLORS.ACCENT;
-            } else {
-                document.getElementById('face-id').textContent = "SCANNING...";
-                document.getElementById('face-id').style.color = "#fff";
-            }
-        }
-
-        setTimeout(() => this.aiLoop(), 100); // 10 FPS for AI
-    }
-
-    // --- RENDERING ---
-
-    renderHUD() {
-        const ctx = this.ctx.hud;
-        const w = this.hudCanvas.width;
-        const h = this.hudCanvas.height;
-
-        this.state.objects.forEach(obj => {
-            const [x, y, width, height] = obj.bbox;
-            // Scale coords if necessary (simplified here assuming fullscreen video match)
-            // Note: In production, you need scaling logic like the previous v1
-            
-            const color = obj.class === 'person' ? CONFIG.COLORS.ALERT : CONFIG.COLORS.PRIMARY;
-            
-            // Draw Bracket Corners
-            const len = 20;
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = color;
-
-            ctx.beginPath();
-            ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
-            ctx.moveTo(x + width - len, y); ctx.lineTo(x + width, y); ctx.lineTo(x + width, y + len);
-            ctx.moveTo(x + width, y + height - len); ctx.lineTo(x + width, y + height); ctx.lineTo(x + width - len, y + height);
-            ctx.moveTo(x, y + height - len); ctx.lineTo(x, y + height); ctx.lineTo(x + len, y + height);
-            ctx.stroke();
-
-            // Label
-            ctx.fillStyle = color;
-            ctx.font = "12px Rajdhani";
-            ctx.fillText(`${obj.class.toUpperCase()} [${Math.floor(obj.score*100)}%]`, x, y - 10);
-            
-            // Distance Line
-            ctx.beginPath();
-            ctx.moveTo(w/2, h);
-            ctx.lineTo(x + width/2, y + height);
-            ctx.strokeStyle = `rgba(0, 255, 194, 0.1)`;
-            ctx.stroke();
-        });
-    }
-
-    renderBiometrics() {
-        const ctx = this.ctx.bio;
-        
-        this.state.faces.forEach(face => {
-            // Draw Mesh
-            ctx.fillStyle = CONFIG.COLORS.ACCENT;
-            face.scaledMesh.forEach((point, index) => {
-                if (index % 3 === 0) { // Optimize: Draw every 3rd point
-                    ctx.fillRect(point[0], point[1], 1, 1);
-                }
-            });
-
-            // Draw Box around face
-            const bb = face.boundingBox;
-            const start = bb.topLeft;
-            const end = bb.bottomRight;
-            const width = end[0] - start[0];
-            
-            // Complex Iron Man Ring
-            const cx = start[0] + width/2;
-            const cy = start[1] + width/2; // Approx center
-            const r = width/1.5;
-
-            ctx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(cx, cy, r, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Rotating segments
-            const angle = Date.now() / 500;
-            ctx.beginPath();
-            ctx.arc(cx, cy, r + 10, angle, angle + 1);
-            ctx.stroke();
-            
-            // Stats
-            ctx.font = "10px monospace";
-            ctx.fillStyle = "#fff";
-            ctx.fillText(`ID: UNKNOWN`, end[0] + 10, start[1] + 20);
-            ctx.fillText(`HR: ${80 + Math.floor(Math.sin(Date.now()/500)*10)} BPM`, end[0] + 10, start[1] + 35);
-            ctx.fillText(`EMO: NEUTRAL`, end[0] + 10, start[1] + 50);
-        });
-    }
-
-    // --- LIDAR SIMULATION ---
-    // Simulates a depth scanning grid over the video
-    lidarLoop() {
-        if (!this.state.isRunning) return;
-        
-        const ctx = this.ctx.lidar;
-        const w = this.lidarCanvas.width;
-        const h = this.lidarCanvas.height;
-        
-        // Fade out previous frame
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, w, h);
-
-        const time = Date.now() / 1000;
-        const scanY = (time % 2) * h; // Scanning line moves down
-
-        // Draw Scan Line
-        ctx.strokeStyle = 'rgba(0, 255, 194, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, scanY);
-        ctx.lineTo(w, scanY);
-        ctx.stroke();
-
-        // Draw Random "Depth" Points near scan line
-        ctx.fillStyle = CONFIG.COLORS.PRIMARY;
-        for(let i=0; i<50; i++) {
-            const x = Math.random() * w;
-            const y = scanY + (Math.random() * 40 - 20);
-            if(y > 0 && y < h) {
-                const size = Math.random() * 2;
-                ctx.fillRect(x, y, size, size);
-            }
-        }
-        
-        requestAnimationFrame(() => this.lidarLoop());
     }
 }
 
-// --- INIT ---
-const OMEGA = new OmegaSystem();
-
-document.addEventListener('DOMContentLoaded', () => {
-    OMEGA.boot();
-});
-
-document.getElementById('init-btn').addEventListener('click', () => {
-    OMEGA.start();
-    
-    // Play cool sound
-    // Utils.playSound('startup'); (Implement actual sound here)
-    
-    // Glitch effect on start
-    const glitch = document.getElementById('glitch-layer');
-    glitch.style.opacity = 1;
-    glitch.style.background = 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAABZJREFUeNpi2r9//38gYGAEESAAEGAAasgJOgzOKCoAAAAASUVORK5CYII=)'; // Noise pattern
-    setTimeout(() => { glitch.style.opacity = 0; }, 500);
-});
-
-// Random System Glitches
-setInterval(() => {
-    if(OMEGA.state.isRunning && Math.random() > 0.95) {
-        const glitch = document.getElementById('glitch-layer');
-        glitch.style.opacity = 0.3;
-        glitch.style.transform = `translate(${Math.random()*10-5}px, ${Math.random()*10-5}px)`;
-        setTimeout(() => { 
-            glitch.style.opacity = 0; 
-            glitch.style.transform = 'none';
-        }, 100);
-    }
-}, 2000);
+// --- INITIALIZE ---
+const OMEGA = new OmegaKernel();
+window.addEventListener('load', () => OMEGA.boot());
 
 </script>
 </body>
