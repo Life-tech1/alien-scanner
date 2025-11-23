@@ -2,402 +2,483 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OMEGA: OMNI-TOOL</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OMEGA: MILITARY OS</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
     <style>
+        /* --- SYSTEM STYLES --- */
         :root {
-            --bg: #111;
-            --text: #0f0;
-            --panel: rgba(0, 20, 0, 0.8);
-            --border: 1px solid #0f0;
+            --hud-primary: #00ff41; /* Terminal Green */
+            --hud-warning: #ffcc00;
+            --hud-danger: #ff0000;
+            --bg-color: #000000;
+            --glass-panel: rgba(0, 20, 0, 0.85);
         }
 
-        * { box-sizing: border-box; user-select: none; }
+        * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
 
         body {
-            margin: 0; overflow: hidden; background: var(--bg);
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--text);
+            margin: 0; overflow: hidden; background: var(--bg-color);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--hud-primary);
+            width: 100vw; height: 100vh;
         }
 
-        /* BACKGROUND CAMERA */
+        /* LAYOUT CONTAINER */
+        #viewport {
+            position: relative; width: 100%; height: 100%;
+        }
+
+        /* FEED LAYER */
         #camera-feed {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0;
+            position: absolute; width: 100%; height: 100%; object-fit: cover;
+            z-index: 0; filter: contrast(1.1) brightness(0.8) grayscale(0.2);
         }
 
-        /* UI LAYER */
+        /* HUD LAYER */
+        #hud-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10;
+        }
+
+        /* UI OVERLAY HTML (For text sharpness) */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none;
-            display: grid; grid-template-rows: auto 1fr auto;
-            padding: 20px; gap: 10px;
+            z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 10px;
         }
 
-        /* MODULES */
-        .tool-panel {
-            background: var(--panel); border: var(--border);
-            padding: 15px; border-radius: 8px;
-            backdrop-filter: blur(4px); pointer-events: auto;
-            transition: all 0.3s;
+        /* WIDGETS */
+        .panel {
+            background: var(--glass-panel); border: 1px solid var(--hud-primary);
+            padding: 8px; font-size: 10px; width: fit-content;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
         }
+        .panel-header {
+            border-bottom: 1px solid var(--hud-primary); margin-bottom: 4px;
+            font-weight: bold; letter-spacing: 2px;
+        }
+
+        /* TOP BAR */
+        .top-bar { display: flex; justify-content: space-between; width: 100%; }
         
-        .tool-header {
-            font-size: 12px; font-weight: 800; margin-bottom: 10px;
-            border-bottom: 1px solid rgba(0,255,0,0.3); padding-bottom: 5px;
-            display: flex; justify-content: space-between;
+        /* CROSSHAIR */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px; height: 40px;
+            border: 1px solid rgba(0, 255, 65, 0.5);
+            z-index: 15; pointer-events: none;
+        }
+        #crosshair::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 4px; height: 4px; background: var(--hud-primary);
+            transform: translate(-50%, -50%);
         }
 
-        /* TOOL 1: COLOR PICKER */
-        #color-preview {
-            width: 100%; height: 40px; border: 1px solid #fff;
-            margin-bottom: 5px; display: flex; align-items: center; justify-content: center;
-            text-shadow: 0 0 2px black; font-weight: bold; color: #fff; cursor: pointer;
-        }
-        .crosshair {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 20px; height: 20px; border: 2px solid #fff; z-index: 5;
-            pointer-events: none; border-radius: 50%; box-shadow: 0 0 5px black;
-        }
-        .crosshair::after {
-            content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
-            background: red; transform: translate(-50%, -50%); border-radius: 50%;
-        }
-
-        /* TOOL 2: SPIRIT LEVEL */
-        .level-tube {
-            width: 100%; height: 30px; background: #222;
-            border-radius: 15px; border: 2px solid #555;
-            position: relative; overflow: hidden; margin-bottom: 5px;
-        }
-        .level-bubble {
-            width: 40px; height: 100%; background: #0f0;
-            border-radius: 50%; position: absolute; top: 0; left: 50%;
-            transform: translateX(-50%); transition: left 0.1s;
-            box-shadow: 0 0 10px #0f0;
-        }
-        .level-mark {
-            position: absolute; top: 0; left: 50%; width: 2px; height: 100%;
-            background: #fff; transform: translateX(-50%); z-index: 2;
-        }
-
-        /* TOOL 3: LUX METER */
-        #lux-bar-container {
-            width: 100%; height: 10px; background: #333; margin-top: 5px;
-        }
-        #lux-bar { height: 100%; background: yellow; width: 0%; transition: width 0.2s; }
-
-        /* BUTTONS */
-        .btn {
-            width: 100%; padding: 10px; background: rgba(0,255,0,0.1);
-            border: 1px solid #0f0; color: #0f0; font-family: inherit;
-            cursor: pointer; font-weight: bold; text-transform: uppercase;
-        }
-        .btn:active { background: #0f0; color: #000; }
-
-        /* MODE SELECTOR */
-        .mode-selector {
-            display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px;
-        }
-        .mode-btn {
-            flex: 1; padding: 10px; background: #000; border: 1px solid #555;
-            color: #888; font-size: 10px; white-space: nowrap; cursor: pointer;
-        }
-        .mode-btn.active { border-color: #0f0; color: #0f0; background: rgba(0,255,0,0.1); }
-
-        #start-screen {
+        /* BOOT SCREEN */
+        #boot-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 100; display: flex;
-            flex-direction: column; align-items: center; justify-content: center;
+            background: #000; z-index: 999; color: var(--hud-primary);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 12px;
         }
+        .log-scroll {
+            width: 300px; height: 200px; overflow: hidden;
+            border: 1px solid #333; padding: 10px; margin-bottom: 20px;
+            font-family: monospace; text-align: left;
+        }
+        #btn-init {
+            background: #003300; color: var(--hud-primary); border: 1px solid var(--hud-primary);
+            padding: 15px 40px; cursor: pointer; font-family: monospace; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 2px;
+            transition: all 0.2s;
+        }
+        #btn-init:hover { background: var(--hud-primary); color: #000; }
+
     </style>
 </head>
 <body>
 
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="process-canvas" style="display:none;"></canvas>
-    <div class="crosshair" id="crosshair"></div>
+    <div id="viewport">
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="hud-canvas"></canvas>
+        <div id="crosshair"></div>
 
-    <div id="ui-layer">
-        <div class="tool-panel" style="height: fit-content;">
-            <div class="tool-header">
-                <span>OMEGA OMNI-TOOL</span>
-                <span id="battery-stat">BAT: --%</span>
-            </div>
-            <div class="mode-selector">
-                <button class="mode-btn active" onclick="App.setMode('COLOR')">🎨 COLOR PICKER</button>
-                <button class="mode-btn" onclick="App.setMode('LEVEL')">📐 SPIRIT LEVEL</button>
-                <button class="mode-btn" onclick="App.setMode('LIGHT')">💡 LUX METER</button>
-            </div>
-        </div>
-
-        <div id="tool-container" style="display: flex; flex-direction: column; justify-content: center;">
-            
-            <div id="ui-color" class="tool-panel">
-                <div class="tool-header">REAL-TIME HEX DETECTOR</div>
-                <div id="color-preview" onclick="Tools.Color.copy()">TAP TO COPY</div>
-                <div style="font-size: 10px; color:#aaa; margin-top:5px;">
-                    RGB: <span id="rgb-text">0,0,0</span>
+        <div id="ui-layer">
+            <div class="top-bar">
+                <div class="panel">
+                    <div class="panel-header">SYS.TELEMETRY</div>
+                    <div>CPU: <span id="val-cpu">0</span>ms</div>
+                    <div>FPS: <span id="val-fps">0</span></div>
+                    <div>MEM: <span id="val-mem">OK</span></div>
                 </div>
-                <div style="font-size: 10px; color:#aaa;">
-                    AI NAME: <span id="color-name">Unknown</span>
+                <div class="panel" style="text-align: right;">
+                    <div class="panel-header">GNSS / IMU</div>
+                    <div>PITCH: <span id="val-pitch">0</span>°</div>
+                    <div>ROLL: <span id="val-roll">0</span>°</div>
+                    <div>G-FORCE: <span id="val-g">1.0</span></div>
                 </div>
             </div>
 
-            <div id="ui-level" class="tool-panel" style="display:none;">
-                <div class="tool-header">DIGITAL SURFACE LEVEL</div>
-                
-                <div style="margin-bottom:5px; font-size:10px;">X-AXIS (Left/Right)</div>
-                <div class="level-tube">
-                    <div class="level-mark"></div>
-                    <div class="level-bubble" id="bubble-x"></div>
-                </div>
-                <div style="text-align:right; font-size:10px;" id="val-x">0°</div>
-
-                <div style="margin-top:10px; margin-bottom:5px; font-size:10px;">Y-AXIS (Up/Down)</div>
-                <div class="level-tube" style="transform: rotate(0deg);">
-                    <div class="level-mark"></div>
-                    <div class="level-bubble" id="bubble-y"></div>
-                </div>
-                <div style="text-align:right; font-size:10px;" id="val-y">0°</div>
-                
-                <div id="level-status" style="text-align:center; margin-top:10px; font-weight:bold; color:red;">UNBALANCED</div>
+            <div style="align-self: center; margin-bottom: 20px;" class="panel">
+                <div class="panel-header">TARGET ACQUISITION</div>
+                <div id="target-data" style="font-size: 12px; color: var(--hud-warning);">NO TARGET LOCKED</div>
             </div>
-
-            <div id="ui-light" class="tool-panel" style="display:none;">
-                <div class="tool-header">ENVIRONMENTAL LIGHT</div>
-                <div style="font-size: 30px; font-weight:bold;" id="lux-val">0</div>
-                <div style="font-size: 12px; opacity:0.7;">ESTIMATED LUX</div>
-                <div id="lux-bar-container"><div id="lux-bar"></div></div>
-                <div style="margin-top:10px; padding:10px; border:1px dashed #555; text-align:center;">
-                    SUITABLE FOR:<br>
-                    <span id="lux-advice" style="color:yellow;">...</span>
-                </div>
-            </div>
-
-        </div>
-
-        <div class="tool-panel" style="height: fit-content;">
-            <button class="btn" id="action-btn" onclick="App.action()">CAPTURE VALUE</button>
         </div>
     </div>
 
-    <div id="start-screen">
-        <h1 style="color:#0f0; margin-bottom:10px;">OMEGA TOOL</h1>
-        <p style="color:#fff; font-size:12px;">REAL-WORLD SENSOR UTILITIES</p>
-        <button class="btn" style="width:200px; margin-top:20px;" onclick="App.init()">ACTIVATE SENSORS</button>
+    <div id="boot-screen">
+        <div style="font-size: 30px; font-weight: bold; margin-bottom: 10px;">OMEGA OS</div>
+        <div style="margin-bottom: 10px;">MILITARY GRADE SURVEILLANCE</div>
+        <div class="log-scroll" id="boot-log"></div>
+        <button id="btn-init">INITIATE SEQUENCE</button>
     </div>
 
 <script>
 /**
- * PROJECT: OMEGA OMNI-TOOL
- * Purpose: Real-world utilities using Browser APIs (No libraries, Raw math)
+ * ------------------------------------------------------------------
+ * OMEGA SYSTEM KERNEL
+ * Version: 5.0.0 (Enterprise Edition)
+ * ------------------------------------------------------------------
  */
 
-const App = {
-    mode: 'COLOR', // COLOR, LEVEL, LIGHT
-    video: document.getElementById('camera-feed'),
-    canvas: document.getElementById('process-canvas'),
-    ctx: null,
-    loopId: null,
+// --- 1. MATH LIBRARY (VECTOR PHYSICS) ---
+class Vector2 {
+    constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+    add(v) { return new Vector2(this.x + v.x, this.y + v.y); }
+    sub(v) { return new Vector2(this.x - v.x, this.y - v.y); }
+    mult(n) { return new Vector2(this.x * n, this.y * n); }
+    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+    normalize() { let m = this.mag(); return m === 0 ? new Vector2(0,0) : this.mult(1/m); }
+    static lerp(v1, v2, t) { return new Vector2(v1.x + (v2.x - v1.x) * t, v1.y + (v2.y - v1.y) * t); }
+}
+
+// --- 2. SIGNAL PROCESSING (KALMAN FILTER) ---
+// Used to smooth out jittery sensor data
+class KalmanFilter {
+    constructor(R = 1, Q = 1, A = 1, B = 0, C = 1) {
+        this.R = R; // Noise covariance
+        this.Q = Q; // Process covariance
+        this.A = A; // State vector
+        this.B = B; // Control vector
+        this.C = C; // Measurement vector
+        this.cov = NaN;
+        this.x = NaN; // Value
+    }
+    filter(measurement) {
+        if (isNaN(this.x)) {
+            this.x = (1 / this.C) * measurement;
+            this.cov = (1 / this.C) * this.R * (1 / this.C);
+        } else {
+            const predX = (this.A * this.x) + (this.B * 0);
+            const predCov = ((this.A * this.cov) * this.A) + this.Q;
+            const K = predCov * this.C * (1 / ((this.C * predCov * this.C) + this.R));
+            this.x = predX + K * (measurement - (this.C * predX));
+            this.cov = predCov - (K * this.C * predCov);
+        }
+        return this.x;
+    }
+}
+
+// --- 3. AVIONICS SYSTEM (SENSORS) ---
+class AvionicsSystem {
+    constructor() {
+        this.pitch = 0;
+        this.roll = 0;
+        this.yaw = 0;
+        this.accel = new Vector2(0, 0);
+        this.gForce = 1.0;
+        
+        // Filters for smoothing
+        this.filterPitch = new KalmanFilter(0.1, 0.1);
+        this.filterRoll = new KalmanFilter(0.1, 0.1);
+    }
 
     async init() {
+        // iOS Permission Request
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const response = await DeviceOrientationEvent.requestPermission();
+            if (response !== 'granted') throw new Error("Gyroscope Permission Denied");
+        }
+
+        window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
+        window.addEventListener('devicemotion', (e) => this.handleMotion(e));
+        Logger.log("AVIONICS: SENSORS CALIBRATED");
+    }
+
+    handleOrientation(e) {
+        // Apply Kalman Filter
+        this.pitch = this.filterPitch.filter(e.beta || 0);
+        this.roll = this.filterRoll.filter(e.gamma || 0);
+        this.yaw = e.alpha || 0;
+    }
+
+    handleMotion(e) {
+        const acc = e.accelerationIncludingGravity;
+        if (acc) {
+            const x = acc.x || 0;
+            const y = acc.y || 0;
+            const z = acc.z || 0;
+            this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.8; // Normalize to G
+        }
+    }
+}
+
+// --- 4. NEURAL ENGINE (VISION) ---
+class NeuralEngine {
+    constructor() {
+        this.model = null;
+        this.isLoaded = false;
+        this.predictions = [];
+        this.lastInferenceTime = 0;
+    }
+
+    async init() {
+        Logger.log("NEURAL: LOADING TENSORFLOW BACKEND...");
+        await tf.setBackend('webgl');
+        Logger.log("NEURAL: WEBGL ACCELERATION ENABLED");
+        this.model = await cocoSsd.load();
+        this.isLoaded = true;
+        Logger.log("NEURAL: COCO-SSD MODEL LOADED");
+    }
+
+    async predict(video) {
+        if (!this.isLoaded || video.readyState !== 4) return;
+        
+        const start = performance.now();
+        this.predictions = await this.model.detect(video, 5, 0.5); // Max 5 objects, 50% threshold
+        const end = performance.now();
+        
+        this.lastInferenceTime = Math.floor(end - start);
+        return this.predictions;
+    }
+}
+
+// --- 5. HUD SYSTEM (RENDERING) ---
+class HUDSystem {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    resize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+    }
+
+    clear() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+    }
+
+    drawArtificialHorizon(pitch, roll) {
+        const ctx = this.ctx;
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(roll * Math.PI / 180);
+        ctx.translate(0, pitch * 4); // Pitch sensitivity
+
+        // Horizon Line
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-200, 0); ctx.lineTo(200, 0);
+        ctx.stroke();
+
+        // Pitch Ladder
+        ctx.fillStyle = 'rgba(0, 255, 65, 0.3)';
+        for (let i = -40; i <= 40; i += 10) {
+            if (i === 0) continue;
+            const y = i * 4;
+            ctx.beginPath();
+            ctx.moveTo(-50, -y); ctx.lineTo(50, -y);
+            ctx.stroke();
+            ctx.fillText(i, 60, -y + 3);
+        }
+
+        ctx.restore();
+    }
+
+    drawTargetBox(prediction) {
+        const ctx = this.ctx;
+        const [x, y, w, h] = prediction.bbox;
+        
+        // Fancy Bracket Box
+        const color = prediction.class === 'person' ? '#ff0000' : '#00ff41';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 5; ctx.shadowColor = color;
+
+        const len = w * 0.2;
+        ctx.beginPath();
+        // Corners
+        ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y); // TL
+        ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len); // TR
+        ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h); // BL
+        ctx.moveTo(x + w - len, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - len); // BR
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Label Tag
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x, y - 20, w, 20);
+        ctx.fillStyle = color;
+        ctx.font = "10px Courier New";
+        ctx.fillText(`${prediction.class.toUpperCase()} [${Math.round(prediction.score*100)}%]`, x + 5, y - 6);
+        
+        // Center Vector
+        ctx.beginPath();
+        ctx.moveTo(this.width/2, this.height/2);
+        ctx.lineTo(x + w/2, y + h/2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+}
+
+// --- 6. SYSTEM CONTROLLER (MAIN APP) ---
+class App {
+    constructor() {
+        this.avionics = new AvionicsSystem();
+        this.neural = new NeuralEngine();
+        this.hud = new HUDSystem('hud-canvas');
+        this.video = document.getElementById('camera-feed');
+        
+        this.isRunning = false;
+        this.lastTime = 0;
+        this.frames = 0;
+        this.fps = 0;
+    }
+
+    async boot() {
         try {
             // 1. Camera Access
+            Logger.log("SYS: REQUESTING OPTICAL SENSORS...");
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: { ideal: "environment" } }, 
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
                 audio: false 
             });
             this.video.srcObject = stream;
-            
-            // 2. Battery Access
-            if(navigator.getBattery) {
-                const bat = await navigator.getBattery();
-                this.updateBattery(bat);
-                bat.addEventListener('levelchange', () => this.updateBattery(bat));
-            }
+            await new Promise(r => this.video.onloadedmetadata = r);
+            this.video.play();
+            Logger.log("SYS: OPTICAL FEED SECURE");
 
-            // 3. Sensors Access (iOS Permission)
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                await DeviceOrientationEvent.requestPermission();
-            }
-            window.addEventListener('deviceorientation', (e) => Tools.Level.update(e));
+            // 2. Init Subsystems
+            await this.avionics.init();
+            await this.neural.init();
 
-            document.getElementById('start-screen').style.display = 'none';
-            
-            this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
-            this.canvas.width = 64; // Low res for processing
-            this.canvas.height = 64;
+            // 3. Start Loop
+            document.getElementById('boot-screen').style.display = 'none';
+            this.isRunning = true;
+            this.loop(0);
 
-            this.startLoop();
-
-        } catch(e) {
-            alert("Error: Hardware access denied. This tool needs Camera & Sensors.");
+        } catch (e) {
+            Logger.log(`CRITICAL ERROR: ${e.message}`);
+            alert("SYSTEM HALTED: " + e.message);
         }
-    },
+    }
 
-    updateBattery(bat) {
-        document.getElementById('battery-stat').innerText = `BAT: ${Math.round(bat.level * 100)}%`;
-    },
+    loop(timestamp) {
+        if (!this.isRunning) return;
 
-    setMode(mode) {
-        this.mode = mode;
-        // UI Toggle
-        document.querySelectorAll('.tool-panel[id^="ui-"]').forEach(el => el.style.display = 'none');
-        document.querySelectorAll('.mode-btn').forEach(el => el.classList.remove('active'));
+        // FPS Counter
+        const dt = timestamp - this.lastTime;
+        if (dt >= 1000) {
+            this.fps = this.frames;
+            this.frames = 0;
+            this.lastTime = timestamp;
+            document.getElementById('val-fps').innerText = this.fps;
+        }
+        this.frames++;
+
+        // 1. Run AI Inference (Async, don't block render)
+        this.neural.predict(this.video);
+
+        // 2. Render HUD
+        this.hud.clear();
         
-        if(mode === 'COLOR') {
-            document.getElementById('ui-color').style.display = 'block';
-            document.getElementById('crosshair').style.display = 'block';
-            document.querySelectorAll('.mode-btn')[0].classList.add('active');
-        } else if(mode === 'LEVEL') {
-            document.getElementById('ui-level').style.display = 'block';
-            document.getElementById('crosshair').style.display = 'none';
-            document.querySelectorAll('.mode-btn')[1].classList.add('active');
-        } else {
-            document.getElementById('ui-light').style.display = 'block';
-            document.getElementById('crosshair').style.display = 'none';
-            document.querySelectorAll('.mode-btn')[2].classList.add('active');
-        }
-    },
+        // 2.1 Artificial Horizon (Pitch/Roll)
+        this.hud.drawArtificialHorizon(this.avionics.pitch, this.avionics.roll);
 
-    startLoop() {
-        const loop = () => {
-            if(this.mode === 'COLOR' || this.mode === 'LIGHT') {
-                this.processVideo();
-            }
-            requestAnimationFrame(loop);
-        };
-        loop();
-    },
+        // 2.2 Target Bounding Boxes
+        let targetText = "NO TARGET";
+        let targetColor = "#ffcc00";
 
-    processVideo() {
-        if(this.video.readyState === 4) {
-            this.ctx.drawImage(this.video, 0, 0, 64, 64);
-            const frame = this.ctx.getImageData(0, 0, 64, 64);
-            
-            if(this.mode === 'COLOR') Tools.Color.process(frame);
-            if(this.mode === 'LIGHT') Tools.Light.process(frame);
-        }
-    },
+        if (this.neural.predictions.length > 0) {
+            // Find primary target (Center of screen preference)
+            const center = new Vector2(this.hud.width/2, this.hud.height/2);
+            let minDist = Infinity;
+            let primary = null;
 
-    action() {
-        if(this.mode === 'COLOR') Tools.Color.copy();
-        if(this.mode === 'LEVEL') alert("Level Calibrated (Zeroed).");
-        if(this.mode === 'LIGHT') alert(`Current Reading: ${document.getElementById('lux-val').innerText} LUX`);
-    }
-};
-
-const Tools = {
-    // --- TOOL 1: COLOR PICKER ---
-    Color: {
-        currentHex: '#000000',
-        process(frame) {
-            // Get center pixel
-            const x = 32; const y = 32;
-            const i = (y * 64 + x) * 4;
-            const r = frame.data[i];
-            const g = frame.data[i+1];
-            const b = frame.data[i+2];
-
-            this.currentHex = this.rgbToHex(r, g, b);
-            
-            // Update UI
-            const preview = document.getElementById('color-preview');
-            preview.style.backgroundColor = this.currentHex;
-            preview.innerText = this.currentHex;
-            
-            // Adaptive text color
-            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-            preview.style.color = brightness > 125 ? 'black' : 'white';
-
-            document.getElementById('rgb-text').innerText = `${r}, ${g}, ${b}`;
-            document.getElementById('color-name').innerText = this.getColorName(r,g,b);
-        },
-        rgbToHex(r, g, b) {
-            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-        },
-        copy() {
-            navigator.clipboard.writeText(this.currentHex).then(() => {
-                alert(`Copied ${this.currentHex} to clipboard!`);
+            this.neural.predictions.forEach(p => {
+                this.hud.drawTargetBox(p);
+                
+                // Calculate distance to crosshair
+                const objCenter = new Vector2(p.bbox[0] + p.bbox[2]/2, p.bbox[1] + p.bbox[3]/2);
+                const dist = objCenter.sub(center).mag();
+                
+                if (dist < minDist) {
+                    minDist = dist;
+                    primary = p;
+                }
             });
-        },
-        getColorName(r, g, b) {
-            if(r>200 && g<100 && b<100) return "Reddish";
-            if(g>200 && r<100 && b<100) return "Greenish";
-            if(b>200 && r<100 && g<100) return "Blueish";
-            if(r>200 && g>200 && b<100) return "Yellowish";
-            if(r<50 && g<50 && b<50) return "Dark/Black";
-            if(r>200 && g>200 && b>200) return "Bright/White";
-            return "Mixed Tone";
-        }
-    },
 
-    // --- TOOL 2: SPIRIT LEVEL ---
-    Level: {
-        update(e) {
-            if(App.mode !== 'LEVEL') return;
-            
-            // Beta = Front/Back (-180 to 180) -> Y Axis
-            // Gamma = Left/Right (-90 to 90) -> X Axis
-            let x = e.gamma || 0;
-            let y = e.beta || 0;
-
-            // Clamp for UI
-            const maxAngle = 45;
-            const moveX = Math.max(-maxAngle, Math.min(maxAngle, x));
-            const moveY = Math.max(-maxAngle, Math.min(maxAngle, y));
-
-            // Map angle to percentage (50% is center)
-            const pctX = 50 + (moveX / maxAngle * 50);
-            const pctY = 50 + (moveY / maxAngle * 50);
-
-            document.getElementById('bubble-x').style.left = `${pctX}%`;
-            document.getElementById('bubble-y').style.left = `${pctY}%`;
-
-            document.getElementById('val-x').innerText = `${x.toFixed(1)}°`;
-            document.getElementById('val-y').innerText = `${y.toFixed(1)}°`;
-
-            const isLevel = Math.abs(x) < 2 && Math.abs(y) < 2;
-            const status = document.getElementById('level-status');
-            
-            if(isLevel) {
-                status.innerText = "PERFECTLY LEVEL";
-                status.style.color = "#0f0";
-            } else {
-                status.innerText = "UNBALANCED";
-                status.style.color = "red";
+            if (primary) {
+                targetText = `LOCKED: ${primary.class.toUpperCase()}`;
+                targetColor = "#ff0000";
             }
         }
-    },
 
-    // --- TOOL 3: LUX METER ---
-    Light: {
-        process(frame) {
-            let total = 0;
-            for(let i=0; i<frame.data.length; i+=4) {
-                total += (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
-            }
-            const avgPixel = total / (frame.data.length / 4);
-            
-            // Approximate Lux (Calibration is tricky without hardware access, using estimation)
-            // 0-255 pixel value -> 0-1000 lux rough mapping
-            const lux = Math.round(Math.pow(avgPixel / 255, 2.2) * 1000); 
+        // 3. Update DOM UI
+        document.getElementById('val-cpu').innerText = this.neural.lastInferenceTime;
+        document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(1);
+        document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(1);
+        document.getElementById('val-g').innerText = this.avionics.gForce.toFixed(2);
+        
+        const tEl = document.getElementById('target-data');
+        tEl.innerText = targetText;
+        tEl.style.color = targetColor;
 
-            document.getElementById('lux-val').innerText = lux;
-            document.getElementById('lux-bar').style.width = Math.min(100, (lux/500)*100) + "%";
+        requestAnimationFrame((t) => this.loop(t));
+    }
+}
 
-            let advice = "";
-            if(lux < 50) advice = "Too Dark (Night Vision)";
-            else if(lux < 200) advice = "Dim (Romantic/Relax)";
-            else if(lux < 500) advice = "Good for Reading";
-            else advice = "Bright (Office/Daylight)";
-            
-            document.getElementById('lux-advice').innerText = advice;
-        }
+// --- UTILITIES ---
+const Logger = {
+    el: document.getElementById('boot-log'),
+    log(msg) {
+        const line = document.createElement('div');
+        line.innerText = `> ${msg}`;
+        this.el.appendChild(line);
+        this.el.scrollTop = this.el.scrollHeight;
+        console.log(msg);
     }
 };
+
+// --- ENTRY POINT ---
+const System = new App();
+
+document.getElementById('btn-init').addEventListener('click', () => {
+    System.boot();
+});
+
+// Initial Log
+Logger.log("KERNEL LOADED.");
+Logger.log("WAITING FOR USER AUTH...");
 
 </script>
 </body>
