@@ -3,149 +3,670 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: SNIPER SIGHT</title>
+    <title>OMEGA: OMNI-SIGHT FUSION EDITION</title>
     
-    <!-- AI CORE -->
+    <!-- CORE AI ENGINE (TENSORFLOW) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    
+    <!-- 1. OBJECT DETECTION MODEL -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    
+    <!-- 2. POSE DETECTION MODEL -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6"></script>
+    
+    <!-- 3. FACE MESH MODEL -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.3"></script>
+
+    <!-- THREE.JS FOR 3D VISUALIZATION -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
         :root {
-            --p: #00ff9d; --a: #ff2a6d; --w: #ffae00;
-            --bg: #000; --glass: rgba(0, 15, 10, 0.85);
+            --p: #00ff9d; /* Primary */
+            --s: #00a8ff; /* Skeleton */
+            --f: #ff00ff; /* Face */
+            --a: #ff2a6d; /* Alert */
+            --w: #ffae00; /* Warning */
+            --bg: #000;
+            --glass: rgba(0, 20, 10, 0.85);
             --font: 'Segoe UI', monospace;
         }
         
-        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: var(--bg); 
+            color: var(--p); 
+            font-family: var(--font); 
+            user-select: none;
+        }
         
-        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
-        
-        /* CAMERA ZOOM CONTAINER */
-        #cam-container {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            transform-origin: center;
+        #viewport { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
         }
         
         #camera-feed { 
-            width: 100%; height: 100%; object-fit: cover; 
-            /* เพิ่มความคมชัดสำหรับระยะไกล */
-            filter: contrast(1.1) saturate(1.2) sharpen(1px); 
+            position: absolute; 
+            inset: 0; 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            z-index: 0; 
+            opacity: 0.8; 
+            filter: contrast(1.2) brightness(0.8); 
         }
         
-        #hud-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
-
-        /* SNIPER CROSSHAIR */
-        #crosshair {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 300px; height: 300px; border-radius: 50%;
-            border: 1px solid rgba(0, 255, 157, 0.3);
-            z-index: 15; pointer-events: none;
-            display: flex; justify-content: center; align-items: center;
+        #hud-canvas, #layer-3d { 
+            position: absolute; 
+            inset: 0; 
+            z-index: 10; 
         }
-        #crosshair::before { content: ''; position: absolute; width: 100%; height: 1px; background: rgba(0,255,157,0.5); }
-        #crosshair::after { content: ''; position: absolute; height: 100%; width: 1px; background: rgba(0,255,157,0.5); }
         
-        .center-dot { width: 4px; height: 4px; background: var(--a); border-radius: 50%; box-shadow: 0 0 10px var(--a); z-index: 20; }
+        #hud-canvas { 
+            cursor: crosshair; 
+        }
 
-        /* UI */
-        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        /* UI PANELS */
+        #ui-layer { 
+            position: absolute; 
+            inset: 0; 
+            z-index: 20; 
+            padding: 10px; 
+            pointer-events: none; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+        }
         
         .panel {
-            background: var(--glass); border-left: 4px solid var(--p);
-            padding: 10px; backdrop-filter: blur(5px); width: fit-content;
-            pointer-events: auto; margin-bottom: 5px;
+            background: var(--glass); 
+            border-left: 3px solid var(--p);
+            padding: 8px 12px; 
+            margin-bottom: 5px; 
+            backdrop-filter: blur(5px);
+            pointer-events: auto; 
+            width: fit-content; 
+            border-radius: 0 5px 5px 0;
+            box-shadow: 0 0 10px rgba(0,255,157,0.1);
         }
-        .label { font-size: 9px; color: #00a8ff; font-weight: 900; letter-spacing: 2px; }
-        .val { font-size: 16px; font-weight: bold; color: #fff; }
         
-        .zoom-indicator {
-            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
-            display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+        .label { 
+            font-size: 9px; 
+            color: #888; 
+            font-weight: 900; 
+            letter-spacing: 1px; 
         }
-        .zoom-btn {
-            background: rgba(0,0,0,0.8); border: 1px solid var(--p); color: var(--p);
-            width: 50px; height: 50px; font-weight: bold; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: 0.2s;
+        
+        .val { 
+            font-size: 12px; 
+            color: #fff; 
+            font-weight: bold; 
+            font-family: monospace; 
         }
-        .zoom-btn.active { background: var(--p); color: #000; }
+        
+        .led { 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: #333; 
+            margin-right: 5px; 
+        }
+        
+        .led.on { 
+            background: var(--p); 
+            box-shadow: 0 0 8px var(--p); 
+        }
+        
+        .led.busy { 
+            background: var(--w); 
+            animation: pulse 0.5s infinite; 
+        }
 
-        /* Boot */
-        #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loader { width: 50px; height: 50px; border: 3px solid #333; border-top: 3px solid var(--p); border-radius: 50%; animation: spin 1s infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* CONTROL PANEL */
+        #control-panel { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 30; 
+            display: flex;
+            flex-direction: column;
+        }
         
-        button.start { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; margin-top: 20px; }
+        .control-btn { 
+            background: var(--glass); 
+            border: 1px solid var(--p); 
+            color: var(--p); 
+            padding: 8px 15px; 
+            margin: 3px; 
+            cursor: pointer; 
+            border-radius: 4px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            text-align: center;
+        }
+        
+        .control-btn:hover { 
+            background: var(--p); 
+            color: #000; 
+        }
+
+        /* DATA PANEL */
+        #data-panel { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            width: 300px; 
+            max-height: 70vh; 
+            overflow-y: auto; 
+            background: var(--glass); 
+            border: 1px solid var(--p); 
+            border-radius: 4px; 
+            padding: 10px; 
+            display: none; 
+            z-index: 25;
+        }
+        
+        .data-item { 
+            padding: 8px; 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+            font-size: 11px; 
+        }
+        
+        .data-item:last-child { 
+            border-bottom: none; 
+        }
+        
+        .data-name { 
+            color: var(--p); 
+            font-weight: bold; 
+        }
+        
+        .data-id { 
+            color: #aaa; 
+        }
+
+        /* NOTIFICATION */
+        #notification { 
+            position: absolute; 
+            top: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: var(--glass); 
+            border: 1px solid var(--a); 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            display: none; 
+            z-index: 40; 
+            color: var(--a); 
+            font-weight: bold; 
+            text-align: center;
+        }
+
+        /* TAG INPUT MODAL */
+        #tag-input {
+            display: none; 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95); 
+            border: 2px solid var(--p); 
+            padding: 20px; 
+            z-index: 100;
+            text-align: center; 
+            border-radius: 10px; 
+            box-shadow: 0 0 30px var(--p);
+        }
+        
+        #tag-input input { 
+            background: #222; 
+            border: 1px solid #555; 
+            color: white; 
+            padding: 10px; 
+            font-size: 16px; 
+            width: 200px; 
+            text-align: center; 
+        }
+        
+        #tag-input button { 
+            margin-top: 10px; 
+            background: var(--p); 
+            border: none; 
+            padding: 8px 20px; 
+            font-weight: bold; 
+            cursor: pointer; 
+        }
+
+        /* BOOT SCREEN */
+        #boot { 
+            position: fixed; 
+            inset: 0; 
+            background: #000; 
+            z-index: 9999; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        
+        .loader-ring { 
+            width: 60px; 
+            height: 60px; 
+            border: 4px solid #111; 
+            border-top: 4px solid var(--p); 
+            border-radius: 50%; 
+            animation: spin 1s infinite; 
+            margin-bottom: 20px; 
+        }
+        
+        @keyframes spin { 
+            to { transform: rotate(360deg); } 
+        }
+        
+        @keyframes pulse { 
+            50% { opacity: 0.5; } 
+        }
+        
+        button { 
+            background: transparent; 
+            border: 1px solid var(--p); 
+            color: var(--p); 
+            padding: 10px 30px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); 
+        }
+        
+        button:hover { 
+            background: var(--p); 
+            color: #000; 
+        }
     </style>
 </head>
 <body>
 
     <div id="viewport">
-        <div id="cam-container">
-            <video id="camera-feed" autoplay playsinline muted></video>
-        </div>
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="layer-3d"></canvas>
         <canvas id="hud-canvas"></canvas>
-        
-        <!-- SNIPER SCOPE UI -->
-        <div id="crosshair">
-            <div class="center-dot"></div>
-            <!-- Range markings -->
-            <div style="position:absolute; top:60%; font-size:10px; color:rgba(0,255,157,0.5)">20m</div>
-            <div style="position:absolute; top:70%; font-size:10px; color:rgba(0,255,157,0.5)">50m</div>
-            <div style="position:absolute; top:80%; font-size:10px; color:rgba(0,255,157,0.5)">100m</div>
+
+        <!-- TAG INPUT MODAL -->
+        <div id="tag-input">
+            <div style="color:var(--p); margin-bottom:10px; font-weight:bold;">IDENTIFY TARGET</div>
+            <input type="text" id="target-name" placeholder="Enter Name (e.g. Boss)">
+            <br>
+            <button onclick="OMEGA.confirmTag()">CONFIRM</button>
+            <button onclick="OMEGA.cancelTag()" style="background:#333; color:#fff;">CANCEL</button>
         </div>
 
+        <!-- UI LAYER -->
         <div id="ui-layer">
-            <div class="panel">
-                <div class="label">LONG RANGE SENSOR</div>
-                <div>MODE: <span class="val" style="color:var(--w)">SNIPER (THUNDER)</span></div>
-                <div>DIST: <span id="dist-val" class="val">--</span></div>
+            <!-- TOP LEFT: AI STATUS -->
+            <div>
+                <div class="panel">
+                    <div class="label">NEURAL NETWORKS</div>
+                    <div><span id="led-obj" class="led"></span> OBJECT DETECT</div>
+                    <div><span id="led-pose" class="led"></span> SKELETON TRACK</div>
+                    <div><span id="led-face" class="led"></span> FACE MESH</div>
+                </div>
+                <div class="panel">
+                    <div class="label">PERFORMANCE</div>
+                    <div>FPS: <span id="fps" class="val">0</span></div>
+                    <div>LATENCY: <span id="ms" class="val">0ms</span></div>
+                </div>
+                <div class="panel">
+                    <div class="label">IDENTITY SYSTEM</div>
+                    <div>TARGETS: <span id="target-count" class="val">0</span></div>
+                    <div>TRACKED: <span id="tracked-count" class="val">0</span></div>
+                </div>
             </div>
-            
-            <div class="zoom-indicator">
-                <div class="zoom-btn active" onclick="OMEGA.setZoom(1)">1x</div>
-                <div class="zoom-btn" onclick="OMEGA.setZoom(2)">2x</div>
-                <div class="zoom-btn" onclick="OMEGA.setZoom(4)">4x</div>
+
+            <!-- BOTTOM: DATA -->
+            <div>
+                <div class="panel">
+                    <div class="label">ANALYSIS</div>
+                    <div>HUMANS: <span id="human-count" class="val">0</span></div>
+                    <div>POSTURE: <span id="posture-status" class="val" style="color:var(--s)">SCANNING</span></div>
+                    <div>ALERTS: <span id="alert-count" class="val" style="color:var(--a)">0</span></div>
+                </div>
             </div>
         </div>
+
+        <!-- CONTROL PANEL -->
+        <div id="control-panel">
+            <button class="control-btn" onclick="OMEGA.toggleDataPanel()">DATA LOG</button>
+            <button class="control-btn" onclick="OMEGA.toggle3DView()">3D VIEW</button>
+            <button class="control-btn" onclick="OMEGA.exportData()">EXPORT</button>
+            <button class="control-btn" onclick="OMEGA.toggleMode()">MODE: <span id="mode-text">FUSION</span></button>
+        </div>
+
+        <!-- DATA PANEL -->
+        <div id="data-panel">
+            <div style="color:var(--p); font-weight:bold; margin-bottom:10px; display:flex; justify-content:space-between;">
+                <span>TARGET LOG</span>
+                <span style="cursor:pointer;" onclick="OMEGA.toggleDataPanel()">✕</span>
+            </div>
+            <div id="data-list"></div>
+        </div>
+
+        <!-- NOTIFICATION -->
+        <div id="notification"></div>
     </div>
 
+    <!-- BOOT SCREEN -->
     <div id="boot">
-        <h1 style="color:var(--p); letter-spacing: 5px;">OMEGA</h1>
-        <div style="color:#666; font-size:12px; margin-bottom:20px;">LOADING HIGH-RES MODELS...</div>
-        <div class="loader"></div>
-        <button id="btn-start" class="start" onclick="OMEGA.start()" style="display:none;">ENGAGE SYSTEM</button>
+        <h1 style="color:var(--p); letter-spacing: 5px;">OMEGA: OMNI-SIGHT FUSION</h1>
+        <div class="loader-ring"></div>
+        <div id="boot-log" style="color:#666; font-size:10px; margin-bottom:20px;">INITIALIZING...</div>
+        <button id="btn-start" onclick="OMEGA.start()" style="display:none;">ACTIVATE ALL SYSTEMS</button>
     </div>
 
 <script>
 /**
- * OMEGA: SNIPER EDITION
- * Focused on Long Range Detection & High Resolution
+ * OMEGA: OMNI-SIGHT FUSION EDITION
+ * Multi-Model AI Fusion with Identity Tracking & 3D Visualization
  */
 
 const CONFIG = {
-    // ลด Threshold ลงเพื่อให้จับวัตถุไกลๆ (ที่ AI ไม่ค่อยมั่นใจ) ได้ง่ายขึ้น
-    OBJ_CONF: 0.30, 
-    POSE_CONF: 0.30,
-    
-    // Physics for distance calc
-    PHYSICS: { FOCAL_LEN: 900, PERSON_H: 1.7 }
+    OBJ_CONF: 0.5,
+    POSE_CONF: 0.4,
+    MAX_FACES: 3,
+    TRACK: { SMOOTH: 0.15, MAX_LOST: 30, MATCH_DIST: 150 },
+    NOTIFICATION_TIMEOUT: 3000,
+    DATA_RETENTION: 100
 };
 
-class SniperSystem {
+// --- UTILITIES ---
+const Vector = {
+    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+    lerp: (a, b, t) => a + (b - a) * t,
+    getCenter: (box) => ({ x: box[0] + box[2]/2, y: box[1] + box[3]/2 })
+};
+
+// --- IDENTITY MANAGER ---
+class IdentityManager {
     constructor() {
-        this.video = document.getElementById('camera-feed');
+        this.identities = new Map();
+        this.detectionHistory = [];
+    }
+    
+    setName(trackId, name) {
+        this.identities.set(trackId, name);
+    }
+    
+    getName(trackId) {
+        return this.identities.get(trackId) || null;
+    }
+    
+    addDetection(track, additionalData = {}) {
+        const detection = {
+            id: track.id,
+            name: this.getName(track.id) || track.class,
+            class: track.class,
+            timestamp: new Date().toISOString(),
+            x: track.x,
+            y: track.y,
+            ...additionalData
+        };
+        
+        this.detectionHistory.unshift(detection);
+        
+        if (this.detectionHistory.length > CONFIG.DATA_RETENTION) {
+            this.detectionHistory = this.detectionHistory.slice(0, CONFIG.DATA_RETENTION);
+        }
+    }
+    
+    getFilteredDetections() {
+        return [...this.detectionHistory];
+    }
+}
+
+// --- PREDICTIVE TRACKER ---
+class Tracker {
+    constructor() {
+        this.tracks = [];
+        this.nextId = 1;
+    }
+
+    update(detections) {
+        // 1. Predict
+        this.tracks.forEach(t => {
+            t.x += t.vx; 
+            t.y += t.vy; 
+            t.lost++;
+        });
+
+        // 2. Match
+        detections.forEach(det => {
+            const center = Vector.getCenter(det.bbox);
+            let bestDist = CONFIG.TRACK.MATCH_DIST;
+            let bestTrack = null;
+
+            this.tracks.forEach(t => {
+                const d = Vector.dist({x: t.x, y: t.y}, center);
+                if (d < bestDist) { 
+                    bestDist = d; 
+                    bestTrack = t; 
+                }
+            });
+
+            if (bestTrack) {
+                // Update Existing
+                const newVx = center.x - bestTrack.x;
+                const newVy = center.y - bestTrack.y;
+                bestTrack.vx = Vector.lerp(bestTrack.vx, newVx, 0.4);
+                bestTrack.vy = Vector.lerp(bestTrack.vy, newVy, 0.4);
+                bestTrack.x = Vector.lerp(bestTrack.x, center.x, CONFIG.TRACK.SMOOTH);
+                bestTrack.y = Vector.lerp(bestTrack.y, center.y, CONFIG.TRACK.SMOOTH);
+                bestTrack.w = Vector.lerp(bestTrack.w, det.bbox[2], CONFIG.TRACK.SMOOTH);
+                bestTrack.h = Vector.lerp(bestTrack.h, det.bbox[3], CONFIG.TRACK.SMOOTH);
+                bestTrack.lost = 0;
+                bestTrack.class = det.class;
+            } else {
+                // Create New
+                this.tracks.push({
+                    id: this.nextId++,
+                    x: center.x, 
+                    y: center.y,
+                    w: det.bbox[2], 
+                    h: det.bbox[3],
+                    vx: 0, 
+                    vy: 0,
+                    class: det.class,
+                    lost: 0
+                });
+            }
+        });
+
+        // 3. Prune
+        this.tracks = this.tracks.filter(t => t.lost < CONFIG.TRACK.MAX_LOST);
+        return this.tracks;
+    }
+}
+
+// --- AI KERNEL ---
+class MultiAIKernel {
+    constructor() {
+        this.netObject = null;
+        this.netPose = null;
+        this.netFace = null;
+        this.status = { obj: false, pose: false, face: false };
+    }
+
+    async loadAll(onProgress) {
+        try {
+            // 1. Load Object Detection
+            onProgress("Loading Cortex 1: Objects...");
+            this.netObject = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+            this.status.obj = true;
+
+            // 2. Load Pose Detection
+            onProgress("Loading Cortex 2: Skeleton...");
+            this.netPose = await poseDetection.createDetector(
+                poseDetection.SupportedModels.MoveNet,
+                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+            );
+            this.status.pose = true;
+
+            // 3. Load Face Mesh
+            onProgress("Loading Cortex 3: Biometrics...");
+            this.netFace = await faceLandmarksDetection.load(
+                faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
+            );
+            this.status.face = true;
+
+            return true;
+        } catch (e) {
+            console.error(e);
+            onProgress("Error: " + e.message);
+            return false;
+        }
+    }
+
+    async analyze(video) {
+        const results = { objects: [], poses: [], faces: [] };
+
+        if(this.status.obj) {
+            results.objects = await this.netObject.detect(video, 10, CONFIG.OBJ_CONF);
+        }
+        
+        const hasHuman = results.objects.some(o => o.class === 'person');
+        
+        if(this.status.pose && hasHuman) {
+            try {
+                const poses = await this.netPose.estimatePoses(video);
+                results.poses = poses;
+            } catch(e) {
+                console.warn("Pose detection failed:", e);
+            }
+        }
+
+        if(this.status.face && hasHuman) {
+            try {
+                const faces = await this.netFace.estimateFaces({input: video});
+                results.faces = faces;
+            } catch(e) {
+                console.warn("Face detection failed:", e);
+            }
+        }
+
+        return results;
+    }
+}
+
+// --- 3D VISUALIZER ---
+class ThreeDVisualizer {
+    constructor() {
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.targetMeshes = new Map();
+        this.isInitialized = false;
+        this.isActive = false;
+        
+        this.init();
+    }
+    
+    init() {
+        try {
+            const canvas = document.getElementById('layer-3d');
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            this.scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            this.scene.add(directionalLight);
+            
+            this.camera.position.z = 5;
+            this.isInitialized = true;
+        } catch (e) {
+            console.warn("3D visualization not available:", e);
+            this.isInitialized = false;
+        }
+    }
+    
+    toggle() {
+        this.isActive = !this.isActive;
+        const canvas = document.getElementById('layer-3d');
+        canvas.style.display = this.isActive ? 'block' : 'none';
+        return this.isActive;
+    }
+    
+    updateTargets(tracks, identities, poses = []) {
+        if (!this.isInitialized || !this.isActive) return;
+        
+        // Remove old meshes
+        this.targetMeshes.forEach((mesh, id) => {
+            if (!tracks.some(t => t.id === id)) {
+                this.scene.remove(mesh);
+                this.targetMeshes.delete(id);
+            }
+        });
+        
+        // Add/update meshes
+        tracks.forEach(track => {
+            if (track.class !== 'person') return;
+            
+            const customName = identities.getName(track.id);
+            const isTagged = !!customName;
+            const color = isTagged ? 0x00ff9d : 0xffae00;
+            
+            if (!this.targetMeshes.has(track.id)) {
+                const geometry = new THREE.SphereGeometry(0.2, 8, 6);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color, 
+                    transparent: true, 
+                    opacity: 0.7 
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                
+                mesh.position.x = (track.x / 640 - 0.5) * 10;
+                mesh.position.y = -(track.y / 480 - 0.5) * 10;
+                mesh.position.z = 0;
+                
+                this.scene.add(mesh);
+                this.targetMeshes.set(track.id, mesh);
+            } else {
+                const mesh = this.targetMeshes.get(track.id);
+                mesh.position.x = (track.x / 640 - 0.5) * 10;
+                mesh.position.y = -(track.y / 480 - 0.5) * 10;
+                
+                if (mesh.material.color.getHex() !== color) {
+                    mesh.material.color.setHex(color);
+                }
+            }
+        });
+        
+        this.renderer.render(this.scene, this.camera);
+    }
+    
+    resize() {
+        if (!this.isInitialized) return;
+        
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+}
+
+// --- RENDERER ---
+class OmniRenderer {
+    constructor(sys) {
+        this.sys = sys;
         this.canvas = document.getElementById('hud-canvas');
         this.ctx = this.canvas.getContext('2d');
+        this.resize();
         
-        this.netObj = null;
-        this.netPose = null;
-        this.zoomLevel = 1;
-        this.isRunning = false;
-        
-        window.onresize = () => this.resize();
+        // Event Listener for Tagging
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
     }
 
     resize() {
@@ -153,195 +674,373 @@ class SniperSystem {
         this.canvas.height = window.innerHeight;
     }
 
-    async init() {
-        try {
-            // 1. Load COCO-SSD (Standard)
-            this.netObj = await cocoSsd.load({base: 'lite_mobilenet_v2'});
-            
-            // 2. Load Pose Detection (THUNDER VERSION)
-            // Thunder = ช้ากว่า Lightning แต่แม่นยำกว่ามาก เหมาะสำหรับระยะไกล
-            this.netPose = await poseDetection.createDetector(
-                poseDetection.SupportedModels.MoveNet,
-                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
-            );
+    handleClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
 
-            document.getElementById('btn-start').style.display = 'block';
-            document.querySelector('.loader').style.display = 'none';
-        } catch(e) {
-            alert("Error loading AI: " + e.message);
+        const sx = this.canvas.width / this.sys.video.videoWidth;
+        const sy = this.canvas.height / this.sys.video.videoHeight;
+
+        let clickedTrack = null;
+        this.sys.tracker.tracks.forEach(t => {
+            const tx = (t.x - t.w/2) * sx;
+            const ty = (t.y - t.h/2) * sy;
+            const tw = t.w * sx;
+            const th = t.h * sy;
+
+            if(mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th) {
+                clickedTrack = t;
+            }
+        });
+
+        if(clickedTrack) {
+            this.sys.openTagModal(clickedTrack.id);
+        }
+    }
+
+    render(video, tracks, identities, data) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const sx = this.canvas.width / video.videoWidth;
+        const sy = this.canvas.height / video.videoHeight;
+
+        // 1. RENDER FACES
+        if(data.faces) {
+            this.ctx.fillStyle = 'rgba(255, 0, 255, 0.6)';
+            data.faces.forEach(face => {
+                face.scaledMesh.forEach((pt, i) => {
+                    if(i % 4 === 0) {
+                        const x = pt[0] * sx;
+                        const y = pt[1] * sy;
+                        this.ctx.fillRect(x, y, 2, 2);
+                    }
+                });
+            });
+        }
+
+        // 2. RENDER POSE
+        if(data.poses && data.poses.length > 0) {
+            const pose = data.poses[0];
+            this.drawSkeleton(pose.keypoints, sx, sy);
+        }
+
+        // 3. RENDER OBJECTS WITH IDENTITY
+        tracks.forEach(track => {
+            const x = (track.x - track.w/2) * sx;
+            const y = (track.y - track.h/2) * sy;
+            const w = track.w * sx;
+            const h = track.h * sy;
+            
+            const customName = identities.getName(track.id);
+            const isTagged = !!customName;
+            const displayName = customName ? customName.toUpperCase() : track.class.toUpperCase();
+            
+            const color = isTagged ? '#00ff9d' : (track.class === 'person' ? '#ffae00' : '#00a8ff');
+            
+            // Box with tech corners
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = isTagged ? 3 : 2;
+            this.ctx.shadowBlur = isTagged ? 10 : 0;
+            this.ctx.shadowColor = color;
+
+            this.ctx.beginPath();
+            const L = w * 0.2;
+            this.ctx.moveTo(x, y+L); this.ctx.lineTo(x, y); this.ctx.lineTo(x+L, y);
+            this.ctx.moveTo(x+w-L, y); this.ctx.lineTo(x+w, y); this.ctx.lineTo(x+w, y+L);
+            this.ctx.moveTo(x+w, y+h-L); this.ctx.lineTo(x+w, y+h); this.ctx.lineTo(x+w-L, y+h);
+            this.ctx.moveTo(x+L, y+h); this.ctx.lineTo(x, y+h); this.ctx.lineTo(x, y+h-L);
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+            
+            // Label
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x, y-20, isTagged ? w : Math.min(w, 120), 20);
+            
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = "bold 10px monospace";
+            const label = isTagged ? `★ ${displayName}` : `ID_${track.id} ${displayName}`;
+            this.ctx.fillText(label, x+5, y-6);
+
+            // Tag hint
+            if(!isTagged && track.class === 'person') {
+                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                this.ctx.fillText("[TAP TO TAG]", x, y+h+15);
+            }
+        });
+    }
+
+    drawSkeleton(keypoints, sx, sy) {
+        const ctx = this.ctx;
+        const connect = (a, b, color) => {
+            const p1 = keypoints.find(k => k.name === a);
+            const p2 = keypoints.find(k => k.name === b);
+            if(p1 && p2 && p1.score > 0.3 && p2.score > 0.3) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x * sx, p1.y * sy);
+                ctx.lineTo(p2.x * sx, p2.y * sy);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+        };
+
+        const c = '#00a8ff';
+        connect('left_shoulder', 'right_shoulder', c);
+        connect('left_shoulder', 'left_elbow', c);
+        connect('left_elbow', 'left_wrist', c);
+        connect('right_shoulder', 'right_elbow', c);
+        connect('right_elbow', 'right_wrist', c);
+        connect('left_shoulder', 'left_hip', c);
+        connect('right_shoulder', 'right_hip', c);
+        connect('left_hip', 'right_hip', c);
+        
+        ctx.fillStyle = '#ffae00';
+        keypoints.forEach(kp => {
+            if(kp.score > 0.3) {
+                ctx.beginPath();
+                ctx.arc(kp.x * sx, kp.y * sy, 4, 0, 2*Math.PI);
+                ctx.fill();
+            }
+        });
+    }
+}
+
+// --- MAIN SYSTEM ---
+class OmegaSystem {
+    constructor() {
+        this.video = document.getElementById('camera-feed');
+        this.kernel = new MultiAIKernel();
+        this.tracker = new Tracker();
+        this.identities = new IdentityManager();
+        this.renderer = new OmniRenderer(this);
+        this.visualizer = new ThreeDVisualizer();
+        this.isRunning = false;
+        this.pendingTagId = null;
+        this.mode = 'fusion'; // 'fusion', 'tracking', 'analysis'
+        this.alertCount = 0;
+        
+        window.onresize = () => {
+            this.renderer.resize();
+            this.visualizer.resize();
+        };
+    }
+
+    async init() {
+        const log = document.getElementById('boot-log');
+        const btn = document.getElementById('btn-start');
+        
+        const success = await this.kernel.loadAll((msg) => log.innerText = msg);
+        
+        if(success) {
+            log.innerText = "SYSTEM OPTIMAL. STANDBY.";
+            btn.style.display = 'block';
+            
+            document.getElementById('led-obj').classList.add('on');
+            document.getElementById('led-pose').classList.add('on');
+            document.getElementById('led-face').classList.add('on');
+        } else {
+            log.style.color = "red";
         }
     }
 
     async start() {
         try {
-            // Request High Resolution (HD 720p+)
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1280 }, // ขอความละเอียดสูง
-                    height: { ideal: 720 }
-                },
+                video: { facingMode: 'environment', width: {ideal: 640}, height: {ideal: 480} },
                 audio: false
             });
             this.video.srcObject = stream;
             await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
-            
-            this.resize();
+
             document.getElementById('boot').style.display = 'none';
             this.isRunning = true;
             this.loop();
-        } catch(e) {
-            alert("Camera Error: " + e.message);
+        } catch(e) { 
+            alert("Camera Error: " + e.message); 
         }
-    }
-
-    setZoom(level) {
-        this.zoomLevel = level;
-        // CSS Zoom (Visual only)
-        document.getElementById('cam-container').style.transform = `scale(${level})`;
-        
-        // Update UI Buttons
-        document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
     }
 
     async loop() {
         if(!this.isRunning) return;
+        const start = performance.now();
 
-        // Run AI Detection
-        // Note: AI runs on the full video frame, regardless of visual zoom
-        const objects = await this.netObj.detect(this.video, 10, CONFIG.OBJ_CONF);
+        // AI Analysis
+        const data = await this.kernel.analyze(this.video);
         
-        // Get Poses (Only if person detected to save CPU)
-        let poses = [];
-        if(objects.some(o => o.class === 'person')) {
-            poses = await this.netPose.estimatePoses(this.video);
+        // Update tracking
+        const tracks = this.tracker.update(data.objects);
+        
+        // Log detections with additional data
+        tracks.forEach(track => {
+            const poseData = data.poses.length > 0 ? { pose: true } : {};
+            this.identities.addDetection(track, poseData);
+        });
+
+        // Render based on mode
+        if (this.mode === 'fusion' || this.mode === 'tracking') {
+            this.renderer.render(this.video, tracks, this.identities, data);
+        }
+        
+        if (this.mode === 'fusion' || this.mode === 'analysis') {
+            this.visualizer.updateTargets(tracks, this.identities, data.poses);
         }
 
-        this.render(objects, poses);
+        // Update UI
+        this.updateUI(tracks, data, start);
+        
         requestAnimationFrame(() => this.loop());
     }
 
-    render(objects, poses) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    updateUI(tracks, data, startTime) {
+        const humans = tracks.filter(t => t.class === 'person').length;
+        const tagged = tracks.filter(t => this.identities.getName(t.id)).length;
         
-        // Scale factors needs to account for Zoom Level visually?
-        // No, HTML Canvas overlays the video container. 
-        // If video container scales via CSS, Canvas must match visually.
-        // Standard logic: Map video coords -> Screen coords -> Apply Zoom Offset
-        
-        const sx = this.canvas.width / this.video.videoWidth;
-        const sy = this.canvas.height / this.video.videoHeight;
-        
-        // Center of screen for zoom origin
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
+        document.getElementById('human-count').innerText = humans;
+        document.getElementById('target-count').innerText = tracks.length;
+        document.getElementById('tracked-count').innerText = tagged;
+        document.getElementById('alert-count').innerText = this.alertCount;
 
-        // Helper to transform coordinates based on zoom
-        const transform = (x, y) => {
-            // 1. Scale to screen
-            let sx_x = x * sx;
-            let sx_y = y * sy;
+        // Posture analysis
+        const statusEl = document.getElementById('posture-status');
+        if(data.poses.length > 0) {
+            const p = data.poses[0].keypoints;
+            const nose = p.find(k=>k.name==='nose');
+            const lWrist = p.find(k=>k.name==='left_wrist');
+            const rWrist = p.find(k=>k.name==='right_wrist');
             
-            // 2. Apply Zoom from center
-            sx_x = (sx_x - cx) * this.zoomLevel + cx;
-            sx_y = (sx_y - cy) * this.zoomLevel + cy;
-            
-            return { x: sx_x, y: sx_y };
-        };
-
-        let nearestDist = 9999;
-
-        // 1. Draw Objects
-        objects.forEach(obj => {
-            const p1 = transform(obj.bbox[0], obj.bbox[1]);
-            const p2 = transform(obj.bbox[0] + obj.bbox[2], obj.bbox[1] + obj.bbox[3]);
-            const w = p2.x - p1.x;
-            const h = p2.y - p1.y;
-
-            // Filter off-screen objects (when zoomed in)
-            if(p2.x < 0 || p1.x > this.canvas.width || p2.y < 0 || p1.y > this.canvas.height) return;
-
-            const color = obj.class === 'person' ? '#ff2a6d' : '#00ff9d';
-            
-            // Box
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(p1.x, p1.y, w, h);
-
-            // Distance Calculation
-            const dist = (CONFIG.PHYSICS.PERSON_H * CONFIG.PHYSICS.FOCAL_LEN) / obj.bbox[3];
-            if(dist < nearestDist) nearestDist = dist;
-
-            // Label
-            this.ctx.fillStyle = color;
-            this.ctx.font = "bold 12px monospace";
-            this.ctx.fillText(`${obj.class.toUpperCase()} ${dist.toFixed(1)}m`, p1.x, p1.y - 5);
-        });
-
-        // 2. Draw Skeleton (Pose) - The High Precision Part
-        if(poses.length > 0) {
-            poses.forEach(pose => {
-                const keypoints = pose.keypoints;
-                this.ctx.fillStyle = '#00a8ff';
-                this.ctx.strokeStyle = '#00a8ff';
-                this.ctx.lineWidth = 2;
-
-                // Draw Connections
-                const connections = [
-                    ['nose', 'left_eye'], ['left_eye', 'left_ear'],
-                    ['nose', 'right_eye'], ['right_eye', 'right_ear'],
-                    ['left_shoulder', 'right_shoulder'],
-                    ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
-                    ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
-                    ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
-                    ['left_hip', 'right_hip'],
-                    ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
-                    ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
-                ];
-
-                connections.forEach(([a, b]) => {
-                    const k1 = keypoints.find(k => k.name === a);
-                    const k2 = keypoints.find(k => k.name === b);
-                    
-                    if(k1 && k2 && k1.score > 0.3 && k2.score > 0.3) {
-                        const p1 = transform(k1.x, k1.y);
-                        const p2 = transform(k2.x, k2.y);
-                        
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(p1.x, p1.y);
-                        this.ctx.lineTo(p2.x, p2.y);
-                        this.ctx.stroke();
-                    }
-                });
-
-                // Draw Joints
-                keypoints.forEach(kp => {
-                    if(kp.score > 0.3) {
-                        const p = transform(kp.x, kp.y);
-                        this.ctx.beginPath();
-                        this.ctx.arc(p.x, p.y, 3, 0, 2*Math.PI);
-                        this.ctx.fill();
-                    }
-                });
-            });
-        }
-
-        // Update Distance UI
-        const distEl = document.getElementById('dist-val');
-        if(nearestDist !== 9999) {
-            distEl.innerText = nearestDist.toFixed(1) + "m";
-            distEl.style.color = nearestDist < 5 ? '#ff2a6d' : '#fff';
+            if(lWrist && rWrist && nose && (lWrist.y < nose.y || rWrist.y < nose.y)) {
+                statusEl.innerText = "HANDS RAISED";
+                statusEl.style.color = "#ff2a6d";
+                this.triggerAlert("UNUSUAL POSTURE DETECTED");
+            } else {
+                statusEl.innerText = "NEUTRAL";
+                statusEl.style.color = "#00ff9d";
+            }
         } else {
-            distEl.innerText = "--";
-            distEl.style.color = '#fff';
+            statusEl.innerText = "NO POSE DATA";
+            statusEl.style.color = "#888";
         }
+
+        const ms = Math.round(performance.now() - startTime);
+        document.getElementById('ms').innerText = ms + "ms";
+        document.getElementById('fps').innerText = Math.round(1000/Math.max(1,ms));
+    }
+
+    triggerAlert(message) {
+        this.alertCount++;
+        this.showNotification(`ALERT: ${message}`);
+    }
+
+    showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.style.display = 'block';
+        
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, CONFIG.NOTIFICATION_TIMEOUT);
+    }
+
+    // Tagging Logic
+    openTagModal(trackId) {
+        this.pendingTagId = trackId;
+        const modal = document.getElementById('tag-input');
+        const input = document.getElementById('target-name');
+        
+        const currentName = this.identities.getName(trackId);
+        input.value = currentName || '';
+        
+        modal.style.display = 'block';
+        input.focus();
+    }
+
+    confirmTag() {
+        const name = document.getElementById('target-name').value;
+        if(this.pendingTagId && name) {
+            this.identities.setName(this.pendingTagId, name);
+            this.showNotification(`TARGET ${this.pendingTagId} TAGGED AS: ${name}`);
+        }
+        this.cancelTag();
+    }
+
+    cancelTag() {
+        document.getElementById('tag-input').style.display = 'none';
+        this.pendingTagId = null;
+    }
+
+    // UI Controls
+    toggleDataPanel() {
+        const panel = document.getElementById('data-panel');
+        if (panel.style.display === 'block') {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'block';
+            this.updateDataPanel();
+        }
+    }
+
+    updateDataPanel() {
+        const dataList = document.getElementById('data-list');
+        const data = this.identities.getFilteredDetections();
+        
+        dataList.innerHTML = '';
+        
+        if (data.length === 0) {
+            dataList.innerHTML = '<div style="color:#666; text-align:center;">No data to display</div>';
+            return;
+        }
+        
+        data.forEach(detection => {
+            const item = document.createElement('div');
+            item.className = 'data-item';
+            item.innerHTML = `
+                <div class="data-name">${detection.name}</div>
+                <div class="data-id">ID: ${detection.id} | ${detection.class} | ${new Date(detection.timestamp).toLocaleTimeString()}</div>
+            `;
+            dataList.appendChild(item);
+        });
+    }
+
+    toggle3DView() {
+        const isActive = this.visualizer.toggle();
+        this.showNotification(`3D VIEW: ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+    }
+
+    toggleMode() {
+        const modes = ['fusion', 'tracking', 'analysis'];
+        const currentIndex = modes.indexOf(this.mode);
+        this.mode = modes[(currentIndex + 1) % modes.length];
+        
+        document.getElementById('mode-text').textContent = this.mode.toUpperCase();
+        this.showNotification(`MODE: ${this.mode.toUpperCase()}`);
+        
+        // Adjust visualization based on mode
+        if (this.mode === 'analysis') {
+            document.getElementById('layer-3d').style.display = 'block';
+        } else if (this.mode === 'tracking') {
+            document.getElementById('layer-3d').style.display = 'none';
+        }
+    }
+
+    exportData() {
+        const data = this.identities.detectionHistory;
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `omega-fusion-data-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showNotification('DATA EXPORTED SUCCESSFULLY');
     }
 }
 
-const OMEGA = new SniperSystem();
+const OMEGA = new OmegaSystem();
 OMEGA.init();
-
 </script>
 </body>
 </html>
