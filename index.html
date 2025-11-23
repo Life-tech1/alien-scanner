@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOCHI: AI VISION</title>
+    <title>MOCHI: MAGNETIC ANCHOR</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
 
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Nunito', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #111; font-family: 'Nunito', sans-serif; }
 
+        /* FULLSCREEN LAYERS */
         #camera {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0.8;
+            object-fit: cover; opacity: 0.6; /* Dim real world to make AR pop */
         }
-
-        #ar-canvas {
+        #ar-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 2;
         }
@@ -29,251 +30,323 @@
             display: flex; flex-direction: column; justify-content: space-between;
         }
 
-        .status-pill {
-            background: rgba(0,0,0,0.6); border: 1px solid #00ffcc;
-            color: #00ffcc; padding: 8px 15px; border-radius: 20px;
-            font-size: 12px; text-shadow: 0 0 5px #00ffcc;
-            display: inline-block; backdrop-filter: blur(5px);
+        /* INFO PILLS */
+        .pill {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 8px 16px; border-radius: 30px;
+            font-size: 12px; font-weight: bold;
+            display: inline-flex; align-items: center; gap: 8px;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
+        .pill span { color: #00f3ff; }
 
-        /* AI LOADING SCREEN */
+        /* LOCK INDICATOR */
+        .lock-icon {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #ff3e3e; box-shadow: 0 0 10px #ff3e3e;
+            transition: background 0.3s;
+        }
+        .locked .lock-icon { background: #00f3ff; box-shadow: 0 0 10px #00f3ff; }
+
+        /* LOADING */
         #loader {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 100;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #00f3ff; font-family: 'Fredoka One';
+            color: #fff;
         }
         .spinner {
-            width: 50px; height: 50px; border: 5px solid #333;
-            border-top: 5px solid #00f3ff; border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 20px;
+            width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #00f3ff;
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
         }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* START BTN */
         #btn-start {
-            display: none;
-            padding: 15px 40px; font-size: 20px; background: #00f3ff; border: none;
-            border-radius: 50px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+            display: none; padding: 15px 40px; background: #fff; color: #000;
+            border: none; border-radius: 50px; font-weight: bold; font-size: 18px;
+            cursor: pointer; font-family: 'Fredoka One';
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
         }
     </style>
 </head>
 <body>
 
     <video id="camera" autoplay playsinline muted></video>
-    <canvas id="ar-canvas"></canvas>
+    <canvas id="ar-layer"></canvas>
 
     <div id="ui-layer">
         <div>
-            <div class="status-pill">AI VISION: <span id="ai-stat">OFFLINE</span></div>
-            <div class="status-pill" style="margin-top:5px; border-color:#ff9a9e; color:#ff9a9e;">
-                TARGET: <span id="target-name">NONE</span>
+            <div class="pill" id="status-pill">
+                <div class="lock-icon"></div>
+                STATUS: <span id="status-text">SEARCHING...</span>
             </div>
+            <br>
+            <div class="pill">
+                ANCHOR: <span id="anchor-target">NONE</span>
+            </div>
+        </div>
+        
+        <div class="pill" style="align-self: center; margin-bottom: 40px;">
+            🧠 NEURAL TRACKING: ACTIVE
         </div>
     </div>
 
     <div id="loader">
         <div class="spinner"></div>
-        <div id="load-text">DOWNLOADING NEURAL NET...</div>
-        <button id="btn-start">ACTIVATE VISION</button>
+        <div id="load-text">LOADING NEURAL NETWORK...</div>
+        <button id="btn-start">START SYSTEM</button>
     </div>
 
 <script>
 /**
- * PROJECT: MOCHI VISION PRO
- * Integrates TensorFlow.js COCO-SSD model for Real-Time Object Detection
+ * PROJECT: MOCHI MAGNETIC
+ * Core: TensorFlow Object Detection + Weighted Position Smoothing
+ * Solves: "Sliding" issue by anchoring Mochi to detected real-world objects.
  */
 
 const SYS = {
     width: window.innerWidth,
     height: window.innerHeight,
+    canvas: document.getElementById('ar-layer'),
     ctx: null,
-    canvas: document.getElementById('ar-canvas'),
     video: document.getElementById('camera'),
     model: null,
-    predictions: [],
-    isDetecting: false
+    isReady: false
 };
 
-// --- 1. AI BRAIN (TENSORFLOW) ---
-const AI = {
-    async init() {
-        document.getElementById('load-text').innerText = "LOADING MODEL (10MB)...";
-        // Load COCO-SSD Model
-        SYS.model = await cocoSsd.load();
-        
-        document.getElementById('load-text').style.display = 'none';
-        document.getElementById('btn-start').style.display = 'block';
-        document.querySelector('.spinner').style.display = 'none';
-    },
+// --- 1. INTELLIGENT ANCHOR SYSTEM ---
+const Anchor = {
+    targetX: SYS.width / 2,
+    targetY: SYS.height / 2,
+    currentX: SYS.width / 2,
+    currentY: SYS.height / 2,
+    locked: false,
+    targetName: "VOID",
+    
+    // Objects Mochi loves to sit on (Priority List)
+    preferences: ['person', 'laptop', 'keyboard', 'cell phone', 'cup', 'book', 'tv'],
 
-    async detect() {
-        if (!SYS.isDetecting || !SYS.video.readyState === 4) return;
-        
-        // Predict objects
-        SYS.predictions = await SYS.model.detect(SYS.video);
-        
-        // Loop
-        requestAnimationFrame(AI.detect);
+    update(predictions) {
+        if (predictions.length > 0) {
+            // 1. Find best object to anchor to
+            let bestObj = null;
+            
+            // Look for preferred objects first
+            for (let pref of this.preferences) {
+                const found = predictions.find(p => p.class === pref);
+                if (found) {
+                    bestObj = found;
+                    break;
+                }
+            }
+            // Fallback to highest confidence object if no preference found
+            if (!bestObj) bestObj = predictions[0];
+
+            // 2. Calculate "Sit Spot" (Top center of object)
+            const [x, y, w, h] = bestObj.bbox;
+            const centerX = x + (w / 2);
+            const topY = y; // Sit on top edge
+            
+            // 3. Set Target
+            this.targetX = centerX;
+            
+            // Special logic: If it's a person, sit on shoulder (approx) or float near face
+            if (bestObj.class === 'person') {
+                 this.targetY = y + (h * 0.3); // Near face/shoulder height
+            } else {
+                 this.targetY = y - 50; // Sit slightly above the object
+            }
+
+            this.targetName = bestObj.class.toUpperCase();
+            this.locked = true;
+            
+            // UI Update
+            document.getElementById('status-pill').classList.add('locked');
+            document.getElementById('status-text').innerText = "LOCKED";
+            document.getElementById('status-text').style.color = "#00f3ff";
+
+        } else {
+            // No object found: Floating Mode (Drift back to center slowly)
+            this.targetX = SYS.width / 2;
+            this.targetY = SYS.height / 2;
+            this.locked = false;
+            this.targetName = "HOVERING";
+            
+            // UI Update
+            document.getElementById('status-pill').classList.remove('locked');
+            document.getElementById('status-text').innerText = "FLOATING";
+            document.getElementById('status-text').style.color = "#aaa";
+        }
+
+        document.getElementById('anchor-target').innerText = this.targetName;
+
+        // 4. PHYSICS SMOOTHING (The Anti-Slide Logic)
+        // Instead of direct assignment, we LERP (Linear Interpolate)
+        // This creates a smooth magnetic glide instead of jitter
+        const smoothFactor = 0.1; // Lower = smoother/slower, Higher = snappier
+        this.currentX += (this.targetX - this.currentX) * smoothFactor;
+        this.currentY += (this.targetY - this.currentY) * smoothFactor;
     }
 };
 
 // --- 2. MOCHI AVATAR ---
 const Mochi = {
-    x: SYS.width/2, y: SYS.height/2,
-    targetX: SYS.width/2, targetY: SYS.height/2,
-    r: 60,
-    mood: 'NEUTRAL',
-    
-    update() {
-        // Chase the most interesting object
-        if (SYS.predictions.length > 0) {
-            // Prioritize 'person', then others
-            let target = SYS.predictions.find(p => p.class === 'person') || SYS.predictions[0];
-            
-            // Calculate center of bbox
-            const centerX = target.bbox[0] + (target.bbox[2] / 2);
-            const centerY = target.bbox[1] + (target.bbox[3] / 2);
-            
-            this.targetX = centerX;
-            this.targetY = centerY;
+    radius: 60,
+    blinkTimer: 0,
+    hoverOffset: 0,
 
-            // React to object
-            document.getElementById('target-name').innerText = target.class.toUpperCase();
-            
-            if (target.class === 'person') this.mood = 'HAPPY';
-            else if (['cup', 'bottle', 'apple', 'banana'].includes(target.class)) this.mood = 'HUNGRY';
-            else if (['cell phone', 'laptop', 'tv'].includes(target.class)) this.mood = 'TECH';
-            else this.mood = 'CURIOUS';
+    draw(ctx, x, y) {
+        // Bobbing animation (Breathing)
+        this.hoverOffset = Math.sin(Date.now() / 500) * 10;
+        const drawY = y + this.hoverOffset;
 
-        } else {
-            // Center screen if nothing found
-            this.targetX = SYS.width/2;
-            this.targetY = SYS.height/2;
-            this.mood = 'NEUTRAL';
-            document.getElementById('target-name').innerText = "SCANNING...";
+        ctx.save();
+        ctx.translate(x, drawY);
+
+        // 1. Anchor Line (Sci-Fi HUD style) if locked
+        if (Anchor.locked) {
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, 100); // Visual line connecting to object
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
 
-        // Physics (Ease follow)
-        this.x += (this.targetX - this.x) * 0.1;
-        this.y += (this.targetY - this.y) * 0.1;
-    },
+        // 2. Shadow (If locked, show shadow on object)
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(0, 80, 30, 10, 0, 0, Math.PI*2);
+        ctx.fill();
 
-    draw(ctx) {
-        // Draw AR Boxes first
-        SYS.predictions.forEach(p => {
-            const [x, y, w, h] = p.bbox;
-            
-            // Cyber Box
-            ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, w, h);
-            
-            // Label
-            ctx.fillStyle = 'rgba(0, 255, 204, 0.8)';
-            ctx.fillRect(x, y - 25, w, 25);
-            ctx.fillStyle = '#000';
-            ctx.font = 'bold 14px Arial';
-            ctx.fillText(`${p.class.toUpperCase()} ${Math.round(p.score*100)}%`, x + 5, y - 7);
-        });
-
-        // Draw Mochi
-        ctx.shadowBlur = 20; ctx.shadowColor = 'rgba(255,255,255,0.5)';
-        
-        let color = '#ff9a9e'; // Pink
-        if (this.mood === 'HUNGRY') color = '#ffcc00'; // Gold
-        if (this.mood === 'TECH') color = '#00f3ff'; // Cyan
-        if (this.mood === 'HAPPY') color = '#ff6b81'; // Dark Pink
-
+        // 3. Body
+        const color = Anchor.locked ? '#ff9a9e' : '#a18cd1'; // Pink if locked, Purple if floating
         ctx.fillStyle = color;
         
-        // Body
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.fill();
+        // Soft Body Glow
+        ctx.shadowBlur = 20; ctx.shadowColor = color;
         
-        // Face
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.arc(-20, -20, 20, 0, Math.PI*2); ctx.fill();
+
+        // 4. Face
         this.drawFace(ctx);
+
         ctx.restore();
     },
 
     drawFace(ctx) {
         ctx.fillStyle = '#333';
-        ctx.shadowBlur = 0;
-
-        if (this.mood === 'TECH') {
-            // Digital Eyes
-            ctx.fillRect(-25, -10, 15, 15);
-            ctx.fillRect(10, -10, 15, 15);
-        } else {
-            // Cute Eyes
-            ctx.beginPath(); ctx.arc(-20, -10, 8, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(20, -10, 8, 0, Math.PI*2); ctx.fill();
+        
+        // Blink Logic
+        this.blinkTimer--;
+        let eyeH = 8;
+        if (this.blinkTimer < 0) {
+            this.blinkTimer = Math.random() * 200 + 100;
+            eyeH = 1; // Close eye
         }
+
+        // Eyes
+        ctx.beginPath(); ctx.ellipse(-20, -10, 8, eyeH, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(20, -10, 8, eyeH, 0, 0, Math.PI*2); ctx.fill();
+
+        // Cheeks
+        ctx.fillStyle = 'rgba(255,0,0,0.2)';
+        ctx.beginPath(); ctx.arc(-30, 5, 10, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(30, 5, 10, 0, Math.PI*2); ctx.fill();
 
         // Mouth
         ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.lineCap = 'round';
         ctx.beginPath();
-        
-        if (this.mood === 'HAPPY') {
-            ctx.arc(0, 10, 10, 0, Math.PI); // Smile
-        } else if (this.mood === 'HUNGRY') {
-             ctx.arc(0, 15, 8, 0, Math.PI*2); // Open mouth
+        if (Anchor.locked) {
+            ctx.arc(0, 10, 8, 0, Math.PI); // Happy Smile
         } else {
-            ctx.moveTo(-5, 15); ctx.lineTo(5, 15); // Neutral
+            ctx.arc(0, 15, 5, 0, Math.PI*2); // "O" mouth (Searching)
         }
         ctx.stroke();
     }
 };
 
-// --- 3. SYSTEM ---
-function loop() {
-    SYS.ctx.clearRect(0, 0, SYS.width, SYS.height);
-    Mochi.update();
-    Mochi.draw(SYS.ctx);
-    requestAnimationFrame(loop);
+// --- 3. MAIN LOOP ---
+async function startApp() {
+    SYS.ctx = SYS.canvas.getContext('2d');
+    SYS.canvas.width = window.innerWidth;
+    SYS.canvas.height = window.innerHeight;
+
+    // Start Prediction Loop
+    predictLoop();
+    // Start Render Loop
+    renderLoop();
 }
 
-document.getElementById('btn-start').addEventListener('click', async () => {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' }, 
-            audio: false 
-        });
-        SYS.video.srcObject = stream;
-        
-        // Wait for video to load
-        SYS.video.onloadeddata = () => {
-            document.getElementById('loader').style.display = 'none';
-            SYS.isDetecting = true;
-            
-            SYS.canvas.width = window.innerWidth;
-            SYS.canvas.height = window.innerHeight;
-            SYS.ctx = SYS.canvas.getContext('2d');
-
-            document.getElementById('ai-stat').innerText = "ACTIVE";
-            document.getElementById('ai-stat').style.color = "#00ffcc";
-            
-            AI.detect(); // Start Tensor Loop
-            loop(); // Start Visual Loop
-            
-            speak("Visual Cortex Online. I can see now!");
-        };
-
-    } catch(e) {
-        alert("Camera access denied or not supported.");
+async function predictLoop() {
+    if (SYS.video.readyState === 4) {
+        const predictions = await SYS.model.detect(SYS.video);
+        Anchor.update(predictions);
     }
-});
-
-function speak(txt) {
-    const u = new SpeechSynthesisUtterance(txt);
-    u.pitch = 1.4; u.rate = 1.1;
-    window.speechSynthesis.speak(u);
+    requestAnimationFrame(predictLoop);
 }
 
-// Init
-AI.init();
+function renderLoop() {
+    SYS.ctx.clearRect(0, 0, SYS.width, SYS.height);
+    
+    // Draw Target Box (AR HUD)
+    if (Anchor.locked) {
+        const size = 40;
+        const x = Anchor.targetX;
+        const y = Anchor.targetY;
+        
+        // Draw Tech Crosshair at target destination
+        SYS.ctx.strokeStyle = 'rgba(0, 243, 255, 0.5)';
+        SYS.ctx.lineWidth = 2;
+        SYS.ctx.beginPath();
+        SYS.ctx.moveTo(x - size, y); SYS.ctx.lineTo(x + size, y);
+        SYS.ctx.moveTo(x, y - size); SYS.ctx.lineTo(x, y + size);
+        SYS.ctx.stroke();
+    }
+
+    // Draw Mochi at smoothed position
+    Mochi.draw(SYS.ctx, Anchor.currentX, Anchor.currentY);
+
+    requestAnimationFrame(renderLoop);
+}
+
+// --- INIT ---
+(async function() {
+    // 1. Load Model
+    SYS.model = await cocoSsd.load();
+    document.getElementById('load-text').innerText = "AI READY. WAITING FOR CAMERA...";
+    document.getElementById('btn-start').style.display = 'block';
+    document.querySelector('.spinner').style.display = 'none';
+
+    // 2. Button Event
+    document.getElementById('btn-start').addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' }, 
+                audio: false 
+            });
+            SYS.video.srcObject = stream;
+            SYS.video.onloadeddata = () => {
+                document.getElementById('loader').style.display = 'none';
+                startApp();
+            };
+        } catch(e) {
+            alert("Camera Error: " + e);
+        }
+    });
+})();
 
 </script>
 </body>
