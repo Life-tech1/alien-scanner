@@ -1,1193 +1,435 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-  />
-  <title>OMEGA: HUMANOID VISION OS – SPACE GRADE</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OMEGA v6.0: TACTICAL HUD</title>
 
-  <!-- AI ENGINE -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
-  <style>
-    :root {
-      --hud-primary: #00ff41;
-      --hud-secondary: #008f11;
-      --hud-alert: #ff3b3b;
-      --hud-warn: #ffd65c;
-      --hud-neutral: #66d9ef;
-      --bg-dark: #020302;
-      --glass: rgba(0, 20, 0, 0.85);
-      --font-main: "Consolas", "SF Mono", monospace;
-    }
+    <style>
+        /* --- VISUAL THEME: TACTICAL MILITARY --- */
+        :root {
+            --hud-safe: #00ff41;    /* Systems Normal */
+            --hud-hostile: #ff0000; /* Threat Detected */
+            --hud-neutral: #00ccff; /* Object */
+            --hud-dim: rgba(0, 255, 65, 0.1);
+            --bg: #000;
+            --font: 'Consolas', 'Courier New', monospace;
+        }
 
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-touch-callout: none;
-    }
+        * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+        
+        body {
+            margin: 0; overflow: hidden; background: var(--bg);
+            font-family: var(--font); color: var(--hud-safe);
+            width: 100vw; height: 100vh;
+        }
 
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: radial-gradient(circle at 10% 10%, #021509 0, #020302 45%, #000000 100%);
-      font-family: var(--font-main);
-      color: var(--hud-primary);
-      width: 100vw;
-      height: 100vh;
-    }
+        #viewport { position: relative; width: 100%; height: 100%; }
 
-    #viewport {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
+        /* CAMERA FEED (Raw & Gritty) */
+        #camera-feed {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 0;
+            filter: contrast(1.2) brightness(0.8) grayscale(0.3) sepia(0.2);
+        }
 
-    #camera-feed {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 0;
-      filter: sepia(0.4) hue-rotate(70deg) contrast(1.25) brightness(0.85);
-      opacity: 0.7;
-    }
+        /* HUD CANVAS (Sharp Vectors) */
+        #hud-canvas { position: absolute; inset: 0; z-index: 10; }
 
-    #hud-canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-    }
+        /* UI DOM ELEMENTS */
+        #ui-layer {
+            position: absolute; inset: 0; z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: max(20px, env(safe-area-inset-top));
+        }
 
-    #ui-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: max(14px, env(safe-area-inset-top));
-    }
+        .panel {
+            background: rgba(0, 10, 0, 0.8);
+            border: 1px solid var(--hud-safe);
+            border-left: 4px solid var(--hud-safe);
+            padding: 8px 12px; margin-bottom: 10px;
+            font-size: 10px; text-shadow: 0 0 2px var(--hud-safe);
+            width: fit-content; pointer-events: auto;
+            backdrop-filter: blur(2px);
+        }
 
-    .hud-panel {
-      background: var(--glass);
-      border-left: 3px solid var(--hud-primary);
-      padding: 6px 10px;
-      margin: 6px;
-      min-width: 140px;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 0 18px rgba(0, 255, 65, 0.16);
-      font-size: 11px;
-      letter-spacing: 0.08em;
-    }
+        /* STATUS BAR */
+        #status-bar {
+            align-self: center; text-align: center;
+            border: 1px solid var(--hud-neutral); color: var(--hud-neutral);
+            padding: 10px 30px; background: rgba(0, 20, 50, 0.8);
+            transform: perspective(500px) rotateX(10deg);
+        }
+        #status-main { font-size: 16px; font-weight: 900; letter-spacing: 3px; }
+        #status-sub { font-size: 10px; opacity: 0.8; }
 
-    .hud-panel.right {
-      margin-left: auto;
-      text-align: right;
-      border-left: none;
-      border-right: 3px solid var(--hud-primary);
-    }
+        /* RADAR */
+        #radar {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: rgba(0, 15, 0, 0.9); border: 2px solid var(--hud-safe);
+            overflow: hidden; z-index: 30; box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+        }
+        #radar::after {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(transparent 270deg, rgba(0,255,65,0.4) 360deg);
+            animation: sweep 2s linear infinite;
+        }
+        @keyframes sweep { to { transform: rotate(360deg); } }
+        
+        .blip {
+            position: absolute; width: 4px; height: 4px; border-radius: 50%;
+            transform: translate(-50%, -50%); box-shadow: 0 0 4px currentColor;
+        }
 
-    .hud-label {
-      opacity: 0.7;
-      margin-bottom: 2px;
-    }
+        /* BOOT SCREEN */
+        #boot-screen {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .boot-log { font-size: 10px; opacity: 0.7; margin-top: 20px; height: 20px; }
+        #btn-start {
+            margin-top: 30px; padding: 15px 50px;
+            background: transparent; border: 2px solid var(--hud-safe);
+            color: var(--hud-safe); font-weight: bold; cursor: pointer;
+            letter-spacing: 2px; transition: 0.2s;
+        }
+        #btn-start:hover { background: var(--hud-safe); color: #000; box-shadow: 0 0 20px var(--hud-safe); }
 
-    .hud-value {
-      font-weight: 700;
-      color: #ffffff;
-    }
-
-    #status-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-      margin: 6px;
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .status-pill {
-      background: rgba(0, 20, 0, 0.9);
-      border-radius: 999px;
-      padding: 3px 10px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(0, 255, 65, 0.4);
-      box-shadow: 0 0 10px rgba(0, 255, 65, 0.15);
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #555;
-      box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-    }
-
-    .status-dot.ok {
-      background: var(--hud-primary);
-      box-shadow: 0 0 10px rgba(0, 255, 65, 0.9);
-    }
-
-    .status-dot.warn {
-      background: var(--hud-warn);
-      box-shadow: 0 0 10px rgba(255, 214, 92, 0.9);
-    }
-
-    .status-dot.error {
-      background: var(--hud-alert);
-      box-shadow: 0 0 10px rgba(255, 59, 59, 0.9);
-    }
-
-    /* RADAR */
-    #radar-container {
-      position: absolute;
-      bottom: 18px;
-      right: 18px;
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      background: rgba(0, 10, 0, 0.95);
-      border: 2px solid var(--hud-primary);
-      box-shadow: 0 0 24px rgba(0, 255, 65, 0.26);
-      overflow: hidden;
-      z-index: 30;
-    }
-
-    #radar-container::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: conic-gradient(
-        from 0deg,
-        transparent 0deg,
-        transparent 270deg,
-        rgba(0, 255, 65, 0.4) 360deg
-      );
-      border-radius: 50%;
-      animation: radar-scan 2.4s linear infinite;
-      mix-blend-mode: screen;
-    }
-
-    .radar-grid {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      border: 1px solid rgba(0, 255, 65, 0.3);
-      border-radius: 50%;
-      pointer-events: none;
-    }
-
-    .radar-cross {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100%;
-      height: 1px;
-      background: rgba(0, 255, 65, 0.35);
-    }
-
-    #radar-blips {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      z-index: 2;
-    }
-
-    .radar-blip {
-      position: absolute;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 10px currentColor;
-      transition: all 0.12s linear;
-    }
-
-    .radar-blip.person {
-      color: var(--hud-alert);
-    }
-
-    .radar-blip.vehicle {
-      color: var(--hud-warn);
-    }
-
-    .radar-blip.other {
-      color: var(--hud-neutral);
-    }
-
-    .radar-blip.approaching {
-      transform: translate(-50%, -50%) scale(1.3);
-    }
-
-    .radar-blip.receding {
-      opacity: 0.6;
-      transform: translate(-50%, -50%) scale(0.9);
-    }
-
-    @keyframes radar-scan {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* ANALYTICS PANEL */
-    #analytics-panel {
-      position: absolute;
-      bottom: 18px;
-      left: 18px;
-      background: var(--glass);
-      border-left: 3px solid var(--hud-secondary);
-      padding: 6px 10px;
-      min-width: 170px;
-      font-size: 10px;
-      letter-spacing: 0.06em;
-      box-shadow: 0 0 18px rgba(0, 255, 65, 0.16);
-      backdrop-filter: blur(6px);
-      z-index: 25;
-    }
-
-    #analytics-panel .line {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 2px;
-    }
-
-    #analytics-panel .label {
-      opacity: 0.7;
-    }
-
-    #analytics-panel .value {
-      color: #ffffff;
-    }
-
-    /* BOOT OVERLAY */
-    #boot-overlay {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--hud-primary);
-      text-align: center;
-    }
-
-    #boot-title {
-      font-size: 38px;
-      font-weight: 900;
-      letter-spacing: 0.4em;
-      margin-bottom: 6px;
-    }
-
-    #boot-subtitle {
-      opacity: 0.7;
-      margin-bottom: 24px;
-      font-size: 12px;
-      letter-spacing: 0.3em;
-    }
-
-    #boot-status-list {
-      text-align: left;
-      font-size: 12px;
-      line-height: 1.7;
-      opacity: 0.85;
-      margin-bottom: 18px;
-    }
-
-    .status-led {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      background: #333;
-      border-radius: 50%;
-      margin-right: 8px;
-    }
-
-    .status-led.active {
-      background: var(--hud-primary);
-      box-shadow: 0 0 10px var(--hud-primary);
-    }
-
-    .status-led.error {
-      background: var(--hud-alert);
-      box-shadow: 0 0 10px var(--hud-alert);
-    }
-
-    #boot-error {
-      color: var(--hud-alert);
-      font-size: 11px;
-      min-height: 16px;
-      margin-bottom: 10px;
-      letter-spacing: 0.06em;
-    }
-
-    #btn-init {
-      background: transparent;
-      color: var(--hud-primary);
-      border: 2px solid var(--hud-primary);
-      padding: 14px 42px;
-      font-family: var(--font-main);
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 0.3em;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: 0.25s;
-      clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-      text-transform: uppercase;
-    }
-
-    #btn-init:hover {
-      background: var(--hud-primary);
-      color: #000;
-      box-shadow: 0 0 30px var(--hud-primary);
-    }
-
-    #btn-init:active {
-      transform: scale(0.97);
-    }
-  </style>
+    </style>
 </head>
 <body>
-  <div id="viewport">
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="hud-canvas"></canvas>
 
-    <div id="ui-layer">
-      <div style="display:flex; justify-content:space-between; width:100%;">
-        <div class="hud-panel">
-          <div class="hud-label">SYSTEM LATENCY</div>
-          <div><span class="hud-value" id="val-cpu">0</span> ms</div>
-          <div class="hud-label" style="margin-top:4px;">VISION AI FPS</div>
-          <div><span class="hud-value" id="val-fps">0</span></div>
-        </div>
-        <div class="hud-panel right">
-          <div class="hud-label">PITCH (X)</div>
-          <div><span class="hud-value" id="val-pitch">0</span>°</div>
-          <div class="hud-label" style="margin-top:4px;">ROLL (Y)</div>
-          <div><span class="hud-value" id="val-roll">0</span>°</div>
-          <div class="hud-label" style="margin-top:4px;">NET G-FORCE</div>
-          <div><span class="hud-value" id="val-g">1.00</span> g</div>
-        </div>
-      </div>
+    <div id="viewport">
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="hud-canvas"></canvas>
 
-      <div id="status-strip">
-        <div class="status-pill">
-          <span class="status-dot" id="dot-cam"></span>
-          CAM
-        </div>
-        <div class="status-pill">
-          <span class="status-dot" id="dot-ai"></span>
-          AI
-        </div>
-        <div class="status-pill">
-          <span class="status-dot" id="dot-gyro"></span>
-          GYRO
-        </div>
-        <div class="status-pill">
-          <span class="status-dot ok"></span>
-          OMEGA CORE
-        </div>
-        <div class="status-pill">
-          TRACKED: <span class="hud-value" id="val-tracked-count">0</span>
-        </div>
-      </div>
+        <div id="ui-layer">
+            <div>
+                <div class="panel">
+                    <div>CPU: <span id="ui-cpu">0</span>ms</div>
+                    <div>FPS: <span id="ui-fps">0</span></div>
+                    <div>MEM: <span id="ui-objs">0</span> ACTIVE</div>
+                </div>
+            </div>
 
-      <div id="analytics-panel">
-        <div class="line">
-          <span class="label">ACTIVE OBJECTS</span>
-          <span class="value" id="an-active">0</span>
-        </div>
-        <div class="line">
-          <span class="label">PERSONS (5 MIN)</span>
-          <span class="value" id="an-person-5m">0</span>
-        </div>
-        <div class="line">
-          <span class="label">CLOSEST PERSON</span>
-          <span class="value" id="an-closest">--</span>
-        </div>
-        <div class="line">
-          <span class="label">TOP LABEL (5 MIN)</span>
-          <span class="value" id="an-top-label">--</span>
-        </div>
-        <div class="line">
-          <span class="label">PRIMARY TARGET</span>
-          <span class="value" id="an-target">--</span>
-        </div>
-      </div>
+            <div style="align-self: flex-end;">
+                <div class="panel" style="text-align: right; border-left:none; border-right: 4px solid var(--hud-safe);">
+                    <div>PITCH: <span id="ui-pitch">0</span>°</div>
+                    <div>ROLL: <span id="ui-roll">0</span>°</div>
+                    <div>LINK: <span id="ui-link">OFFLINE</span></div>
+                </div>
+            </div>
 
-      <div id="radar-container">
-        <div class="radar-grid" style="width: 30%; height: 30%;"></div>
-        <div class="radar-grid" style="width: 60%; height: 60%;"></div>
-        <div class="radar-grid" style="width: 90%; height: 90%;"></div>
-        <div class="radar-cross"></div>
-        <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
-        <div id="radar-blips"></div>
-      </div>
+            <div id="status-bar">
+                <div id="status-main">SYSTEM READY</div>
+                <div id="status-sub">WAITING FOR TARGET</div>
+            </div>
+
+            <div id="radar">
+                <div id="radar-blips"></div>
+                <div style="position:absolute;top:50%;left:0;width:100%;height:1px;background:rgba(0,255,65,0.3);"></div>
+                <div style="position:absolute;top:0;left:50%;width:1px;height:100%;background:rgba(0,255,65,0.3);"></div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div id="boot-overlay">
-    <div id="boot-title">OMEGA</div>
-    <div id="boot-subtitle">HUMANOID VISION OPERATING SYSTEM</div>
-    <div id="boot-status-list">
-      <div><span class="status-led" id="led-cam"></span> OPTICAL SENSORS</div>
-      <div><span class="status-led" id="led-ai"></span> NEURAL ENGINE (COCO-SSD)</div>
-      <div><span class="status-led" id="led-gyro"></span> AVIONICS / GYRO</div>
+    <div id="boot-screen">
+        <div style="font-size:40px; font-weight:900; letter-spacing:5px;">OMEGA</div>
+        <div style="opacity:0.6;">TACTICAL OS v6.0</div>
+        <div class="boot-log" id="boot-log">Loading Neural Network...</div>
+        <button id="btn-start" style="display:none;">INITIALIZE</button>
     </div>
-    <div id="boot-error"></div>
-    <button id="btn-init">INITIALIZE SYSTEM</button>
-  </div>
 
-  <script>
-    /** CONFIG – mission parameters & tuning */
-    const CONFIG = {
-      CONFIDENCE_THRESHOLD: 0.55,
-      MAX_DETECTIONS: 12,
-      CAMERA_FOV_DEG: 70,
-      MAX_RANGE_M: 50,
-      AI_TICK_MS: 90, // ~11 fps
-      TRACK_MAX_AGE_MS: 1200,
-      TRACK_MIN_CONF: 0.4,
-      SMOOTHING_ALPHA: 0.7,
-      RADIAL_APPROACH_THRESH_MPS: 0.4,
-      RADIAL_RECEDING_THRESH_MPS: -0.4,
-      MEMORY_WINDOW_MS: 5 * 60 * 1000,
-      MEMORY_MAX_EVENTS: 800
-    };
+<script>
+/**
+ * OMEGA v6.0: TACTICAL EDITION
+ * Features: High-Precision IoU Tracking, Physics Calc, Voice AI, Bluetooth, 2D Tactical Renderer
+ */
 
-    /** Utils – math helpers */
-    const Utils = {
-      now: () => performance.now(),
-      clamp: (v, min, max) => Math.min(Math.max(v, min), max),
-      lerp: (a, b, t) => a + (b - a) * t,
-      map(value, inMin, inMax, outMin, outMax) {
-        const v = this.clamp(value, inMin, inMax);
-        const ratio = (v - inMin) / (inMax - inMin || 1);
-        return outMin + ratio * (outMax - outMin);
-      },
-      iou(boxA, boxB) {
-        const xA = Math.max(boxA.x, boxB.x);
-        const yA = Math.max(boxA.y, boxB.y);
-        const xB = Math.min(boxA.x + boxA.width, boxB.x + boxB.width);
-        const yB = Math.min(boxA.y + boxA.height, boxB.y + boxB.height);
-        const interW = Math.max(0, xB - xA);
-        const interH = Math.max(0, yB - yA);
-        const interArea = interW * interH;
-        if (interArea <= 0) return 0;
-        const boxAArea = boxA.width * boxA.height;
-        const boxBArea = boxB.width * boxB.height;
-        return interArea / (boxAArea + boxBArea - interArea);
-      },
-      dist2(a, b) {
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        return dx * dx + dy * dy;
-      }
-    };
+// --- CONFIG ---
+const CONFIG = {
+    AI: { CONFIDENCE: 0.55, IOU_THRESH: 0.3, MAX_LOST: 30, SMOOTH: 0.4 },
+    PHYSICS: { FOV: 70, MAX_RANGE: 50 }, // Meters
+    UUID: { SVC: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E", CHR: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E" },
+    COLORS: { SAFE: '#00ff41', HOSTILE: '#ff0000', NEUTRAL: '#00ccff' }
+};
 
-    /** Avionics – gyro & motion */
-    class Avionics {
-      constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.gForce = 1.0;
-        this.online = false;
-      }
-
-      async init() {
-        try {
-          if (
-            typeof DeviceOrientationEvent !== "undefined" &&
-            typeof DeviceOrientationEvent.requestPermission === "function"
-          ) {
-            const state = await DeviceOrientationEvent.requestPermission();
-            if (state !== "granted") throw new Error("GYRO PERMISSION DENIED");
-          }
-
-          window.addEventListener("deviceorientation", (e) => {
-            this.pitch = e.beta || 0;
-            this.roll = e.gamma || 0;
-          });
-
-          window.addEventListener("devicemotion", (e) => {
-            const acc = e.accelerationIncludingGravity;
-            if (!acc) return;
-            const x = acc.x || 0;
-            const y = acc.y || 0;
-            const z = acc.z || 0;
-            this.gForce = Math.sqrt(x * x + y * y + z * z) / 9.81;
-          });
-
-          this.online = true;
-          document.getElementById("led-gyro").classList.add("active");
-          document.getElementById("dot-gyro").classList.add("ok");
-        } catch (err) {
-          console.warn("Avionics init error:", err);
-          document.getElementById("led-gyro").classList.add("error");
-          document.getElementById("dot-gyro").classList.add("warn");
-        }
-      }
+// --- UTILS ---
+const Utils = {
+    lerp: (s, e, t) => s * (1 - t) + e * t,
+    getIoU: (a, b) => { // Intersection over Union
+        const x = Math.max(a[0], b[0]), y = Math.max(a[1], b[1]);
+        const w = Math.min(a[0]+a[2], b[0]+b[2]) - x, h = Math.min(a[1]+a[3], b[1]+b[3]) - y;
+        if (w < 0 || h < 0) return 0;
+        const areaI = w * h, areaU = (a[2]*a[3]) + (b[2]*b[3]) - areaI;
+        return areaI / areaU;
     }
+};
 
-    /** VisionEngine – AI model wrapper */
-    class VisionEngine {
-      constructor() {
-        this.model = null;
-        this.status = "idle";
-        this.lastDetections = [];
-        this.lastInferenceTime = 0;
-        this._isProcessing = false;
-        this._lastTick = 0;
-      }
-
-      async init() {
-        try {
-          this.status = "loading";
-          await tf.ready();
-          this.model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
-          this.status = "ready";
-          document.getElementById("led-ai").classList.add("active");
-          document.getElementById("dot-ai").classList.add("ok");
-        } catch (err) {
-          console.error("AI load error:", err);
-          this.status = "error";
-          document.getElementById("led-ai").classList.add("error");
-          document.getElementById("dot-ai").classList.add("error");
-        }
-      }
-
-      async tick(videoEl, timestamp) {
-        if (
-          this.status !== "ready" ||
-          this._isProcessing ||
-          videoEl.readyState !== 4
-        )
-          return;
-
-        if (timestamp - this._lastTick < CONFIG.AI_TICK_MS) return;
-
-        this._isProcessing = true;
-        const t0 = Utils.now();
-        try {
-          const results = await this.model.detect(
-            videoEl,
-            CONFIG.MAX_DETECTIONS,
-            CONFIG.CONFIDENCE_THRESHOLD
-          );
-          this.lastDetections = results;
-        } catch (err) {
-          console.error("AI detect error:", err);
-          this.status = "error";
-          document.getElementById("dot-ai").classList.remove("ok");
-          document.getElementById("dot-ai").classList.add("error");
-        }
-        this.lastInferenceTime = Utils.now() - t0;
-        this._lastTick = timestamp;
-        this._isProcessing = false;
-      }
+// --- MODULE 1: VOICE ---
+const Voice = {
+    synth: window.speechSynthesis,
+    speak(txt) {
+        if(this.synth.speaking) return;
+        const u = new SpeechSynthesisUtterance(txt);
+        u.rate = 1.2; u.pitch = 1;
+        this.synth.speak(u);
+    },
+    listen() {
+        if(!('webkitSpeechRecognition' in window)) return;
+        const r = new webkitSpeechRecognition();
+        r.continuous = true; r.lang = 'en-US';
+        r.onresult = e => {
+            const t = e.results[e.results.length-1][0].transcript.toLowerCase();
+            if(t.includes('connect')) Robot.connect();
+            if(t.includes('status')) this.speak("Systems nominal.");
+        };
+        r.start();
     }
+};
 
-    /** Physics – approximate depth & bearing */
-    class PhysicsEngine {
-      constructor() {
-        this.fovDeg = CONFIG.CAMERA_FOV_DEG;
-        this.maxRangeM = CONFIG.MAX_RANGE_M;
-      }
-
-      computeFromBox(box, screenW, screenH) {
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-
-        const xNorm = (centerX - screenW / 2) / (screenW / 2);
-        const yNorm = (centerY - screenH / 2) / (screenH / 2);
-
-        const sizeRatio = Utils.clamp(box.height / screenH, 0.02, 1);
-        const distanceNorm = 1 - sizeRatio;
-        const distanceM = distanceNorm * this.maxRangeM;
-
-        const bearingDeg = xNorm * (this.fovDeg / 2);
-
-        return {
-          screenPosition: { xNorm, yNorm },
-          distanceNorm,
-          distanceM,
-          bearingDeg
-        };
-      }
-
-      classifyMotion(radialSpeedMps) {
-        if (radialSpeedMps > CONFIG.RADIAL_APPROACH_THRESH_MPS)
-          return "approaching";
-        if (radialSpeedMps < CONFIG.RADIAL_RECEDING_THRESH_MPS)
-          return "receding";
-        return "static";
-      }
+// --- MODULE 2: ROBOTICS (BLE) ---
+const Robot = {
+    char: null,
+    async connect() {
+        try {
+            Voice.speak("Connecting to chassis.");
+            const d = await navigator.bluetooth.requestDevice({
+                filters: [{namePrefix:'OMEGA'}, {name:'OMEGA-BODY'}], optionalServices: [CONFIG.UUID.SVC]
+            });
+            const s = await (await d.gatt.connect()).getPrimaryService(CONFIG.UUID.SVC);
+            this.char = await s.getCharacteristic(CONFIG.UUID.CHR);
+            document.getElementById('ui-link').innerText = "ONLINE";
+            document.getElementById('ui-link').style.color = CONFIG.COLORS.SAFE;
+            Voice.speak("Connected.");
+        } catch(e) { Voice.speak("Connection failed."); }
+    },
+    send(x, y) {
+        if(!this.char) return;
+        const p = Math.floor((x+1)/2 * 180), t = Math.floor((y+1)/2 * 180);
+        this.char.writeValue(new TextEncoder().encode(`${p},${t}\n`)).catch(()=>{});
     }
+};
 
-    /** Tracker – stable IDs, smoothing, motion estimation */
-    class Tracker {
-      constructor(physics) {
-        this.physics = physics;
-        this.tracks = new Map();
-        this._nextId = 1;
-      }
-
-      _newTrack(det, baseBox, physicsData, timestamp) {
-        const id = this._nextId++;
-        const track = {
-          id,
-          label: det.class,
-          confidence: det.score,
-          bbox: { ...baseBox },
-          rawBbox: { ...baseBox },
-          ...physicsData,
-          velocity: { vx: 0, vy: 0 },
-          radialSpeed: 0,
-          motionState: "static",
-          firstSeen: timestamp,
-          lastSeen: timestamp,
-          status: "new"
-        };
-        this.tracks.set(id, track);
-        return track;
-      }
-
-      _updateTrack(track, det, baseBox, physicsData, timestamp) {
-        const dt = (timestamp - track.lastSeen) / 1000 || 0.016;
-        const alpha = CONFIG.SMOOTHING_ALPHA;
-
-        const prevCenter = {
-          x: track.bbox.x + track.bbox.width / 2,
-          y: track.bbox.y + track.bbox.height / 2
-        };
-        const newCenter = {
-          x: baseBox.x + baseBox.width / 2,
-          y: baseBox.y + baseBox.height / 2
-        };
-
-        track.bbox.x = Utils.lerp(track.bbox.x, baseBox.x, alpha);
-        track.bbox.y = Utils.lerp(track.bbox.y, baseBox.y, alpha);
-        track.bbox.width = Utils.lerp(track.bbox.width, baseBox.width, alpha);
-        track.bbox.height = Utils.lerp(track.bbox.height, baseBox.height, alpha);
-
-        track.rawBbox = { ...baseBox };
-
-        const vx = (newCenter.x - prevCenter.x) / dt;
-        const vy = (newCenter.y - prevCenter.y) / dt;
-        track.velocity = {
-          vx: Utils.lerp(track.velocity.vx, vx, alpha),
-          vy: Utils.lerp(track.velocity.vy, vy, alpha)
-        };
-
-        const prevDist = track.distanceM;
-        track.screenPosition = physicsData.screenPosition;
-        track.distanceNorm = physicsData.distanceNorm;
-        track.distanceM = physicsData.distanceM;
-        track.bearingDeg = physicsData.bearingDeg;
-
-        const radialSpeed = (track.distanceM - prevDist) / dt;
-        track.radialSpeed = Utils.lerp(track.radialSpeed, radialSpeed, alpha);
-        track.motionState = this.physics.classifyMotion(track.radialSpeed);
-
-        track.confidence = det.score;
-        track.label = det.class;
-        track.lastSeen = timestamp;
-        track.status = track.status === "new" ? "new" : "active";
-      }
-
-      update(detections, timestamp, screenW, screenH) {
-        const activeTracks = Array.from(this.tracks.values()).filter(
-          (t) => timestamp - t.lastSeen <= CONFIG.TRACK_MAX_AGE_MS
-        );
-        const unmatchedTrackIds = new Set(activeTracks.map((t) => t.id));
-
-        for (const det of detections) {
-          if (det.score < CONFIG.TRACK_MIN_CONF) continue;
-
-          const baseBox = {
-            x: det.bbox[0],
-            y: det.bbox[1],
-            width: det.bbox[2],
-            height: det.bbox[3]
-          };
-          const physicsData = this.physics.computeFromBox(
-            baseBox,
-            screenW,
-            screenH
-          );
-
-          let bestTrack = null;
-          let bestScore = 0;
-
-          for (const track of activeTracks) {
-            if (!unmatchedTrackIds.has(track.id)) continue;
-            const iou = Utils.iou(track.bbox, baseBox);
-            const d2 = Utils.dist2(
-              { x: track.bbox.x, y: track.bbox.y },
-              { x: baseBox.x, y: baseBox.y }
-            );
-            const distScore = Math.exp(-d2 / (screenW * screenH));
-            const combined = iou * 0.7 + distScore * 0.3;
-            if (combined > bestScore) {
-              bestScore = combined;
-              bestTrack = track;
+// --- MODULE 3: THE BRAIN (TRACKER) ---
+class Tracker {
+    constructor() { this.tracks = []; }
+    
+    process(preds, w, h) {
+        // 1. Predict
+        this.tracks.forEach(t => { t.lost++; t.box[0]+=t.vel.x; t.box[1]+=t.vel.y; });
+        
+        // 2. Match (IoU)
+        preds.forEach(p => {
+            let match = null, maxIoU = 0;
+            this.tracks.forEach(t => {
+                const iou = Utils.getIoU(p.bbox, t.box);
+                if(iou > maxIoU) { maxIoU = iou; match = t; }
+            });
+            
+            if(match && maxIoU > CONFIG.AI.IOU_THRESH) {
+                const a = CONFIG.AI.SMOOTH; // Smoothing factor
+                match.vel = { x: p.bbox[0]-match.box[0], y: p.bbox[1]-match.box[1] };
+                match.box = [
+                    Utils.lerp(match.box[0], p.bbox[0], a), Utils.lerp(match.box[1], p.bbox[1], a),
+                    Utils.lerp(match.box[2], p.bbox[2], a), Utils.lerp(match.box[3], p.bbox[3], a)
+                ];
+                match.lost = 0; match.score = p.score;
+            } else {
+                this.tracks.push({
+                    id: Math.random().toString(36).substr(2,5),
+                    cls: p.class, box: p.bbox, score: p.score,
+                    vel: {x:0,y:0}, lost: 0, dist: 0, ang: 0
+                });
             }
-          }
+        });
 
-          if (bestTrack && bestScore > 0.15) {
-            unmatchedTrackIds.delete(bestTrack.id);
-            this._updateTrack(bestTrack, det, baseBox, physicsData, timestamp);
-          } else {
-            this._newTrack(det, baseBox, physicsData, timestamp);
-          }
-        }
+        // 3. Prune & Calc Physics
+        this.tracks = this.tracks.filter(t => t.lost < CONFIG.AI.MAX_LOST);
+        this.tracks.forEach(t => {
+            const cx = t.box[0] + t.box[2]/2;
+            const nx = (cx/w)*2 - 1; // -1 to 1
+            t.ang = nx * (CONFIG.PHYSICS.FOV/2);
+            // Estimate depth: taller box = closer
+            const nh = t.box[3]/h;
+            t.dist = Math.min(CONFIG.PHYSICS.MAX_RANGE, 1.6 / nh); // 1.6m avg height logic
+            
+            t.nx = nx; t.ny = (t.box[1]+t.box[3]/2)/h*2 - 1; // For robotics
+        });
 
-        for (const track of this.tracks.values()) {
-          if (timestamp - track.lastSeen > CONFIG.TRACK_MAX_AGE_MS) {
-            track.status = "lost";
-          } else if (track.status === "new") {
-            track.status = "active";
-          }
-        }
-      }
-
-      getActiveTracks() {
-        return Array.from(this.tracks.values()).filter(
-          (t) => t.status === "active" || t.status === "new"
-        );
-      }
+        return this.tracks;
     }
+}
 
-    /** Memory – events & analytics */
-    class Memory {
-      constructor() {
-        this.events = [];
-      }
+// --- MODULE 4: RENDERER (TACTICAL HUD) ---
+const HUD = {
+    cvs: document.getElementById('hud-canvas'),
+    ctx: document.getElementById('hud-canvas').getContext('2d'),
+    
+    resize() { this.cvs.width = window.innerWidth; this.cvs.height = window.innerHeight; },
+    
+    draw(tracks, pitch, roll) {
+        const ctx = this.ctx; const w = this.cvs.width; const h = this.cvs.height;
+        ctx.clearRect(0, 0, w, h);
 
-      recordFromTracks(tracks, timestamp) {
-        for (const t of tracks) {
-          this.events.push({
-            t: timestamp,
-            id: t.id,
-            label: t.label,
-            distanceM: t.distanceM,
-            bearingDeg: t.bearingDeg,
-            motionState: t.motionState
-          });
-        }
-
-        const cutoff = timestamp - CONFIG.MEMORY_WINDOW_MS;
-        while (
-          this.events.length > 0 &&
-          this.events[0].t < cutoff
-        ) {
-          this.events.shift();
-        }
-        if (this.events.length > CONFIG.MEMORY_MAX_EVENTS) {
-          this.events = this.events.slice(-CONFIG.MEMORY_MAX_EVENTS);
-        }
-      }
-
-      personsInLast(ms, timestamp) {
-        const cutoff = timestamp - ms;
-        return this.events.filter(
-          (e) => e.t >= cutoff && e.label === "person"
-        ).length;
-      }
-
-      topLabelInLast(ms, timestamp) {
-        const cutoff = timestamp - ms;
-        const counts = new Map();
-        for (const e of this.events) {
-          if (e.t < cutoff) continue;
-          counts.set(e.label, (counts.get(e.label) || 0) + 1);
-        }
-        let best = null;
-        let bestCount = 0;
-        for (const [label, count] of counts.entries()) {
-          if (count > bestCount) {
-            bestCount = count;
-            best = label;
-          }
-        }
-        return best;
-      }
-
-      closestPerson(tracks) {
-        let best = null;
-        for (const t of tracks) {
-          if (t.label !== "person") continue;
-          if (best == null || t.distanceM < best.distanceM) best = t;
-        }
-        return best;
-      }
-    }
-
-    /** HUDRenderer – canvas HUD & text overlays */
-    class HUDRenderer {
-      constructor() {
-        this.canvas = document.getElementById("hud-canvas");
-        this.ctx = this.canvas.getContext("2d");
-        this.resize();
-        window.addEventListener("resize", () => this.resize());
-      }
-
-      resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-      }
-
-      clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-
-      drawHorizon(pitch, roll) {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-
+        // 1. Horizon Line (Stabilized)
         ctx.save();
-        ctx.translate(w / 2, h / 2);
-        ctx.rotate((roll * Math.PI) / 180);
-        ctx.translate(0, pitch * 4);
-
-        ctx.strokeStyle = "rgba(0,255,65,0.55)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-w, 0);
-        ctx.lineTo(w, 0);
-        ctx.stroke();
-
-        for (let i = -3; i <= 3; i++) {
-          if (i === 0) continue;
-          const y = i * 45;
-          const segW = 60 - Math.abs(i) * 8;
-          ctx.beginPath();
-          ctx.moveTo(-segW, y);
-          ctx.lineTo(segW, y);
-          ctx.stroke();
-
-          ctx.fillStyle = "rgba(0,255,65,0.8)";
-          ctx.font = "10px Consolas";
-          ctx.fillText(i * 10, segW + 6, y + 3);
+        ctx.translate(w/2, h/2); ctx.rotate(roll * Math.PI/180); ctx.translate(0, pitch*4);
+        ctx.strokeStyle = 'rgba(0,255,65,0.3)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-w, 0); ctx.lineTo(w, 0); ctx.stroke();
+        // Pitch ladder
+        for(let i=-2; i<=2; i++) {
+            if(i===0) continue;
+            let y=i*40; ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(20, y); ctx.stroke();
         }
-
         ctx.restore();
-      }
 
-      drawCrosshair() {
-        const ctx = this.ctx;
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
-
-        ctx.strokeStyle = "#00ff41";
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
-        ctx.moveTo(cx - 12, cy);
-        ctx.lineTo(cx - 28, cy);
-        ctx.moveTo(cx + 12, cy);
-        ctx.lineTo(cx + 28, cy);
-        ctx.moveTo(cx, cy - 12);
-        ctx.lineTo(cx, cy - 28);
-        ctx.moveTo(cx, cy + 12);
-        ctx.lineTo(cx, cy + 28);
+        // 2. Crosshair
+        ctx.strokeStyle = CONFIG.COLORS.SAFE; ctx.lineWidth = 1;
+        ctx.beginPath(); 
+        ctx.moveTo(w/2-20, h/2); ctx.lineTo(w/2-5, h/2);
+        ctx.moveTo(w/2+5, h/2); ctx.lineTo(w/2+20, h/2);
+        ctx.moveTo(w/2, h/2-20); ctx.lineTo(w/2, h/2-5);
+        ctx.moveTo(w/2, h/2+5); ctx.lineTo(w/2, h/2+20);
         ctx.stroke();
 
-        ctx.fillStyle = "#ff3b3b";
-        ctx.fillRect(cx - 1, cy - 1, 2, 2);
-      }
+        // 3. Tracks
+        tracks.forEach(t => {
+            const [x, y, bw, bh] = t.box;
+            const isHostile = t.cls === 'person';
+            const color = isHostile ? CONFIG.COLORS.HOSTILE : CONFIG.COLORS.NEUTRAL;
+            
+            ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.fillStyle = color;
+            
+            // Corners only (Tactical style)
+            const L = 15;
+            ctx.beginPath();
+            ctx.moveTo(x, y+L); ctx.lineTo(x,y); ctx.lineTo(x+L, y); // TL
+            ctx.moveTo(x+bw-L, y); ctx.lineTo(x+bw, y); ctx.lineTo(x+bw, y+L); // TR
+            ctx.moveTo(x+bw, y+bh-L); ctx.lineTo(x+bw, y+bh); ctx.lineTo(x+bw-L, y+bh); // BR
+            ctx.moveTo(x+L, y+bh); ctx.lineTo(x, y+bh); ctx.lineTo(x, y+bh-L); // BL
+            ctx.stroke();
 
-      drawTrack(track) {
-        const ctx = this.ctx;
-        const { x, y, width, height } = track.bbox;
+            // Label
+            ctx.font = "bold 12px Consolas";
+            ctx.fillText(`${t.cls.toUpperCase()} #${t.id}`, x+5, y-15);
+            ctx.font = "10px Consolas";
+            ctx.fillText(`DST: ${t.dist.toFixed(1)}m`, x+5, y-4);
 
-        const isPerson = track.label === "person";
-        const isVehicle =
-          track.label === "car" ||
-          track.label === "bus" ||
-          track.label === "truck" ||
-          track.label === "motorcycle" ||
-          track.label === "bicycle";
-
-        let color = "#66d9ef";
-        if (isPerson) color = "#ff3b3b";
-        else if (isVehicle) color = "#ffd65c";
-
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = color;
-
-        const lineLen = width * 0.22;
-
-        ctx.beginPath();
-        ctx.moveTo(x, y + lineLen);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + lineLen, y);
-
-        ctx.moveTo(x + width - lineLen, y);
-        ctx.lineTo(x + width, y);
-        ctx.lineTo(x + width, y + lineLen);
-
-        ctx.moveTo(x + width, y + height - lineLen);
-        ctx.lineTo(x + width, y + height);
-        ctx.lineTo(x + width - lineLen, y + height);
-
-        ctx.moveTo(x + lineLen, y + height);
-        ctx.lineTo(x, y + height);
-        ctx.lineTo(x, y + height - lineLen);
-
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        const labelText = `${track.label.toUpperCase()} ${Math.round(
-          track.confidence * 100
-        )}%`;
-        const distText =
-          isFinite(track.distanceM) && track.distanceM < 1000
-            ? `${track.distanceM.toFixed(1)}m @ ${track.bearingDeg.toFixed(
-                0
-              )}°`
-            : `RANGE UNKNOWN`;
-        const motionText = track.motionState.toUpperCase();
-
-        ctx.font = "10px Consolas";
-        ctx.fillStyle = color;
-        ctx.fillText(labelText, x, y - 20);
-        ctx.fillText(distText, x, y - 8);
-        ctx.fillText(motionText, x + width - 60, y - 8);
-
-        ctx.restore();
-      }
+            // Tracking Line to Center
+            if(isHostile) {
+                ctx.save();
+                ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.4; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(w/2, h/2); ctx.lineTo(x+bw/2, y+bh/2); ctx.stroke();
+                ctx.restore();
+            }
+        });
     }
+};
 
-    /** RadarSystem – render tracked objects */
-    class RadarSystem {
-      constructor(containerId) {
-        this.container = document.getElementById(containerId);
-      }
+// --- KERNEL ---
+const Kernel = {
+    video: document.getElementById('camera-feed'),
+    tracker: new Tracker(),
+    avionics: { p: 0, r: 0 },
+    model: null,
+    run: false,
 
-      update(tracks) {
-        if (!this.container) return;
-        const rect = this.container.getBoundingClientRect();
-        const w = rect.width;
-        const h = rect.height;
-        const cx = w / 2;
-        const cy = h / 2;
-        this.container.innerHTML = "";
-
-        for (const t of tracks) {
-          const blip = document.createElement("div");
-          blip.className = "radar-blip";
-
-          const isPerson = t.label === "person";
-          const isVehicle =
-            t.label === "car" ||
-            t.label === "bus" ||
-            t.label === "truck" ||
-            t.label === "motorcycle" ||
-            t.label === "bicycle";
-
-          if (isPerson) blip.classList.add("person");
-          else if (isVehicle) blip.classList.add("vehicle");
-          else blip.classList.add("other");
-
-          if (t.motionState === "approaching") blip.classList.add("approaching");
-          if (t.motionState === "receding") blip.classList.add("receding");
-
-          const distNorm = Utils.clamp(
-            t.distanceM / CONFIG.MAX_RANGE_M,
-            0,
-            1
-          );
-          const r = (1 - distNorm) * (w / 2) * 0.9;
-
-          const bearingRad = (t.bearingDeg * Math.PI) / 180;
-          const x = cx + r * Math.sin(bearingRad);
-          const y = cy - r * Math.cos(bearingRad);
-
-          blip.style.left = `${x}px`;
-          blip.style.top = `${y}px`;
-
-          this.container.appendChild(blip);
-        }
-      }
-    }
-
-    /** Kernel – orchestrates all subsystems */
-    const Kernel = {
-      video: document.getElementById("camera-feed"),
-      avionics: new Avionics(),
-      vision: new VisionEngine(),
-      physics: new PhysicsEngine(),
-      renderer: new HUDRenderer(),
-      tracker: null,
-      radar: new RadarSystem("radar-blips"),
-      memory: new Memory(),
-      isRunning: false,
-
-      async boot() {
-        const bootError = document.getElementById("boot-error");
-        bootError.textContent = "";
-
+    async boot() {
         try {
-          if (
-            !navigator.mediaDevices ||
-            !navigator.mediaDevices.getUserMedia
-          ) {
-            throw new Error("Camera API not supported on this device.");
-          }
+            // Avionics
+            window.addEventListener('deviceorientation', e => {
+                this.avionics.p = Utils.lerp(this.avionics.p, e.beta||0, 0.1);
+                this.avionics.r = Utils.lerp(this.avionics.r, e.gamma||0, 0.1);
+                document.getElementById('ui-pitch').innerText = this.avionics.p.toFixed(0);
+                document.getElementById('ui-roll').innerText = this.avionics.r.toFixed(0);
+            });
+            
+            // Cam
+            const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+            this.video.srcObject = stream;
+            await new Promise(r => this.video.onloadedmetadata = r);
+            
+            // AI
+            await tf.ready();
+            this.model = await cocoSsd.load();
+            
+            // UI Ready
+            document.getElementById('boot-log').innerText = "SYSTEM READY";
+            document.getElementById('btn-start').style.display = 'block';
+            document.getElementById('btn-start').onclick = () => {
+                document.getElementById('boot-screen').style.display = 'none';
+                this.run = true; Voice.listen(); HUD.resize(); this.loop();
+            };
+        } catch(e) { alert("Error: "+e); }
+    },
 
-          this.tracker = new Tracker(this.physics);
+    async loop() {
+        if(!this.run) return;
+        requestAnimationFrame(() => this.loop());
+        const start = performance.now();
 
-          await this.avionics.init();
+        HUD.draw(this.tracker.tracks, this.avionics.p, this.avionics.r);
 
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: "environment",
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            },
-            audio: false
-          });
-          this.video.srcObject = stream;
-          document.getElementById("led-cam").classList.add("active");
-          document.getElementById("dot-cam").classList.add("ok");
-
-          await this.vision.init();
-          if (this.vision.status !== "ready") {
-            throw new Error("AI engine failed to start.");
-          }
-
-          document.getElementById("boot-overlay").style.display = "none";
-          this.isRunning = true;
-          requestAnimationFrame((ts) => this.loop(ts));
-        } catch (err) {
-          console.error("BOOT FAILURE:", err);
-          bootError.textContent = "SYSTEM FAILURE: " + err.message;
-          document.getElementById("led-cam").classList.add("error");
-          document.getElementById("dot-cam").classList.add("error");
+        if(this.video.readyState === 4) {
+            // Inference
+            const preds = await this.model.detect(this.video, 10, CONFIG.AI.CONFIDENCE);
+            const tracks = this.tracker.process(preds, this.video.videoWidth, this.video.videoHeight);
+            
+            // Logic
+            this.updateUI(tracks);
+            
+            // Robot Link (Primary Target)
+            const target = tracks.find(t => t.cls === 'person');
+            if(target) Robot.send(target.nx, target.ny);
         }
-      },
+        
+        const dt = performance.now() - start;
+        document.getElementById('ui-cpu').innerText = dt.toFixed(0);
+        document.getElementById('ui-fps').innerText = (1000/dt).toFixed(0);
+    }
 
-      loop(timestamp) {
-        if (!this.isRunning) return;
-        requestAnimationFrame((ts) => this.loop(ts));
+    updateUI(tracks) {
+        // Update Radar
+        const rad = document.getElementById('radar-blips'); rad.innerHTML = '';
+        tracks.forEach(t => {
+            const el = document.createElement('div'); el.className = 'blip';
+            // Polar to CSS
+            const r = (t.dist / CONFIG.PHYSICS.MAX_RANGE) * 70;
+            const a = (t.ang - 90) * Math.PI/180;
+            el.style.left = (70 + r*Math.cos(a)) + 'px';
+            el.style.top = (70 + r*Math.sin(a)) + 'px';
+            el.style.color = t.cls === 'person' ? CONFIG.COLORS.HOSTILE : CONFIG.COLORS.NEUTRAL;
+            rad.appendChild(el);
+        });
+        document.getElementById('ui-objs').innerText = tracks.length;
 
-        this.vision.tick(this.video, timestamp);
-
-        const w = this.renderer.canvas.width;
-        const h = this.renderer.canvas.height;
-        this.tracker.update(this.vision.lastDetections, timestamp, w, h);
-
-        const activeTracks = this.tracker.getActiveTracks();
-        this.memory.recordFromTracks(activeTracks, timestamp);
-
-        this.renderer.clear();
-        this.renderer.drawHorizon(this.avionics.pitch, this.avionics.roll);
-        this.renderer.drawCrosshair();
-        for (const t of activeTracks) {
-          this.renderer.drawTrack(t);
-        }
-
-        this.radar.update(activeTracks);
-        this.updateUI(activeTracks, timestamp);
-      },
-
-      updateUI(activeTracks, timestamp) {
-        const tAI = this.vision.lastInferenceTime;
-        document.getElementById("val-cpu").textContent = tAI.toFixed(0);
-        const fps =
-          tAI > 0 ? (1000 / tAI).toFixed(0) : "0";
-        document.getElementById("val-fps").textContent = fps;
-
-        document.getElementById("val-pitch").textContent =
-          this.avionics.pitch.toFixed(0);
-        document.getElementById("val-roll").textContent =
-          this.avionics.roll.toFixed(0);
-        document.getElementById("val-g").textContent =
-          this.avionics.gForce.toFixed(2);
-
-        document.getElementById("val-tracked-count").textContent =
-          activeTracks.length;
-
-        document.getElementById("an-active").textContent =
-          activeTracks.length;
-
-        const persons5m = this.memory.personsInLast(
-          CONFIG.MEMORY_WINDOW_MS,
-          timestamp
-        );
-        document.getElementById("an-person-5m").textContent = persons5m;
-
-        const closestPerson = this.memory.closestPerson(activeTracks);
-        document.getElementById("an-closest").textContent = closestPerson
-          ? `${closestPerson.distanceM.toFixed(1)}m @ ${closestPerson.bearingDeg.toFixed(
-              0
-            )}°`
-          : "--";
-
-        const topLabel = this.memory.topLabelInLast(
-          CONFIG.MEMORY_WINDOW_MS,
-          timestamp
-        );
-        document.getElementById("an-top-label").textContent =
-          topLabel ? topLabel.toUpperCase() : "--";
-
-        const cx = this.renderer.canvas.width / 2;
-        const cy = this.renderer.canvas.height / 2;
-        let primary = null;
-        let bestDist2 = Infinity;
-        for (const t of activeTracks) {
-          const center = {
-            x: t.bbox.x + t.bbox.width / 2,
-            y: t.bbox.y + t.bbox.height / 2
-          };
-          const d2 = Utils.dist2(center, { x: cx, y: cy });
-          if (d2 < bestDist2) {
-            bestDist2 = d2;
-            primary = t;
-          }
-        }
-        if (primary) {
-          document.getElementById(
-            "an-target"
-          ).textContent = `${primary.label.toUpperCase()} | ${primary.distanceM.toFixed(
-            1
-          )}m | ${primary.bearingDeg.toFixed(
-            0
-          )}° | ${primary.motionState.toUpperCase()}`;
+        // Status Bar
+        const statMain = document.getElementById('status-main');
+        const statSub = document.getElementById('status-sub');
+        const target = tracks.find(t => t.cls === 'person');
+        
+        if(target) {
+            statMain.innerText = "TARGET ACQUIRED";
+            statMain.style.color = CONFIG.COLORS.HOSTILE;
+            statSub.innerText = `LOCK: ${target.cls.toUpperCase()} | DIST: ${target.dist.toFixed(1)}M`;
+            document.getElementById('status-bar').style.borderColor = CONFIG.COLORS.HOSTILE;
         } else {
-          document.getElementById("an-target").textContent = "--";
+            statMain.innerText = "SYSTEM ACTIVE";
+            statMain.style.color = CONFIG.COLORS.NEUTRAL;
+            statSub.innerText = "SCANNING SECTOR...";
+            document.getElementById('status-bar').style.borderColor = CONFIG.COLORS.NEUTRAL;
         }
-      }
-    };
+    }
+};
 
-    document
-      .getElementById("btn-init")
-      .addEventListener("click", () => Kernel.boot());
-  </script>
+Kernel.boot();
+window.addEventListener('resize', ()=>HUD.resize());
+
+</script>
 </body>
 </html>
