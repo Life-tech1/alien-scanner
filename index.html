@@ -3,78 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: MILITARY OS (iOS FIX)</title>
+    <title>OMEGA: HUMANOID VISION SYSTEM v2.0</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
     <style>
         :root {
-            --hud-primary: #00ff41; /* Terminal Green */
-            --hud-warning: #ffcc00;
-            --hud-danger: #ff0000;
-            --bg-color: #000000;
-            --glass-panel: rgba(0, 20, 0, 0.85);
+            --hud-primary: #00ff41;   /* Matrix Green */
+            --hud-secondary: #008f11; /* Dimmed Green */
+            --hud-alert: #ff0000;     /* Critical Red */
+            --hud-warn: #ffcc00;      /* Warning Yellow */
+            --bg-dark: #050505;
+            --glass: rgba(0, 20, 0, 0.8);
         }
 
+        /* --- CORE SETUP --- */
         * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
-
         body {
-            margin: 0; overflow: hidden; background: var(--bg-color);
-            font-family: 'Courier New', Courier, monospace;
+            margin: 0; overflow: hidden; background: var(--bg-dark);
+            font-family: 'Consolas', 'Monaco', monospace;
             color: var(--hud-primary);
             width: 100vw; height: 100vh;
         }
 
-        /* LAYOUT */
+        /* --- VIEWPORT & LAYERS --- */
         #viewport { position: relative; width: 100%; height: 100%; }
+        
+        /* Video Layer: High Contrast for Machine Vision aesthetic */
         #camera-feed {
             position: absolute; width: 100%; height: 100%; object-fit: cover;
-            z-index: 0; filter: contrast(1.1) brightness(0.8) grayscale(0.2);
+            z-index: 0; filter: sepia(0.5) hue-rotate(70deg) contrast(1.2) brightness(0.8);
+            opacity: 0.6;
         }
-        #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
         
+        /* HUD Canvas: Vector Graphics */
+        #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
+
+        /* --- UI PANELS --- */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 20; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 10px;
-            padding-top: max(20px, env(safe-area-inset-top));
+            z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: max(20px, env(safe-area-inset-top));
         }
 
-        .panel {
-            background: var(--glass-panel); border: 1px solid var(--hud-primary);
-            padding: 8px; font-size: 10px; width: fit-content;
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        .hud-panel {
+            background: var(--glass); border-left: 3px solid var(--hud-primary);
+            padding: 8px 12px; margin: 10px; width: fit-content;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
         }
-        .top-bar { display: flex; justify-content: space-between; width: 100%; }
+        .hud-text { font-size: 12px; letter-spacing: 1px; margin-bottom: 4px; text-shadow: 0 0 5px var(--hud-primary); }
+        .hud-value { font-weight: bold; color: #fff; }
 
-        /* CROSSHAIR */
-        #crosshair {
+        /* --- RADAR COMPONENT --- */
+        #radar-container {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 140px; height: 140px;
+            border-radius: 50%;
+            background: rgba(0, 20, 0, 0.9);
+            border: 2px solid var(--hud-primary);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+            overflow: hidden;
+            z-index: 30;
+        }
+        #radar-container::after {
+            /* Scanning Line Animation */
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.4) 360deg);
+            border-radius: 50%;
+            animation: radar-scan 2s linear infinite;
+        }
+        /* Radar Grid Lines */
+        .radar-grid {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 40px; height: 40px; border: 1px solid rgba(0, 255, 65, 0.5); z-index: 15; pointer-events: none;
+            border: 1px solid rgba(0,255,65,0.3); border-radius: 50%; pointer-events: none;
         }
-        #crosshair::after {
-            content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: var(--hud-primary); transform: translate(-50%, -50%);
+        .radar-cross {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 100%; height: 1px; background: rgba(0,255,65,0.3);
         }
+        .radar-blip {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px currentColor;
+            transition: all 0.2s ease-out;
+        }
+        @keyframes radar-scan { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* BOOT SCREEN */
-        #boot-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 999; color: var(--hud-primary);
+        /* --- BOOT SCREEN --- */
+        #boot-overlay {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 12px;
-        }
-        .log-scroll {
-            width: 300px; height: 150px; overflow-y: auto;
-            border: 1px solid #333; padding: 10px; margin-bottom: 20px;
-            font-family: monospace; text-align: left;
+            color: var(--hud-primary);
         }
         #btn-init {
-            background: #003300; color: var(--hud-primary); border: 2px solid var(--hud-primary);
-            padding: 15px 40px; cursor: pointer; font-family: monospace; font-weight: bold;
-            text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s;
-            box-shadow: 0 0 20px var(--hud-primary);
+            background: transparent; color: var(--hud-primary); border: 2px solid var(--hud-primary);
+            padding: 15px 50px; font-family: inherit; font-size: 16px; font-weight: bold;
+            letter-spacing: 3px; cursor: pointer; margin-top: 20px;
+            transition: 0.3s; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
         }
-        #btn-init:active { background: var(--hud-primary); color: #000; }
+        #btn-init:hover { background: var(--hud-primary); color: #000; box-shadow: 0 0 30px var(--hud-primary); }
+        
+        .status-led { display: inline-block; width: 8px; height: 8px; background: #333; border-radius: 50%; margin-right: 8px; }
+        .status-led.active { background: var(--hud-primary); box-shadow: 0 0 10px var(--hud-primary); }
+
     </style>
 </head>
 <body>
@@ -82,236 +116,353 @@
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="hud-canvas"></canvas>
-        <div id="crosshair"></div>
-
+        
         <div id="ui-layer">
-            <div class="top-bar">
-                <div class="panel">
-                    <div>CPU: <span id="val-cpu">0</span>ms</div>
-                    <div>FPS: <span id="val-fps">0</span></div>
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <div class="hud-panel">
+                    <div class="hud-text">SYSTEM CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
+                    <div class="hud-text">VISION FPS: <span id="val-fps" class="hud-value">0</span></div>
                 </div>
-                <div class="panel" style="text-align: right;">
-                    <div>PITCH: <span id="val-pitch">0</span>°</div>
-                    <div>ROLL: <span id="val-roll">0</span>°</div>
-                    <div>G: <span id="val-g">1.0</span></div>
+                <div class="hud-panel" style="text-align:right;">
+                    <div class="hud-text">GYRO-X: <span id="val-pitch" class="hud-value">0</span>°</div>
+                    <div class="hud-text">GYRO-Y: <span id="val-roll" class="hud-value">0</span>°</div>
+                    <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.0</span></div>
                 </div>
             </div>
-            <div style="align-self: center; margin-bottom: 20px;" class="panel">
-                <div>TARGET: <span id="target-data" style="color: var(--hud-warning);">SCANNING...</span></div>
+
+            <div id="radar-container">
+                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
+                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
+                <div class="radar-cross"></div>
+                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
+                <div id="radar-blips"></div>
             </div>
         </div>
     </div>
 
-    <div id="boot-screen">
-        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">OMEGA OS</div>
-        <div style="margin-bottom: 10px; opacity: 0.7;">iOS COMPATIBLE KERNEL</div>
-        <div class="log-scroll" id="boot-log"></div>
-        <button id="btn-init">INITIATE SEQUENCE</button>
+    <div id="boot-overlay">
+        <div style="font-size: 40px; font-weight: 900; margin-bottom: 10px; letter-spacing: 5px;">OMEGA</div>
+        <div style="opacity: 0.7; margin-bottom: 30px;">HUMANOID OPERATING SYSTEM</div>
+        <div style="text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.8;">
+            <div><span class="status-led" id="led-cam"></span> OPTICAL SENSORS</div>
+            <div><span class="status-led" id="led-ai"></span> NEURAL ENGINE (COCO-SSD)</div>
+            <div><span class="status-led" id="led-gyro"></span> AVIONICS / GYRO</div>
+        </div>
+        <button id="btn-init">INITIALIZE SYSTEM</button>
     </div>
 
 <script>
-// --- UTILS ---
-const Logger = {
-    el: document.getElementById('boot-log'),
-    log(msg) {
-        const line = document.createElement('div');
-        line.innerText = `> ${msg}`;
-        this.el.appendChild(line);
-        this.el.scrollTop = this.el.scrollHeight;
-    }
+/**
+ * OMEGA OS - Humanoid Vision Kernel
+ * Standard: World-Class Clean Code
+ * Architecture: Event-Driven / Component Based
+ */
+
+// --- CONFIGURATION ---
+const CONFIG = {
+    CONFIDENCE_THRESHOLD: 0.55,
+    RADAR_RANGE_METER: 50, // Simulated max range
+    HUD_COLOR_SAFE: '#00ff41',
+    HUD_COLOR_HOSTILE: '#ff0000',
+    HUD_COLOR_NEUTRAL: '#ffcc00'
 };
 
-// --- 1. SENSORS (iOS FIX APPLIED) ---
-class AvionicsSystem {
+// --- MODULE: UTILITIES ---
+const Utils = {
+    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
+    map: (value, x1, y1, x2, y2) => (value - x1) * (y2 - x2) / (y1 - x1) + x2
+};
+
+// --- MODULE: RADAR SYSTEM ---
+class RadarSystem {
+    constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.width = 140; // Matches CSS
+        this.height = 140;
+    }
+
+    update(predictions) {
+        this.container.innerHTML = ''; // Clear old blips
+
+        predictions.forEach(p => {
+            const blip = document.createElement('div');
+            blip.className = 'radar-blip';
+            
+            // 1. Calculate Azimuth (Angle)
+            // Center of screen is 0 degrees. Left is negative, Right is positive.
+            const centerX = p.bbox[0] + (p.bbox[2] / 2);
+            const screenW = window.innerWidth;
+            // Normalize -1 to 1
+            const azimuth = Utils.map(centerX, 0, screenW, -1, 1); 
+
+            // 2. Calculate Distance (Range)
+            // The larger the object (height), the closer it is.
+            // Inverse relationship.
+            const screenH = window.innerHeight;
+            const heightRatio = p.bbox[3] / screenH; 
+            // Simplified depth estimation: 0 (far) to 1 (close) -> mapped to radius
+            let distance = 1 - Math.min(heightRatio, 1);
+            // Push it out a bit so it's not always center
+            distance = Utils.map(distance, 0, 1, 0.1, 0.9); 
+
+            // 3. Convert Polar to Cartesian for CSS placement
+            // Radar center is (0,0) in logic, but (70,70) in pixels
+            const r = (this.width / 2) * distance;
+            // Spread angle limit (e.g., camera view is approx 60-90 degrees FOV)
+            const theta = azimuth * (Math.PI / 4); // +/- 45 degrees
+
+            const x = r * Math.sin(theta);
+            const y = -r * Math.cos(theta); // Up is negative in CSS
+
+            // 4. Style & Position
+            blip.style.left = `${(this.width/2) + x}px`;
+            blip.style.top = `${(this.height/2) + y}px`;
+            blip.style.backgroundColor = p.class === 'person' ? CONFIG.HUD_COLOR_HOSTILE : CONFIG.HUD_COLOR_NEUTRAL;
+            
+            this.container.appendChild(blip);
+        });
+    }
+}
+
+// --- MODULE: AVIONICS (SENSORS) ---
+class Avionics {
     constructor() {
-        this.pitch = 0; this.roll = 0;
+        this.pitch = 0;
+        this.roll = 0;
         this.gForce = 1.0;
     }
 
-    // Requires DIRECT user gesture
-    async requestAccess() {
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            try {
-                const permission = await DeviceOrientationEvent.requestPermission();
-                if (permission === 'granted') {
-                    Logger.log("ACCESS GRANTED: GYROSCOPE");
-                    this.startListeners();
-                    return true;
-                } else {
-                    Logger.log("ACCESS DENIED: GYROSCOPE");
-                    alert("Permission Denied. Please restart and allow sensors.");
-                    return false;
-                }
-            } catch (e) {
-                Logger.log("ERROR: " + e);
-                return false;
-            }
-        } else {
-            // Non-iOS 13+ devices
-            this.startListeners();
-            return true;
-        }
-    }
-
-    startListeners() {
-        window.addEventListener('deviceorientation', (e) => {
-            this.pitch = e.beta || 0;
-            this.roll = e.gamma || 0;
-        });
-        window.addEventListener('devicemotion', (e) => {
-            const acc = e.accelerationIncludingGravity;
-            if(acc) {
-                const x = acc.x || 0; const y = acc.y || 0; const z = acc.z || 0;
-                this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.8;
-            }
-        });
-    }
-}
-
-// --- 2. AI ENGINE ---
-class NeuralEngine {
-    constructor() { this.model = null; this.lastTime = 0; }
     async init() {
-        Logger.log("LOADING NEURAL NET...");
-        await tf.setBackend('webgl');
-        this.model = await cocoSsd.load();
-        Logger.log("NEURAL NET READY");
-    }
-    async predict(video) {
-        if(!this.model || video.readyState !== 4) return [];
-        const start = performance.now();
-        const res = await this.model.detect(video, 5, 0.5);
-        this.lastTime = Math.floor(performance.now() - start);
-        return res;
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const state = await DeviceOrientationEvent.requestPermission();
+            if (state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
+        }
+        
+        window.addEventListener('deviceorientation', e => {
+            this.pitch = e.beta || 0; // X-axis
+            this.roll = e.gamma || 0; // Y-axis
+        });
+        
+        window.addEventListener('devicemotion', e => {
+            const acc = e.accelerationIncludingGravity;
+            if (acc) {
+                const {x, y, z} = acc;
+                this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
+            }
+        });
+        document.getElementById('led-gyro').classList.add('active');
     }
 }
 
-// --- 3. HUD ---
-class HUD {
+// --- MODULE: NEURAL VISION (AI) ---
+class VisionSystem {
+    constructor() {
+        this.model = null;
+        this.isProcessing = false;
+        this.lastInferenceTime = 0;
+        this.predictions = [];
+    }
+
+    async init() {
+        await tf.ready();
+        this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' }); // Use lite version for speed
+        document.getElementById('led-ai').classList.add('active');
+    }
+
+    async detect(videoEl) {
+        if (!this.model || this.isProcessing || videoEl.readyState !== 4) return;
+        
+        this.isProcessing = true;
+        const start = performance.now();
+        
+        try {
+            // Run inference
+            const results = await this.model.detect(videoEl, 10, CONFIG.CONFIDENCE_THRESHOLD);
+            this.predictions = results;
+        } catch (e) {
+            console.error("AI Error", e);
+        }
+        
+        this.lastInferenceTime = Math.floor(performance.now() - start);
+        this.isProcessing = false;
+    }
+}
+
+// --- MODULE: HUD RENDERER ---
+class HUDRenderer {
     constructor() {
         this.canvas = document.getElementById('hud-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
+
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this.w = this.canvas.width;
-        this.h = this.canvas.height;
     }
-    clear() { this.ctx.clearRect(0, 0, this.w, this.h); }
-    
+
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
     drawHorizon(pitch, roll) {
+        const { width, height } = this.canvas;
         const ctx = this.ctx;
+        
         ctx.save();
-        ctx.translate(this.w/2, this.h/2);
+        ctx.translate(width/2, height/2);
         ctx.rotate(roll * Math.PI / 180);
-        ctx.translate(0, pitch * 4);
-        
-        ctx.strokeStyle = 'rgba(0, 255, 65, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-300, 0); ctx.lineTo(300, 0); ctx.stroke();
-        
-        // Ladder
-        for(let i=-4; i<=4; i++) {
-            if(i===0) continue;
-            const y = i * 40;
-            ctx.beginPath(); ctx.moveTo(-50, y); ctx.lineTo(50, y); ctx.stroke();
+        ctx.translate(0, pitch * 5); // Sensitivity
+
+        // Artificial Horizon Line
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-width, 0); ctx.lineTo(width, 0);
+        ctx.stroke();
+
+        // Pitch Ladder
+        for (let i = -3; i <= 3; i++) {
+            if (i === 0) continue;
+            const y = i * 50;
+            const w = 60 - (Math.abs(i) * 10);
+            ctx.beginPath();
+            ctx.moveTo(-w, y); ctx.lineTo(w, y);
+            ctx.stroke();
+            // Text
+            ctx.fillStyle = 'rgba(0, 255, 65, 0.7)';
+            ctx.font = "10px monospace";
+            ctx.fillText(i * 10, w + 5, y + 3);
         }
         ctx.restore();
     }
 
-    drawBox(p) {
-        const ctx = this.ctx;
+    drawTargetBox(p) {
         const [x, y, w, h] = p.bbox;
-        const color = p.class === 'person' ? '#ff0000' : '#00ff41';
+        const isPerson = p.class === 'person';
+        const color = isPerson ? CONFIG.HUD_COLOR_HOSTILE : CONFIG.HUD_COLOR_SAFE;
         
-        ctx.strokeStyle = color; ctx.lineWidth = 2;
-        ctx.beginPath();
-        // Brackets
-        const L = 20;
-        ctx.moveTo(x, y+L); ctx.lineTo(x, y); ctx.lineTo(x+L, y);
-        ctx.moveTo(x+w-L, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+L);
-        ctx.moveTo(x, y+h-L); ctx.lineTo(x, y+h); ctx.lineTo(x+L, y+h);
-        ctx.moveTo(x+w-L, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-L);
-        ctx.stroke();
+        const ctx = this.ctx;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = color;
 
-        ctx.fillStyle = color; ctx.font = "10px monospace";
-        ctx.fillText(`${p.class.toUpperCase()} ${Math.round(p.score*100)}%`, x+5, y-5);
+        // Draw Corners only (Tactical look)
+        const lineLen = w * 0.2;
+        ctx.beginPath();
+        
+        // Top Left
+        ctx.moveTo(x, y + lineLen); ctx.lineTo(x, y); ctx.lineTo(x + lineLen, y);
+        // Top Right
+        ctx.moveTo(x + w - lineLen, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + lineLen);
+        // Bottom Right
+        ctx.moveTo(x + w, y + h - lineLen); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - lineLen, y + h);
+        // Bottom Left
+        ctx.moveTo(x + lineLen, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - lineLen);
+        
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Label
+        ctx.fillStyle = color;
+        ctx.font = "bold 10px Consolas";
+        const label = `${p.class.toUpperCase()} [${Math.floor(p.score * 100)}%]`;
+        ctx.fillText(label, x, y - 8);
+    }
+
+    drawCrosshair() {
+        const cx = this.canvas.width / 2;
+        const cy = this.canvas.height / 2;
+        const ctx = this.ctx;
+
+        ctx.strokeStyle = CONFIG.HUD_COLOR_SAFE;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx - 30, cy);
+        ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 30, cy);
+        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy - 30);
+        ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 30);
+        ctx.stroke();
+        
+        // Center Dot
+        ctx.fillStyle = CONFIG.HUD_COLOR_HOSTILE;
+        ctx.fillRect(cx - 1, cy - 1, 2, 2);
     }
 }
 
-// --- MAIN ---
-const App = {
-    avionics: new AvionicsSystem(),
-    neural: new NeuralEngine(),
-    hud: new HUD(),
+// --- CORE: KERNEL ---
+const Kernel = {
     video: document.getElementById('camera-feed'),
+    avionics: new Avionics(),
+    vision: new VisionSystem(),
+    renderer: new HUDRenderer(),
+    radar: new RadarSystem('radar-blips'),
     
-    async start() {
-        try {
-            // 1. IMPORTANT: Request Sensors FIRST (Must be direct response to click)
-            const sensorAuth = await this.avionics.requestAccess();
-            if(!sensorAuth) return;
+    isRunning: false,
 
-            // 2. Camera
-            Logger.log("ACCESSING OPTICAL SENSORS...");
+    async boot() {
+        try {
+            // 1. Request Sensors (Must be user triggered)
+            await this.avionics.init().catch(e => console.warn("Sensors skipped:", e));
+            
+            // 2. Camera Access
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment' }, audio: false 
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                audio: false 
             });
             this.video.srcObject = stream;
-            
-            // 3. AI
-            await this.neural.init();
+            document.getElementById('led-cam').classList.add('active');
 
-            // 4. Launch
-            document.getElementById('boot-screen').style.display = 'none';
-            this.loop();
+            // 3. Load AI
+            await this.vision.init();
 
-        } catch(e) {
-            Logger.log("CRITICAL FAILURE: " + e);
-            alert("Error: " + e.message);
+            // 4. Start Loop
+            document.getElementById('boot-overlay').style.display = 'none';
+            this.isRunning = true;
+            this.cycle();
+
+        } catch (e) {
+            alert("SYSTEM FAILURE: " + e.message);
         }
     },
 
-    loop() {
-        requestAnimationFrame(() => this.loop());
-        
-        // Logic
-        this.neural.predict(this.video).then(preds => {
-            this.hud.clear();
-            this.hud.drawHorizon(this.avionics.pitch, this.avionics.roll);
-            
-            let targetTxt = "NO TARGET";
-            let targetColor = "#ffcc00";
+    cycle() {
+        if (!this.isRunning) return;
+        requestAnimationFrame(() => this.cycle());
 
-            preds.forEach(p => {
-                this.hud.drawBox(p);
-                if(p.score > 0.6) {
-                    targetTxt = `LOCKED: ${p.class.toUpperCase()}`;
-                    targetColor = "#00ff41";
-                }
-            });
+        // 1. AI Inference (Async - Non-blocking)
+        this.vision.detect(this.video);
 
-            // UI Update
-            document.getElementById('target-data').innerText = targetTxt;
-            document.getElementById('target-data').style.color = targetColor;
-            document.getElementById('val-cpu').innerText = this.neural.lastTime;
-            document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(0);
-            document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(0);
-            document.getElementById('val-g').innerText = this.avionics.gForce.toFixed(2);
+        // 2. Render HUD
+        this.renderer.clear();
+        this.renderer.drawHorizon(this.avionics.pitch, this.avionics.roll);
+        this.renderer.drawCrosshair();
+
+        // 3. Draw Objects & Radar
+        const targets = this.vision.predictions;
+        targets.forEach(target => {
+            this.renderer.drawTargetBox(target);
         });
+        
+        // Update Radar with latest predictions
+        this.radar.update(targets);
+
+        // 4. Update UI Stats
+        document.getElementById('val-cpu').innerText = this.vision.lastInferenceTime;
+        document.getElementById('val-fps').innerText = (1000 / Math.max(1, this.vision.lastInferenceTime)).toFixed(0);
+        document.getElementById('val-pitch').innerText = this.avionics.pitch.toFixed(0);
+        document.getElementById('val-roll').innerText = this.avionics.roll.toFixed(0);
+        document.getElementById('val-g').innerText = this.avionics.gForce.toFixed(2);
     }
 };
 
-// CLICK TRIGGER
+// --- ENTRY POINT ---
 document.getElementById('btn-init').addEventListener('click', () => {
-    App.start();
+    Kernel.boot();
 });
-
-Logger.log("SYSTEM STANDBY...");
-Logger.log("WAITING FOR USER INPUT...");
 
 </script>
 </body>
