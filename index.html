@@ -3,71 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: AI Vision System</title>
+    <title>OMEGA: IDENTITY TRACKER</title>
     
-    <!-- LIBRARIES -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
         :root {
-            --primary: #00ff9d; --secondary: #008f7a; --alert: #ff2a6d; 
-            --warning: #ffcc00; --bg: #050505; --glass: rgba(0, 20, 10, 0.85);
-            --font: 'Segoe UI', system-ui, sans-serif;
+            --p: #00ff9d; --s: #008f7a; --a: #ff2a6d; --w: #ffae00;
+            --bg: #000; --glass: rgba(0, 20, 10, 0.9);
+            --font: 'Segoe UI', monospace;
         }
-        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--primary); font-family: var(--font); }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); user-select: none; }
         
         #viewport { position: relative; width: 100vw; height: 100vh; }
-        #camera-feed { 
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            opacity: 0.7;
-        }
-        #hud-canvas { position: absolute; inset: 0; z-index: 10; }
-        #layer-3d { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0.6; }
-        
-        /* UI LAYERS */
-        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.9; filter: contrast(1.1) brightness(0.9); }
+        #layer-3d, #hud-canvas { position: absolute; inset: 0; z-index: 10; }
+        #hud-canvas { cursor: crosshair; } /* Cursor เปลี่ยนเป็นเป้าเล็ง */
+
+        /* UI Overlay */
+        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         
         .panel {
-            background: var(--glass); border-left: 4px solid var(--primary);
-            padding: 15px; margin: 5px; backdrop-filter: blur(10px);
-            pointer-events: auto; width: fit-content; border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
-            max-width: 280px;
+            background: var(--glass); border-left: 4px solid var(--p); padding: 10px 15px;
+            margin-bottom: 5px; backdrop-filter: blur(10px); pointer-events: auto;
+            width: fit-content; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
-        .panel-title { font-size: 11px; font-weight: bold; color: #00a8ff; letter-spacing: 1px; margin-bottom: 8px; }
-        .data-row { font-family: monospace; font-size: 13px; margin-bottom: 4px; display: flex; justify-content: space-between; min-width: 160px; }
-        .val { font-weight: bold; color: #fff; }
+        .label { font-size: 9px; color: #00a8ff; font-weight: 900; letter-spacing: 2px; }
+        .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
 
-        /* RADAR */
-        #radar-box {
-            position: absolute; bottom: 20px; right: 20px; width: 140px; height: 140px;
-            background: rgba(0,20,10,0.9); border-radius: 50%; border: 2px solid #00a8ff;
-            overflow: hidden; pointer-events: auto; z-index: 30;
+        /* Input Prompt (Custom Style) */
+        #tag-input {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); border: 2px solid var(--p); padding: 20px; z-index: 100;
+            text-align: center; border-radius: 10px; box-shadow: 0 0 30px var(--p);
         }
-        .blip { position: absolute; width: 6px; height: 6px; background: var(--alert); border-radius: 50%; transform: translate(-50%,-50%); box-shadow: 0 0 5px var(--alert); transition: all 0.2s; }
+        #tag-input input { background: #222; border: 1px solid #555; color: white; padding: 10px; font-size: 16px; width: 200px; text-align: center; }
+        #tag-input button { margin-top: 10px; background: var(--p); border: none; padding: 8px 20px; font-weight: bold; cursor: pointer; }
 
-        /* BOOT SCREEN */
+        /* Boot Screen */
         #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .btn { padding: 15px 40px; background: var(--primary); border: none; font-weight: bold; cursor: pointer; margin-top: 20px; border-radius: 30px; color: #000; }
-        
-        /* CONTROL PANEL */
-        #controls { display: none; position: absolute; top: 60px; left: 20px; background: rgba(0,0,0,0.9); padding: 15px; pointer-events: auto; z-index: 40; border: 1px solid var(--primary); border-radius: 8px; }
-        .ctrl-btn { background: #333; color: var(--primary); border: 1px solid var(--primary); padding: 8px 12px; margin: 4px; cursor: pointer; font-size: 11px; border-radius: 4px; }
-        .ctrl-btn:hover { background: var(--primary); color: #000; }
-
-        /* LOADING PROGRESS */
-        #loading-progress { width: 300px; height: 4px; background: #333; margin: 10px 0; border-radius: 2px; overflow: hidden; }
-        #loading-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
-
-        /* STATUS INDICATORS */
-        .status-on { color: #00ff9d !important; }
-        .status-off { color: #666 !important; }
-        .status-warning { color: #ffcc00 !important; }
+        #loader { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 0.8s infinite; margin: 30px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        button.start-btn { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
     </style>
 </head>
 <body>
@@ -76,610 +55,294 @@
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="layer-3d"></canvas>
         <canvas id="hud-canvas"></canvas>
-        
+
+        <!-- Custom Tag Input Modal -->
+        <div id="tag-input">
+            <div style="color:var(--p); margin-bottom:10px; font-weight:bold;">IDENTIFY TARGET</div>
+            <input type="text" id="target-name" placeholder="Enter Name (e.g. Boss)">
+            <br>
+            <button onclick="OMEGA.confirmTag()">CONFIRM</button>
+            <button onclick="OMEGA.cancelTag()" style="background:#333; color:#fff;">CANCEL</button>
+        </div>
+
         <div id="ui-layer">
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div style="display:flex; justify-content:space-between;">
                 <div class="panel">
-                    <div class="panel-title">SYSTEM STATUS</div>
-                    <div class="data-row"><span>AI Processing:</span><span class="val" id="v-cpu">0ms</span></div>
-                    <div class="data-row"><span>Frame Rate:</span><span class="val" id="v-fps">0</span></div>
-                    <div class="data-row"><span>Objects Tracked:</span><span class="val" id="v-tracks">0</span></div>
-                    <div class="data-row"><span>GPS:</span><span class="val" id="v-gps">Inactive</span></div>
+                    <div class="label">IDENTITY SYSTEM</div>
+                    <div>STATUS: <span class="val" style="color:var(--p)">ACTIVE</span></div>
+                    <div style="font-size:10px; color:#aaa;">CLICK BOX TO TAG NAME</div>
                 </div>
-                
                 <div class="panel">
-                    <div class="panel-title">SENSOR DATA</div>
-                    <div class="data-row"><span>Speed:</span><span class="val" id="v-spd">--</span></div>
-                    <div class="data-row"><span>Heading:</span><span class="val" id="v-hdg">--</span></div>
-                    <div class="data-row"><span>Distance:</span><span class="val" id="v-distance">0 m</span></div>
-                    <div class="data-row"><span>Uptime:</span><span class="val" id="v-uptime">00:00</span></div>
+                    <div class="label">TARGETS</div>
+                    <div>COUNT: <span id="count" class="val">0</span></div>
                 </div>
             </div>
-
-            <!-- TARGET INFO PANEL -->
-            <div class="panel" style="position: absolute; top: 50%; right: 20px; transform: translateY(-50%);">
-                <div class="panel-title">ACTIVE TARGET</div>
-                <div class="data-row"><span>Type:</span><span class="val" id="t-type">--</span></div>
-                <div class="data-row"><span>Distance:</span><span class="val" id="t-dist">--</span></div>
-                <div class="data-row"><span>Confidence:</span><span class="val" id="t-confidence">--</span></div>
-                <div class="data-row"><span>Track Time:</span><span class="val" id="t-time">--</span></div>
-            </div>
-
-            <!-- RADAR -->
-            <div id="radar-box">
-                <div style="position:absolute; inset:0; background: conic-gradient(transparent 270deg, #00a8ff); opacity: 0.3; animation: scan 3s linear infinite;"></div>
-            </div>
-        </div>
-
-        <div style="position: absolute; top: 20px; left: 20px; z-index: 50;">
-            <button onclick="document.getElementById('controls').style.display = 'block'" style="background:var(--glass); color:var(--primary); border:1px solid var(--primary); padding:8px 12px; border-radius:5px; font-size:11px;">CONTROLS</button>
-        </div>
-
-        <div id="controls">
-            <div class="panel-title">SYSTEM CONTROLS</div>
-            <button class="ctrl-btn" onclick="OMEGA.toggleGPS()">GPS SENSOR</button>
-            <button class="ctrl-btn" onclick="OMEGA.toggle3DView()">3D VIEW</button>
-            <button class="ctrl-btn" onclick="OMEGA.recorder.toggle()">DATA LOG</button>
-            <button class="ctrl-btn" onclick="OMEGA.calibrateSensors()">CALIBRATE</button>
-            <div style="margin-top: 10px;"></div>
-            <button class="ctrl-btn" onclick="document.getElementById('controls').style.display='none'" style="background:#ff2a6d; color:white;">CLOSE</button>
         </div>
     </div>
 
     <div id="boot">
-        <h1 style="color:var(--primary); letter-spacing: 3px; text-shadow: 0 0 20px var(--primary); margin-bottom: 10px;">OMEGA AI</h1>
-        <div style="color: #666; font-family: monospace; margin-bottom: 20px;" id="boot-status">Initializing Vision System...</div>
-        
-        <!-- Loading Progress Bar -->
-        <div id="loading-progress">
-            <div id="loading-bar"></div>
-        </div>
-        
-        <button id="btn-init" class="btn" disabled>STARTING...</button>
+        <h1 style="color:var(--p); letter-spacing: 8px; font-size: 32px;">OMEGA</h1>
+        <div style="color:#666;">IDENTITY TRACKING MODULE</div>
+        <div id="loader"></div>
+        <button id="btn-start" class="start-btn" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
     </div>
 
 <script>
 /**
- * 🎯 OMEGA: AI Vision System
- * เวอร์ชันเรียบง่าย เน้นการใช้งานจริง
+ * OMEGA: IDENTITY EDITION
+ * Features: Sticky Tracking + Manual Tagging System
  */
 
 const CONFIG = {
-    AI: { CONFIDENCE: 0.6, MAX_OBJ: 8 },
-    PHYSICS: { FOV: 60, FOCAL_LEN: 800, PERSON_H: 1.7 },
-    TRACKING: { MAX_LOST: 5, IOU_THRESH: 0.4 }
+    AI_CONF: 0.5,
+    TRACK: { SMOOTH: 0.15, MAX_LOST: 30, MATCH_DIST: 150 } // หนึบมาก
 };
 
-// --- CORE PHYSICS SYSTEM ---
-const Physics = {
-    iou: (b1, b2) => {
-        const x1 = Math.max(b1[0], b2[0]), y1 = Math.max(b1[1], b2[1]);
-        const x2 = Math.min(b1[0]+b1[2], b2[0]+b2[2]), y2 = Math.min(b1[1]+b1[3], b2[1]+b2[3]);
-        const inter = Math.max(0, x2-x1) * Math.max(0, y2-y1);
-        return inter / ((b1[2]*b1[3]) + (b2[2]*b2[3]) - inter);
-    },
-    getDist: (h) => (CONFIG.PHYSICS.PERSON_H * CONFIG.PHYSICS.FOCAL_LEN) / h,
-    project3D: (x, y, d, w, h) => {
-        const nx = (x - w/2) / (w/2), ny = -(y - h/2) / (h/2);
-        const tan = Math.tan((CONFIG.PHYSICS.FOV/2) * Math.PI/180);
-        return { x: nx * d * tan * (w/h), y: ny * d * tan, z: -d };
-    },
-    calculateDistance: (lat1, lon1, lat2, lon2) => {
-        if (!lat1 || !lat2) return 0;
-        const R = 6371e3;
-        const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
-        const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
+const Vector = {
+    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+    lerp: (a, b, t) => a + (b - a) * t,
+    getCenter: (box) => ({ x: box[0] + box[2]/2, y: box[1] + box[3]/2 })
 };
 
-// --- SIMPLE SENSOR SYSTEM ---
-class SensorSystem {
+// --- IDENTITY MANAGER (สมองจำชื่อ) ---
+class IdentityManager {
     constructor() {
-        this.watchId = null;
-        this.currentPos = null;
-        this.previousPos = null;
-        this.isActive = false;
-        this.operationStart = null;
-        this.totalDistance = 0;
+        this.identities = new Map(); // เก็บ ID -> Name
     }
-
-    startTracking() {
-        if (!navigator.geolocation) {
-            this.setGPSStatus('NOT_SUPPORTED');
-            return false;
-        }
-
-        this.isActive = true;
-        this.operationStart = Date.now();
-        this.setGPSStatus('ACTIVE');
-
-        this.watchId = navigator.geolocation.watchPosition(
-            (position) => this.handlePositionUpdate(position),
-            (error) => this.handleGPSError(error),
-            {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 3000
-            }
-        );
-        return true;
+    setName(trackId, name) {
+        this.identities.set(trackId, name);
     }
-
-    handlePositionUpdate(position) {
-        this.previousPos = this.currentPos;
-        this.currentPos = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            speed: position.coords.speed || 0,
-            heading: position.coords.heading || 0,
-            timestamp: Date.now()
-        };
-
-        if (this.previousPos) {
-            const distance = Physics.calculateDistance(
-                this.previousPos.lat, this.previousPos.lng,
-                this.currentPos.lat, this.currentPos.lng
-            );
-            this.totalDistance += distance;
-        }
-
-        this.updateSensorDisplay();
-    }
-
-    handleGPSError(error) {
-        console.log("GPS:", error.message);
-        this.setGPSStatus('INACTIVE');
-    }
-
-    setGPSStatus(status) {
-        const gpsElement = document.getElementById('v-gps');
-        gpsElement.textContent = status;
-        gpsElement.className = 'val ' + (
-            status === 'ACTIVE' ? 'status-on' : 
-            status === 'SEARCHING' ? 'status-warning' : 'status-off'
-        );
-    }
-
-    updateSensorDisplay() {
-        if (!this.currentPos) return;
-
-        document.getElementById('v-spd').textContent = 
-            this.currentPos.speed ? `${this.currentPos.speed.toFixed(1)} m/s` : '--';
-        document.getElementById('v-hdg').textContent = 
-            this.currentPos.heading ? `${this.currentPos.heading.toFixed(0)}°` : '--';
-        document.getElementById('v-distance').textContent = `${this.totalDistance.toFixed(1)} m`;
-        
-        if (this.operationStart) {
-            const opTime = Date.now() - this.operationStart;
-            const minutes = Math.floor(opTime / 60000);
-            const seconds = Math.floor((opTime % 60000) / 1000);
-            document.getElementById('v-uptime').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-    }
-
-    stopTracking() {
-        if (this.watchId) {
-            navigator.geolocation.clearWatch(this.watchId);
-        }
-        this.isActive = false;
-        this.setGPSStatus('INACTIVE');
-    }
-
-    getSensorData() {
-        return {
-            speed: this.currentPos?.speed || 0,
-            heading: this.currentPos?.heading || 0,
-            accuracy: this.currentPos?.accuracy || 0,
-            position: this.currentPos,
-            distanceTraveled: this.totalDistance,
-            operationTime: this.operationStart ? Date.now() - this.operationStart : 0
-        };
+    getName(trackId) {
+        return this.identities.get(trackId) || null;
     }
 }
 
-// --- SIMPLE TRACKER ---
-class SimpleTracker {
-    constructor(sensorSystem) {
+// --- PREDICTIVE TRACKER (ตัวเดิมที่หนึบๆ) ---
+class Tracker {
+    constructor() {
         this.tracks = [];
         this.nextId = 1;
-        this.sensorSystem = sensorSystem;
     }
 
-    update(detections, w, h) {
-        let newTracks = [];
-        
-        detections.forEach(det => {
-            if (det.score < CONFIG.AI.CONFIDENCE) return;
+    update(detections) {
+        // 1. Predict
+        this.tracks.forEach(t => {
+            t.x += t.vx; t.y += t.vy; t.lost++;
+        });
 
-            let best = null, maxIOU = 0;
-            
+        // 2. Match
+        detections.forEach(det => {
+            const center = Vector.getCenter(det.bbox);
+            let bestDist = CONFIG.TRACK.MATCH_DIST;
+            let bestTrack = null;
+
             this.tracks.forEach(t => {
-                if (t.lost > 2) return;
-                const val = Physics.iou(det.bbox, t.bbox);
-                if(val > maxIOU && val > CONFIG.TRACKING.IOU_THRESH) { 
-                    maxIOU = val; best = t; 
-                }
+                const d = Vector.dist({x: t.x, y: t.y}, center);
+                if (d < bestDist) { bestDist = d; bestTrack = t; }
             });
 
-            const dist = Physics.getDist(det.bbox[3]);
-            const cx = det.bbox[0] + det.bbox[2]/2;
-            const cy = det.bbox[1] + det.bbox[3]/2;
-            const world = Physics.project3D(cx, cy, dist, w, h);
-
-            if(best) {
-                best.bbox = det.bbox; 
-                best.score = det.score; 
-                best.lost = 0;
-                best.dist = dist; 
-                best.world = world;
-                best.vel = { 
-                    x: world.x - (best.prev?.x || world.x), 
-                    z: world.z - (best.prev?.z || world.z)
-                };
-                best.prev = world;
-                best.trackTime = Date.now() - best.firstSeen;
-                newTracks.push(best);
+            if (bestTrack) {
+                // Update Existing
+                const newVx = center.x - bestTrack.x;
+                const newVy = center.y - bestTrack.y;
+                bestTrack.vx = Vector.lerp(bestTrack.vx, newVx, 0.4);
+                bestTrack.vy = Vector.lerp(bestTrack.vy, newVy, 0.4);
+                bestTrack.x = Vector.lerp(bestTrack.x, center.x, CONFIG.TRACK.SMOOTH);
+                bestTrack.y = Vector.lerp(bestTrack.y, center.y, CONFIG.TRACK.SMOOTH);
+                bestTrack.w = Vector.lerp(bestTrack.w, det.bbox[2], CONFIG.TRACK.SMOOTH);
+                bestTrack.h = Vector.lerp(bestTrack.h, det.bbox[3], CONFIG.TRACK.SMOOTH);
+                bestTrack.lost = 0;
+                // Keep Identity if exists
             } else {
-                newTracks.push({
-                    id: this.nextId++, 
-                    bbox: det.bbox, 
-                    class: det.class, 
-                    score: det.score,
-                    lost: 0, 
-                    dist: dist, 
-                    world: world, 
-                    vel: {x:0, z:0}, 
-                    prev: world,
-                    firstSeen: Date.now(),
-                    trackTime: 0
+                // Create New
+                this.tracks.push({
+                    id: this.nextId++,
+                    x: center.x, y: center.y,
+                    w: det.bbox[2], h: det.bbox[3],
+                    vx: 0, vy: 0,
+                    class: det.class,
+                    lost: 0
                 });
             }
         });
 
-        this.tracks.forEach(t => {
-            if(t.lost < CONFIG.TRACKING.MAX_LOST && !newTracks.find(nt => nt.id === t.id)) {
-                t.lost++;
-                t.trackTime = Date.now() - t.firstSeen;
-                newTracks.push(t);
-            }
-        });
-        
-        this.tracks = newTracks.slice(0, CONFIG.AI.MAX_OBJ);
+        // 3. Prune
+        this.tracks = this.tracks.filter(t => t.lost < CONFIG.TRACK.MAX_LOST);
         return this.tracks;
     }
 }
 
-// --- SIMPLE 3D SCENE ---
-class SimpleScene3D {
-    constructor() {
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({
-            canvas: document.getElementById('layer-3d'), 
-            alpha: true,
-            antialias: true
-        });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        
-        // Simple reference points
-        this.createReferencePoints();
-        
-        this.meshes = new Map();
-        this.isVisible = true;
-    }
-
-    createReferencePoints() {
-        // Create a simple coordinate reference
-        const axesHelper = new THREE.AxesHelper(3);
-        this.scene.add(axesHelper);
-
-        // Add some floating points for spatial reference
-        const points = [];
-        for (let i = -15; i <= 15; i += 5) {
-            for (let j = -15; j <= 15; j += 5) {
-                points.push(i, 0, j);
-            }
-        }
-        
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-        const material = new THREE.PointsMaterial({ 
-            color: 0x00ff9d, 
-            size: 0.3,
-            transparent: true,
-            opacity: 0.2
-        });
-        const pointsCloud = new THREE.Points(geometry, material);
-        this.scene.add(pointsCloud);
-    }
-
-    update(tracks) {
-        if (!this.isVisible) return;
-
-        const ids = tracks.map(t => t.id);
-        
-        for(let [id, mesh] of this.meshes) {
-            if(!ids.includes(id)) {
-                this.scene.remove(mesh);
-                this.meshes.delete(id);
-            }
-        }
-
-        tracks.forEach(t => {
-            if(!this.meshes.has(t.id)) {
-                const geometry = new THREE.BoxGeometry(0.6, 1.8, 0.6);
-                const material = new THREE.MeshBasicMaterial({ 
-                    color: 0x00ff9d, 
-                    wireframe: true,
-                    transparent: true,
-                    opacity: 0.7
-                });
-                const mesh = new THREE.Mesh(geometry, material);
-                this.scene.add(mesh);
-                this.meshes.set(t.id, mesh);
-            }
-            
-            const mesh = this.meshes.get(t.id);
-            if(t.world) {
-                mesh.position.set(t.world.x, -1, t.world.z);
-            }
-        });
-
-        this.renderer.render(this.scene, this.camera);
-    }
-
-    toggleVisibility() {
-        this.isVisible = !this.isVisible;
-        this.renderer.domElement.style.display = this.isVisible ? 'block' : 'none';
-        return this.isVisible;
-    }
-}
-
-// --- DATA RECORDER ---
-class DataRecorder {
-    constructor() { 
-        this.rec = false; 
-        this.data = []; 
-    }
-    toggle() {
-        this.rec = !this.rec;
-        if(this.rec) {
-            alert("Data logging started");
-        } else {
-            alert(`Data logging stopped. ${this.data.length} records saved.`);
-            console.log("Session Data:", this.data);
-        }
-    }
-    push(data) { 
-        if(this.rec) {
-            this.data.push({
-                timestamp: Date.now(),
-                tracks: data.tracks.length,
-                sensors: data.sensors
-            });
-        }
-    }
-}
-
-// --- MAIN SYSTEM ---
-class OmegaSystem {
-    constructor() {
-        this.video = document.getElementById('camera-feed');
+// --- RENDERER ---
+class HUD {
+    constructor(sys) {
+        this.sys = sys;
         this.canvas = document.getElementById('hud-canvas');
         this.ctx = this.canvas.getContext('2d');
-        
-        this.sensorSystem = new SensorSystem();
-        this.tracker = new SimpleTracker(this.sensorSystem);
-        this.scene3D = new SimpleScene3D();
-        this.recorder = new DataRecorder();
-        
-        this.isRunning = false;
-        this.bootTime = null;
-
         this.resize();
-        window.onresize = () => this.resize();
+        
+        // Event Listener for Tagging
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
     }
 
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this.scene3D.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.scene3D.camera.aspect = window.innerWidth / window.innerHeight;
-        this.scene3D.camera.updateProjectionMatrix();
     }
 
-    async quickBoot() {
-        this.updateBootStatus("Starting camera...", 30);
-        
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: 'environment', 
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                },
-                audio: false
-            });
-            
-            this.updateBootStatus("Loading AI engine...", 60);
-            this.video.srcObject = stream;
-            
-            await new Promise((resolve, reject) => {
-                this.video.onloadedmetadata = () => {
-                    this.video.play().then(resolve).catch(reject);
-                };
-                setTimeout(resolve, 1000);
-            });
+    handleClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
 
-            this.updateBootStatus("Initializing systems...", 80);
-            this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-            
-            this.updateBootStatus("System ready!", 100);
-            
-            setTimeout(() => {
-                document.getElementById('boot').style.display = 'none';
-                this.isRunning = true;
-                this.bootTime = Date.now();
-                this.loop();
-            }, 500);
-            
-        } catch(e) {
-            this.updateBootStatus("Error: " + e.message, 0);
-            alert("System startup failed: " + e.message);
-        }
-    }
+        // Find clicked track
+        // ต้องแปลงพิกัดเมาส์กลับไปหาพิกัดวิดีโอ
+        const sx = this.canvas.width / this.sys.video.videoWidth;
+        const sy = this.canvas.height / this.sys.video.videoHeight;
 
-    updateBootStatus(message, progress) {
-        document.getElementById('boot-status').textContent = message;
-        document.getElementById('loading-bar').style.width = progress + '%';
-        
-        const btn = document.getElementById('btn-init');
-        if (progress >= 80) {
-            btn.disabled = false;
-            btn.innerText = "START SYSTEM";
-        }
-    }
+        let clickedTrack = null;
+        this.sys.tracker.tracks.forEach(t => {
+            const tx = (t.x - t.w/2) * sx;
+            const ty = (t.y - t.h/2) * sy;
+            const tw = t.w * sx;
+            const th = t.h * sy;
 
-    toggleGPS() {
-        if (this.sensorSystem.isActive) {
-            this.sensorSystem.stopTracking();
-        } else {
-            this.sensorSystem.startTracking();
-        }
-    }
-
-    toggle3DView() {
-        const isVisible = this.scene3D.toggleVisibility();
-        alert(`3D View ${isVisible ? 'Enabled' : 'Disabled'}`);
-    }
-
-    calibrateSensors() {
-        alert("Sensor calibration complete");
-    }
-
-    async loop() {
-        if (!this.isRunning) return;
-        const start = performance.now();
-
-        try {
-            const detections = await this.model.detect(this.video);
-            const tracks = this.tracker.update(detections, this.video.videoWidth, this.video.videoHeight);
-            this.scene3D.update(tracks);
-            this.drawHUD(tracks);
-            this.updateUI(tracks, start);
-            
-            this.recorder.push({
-                tracks: tracks,
-                sensors: this.sensorSystem.getSensorData()
-            });
-
-        } catch (e) {
-            console.warn("Frame processing error:", e);
-        }
-
-        requestAnimationFrame(() => this.loop());
-    }
-
-    drawHUD(tracks) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        const sx = this.canvas.width / this.video.videoWidth;
-        const sy = this.canvas.height / this.video.videoHeight;
-
-        // Draw detected objects
-        tracks.forEach(t => {
-            if (t.lost > 1) return;
-            
-            const x = t.bbox[0] * sx, y = t.bbox[1] * sy;
-            const w = t.bbox[2] * sx, h = t.bbox[3] * sy;
-            
-            const color = t.class === 'person' ? '#ff2a6d' : '#00ff9d';
-            
-            // Bounding box
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(x, y, w, h);
-            
-            // Object info
-            this.ctx.fillStyle = color;
-            this.ctx.font = "bold 12px monospace";
-            this.ctx.fillText(`${t.class} #${t.id}`, x, y - 25);
-            this.ctx.fillText(`${t.dist.toFixed(1)}m`, x, y - 10);
-            this.ctx.fillText(`${(t.score * 100).toFixed(0)}%`, x, y + h + 15);
+            if(mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th) {
+                clickedTrack = t;
+            }
         });
 
-        // System status overlay
-        this.ctx.fillStyle = '#00ff9d';
-        this.ctx.font = "10px monospace";
-        this.ctx.fillText(`Objects: ${tracks.length}`, 10, 20);
-        if (this.sensorSystem.isActive) {
-            this.ctx.fillText(`GPS: Active`, 10, 35);
+        if(clickedTrack) {
+            this.sys.openTagModal(clickedTrack.id);
         }
     }
 
-    updateUI(tracks, start) {
-        const ms = performance.now() - start;
-        document.getElementById('v-cpu').innerText = ms.toFixed(1) + 'ms';
-        document.getElementById('v-fps').innerText = Math.round(1000 / Math.max(ms, 1));
-        document.getElementById('v-tracks').innerText = tracks.length;
-
-        // Update target info
-        if (tracks.length > 0) {
-            const t = tracks[0];
-            document.getElementById('t-type').innerText = t.class;
-            document.getElementById('t-dist').innerText = t.dist.toFixed(1) + 'm';
-            document.getElementById('t-confidence').innerText = (t.score * 100).toFixed(0) + '%';
-            
-            const seconds = Math.floor(t.trackTime / 1000);
-            document.getElementById('t-time').innerText = `${seconds}s`;
-        } else {
-            document.getElementById('t-type').innerText = '--';
-            document.getElementById('t-dist').innerText = '--';
-            document.getElementById('t-confidence').innerText = '--';
-            document.getElementById('t-time').innerText = '--';
-        }
-
-        this.updateRadar(tracks);
-    }
-
-    updateRadar(tracks) {
-        const radar = document.getElementById('radar-box');
-        radar.innerHTML = '<div style="position:absolute; inset:0; background: conic-gradient(transparent 270deg, #00a8ff); opacity: 0.3; animation: scan 3s linear infinite;"></div>';
+    render(video, tracks, identities) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
+        const sx = this.canvas.width / video.videoWidth;
+        const sy = this.canvas.height / video.videoHeight;
+
         tracks.forEach(t => {
-            if (t.lost > 1) return;
+            const x = (t.x - t.w/2) * sx;
+            const y = (t.y - t.h/2) * sy;
+            const w = t.w * sx;
+            const h = t.h * sy;
+
+            // Check for custom name
+            const customName = identities.getName(t.id);
+            const displayName = customName ? customName.toUpperCase() : t.class.toUpperCase();
+            const isTagged = !!customName;
+
+            // Style
+            const color = isTagged ? '#00ff9d' : (t.class === 'person' ? '#ffae00' : '#00a8ff');
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = isTagged ? 3 : 2;
+            this.ctx.shadowBlur = isTagged ? 10 : 0;
+            this.ctx.shadowColor = color;
+
+            // Draw Tech Corners
+            this.ctx.beginPath();
+            const L = w * 0.2;
+            this.ctx.moveTo(x, y+L); this.ctx.lineTo(x, y); this.ctx.lineTo(x+L, y);
+            this.ctx.moveTo(x+w-L, y); this.ctx.lineTo(x+w, y); this.ctx.lineTo(x+w, y+L);
+            this.ctx.moveTo(x+w, y+h-L); this.ctx.lineTo(x+w, y+h); this.ctx.lineTo(x+w-L, y+h);
+            this.ctx.moveTo(x+L, y+h); this.ctx.lineTo(x, y+h); this.ctx.lineTo(x, y+h-L);
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+
+            // Label Box
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x, y-20, isTagged ? w : Math.min(w, 100), 20);
             
-            const blip = document.createElement('div');
-            blip.className = 'blip';
-            
-            const rx = 70 + (t.world.x * 3);
-            const ry = 70 + (-t.world.z * 3);
-            
-            if (rx >= 0 && rx <= 140 && ry >= 0 && ry <= 140) {
-                blip.style.background = t.class === 'person' ? '#ff2a6d' : '#00ff9d';
-                blip.style.left = rx + 'px';
-                blip.style.top = ry + 'px';
-                radar.appendChild(blip);
+            // Text
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = "bold 12px monospace";
+            const label = isTagged ? `★ ${displayName}` : `ID_${t.id} ${displayName}`;
+            this.ctx.fillText(label, x+5, y-6);
+
+            // Tag Hint (ถ้ายังไม่ได้ Tag)
+            if(!isTagged) {
+                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                this.ctx.fillText("[TAP TO TAG]", x, y+h+15);
             }
         });
     }
 }
 
-// Initialize system
-const OMEGA = new OmegaSystem();
+// --- MAIN SYSTEM ---
+class System {
+    constructor() {
+        this.video = document.getElementById('camera-feed');
+        this.tracker = new Tracker();
+        this.identities = new IdentityManager();
+        this.hud = new HUD(this);
+        this.model = null;
+        this.isRunning = false;
+        this.pendingTagId = null;
+        
+        window.onresize = () => this.hud.resize();
+    }
 
-const btn = document.getElementById('btn-init');
-btn.disabled = false;
-btn.innerText = "INITIALIZE SYSTEM";
-btn.onclick = () => OMEGA.quickBoot();
+    async start() {
+        document.getElementById('btn-start').innerText = "LOADING AI...";
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
+                audio: false
+            });
+            this.video.srcObject = stream;
+            await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
 
-OMEGA.quickBoot = OMEGA.quickBoot.bind(OMEGA);
+            this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+            
+            document.getElementById('boot').style.display = 'none';
+            this.isRunning = true;
+            this.loop();
+        } catch(e) { alert("Error: " + e.message); }
+    }
+
+    async loop() {
+        if(!this.isRunning) return;
+        const detections = await this.model.detect(this.video, 20, CONFIG.AI_CONF);
+        const tracks = this.tracker.update(detections);
+        
+        this.hud.render(this.video, tracks, this.identities);
+        document.getElementById('count').innerText = tracks.length;
+        
+        requestAnimationFrame(() => this.loop());
+    }
+
+    // Tagging Logic
+    openTagModal(trackId) {
+        this.pendingTagId = trackId;
+        const modal = document.getElementById('tag-input');
+        const input = document.getElementById('target-name');
+        
+        // Check current name
+        const currentName = this.identities.getName(trackId);
+        input.value = currentName || '';
+        
+        modal.style.display = 'block';
+        input.focus();
+    }
+
+    confirmTag() {
+        const name = document.getElementById('target-name').value;
+        if(this.pendingTagId && name) {
+            this.identities.setName(this.pendingTagId, name);
+        }
+        this.cancelTag();
+    }
+
+    cancelTag() {
+        document.getElementById('tag-input').style.display = 'none';
+        this.pendingTagId = null;
+    }
+}
+
+const OMEGA = new System();
+document.getElementById('btn-start').style.display = 'block';
+
 </script>
 </body>
 </html>
