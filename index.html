@@ -79,6 +79,28 @@
             padding: max(12px, env(safe-area-inset-top));
         }
 
+        /* Panel anchors (for auto-avoid) */
+        #panel-metrics {
+            position: absolute;
+            top: max(12px, env(safe-area-inset-top));
+            left: 12px;
+        }
+        #panel-avionics {
+            position: absolute;
+            top: max(12px, env(safe-area-inset-top));
+            right: 12px;
+        }
+        #panel-analytics {
+            position: absolute;
+            left: 12px;
+            bottom: 160px;
+        }
+        #panel-target {
+            position: absolute;
+            right: 160px;
+            top: 110px;
+        }
+
         .hud-panel {
             background: var(--glass); 
             border: 1px solid var(--hud-primary);
@@ -545,7 +567,7 @@
         <div id="ui-layer">
             <!-- Top Row: System Status -->
             <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel">
+                <div class="hud-panel" id="panel-metrics">
                     <div class="panel-title">SYSTEM METRICS</div>
                     <div class="hud-text">AI CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
                     <div class="hud-text">AI FPS: <span id="val-ai-fps" class="hud-value">0</span></div>
@@ -553,7 +575,7 @@
                     <div class="hud-text">TRACKED: <span id="val-tracked" class="hud-value">0</span></div>
                 </div>
                 
-                <div class="hud-panel">
+                <div class="hud-panel" id="panel-avionics">
                     <div class="panel-title">AVIONICS</div>
                     <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0.0°</span></div>
                     <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0.0°</span></div>
@@ -563,7 +585,7 @@
             </div>
             
             <!-- Middle: Analytics -->
-            <div class="hud-panel hud-panel-wide" style="margin-top: auto; margin-bottom: 160px;">
+            <div class="hud-panel hud-panel-wide" id="panel-analytics" style="margin-top: auto; margin-bottom: 160px;">
                 <div class="panel-title">TACTICAL ANALYTICS</div>
                 <div class="hud-text">ACTIVE OBJECTS: <span id="val-active" class="hud-value">0</span></div>
                 <div class="hud-text">PERSONS (5M): <span id="val-persons" class="hud-value">0</span></div>
@@ -572,7 +594,7 @@
             </div>
             
             <!-- Target Acquisition -->
-            <div class="hud-panel hud-panel-wide" style="margin-left: auto; margin-right: 160px;">
+            <div class="hud-panel hud-panel-wide" id="panel-target" style="margin-left: auto; margin-right: 160px;">
                 <div class="panel-title">PRIMARY TARGET</div>
                 <div class="hud-text">CLASS: <span id="val-target-label" class="hud-value">--</span></div>
                 <div class="hud-text">DISTANCE: <span id="val-target-dist" class="hud-value">--</span></div>
@@ -745,14 +767,7 @@ const CONFIG = {
     },
     
     UI: {
-        UPDATE_RATE: 30,
-        COLOR_CODING: {
-            HIGH: '#00ff41',
-            MEDIUM: '#ffcc00', 
-            LOW: '#0080ff',
-            ALERT: '#ff0000',
-            CRITICAL: '#ff0066'
-        }
+        UPDATE_RATE: 30
     }
 };
 
@@ -960,11 +975,13 @@ class ObjectTracker {
         this.tracks = new Map();
         this.nextId = 1;
         this.frameCount = 0;
+        this.inferenceRate = CONFIG.AI.INFERENCE_RATE;
     }
 
-    update(detections, timestamp) {
+    update(detections, timestamp, inferenceRate = CONFIG.AI.INFERENCE_RATE) {
         this.frameCount++;
-        
+        this.inferenceRate = inferenceRate;
+
         const currentDetections = detections.map(det => ({
             bbox: {
                 x: det.bbox[0],
@@ -974,55 +991,78 @@ class ObjectTracker {
             },
             label: det.class,
             confidence: det.score,
-            timestamp: timestamp
+            timestamp
         }));
-        
+
         this._updateTracks(currentDetections, timestamp);
         this._removeExpiredTracks(timestamp);
-        
-        // Limit number of tracks
-        if (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) {
-            this._pruneTracks();
-        }
-        
+
+        if (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) this._pruneTracks();
         return Array.from(this.tracks.values());
+    }
+
+    _predictBbox(track, timestamp) {
+        if (!track.velocity || track.status === 'new') return { ...track.bbox };
+        const dt = (timestamp - track.lastUpdateTime) / 1000;
+        if (dt <= 0) return { ...track.bbox };
+        return {
+            x: track.bbox.x + track.velocity.vx * dt,
+            y: track.bbox.y + track.velocity.vy * dt,
+            width: track.bbox.width,
+            height: track.bbox.height
+        };
     }
 
     _updateTracks(detections, timestamp) {
         const usedDetections = new Set();
-        
-        // Update existing tracks with improved gating
+
         for (const [id, track] of this.tracks.entries()) {
             if (track.status === 'lost') continue;
-            
+
+            const predicted = this._predictBbox(track, timestamp);
+
             let bestMatch = null;
-            let bestScore = 0;
-            
+            let bestScore = -Infinity;
+
             for (let i = 0; i < detections.length; i++) {
                 if (usedDetections.has(i)) continue;
-                
+
                 const detection = detections[i];
-                
-                // Multi-factor scoring
-                const iouScore = Utils.iou(track.bbox, detection.bbox);
-                const centerDist = Utils.distance(
-                    track.bbox.x + track.bbox.width / 2,
-                    track.bbox.y + track.bbox.height / 2,
-                    detection.bbox.x + detection.bbox.width / 2,
-                    detection.bbox.y + detection.bbox.height / 2
-                ) / Math.sqrt(window.innerWidth * window.innerHeight);
-                
-                const labelScore = track.label === detection.label ? 1 : 0.5;
+
+                // Predictive IoU + center distance
+                const iouNow  = Utils.iou(track.bbox, detection.bbox);
+                const iouPred = Utils.iou(predicted, detection.bbox);
+                const iouScore = Math.max(iouNow, iouPred);
+
+                const predCx = predicted.x + predicted.width / 2;
+                const predCy = predicted.y + predicted.height / 2;
+                const detCx  = detection.bbox.x + detection.bbox.width / 2;
+                const detCy  = detection.bbox.y + detection.bbox.height / 2;
+
+                const centerDist = Utils.distance(predCx, predCy, detCx, detCy) /
+                    Math.sqrt(window.innerWidth * window.innerHeight);
+
+                const labelScore = track.label === detection.label ? 1 : 0.35;
                 const velocityScore = this._calculateVelocityScore(track, detection, timestamp);
-                
-                const totalScore = iouScore * 0.4 + (1 - centerDist) * 0.3 + labelScore * 0.2 + velocityScore * 0.1;
-                
-                if (totalScore > bestScore && totalScore > CONFIG.TRACKING.MIN_IOU) {
+
+                const totalScore =
+                    iouScore * 0.45 +
+                    (1 - centerDist) * 0.35 +
+                    labelScore * 0.12 +
+                    velocityScore * 0.08;
+
+                const labelGate = (track.label === detection.label);
+                const closeGate = centerDist < CONFIG.TRACKING.MAX_ASSOCIATION_DISTANCE;
+                const accept =
+                    (iouScore > CONFIG.TRACKING.MIN_IOU) ||
+                    (labelGate && closeGate && totalScore > 0.45);
+
+                if (accept && totalScore > bestScore) {
                     bestScore = totalScore;
                     bestMatch = { index: i, detection };
                 }
             }
-            
+
             if (bestMatch) {
                 this._updateTrack(track, bestMatch.detection, timestamp);
                 usedDetections.add(bestMatch.index);
@@ -1031,51 +1071,42 @@ class ObjectTracker {
                 track.lastSeen = timestamp;
             }
         }
-        
-        // Create new tracks for unmatched detections
+
         for (let i = 0; i < detections.length; i++) {
-            if (!usedDetections.has(i)) {
-                this._createTrack(detections[i], timestamp);
-            }
+            if (!usedDetections.has(i)) this._createTrack(detections[i], timestamp);
         }
     }
 
     _calculateVelocityScore(track, detection, timestamp) {
         if (!track.lastPosition || track.status === 'new') return 0.5;
-        
         const dt = (timestamp - track.lastUpdateTime) / 1000;
         if (dt <= 0) return 0.5;
-        
+
         const predX = track.bbox.x + (track.velocity?.vx || 0) * dt;
         const predY = track.bbox.y + (track.velocity?.vy || 0) * dt;
-        
         const dist = Utils.distance(predX, predY, detection.bbox.x, detection.bbox.y);
-        const maxDist = Math.sqrt(window.innerWidth * window.innerHeight) * 0.1;
-        
+        const maxDist = Math.sqrt(window.innerWidth * window.innerHeight) * 0.12;
         return Math.max(0, 1 - (dist / maxDist));
     }
 
     _updateTrack(track, detection, timestamp) {
         const dt = (timestamp - track.lastUpdateTime) / 1000;
-        
-        // Smooth bounding box with Kalman-like filtering
+
         track.rawBbox = { ...detection.bbox };
         track.bbox.x = Utils.ema(detection.bbox.x, track.bbox.x, 0.7);
         track.bbox.y = Utils.ema(detection.bbox.y, track.bbox.y, 0.7);
         track.bbox.width = Utils.ema(detection.bbox.width, track.bbox.width, 0.7);
         track.bbox.height = Utils.ema(detection.bbox.height, track.bbox.height, 0.7);
-        
-        // Update velocity
+
         if (track.lastPosition && dt > 0) {
             const dx = (track.bbox.x - track.lastPosition.x) / dt;
             const dy = (track.bbox.y - track.lastPosition.y) / dt;
-            
             track.velocity = {
                 vx: Utils.ema(dx, track.velocity?.vx || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING),
                 vy: Utils.ema(dy, track.velocity?.vy || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING)
             };
         }
-        
+
         track.lastPosition = { x: track.bbox.x, y: track.bbox.y };
         track.lastUpdateTime = timestamp;
         track.status = track.status === 'new' ? 'active' : track.status;
@@ -1085,7 +1116,6 @@ class ObjectTracker {
 
     _createTrack(detection, timestamp) {
         const id = this.nextId++;
-        
         this.tracks.set(id, {
             id,
             label: detection.label,
@@ -1097,40 +1127,32 @@ class ObjectTracker {
             lastUpdateTime: timestamp,
             status: 'new',
             velocity: { vx: 0, vy: 0 },
-            lastPosition: { 
-                x: detection.bbox.x, 
-                y: detection.bbox.y 
-            }
+            lastPosition: { x: detection.bbox.x, y: detection.bbox.y }
         });
     }
 
     _removeExpiredTracks(timestamp) {
-        const tracksToRemove = [];
-        
-        this.tracks.forEach((track, id) => {
-            if (track.status === 'lost' && 
-                timestamp - track.lastSeen > CONFIG.TRACKING.MAX_AGE * (1000 / 12)) {
-                tracksToRemove.push(id);
+        const tracksArray = Array.from(this.tracks.entries());
+        const frameTTLms = CONFIG.TRACKING.MAX_AGE * (1000 / Math.max(1, this.inferenceRate));
+
+        for (const [id, track] of tracksArray) {
+            if (track.status === 'lost' && timestamp - track.lastSeen > frameTTLms) {
+                this.tracks.delete(id);
             }
-        });
-        
-        tracksToRemove.forEach(id => this.tracks.delete(id));
+        }
     }
 
     _pruneTracks() {
-        const tracksArray = Array.from(this.tracks.entries());
-        tracksArray.sort((a, b) => b[1].confidence - a[1].confidence);
-        
+        const arr = Array.from(this.tracks.entries());
+        arr.sort((a, b) => b[1].confidence - a[1].confidence);
         while (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) {
-            const [id] = tracksArray.pop();
+            const [id] = arr.pop();
             this.tracks.delete(id);
         }
     }
 
     getActiveTracks() {
-        return Array.from(this.tracks.values()).filter(track => 
-            track.status !== 'lost'
-        );
+        return Array.from(this.tracks.values()).filter(t => t.status !== 'lost');
     }
 
     getStats() {
@@ -1143,13 +1165,14 @@ class ObjectTracker {
     }
 }
 
+
 // ============================================================================
 // PHYSICS ENGINE - CORRECTED COORDINATE MAPPING
 // ============================================================================
 
 class PhysicsEngine {
     constructor() {
-        this.videoWidth = 1280; // Default, will be updated
+        this.videoWidth = 1280;
         this.videoHeight = 720;
         this.scaleX = 1;
         this.scaleY = 1;
@@ -1161,18 +1184,18 @@ class PhysicsEngine {
         if (video.videoWidth && video.videoHeight) {
             this.videoWidth = video.videoWidth;
             this.videoHeight = video.videoHeight;
-            
-            // Calculate scale and offset for object-fit: cover
+
+            this.offsetX = 0; 
+            this.offsetY = 0;
+
             const videoAspect = this.videoWidth / this.videoHeight;
             const screenAspect = window.innerWidth / window.innerHeight;
-            
+
             if (videoAspect > screenAspect) {
-                // Video is wider than screen
                 this.scaleX = window.innerWidth / this.videoWidth;
                 this.scaleY = this.scaleX;
                 this.offsetY = (window.innerHeight - this.videoHeight * this.scaleY) / 2;
             } else {
-                // Video is taller than screen
                 this.scaleY = window.innerHeight / this.videoHeight;
                 this.scaleX = this.scaleY;
                 this.offsetX = (window.innerWidth - this.videoWidth * this.scaleX) / 2;
@@ -1183,31 +1206,46 @@ class PhysicsEngine {
     analyze(tracks) {
         return tracks.map(track => {
             const enhanced = { ...track };
-            
-            // Correct bbox mapping from video coordinates to screen coordinates
+
             const screenBbox = this._videoToScreenBbox(track.bbox);
             enhanced.screenBbox = screenBbox;
-            
-            // Calculate screen position
+
             const centerX = screenBbox.x + screenBbox.width / 2;
             const centerY = screenBbox.y + screenBbox.height / 2;
-            
+
             enhanced.screenPosition = {
                 xNorm: (centerX / window.innerWidth) * 2 - 1,
                 yNorm: (centerY / window.innerHeight) * 2 - 1
             };
-            
-            // Calculate bearing (fixed for bearingDeg = 0)
+
             enhanced.bearingDeg = this._computeBearing(enhanced.screenPosition.xNorm);
-            
-            // Calculate depth
-            enhanced.depthEstimate = this._computeDepth(track);
-            
-            // Calculate motion
+
+            const depthMeters = this._computeDepthMeters(track);
+            const depthNorm   = Utils.clamp(1 - (depthMeters / CONFIG.PHYSICS.MAX_RANGE), 0, 1);
+
+            enhanced.depthMeters   = depthMeters;
+            enhanced.depthNorm     = depthNorm;
+            enhanced.depthEstimate = depthMeters;
+
             enhanced.motionAnalysis = this._analyzeMotion(track);
-            
+
             return enhanced;
         });
+    }
+
+    predictVideoBbox(track, horizonSec = 0.75) {
+        if (!track.velocity) return { ...track.bbox };
+        return {
+            x: track.bbox.x + (track.velocity.vx || 0) * horizonSec,
+            y: track.bbox.y + (track.velocity.vy || 0) * horizonSec,
+            width: track.bbox.width,
+            height: track.bbox.height
+        };
+    }
+
+    predictScreenBbox(track, horizonSec = 0.75) {
+        const predVideo = this.predictVideoBbox(track, horizonSec);
+        return this._videoToScreenBbox(predVideo);
     }
 
     _videoToScreenBbox(videoBbox) {
@@ -1220,68 +1258,53 @@ class PhysicsEngine {
     }
 
     _computeBearing(xNorm) {
-        if (xNorm === null || xNorm === undefined) return 0;
-        const bearing = xNorm * (CONFIG.PHYSICS.HORIZONTAL_FOV / 2);
-        return bearing;
+        return (xNorm || 0) * (CONFIG.PHYSICS.HORIZONTAL_FOV / 2);
     }
 
-    _computeDepth(track) {
-        const bboxHeight = track.bbox.height / this.videoHeight;
+    _computeDepthMeters(track) {
+        const bboxHeightPx = track.bbox.height;
+        const bboxHeightNorm = bboxHeightPx / this.videoHeight;
+
         let physicalHeight;
-        
         switch (track.label) {
-            case 'person':
-                physicalHeight = CONFIG.PHYSICS.PERSON_HEIGHT;
-                break;
+            case 'person': physicalHeight = CONFIG.PHYSICS.PERSON_HEIGHT; break;
             case 'car':
             case 'truck':
-            case 'bus':
-                physicalHeight = CONFIG.PHYSICS.VEHICLE_HEIGHT;
-                break;
-            default:
-                physicalHeight = 1.0;
+            case 'bus': physicalHeight = CONFIG.PHYSICS.VEHICLE_HEIGHT; break;
+            default: physicalHeight = 1.0;
         }
-        
-        const focalLength = (this.videoHeight / 2) / Math.tan(CONFIG.PHYSICS.VERTICAL_FOV * Math.PI / 360);
-        const depth = (focalLength * physicalHeight) / (bboxHeight * this.videoHeight);
-        
-        const normalized = Utils.clamp(1 - (depth / CONFIG.PHYSICS.MAX_RANGE), 0, 1);
-        return CONFIG.PHYSICS.IS_CALIBRATED ? depth : normalized;
+
+        const focalLengthPx = (this.videoHeight / 2) /
+            Math.tan(CONFIG.PHYSICS.VERTICAL_FOV * Math.PI / 360);
+
+        const denom = Math.max(1e-6, bboxHeightNorm * this.videoHeight);
+        const depth = (focalLengthPx * physicalHeight) / denom;
+
+        return Utils.clamp(depth, CONFIG.PHYSICS.MIN_RANGE, CONFIG.PHYSICS.MAX_RANGE);
     }
 
     _analyzeMotion(track) {
         if (!track.velocity || track.status === 'new') {
-            return {
-                motionState: 'unknown',
-                radialSpeed: 0
-            };
+            return { motionState: 'unknown', radialSpeed: 0 };
         }
-        
-        // Use scale change as proxy for radial motion
+
         const scaleChange = track.velocity.vy / window.innerHeight;
         let motionState = 'static';
-        
+
         if (scaleChange > 0.02) motionState = 'approaching';
         else if (scaleChange < -0.01) motionState = 'receding';
         else if (Math.abs(scaleChange) < 0.005) motionState = 'static';
         else motionState = 'moving';
-        
-        return {
-            motionState,
-            radialSpeed: scaleChange
-        };
+
+        return { motionState, radialSpeed: scaleChange };
     }
 
     calibrateDepth(knownDistance, track) {
-        // Simple calibration based on known distance
-        const bboxHeight = track.bbox.height / this.videoHeight;
-        const measuredDepth = this._computeDepth(track);
-        const scaleFactor = knownDistance / measuredDepth;
-        
         CONFIG.PHYSICS.IS_CALIBRATED = true;
-        return scaleFactor;
+        return knownDistance / Math.max(1e-6, track.depthMeters);
     }
 }
+
 
 // ============================================================================
 // RADAR SYSTEM - FIXED BEARING HANDLING
@@ -1308,6 +1331,7 @@ class RadarSystem {
         const displayTracks = tracks.slice(0, CONFIG.RADAR.MAX_BLIPS);
         
         displayTracks.forEach(track => {
+            // Fix: Check for null/undefined bearingDeg properly
             if (track.bearingDeg == null) return;
             
             const blip = this._createBlip(track);
@@ -1318,6 +1342,7 @@ class RadarSystem {
     }
 
     _createBlip(track) {
+        // Fix: Handle bearingDeg = 0 case
         const bearingDeg = track.bearingDeg !== null && track.bearingDeg !== undefined ? track.bearingDeg : 0;
         const angle = bearingDeg * Math.PI / 180;
         
@@ -1515,7 +1540,6 @@ class HUDRenderer {
         this.ctx = this.canvas.getContext('2d');
         this.resize();
         this.hudEnabled = true;
-        
         window.addEventListener('resize', () => this.resize());
     }
 
@@ -1529,52 +1553,38 @@ class HUDRenderer {
     }
 
     render(avionicsData, tracks, primaryTarget) {
-        if (!this.hudEnabled) {
-            this.clear();
-            return;
-        }
-        
+        if (!this.hudEnabled) { this.clear(); return; }
         this.clear();
-        
-        // Set rendering quality based on preset
         this.ctx.imageSmoothingEnabled = false;
-        
+
         this.drawHorizon(avionicsData);
         this.drawCrosshair();
         this.drawTargetBoxes(tracks);
-        
-        if (primaryTarget) {
-            this.drawPrimaryTarget(primaryTarget);
-        }
+        if (primaryTarget) this.drawPrimaryTarget(primaryTarget);
     }
 
     drawHorizon(avionicsData) {
         const { width, height } = this.canvas;
         const ctx = this.ctx;
-        const orientation = avionicsData.getOrientation();
-        
+        const { pitch, roll } = avionicsData.getOrientation();
+
         ctx.save();
         ctx.translate(width/2, height/2);
-        ctx.rotate(orientation.roll * Math.PI / 180);
-        
-        const horizonY = orientation.pitch * 2;
-        
-        // Sky
+        ctx.rotate(roll * Math.PI / 180);
+        const horizonY = pitch * 2;
+
         ctx.fillStyle = 'rgba(0, 50, 100, 0.3)';
         ctx.fillRect(-width, -height, width * 2, height + horizonY);
-        
-        // Ground
+
         ctx.fillStyle = 'rgba(101, 67, 33, 0.3)';
         ctx.fillRect(-width, horizonY, width * 2, height);
-        
-        // Horizon line
+
         ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(-width, horizonY);
         ctx.lineTo(width, horizonY);
         ctx.stroke();
-        
         ctx.restore();
     }
 
@@ -1592,98 +1602,191 @@ class HUDRenderer {
         ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy - 30);
         ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 30);
         ctx.stroke();
-        
+
         ctx.fillStyle = CONFIG.UI.COLOR_CODING.HIGH;
         ctx.fillRect(cx - 1, cy - 1, 2, 2);
     }
 
-    drawTargetBoxes(tracks) {
-        tracks.forEach(track => {
-            this.drawTargetBox(track);
-        });
-    }
+    drawTargetBoxes(tracks) { tracks.forEach(t => this.drawTargetBox(t)); }
 
     drawTargetBox(track) {
         const bbox = track.screenBbox || track.bbox;
         const { x, y, width, height } = bbox;
         const ctx = this.ctx;
-        
+
         let color = CONFIG.UI.COLOR_CODING.LOW;
         if (track.label === 'person') color = CONFIG.UI.COLOR_CODING.HIGH;
-        else if (['car', 'truck', 'bus'].includes(track.label)) color = CONFIG.UI.COLOR_CODING.MEDIUM;
-        
+        else if (['car','truck','bus'].includes(track.label)) color = CONFIG.UI.COLOR_CODING.MEDIUM;
+
         const bracketSize = Math.min(width, height) * 0.15;
-        
+
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.shadowBlur = 5;
         ctx.shadowColor = color;
-        
         ctx.beginPath();
-        
-        // Top left
+
         ctx.moveTo(x, y + bracketSize);
         ctx.lineTo(x, y);
         ctx.lineTo(x + bracketSize, y);
-        
-        // Top right
+
         ctx.moveTo(x + width - bracketSize, y);
         ctx.lineTo(x + width, y);
         ctx.lineTo(x + width, y + bracketSize);
-        
-        // Bottom right
+
         ctx.moveTo(x + width, y + height - bracketSize);
         ctx.lineTo(x + width, y + height);
         ctx.lineTo(x + width - bracketSize, y + height);
-        
-        // Bottom left
+
         ctx.moveTo(x + bracketSize, y + height);
         ctx.lineTo(x, y + height);
         ctx.lineTo(x, y + height - bracketSize);
-        
+
         ctx.stroke();
         ctx.shadowBlur = 0;
-        
-        // Label
+
+        // ✅ Motion prediction visual: dashed future box
+        if (track.predictedScreenBbox) {
+            const pb = track.predictedScreenBbox;
+            ctx.save();
+            ctx.globalAlpha = 0.35;
+            ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = color;
+            ctx.strokeRect(pb.x, pb.y, pb.width, pb.height);
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+
         const label = `${track.label.toUpperCase()} ${Math.floor(track.confidence * 100)}%`;
-        const dist = CONFIG.PHYSICS.IS_CALIBRATED ? 
-            `~${Math.floor(track.depthEstimate)}m` : 
-            `${Math.floor(track.depthEstimate * 100)}%`;
-        
-        ctx.fillStyle = color;
+        const dist = CONFIG.PHYSICS.IS_CALIBRATED
+            ? `~${Math.floor(track.depthMeters)}m`
+            : `${Math.floor((track.depthNorm ?? 0) * 100)}%`;
+
         ctx.font = "bold 10px monospace";
-        
-        // Background
         const textWidth = ctx.measureText(label).width;
+
+        const labelY = Math.max(0, y - 25);
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - 25, textWidth + 10, 20);
-        
-        // Text
+        ctx.fillRect(x, labelY, textWidth + 10, 20);
+
         ctx.fillStyle = color;
-        ctx.fillText(label, x + 5, y - 10);
+        ctx.fillText(label, x + 5, labelY + 14);
+        ctx.fillStyle = '#fff';
+        ctx.font = "9px monospace";
+        ctx.fillText(dist, x + 5, labelY + 30);
     }
 
     drawPrimaryTarget(target) {
-        const bbox = target.screenBbox || target.bbox;
+        const bbox = target.predictedScreenBbox || target.screenBbox || target.bbox;
         const centerX = bbox.x + bbox.width / 2;
         const centerY = bbox.y + bbox.height / 2;
         const ctx = this.ctx;
-        
-        // Pulsing circle
+
         const pulsePhase = (Date.now() % 1000) / 1000;
-        const radius = Math.max(bbox.width, bbox.height) / 2 + 15 + Math.sin(pulsePhase * Math.PI * 2) * 5;
-        
+        const radius = Math.max(bbox.width, bbox.height) / 2 + 15 +
+            Math.sin(pulsePhase * Math.PI * 2) * 5;
+
         ctx.strokeStyle = CONFIG.UI.COLOR_CODING.HIGH;
         ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        ctx.setLineDash([5,5]);
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
     }
 
-    setHudEnabled(enabled) {
-        this.hudEnabled = enabled;
+    setHudEnabled(enabled) { this.hudEnabled = enabled; }
+}
+
+
+// ============================================================================
+// UI AUTO-AVOIDANCE (PANELS STEER AWAY FROM IMPORTANT AREAS)
+// ============================================================================
+
+class UIAvoider {
+    constructor(panels) {
+        this.panels = panels.filter(Boolean);
+        this.state = new Map();
+        this.refreshAnchors();
+        window.addEventListener('resize', () => this.refreshAnchors());
+    }
+
+    refreshAnchors() {
+        this.state.clear();
+        this.panels.forEach(el => {
+            const r = el.getBoundingClientRect();
+            this.state.set(el.id, {
+                anchor: { l: r.left, t: r.top, w: r.width, h: r.height },
+                offset: { x: 0, y: 0 }
+            });
+            el.style.willChange = 'transform';
+        });
+    }
+
+    update(importantRect) {
+        if (!importantRect) {
+            // ease back to anchor
+            this.state.forEach((s, id) => {
+                s.offset.x = Utils.ema(0, s.offset.x, 0.8);
+                s.offset.y = Utils.ema(0, s.offset.y, 0.8);
+                const el = document.getElementById(id);
+                if (el) el.style.transform = `translate(${s.offset.x}px, ${s.offset.y}px)`;
+            });
+            return;
+        }
+
+        const icx = (importantRect.left + importantRect.right) / 2;
+        const icy = (importantRect.top + importantRect.bottom) / 2;
+
+        this.state.forEach((s, id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            const { l, t, w, h } = s.anchor;
+
+            const panelRect = {
+                left: l + s.offset.x,
+                top: t + s.offset.y,
+                right: l + s.offset.x + w,
+                bottom: t + s.offset.y + h
+            };
+
+            const overlap = !(
+                panelRect.right < importantRect.left ||
+                panelRect.left > importantRect.right ||
+                panelRect.bottom < importantRect.top ||
+                panelRect.top > importantRect.bottom
+            );
+
+            let desiredX = 0, desiredY = 0;
+
+            if (overlap) {
+                const pcx = panelRect.left + w / 2;
+                const pcy = panelRect.top + h / 2;
+
+                let vx = pcx - icx;
+                let vy = pcy - icy;
+                const mag = Math.hypot(vx, vy) || 1;
+                vx /= mag; vy /= mag;
+
+                const push = Math.min(140, 70 + mag * 0.08);
+                desiredX = vx * push;
+                desiredY = vy * push;
+            }
+
+            // clamp within screen bounds
+            const targetLeft = Utils.clamp(l + desiredX, 6, window.innerWidth - w - 6);
+            const targetTop  = Utils.clamp(t + desiredY, 6, window.innerHeight - h - 6);
+            desiredX = targetLeft - l;
+            desiredY = targetTop - t;
+
+            s.offset.x = Utils.ema(desiredX, s.offset.x, 0.82);
+            s.offset.y = Utils.ema(desiredY, s.offset.y, 0.82);
+
+            el.style.transform = `translate(${s.offset.x}px, ${s.offset.y}px)`;
+        });
     }
 }
 
@@ -1694,63 +1797,68 @@ class HUDRenderer {
 class OmegaKernel {
     constructor() {
         this.avionics = new Avionics();
-        this.vision = new VisionEngine();
-        this.tracker = new ObjectTracker();
-        this.physics = new PhysicsEngine();
-        this.radar = new RadarSystem('radar-blips');
-        this.memory = new KnowledgeBase();
+        this.vision   = new VisionEngine();
+        this.tracker  = new ObjectTracker();
+        this.physics  = new PhysicsEngine();
+        this.radar    = new RadarSystem('radar-blips');
+        this.memory   = new KnowledgeBase();
         this.renderer = new HUDRenderer();
-        
+
+        this.predictionHorizonSec = 0.75; // ~0.5–1.0s lookahead
+
         this.isRunning = false;
         this.video = document.getElementById('camera-feed');
         this.trackedObjects = [];
         this.primaryTarget = null;
-        
+
+        // Magnetic lock state
+        this.lockedTargetId = null;
+        this.lockLostSince = null;
+        this.lockSwitchMargin = 0.12; // hysteresis margin
+
         this.lastAITime = 0;
-        this.lastRenderTime = 0;
-        
         this._setupControls();
+
+        // UI auto-avoid panels
+        this.uiAvoider = new UIAvoider([
+            document.getElementById('panel-metrics'),
+            document.getElementById('panel-avionics'),
+            document.getElementById('panel-analytics'),
+            document.getElementById('panel-target')
+        ]);
     }
 
     _setupControls() {
-        // Control panel toggle
         document.getElementById('toggle-controls').addEventListener('click', () => {
             const panel = document.getElementById('control-panel');
             panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
         });
 
-        // Quality presets
         document.getElementById('btn-quality-low').addEventListener('click', () => this._setQuality('LOW'));
         document.getElementById('btn-quality-balanced').addEventListener('click', () => this._setQuality('BALANCED'));
         document.getElementById('btn-quality-high').addEventListener('click', () => this._setQuality('HIGH'));
 
-        // HUD toggle
         document.getElementById('btn-hud-on').addEventListener('click', () => this._setHudEnabled(true));
         document.getElementById('btn-hud-off').addEventListener('click', () => this._setHudEnabled(false));
 
-        // Memory controls
         document.getElementById('btn-export').addEventListener('click', () => this.memory.exportData());
         document.getElementById('btn-clear').addEventListener('click', () => {
-            if (confirm('Clear all memory data?')) {
-                this.memory.clear();
-            }
+            if (confirm('Clear all memory data?')) this.memory.clear();
         });
 
-        // Calibration
         document.getElementById('btn-calibrate').addEventListener('click', () => this._startCalibration());
-
-        // Permission retry
         document.getElementById('btn-retry-permission').addEventListener('click', () => this._retryPermission());
     }
 
     _setQuality(preset) {
         this.vision.setQualityPreset(preset);
-        
-        // Update UI
-        document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+
+        ['low','balanced','high'].forEach(k => {
+            const btn = document.getElementById(`btn-quality-${k}`);
+            btn && btn.classList.remove('active');
+        });
         document.getElementById(`btn-quality-${preset.toLowerCase()}`).classList.add('active');
-        
-        // Update blur effect
+
         const blur = CONFIG.AI.QUALITY_PRESETS[preset].blur;
         document.getElementById('ui-layer').style.backdropFilter = `blur(${blur}px)`;
     }
@@ -1764,38 +1872,30 @@ class OmegaKernel {
     async boot() {
         try {
             this._updateStatus('INITIALIZING...');
-            
-            // Initialize avionics
+
             this._updateBootLED('led-gyro', 'loading');
             const avionicsReady = await this.avionics.init();
             this._updateBootLED('led-gyro', avionicsReady ? 'active' : 'warning');
-            
-            // Initialize camera
+
             this._updateBootLED('led-cam', 'loading');
             const cameraReady = await this._initCamera();
             this._updateBootLED('led-cam', cameraReady ? 'active' : 'error');
-            
-            if (!cameraReady) {
-                this._showPermissionOverlay();
-                return;
-            }
-            
-            // Initialize AI
+
+            if (!cameraReady) { this._showPermissionOverlay(); return; }
+
             this._updateBootLED('led-ai', 'loading');
             const visionReady = await this.vision.init();
             this._updateBootLED('led-ai', visionReady ? 'active' : 'error');
-            
+
             this._updateBootLED('led-tracker', 'active');
             this._updateBootLED('led-memory', 'active');
-            
-            // Start system
+
             document.getElementById('boot-overlay').style.display = 'none';
             this.isRunning = true;
-            
             this._updateStatus('SYSTEM_OPERATIONAL');
+
             this.aiCycle();
             this.renderCycle();
-            
         } catch (error) {
             console.error("Boot failed:", error);
             this._updateStatus(`ERROR: ${error.message}`);
@@ -1804,6 +1904,8 @@ class OmegaKernel {
 
     async _initCamera() {
         try {
+            if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia not supported');
+
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: 'environment',
@@ -1812,21 +1914,13 @@ class OmegaKernel {
                 }, 
                 audio: false 
             });
-            
+
             this.video.srcObject = stream;
-            
-            await new Promise((resolve) => {
-                this.video.onloadedmetadata = () => {
-                    this.video.play().then(() => {
-                        // อัพเดท dimensions หลังจาก video เริ่มเล่นแล้ว
-                        setTimeout(() => {
-                            this.physics.updateVideoDimensions(this.video);
-                            resolve();
-                        }, 100);
-                    });
-                };
+            await new Promise(resolve => {
+                this.video.onloadedmetadata = () => this.video.play().then(resolve);
             });
-            
+
+            this.physics.updateVideoDimensions(this.video);
             return true;
         } catch (error) {
             console.error("Camera init failed:", error);
@@ -1836,6 +1930,7 @@ class OmegaKernel {
 
     _showPermissionOverlay() {
         document.getElementById('permission-overlay').style.display = 'flex';
+        this._updateStatus('CAMERA_PERMISSION_REQUIRED');
     }
 
     _retryPermission() {
@@ -1845,56 +1940,86 @@ class OmegaKernel {
 
     async aiCycle() {
         if (!this.isRunning) return;
-        
+
         const now = performance.now();
-        const aiInterval = 1000 / this.vision.getInferenceRate();
-        
+        const rate = this.vision.getInferenceRate();
+        const aiInterval = 1000 / rate;
+
         if (now - this.lastAITime >= aiInterval) {
             this.lastAITime = now;
-            
             try {
                 const detections = await this.vision.detect(this.video);
-                const rawTracks = this.tracker.update(detections, Date.now());
+                const rawTracks = this.tracker.update(detections, Date.now(), rate);
                 this.trackedObjects = this.physics.analyze(rawTracks);
+
+                // Attach prediction (0.5–1s horizon)
+                this.trackedObjects.forEach(t => {
+                    t.predictedScreenBbox = this.physics.predictScreenBbox(t, this.predictionHorizonSec);
+                    const pb = t.predictedScreenBbox;
+                    const cx = pb.x + pb.width / 2;
+                    const cy = pb.y + pb.height / 2;
+                    t.predictedScreenPosition = {
+                        xNorm: (cx / window.innerWidth) * 2 - 1,
+                        yNorm: (cy / window.innerHeight) * 2 - 1
+                    };
+                });
+
                 this._updateMemory(this.trackedObjects);
                 this._updatePrimaryTarget();
             } catch (error) {
                 console.error("AI cycle error:", error);
             }
         }
-        
-        // Adaptive scheduling
+
         const nextCycle = Math.max(0, aiInterval - (performance.now() - this.lastAITime));
         setTimeout(() => this.aiCycle(), nextCycle);
     }
 
     renderCycle() {
         if (!this.isRunning) return;
-        
+
         this.vision.updateRenderFPS();
-        
         this.renderer.render(this.avionics, this.trackedObjects, this.primaryTarget);
         this.radar.update(this.trackedObjects);
+
+        // UI avoid important area (use predicted primary bbox)
+        if (this.primaryTarget?.predictedScreenBbox) {
+            const b = this.primaryTarget.predictedScreenBbox;
+            const pad = 18;
+            const importantRect = {
+                left: b.x - pad,
+                top: b.y - pad,
+                right: b.x + b.width + pad,
+                bottom: b.y + b.height + pad
+            };
+            this.uiAvoider.update(importantRect);
+        } else {
+            this.uiAvoider.update(null);
+        }
+
         this._updateUI();
-        
+        performanceMonitor.update();
+
         requestAnimationFrame(() => this.renderCycle());
     }
 
     _updateMemory(tracks) {
+        const tracksArray = Array.from(this.tracker.tracks.values());
+
         tracks.forEach(track => {
             const eventType = track.status === 'new' ? 'object_detected' : 'object_updated';
             this.memory.recordEvent(eventType, {
                 objectId: track.id,
                 label: track.label,
                 confidence: track.confidence,
-                depthEstimate: track.depthEstimate,
+                depthMeters: track.depthMeters,
+                depthNorm: track.depthNorm,
                 bearingDeg: track.bearingDeg,
-                motionState: track.motionAnalysis.motionState
+                motionState: track.motionAnalysis?.motionState
             });
         });
-        
-        // Record lost tracks
-        const lostTracks = Array.from(this.tracker.tracks.values()).filter(t => t.status === 'lost');
+
+        const lostTracks = tracksArray.filter(t => t.status === 'lost');
         lostTracks.forEach(track => {
             this.memory.recordEvent('object_lost', {
                 objectId: track.id,
@@ -1903,17 +2028,81 @@ class OmegaKernel {
         });
     }
 
+    _scoreTrack(track) {
+        const pb = track.predictedScreenBbox || track.screenBbox;
+        const cx = pb.x + pb.width / 2;
+        const cy = pb.y + pb.height / 2;
+        const scx = window.innerWidth / 2;
+        const scy = window.innerHeight / 2;
+
+        const diag = Math.hypot(window.innerWidth, window.innerHeight);
+        const centerDist = Math.hypot(cx - scx, cy - scy) / diag; // 0..1
+        const centerScore = Utils.clamp(1 - centerDist * 1.8, 0, 1);
+
+        const areaNorm = (pb.width * pb.height) / (window.innerWidth * window.innerHeight);
+        const sizeScore = Utils.clamp(areaNorm / 0.20, 0, 1);
+
+        const confScore = track.confidence || 0;
+
+        const labelBonus = track.label === 'person' ? 0.15 : 0;
+
+        let score = centerScore * 0.55 + confScore * 0.25 + sizeScore * 0.20 + labelBonus;
+
+        if (this.lockedTargetId === track.id) score += 0.25; // magnetic boost
+
+        return score;
+    }
+
     _updatePrimaryTarget() {
-        if (this.trackedObjects.length === 0) {
+        if (!this.trackedObjects.length) {
             this.primaryTarget = null;
+            this.lockedTargetId = null;
+            this.lockLostSince = null;
             return;
         }
-        
-        this.primaryTarget = this.trackedObjects.reduce((closest, current) => {
-            const closestDist = Math.abs(closest.screenPosition.xNorm) + Math.abs(closest.screenPosition.yNorm);
-            const currentDist = Math.abs(current.screenPosition.xNorm) + Math.abs(current.screenPosition.yNorm);
-            return currentDist < closestDist ? current : closest;
-        });
+
+        const candidates = this.trackedObjects;
+        let best = candidates[0];
+        let bestScore = this._scoreTrack(best);
+
+        for (let i = 1; i < candidates.length; i++) {
+            const s = this._scoreTrack(candidates[i]);
+            if (s > bestScore) {
+                bestScore = s;
+                best = candidates[i];
+            }
+        }
+
+        // Resolve current locked target score
+        const locked = this.lockedTargetId != null
+            ? candidates.find(t => t.id === this.lockedTargetId)
+            : null;
+
+        if (locked) {
+            const lockedScore = this._scoreTrack(locked);
+
+            // Only switch if best significantly better
+            if (best.id !== locked.id && bestScore > lockedScore + this.lockSwitchMargin) {
+                this.lockedTargetId = best.id;
+                this.primaryTarget = best;
+                this.lockLostSince = null;
+            } else {
+                this.primaryTarget = locked;
+                this.lockLostSince = null;
+            }
+        } else {
+            // No locked target yet (or lost)
+            if (this.lockLostSince == null) this.lockLostSince = Date.now();
+
+            const lostFor = Date.now() - this.lockLostSince;
+            if (lostFor > 300 || bestScore > 0.25) {  // acquire quickly
+                this.lockedTargetId = best.id;
+                this.primaryTarget = best;
+                this.lockLostSince = null;
+            } else {
+                this.primaryTarget = best;
+            }
+        }
     }
 
     _updateUI() {
@@ -1921,52 +2110,60 @@ class OmegaKernel {
         document.getElementById('val-cpu').textContent = Utils.formatNumber(visionStatus.lastTime, 1);
         document.getElementById('val-ai-fps').textContent = Utils.formatNumber(visionStatus.aiFps, 1);
         document.getElementById('val-render-fps').textContent = Utils.formatNumber(visionStatus.renderFps, 1);
-        
+
         const orientation = this.avionics.getOrientation();
         document.getElementById('val-pitch').textContent = Utils.formatNumber(orientation.pitch, 1) + '°';
         document.getElementById('val-roll').textContent = Utils.formatNumber(orientation.roll, 1) + '°';
         document.getElementById('val-heading').textContent = Utils.formatNumber(orientation.heading, 1) + '°';
         document.getElementById('val-g').textContent = Utils.formatNumber(this.avionics.gForce, 2);
-        
+
         const trackerStats = this.tracker.getStats();
         document.getElementById('val-tracked').textContent = trackerStats.activeTracks;
-        
+
         document.getElementById('val-active').textContent = this.memory.getActiveObjectCount();
         document.getElementById('val-persons').textContent = this.memory.getPersonDetectionsInLast(5);
-        
+
         const closestPerson = this.memory.getClosestPerson();
-        document.getElementById('val-closest-person').textContent = closestPerson ? 
-            `~${Utils.formatNumber(closestPerson.distance, 1)}${CONFIG.PHYSICS.IS_CALIBRATED ? 'm' : '%'} @ ${Utils.formatNumber(closestPerson.bearing, 0)}°` : 
-            '--';
-        
+        document.getElementById('val-closest-person').textContent = closestPerson
+            ? `~${Utils.formatNumber(closestPerson.distance, 1)}m @ ${Utils.formatNumber(closestPerson.bearing, 0)}°`
+            : '--';
+
         document.getElementById('val-top-label').textContent = this.memory.getMostCommonLabelInLast(5);
-        
+
         if (this.primaryTarget) {
             document.getElementById('val-target-label').textContent = this.primaryTarget.label.toUpperCase();
-            document.getElementById('val-target-dist').textContent = 
-                `~${Utils.formatNumber(this.primaryTarget.depthEstimate, 1)}${CONFIG.PHYSICS.IS_CALIBRATED ? 'm' : '%'}`;
-            document.getElementById('val-target-bearing').textContent = 
-                `${Utils.formatNumber(this.primaryTarget.bearingDeg, 1)}°`;
-            document.getElementById('val-target-state').textContent = 
-                this.primaryTarget.motionAnalysis.motionState.toUpperCase();
-            document.getElementById('val-target-conf').textContent = 
+
+            const distText = CONFIG.PHYSICS.IS_CALIBRATED
+                ? `~${Utils.formatNumber(this.primaryTarget.depthMeters, 1)}m`
+                : `${Math.floor((this.primaryTarget.depthNorm ?? 0) * 100)}%`;
+
+            document.getElementById('val-target-dist').textContent = distText;
+
+            // ✅ FIX: bearing could be 0, so don't treat as falsy
+            const bearing = (this.primaryTarget.bearingDeg ?? 0);
+            document.getElementById('val-target-bearing').textContent =
+                `${Utils.formatNumber(bearing, 1)}°`;
+
+            document.getElementById('val-target-state').textContent =
+                (this.primaryTarget.motionAnalysis?.motionState || 'unknown').toUpperCase();
+            document.getElementById('val-target-conf').textContent =
                 `${Math.floor(this.primaryTarget.confidence * 100)}%`;
         }
-        
+
         this._updateSystemStatus();
     }
 
     _updateSystemStatus() {
-        document.getElementById('status-cam').className = 
+        document.getElementById('status-cam').className =
             `status-indicator ${this.video.srcObject ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-ai').className = 
+        document.getElementById('status-ai').className =
             `status-indicator ${this.vision.isModelLoaded ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-gyro').className = 
+        document.getElementById('status-gyro').className =
             `status-indicator ${this.avionics.isAvailable ? 'status-ok' : 'status-offline'}`;
-        document.getElementById('status-tracker').className = 
-            `status-indicator ${this.trackedObjects.length > 0 ? 'status-ok' : 'status-warn'}`;
-        document.getElementById('status-memory').className = 
-            `status-indicator ${this.memory.events.length > 0 ? 'status-ok' : 'status-warn'}`;
+        document.getElementById('status-tracker').className =
+            `status-indicator ${this.trackedObjects.length ? 'status-ok' : 'status-warn'}`;
+        document.getElementById('status-memory').className =
+            `status-indicator ${this.memory.events.length ? 'status-ok' : 'status-warn'}`;
     }
 
     _updateBootLED(ledId, state) {
@@ -1983,11 +2180,7 @@ class OmegaKernel {
     }
 
     _startCalibration() {
-        if (this.trackedObjects.length === 0) {
-            alert('No objects detected for calibration');
-            return;
-        }
-        
+        if (!this.trackedObjects.length) { alert('No objects detected for calibration'); return; }
         const distance = prompt('Enter known distance to object (meters):');
         if (distance && !isNaN(distance)) {
             const knownDistance = parseFloat(distance);
@@ -2005,6 +2198,7 @@ class OmegaKernel {
         this.memory.saveToStorage();
     }
 }
+
 
 // ============================================================================
 // SYSTEM INITIALIZATION
