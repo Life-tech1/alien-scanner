@@ -5,1944 +5,1566 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
 
-  <!-- Allowed CDNs only -->
+  <!-- Only allowed CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
   <style>
-    :root {
-      --hud-primary: #00ff41;
-      --hud-secondary: #008f11;
-      --hud-alert: #ff0000;
-      --hud-warn: #ffcc00;
-      --hud-info: #0080ff;
-      --bg-dark: #050505;
-      --glass: rgba(0, 20, 0, 0.8);
-      --glass-dark: rgba(0, 10, 0, 0.9);
-      --panel-bg: rgba(8, 18, 8, 0.92);
-      --panel-border: rgba(0, 255, 65, 0.35);
+    :root{
+      --hud-primary:#00ff41;
+      --hud-secondary:#008f11;
+      --hud-alert:#ff2b2b;
+      --hud-warn:#ffcc00;
+      --hud-info:#35a7ff;
+      --bg-dark:#050505;
+      --glass:rgba(0, 18, 0, 0.55);      /* lighter -> not blocking sight */
+      --glass-dark:rgba(0, 10, 0, 0.80);
+      --neon-glow:0 0 10px currentColor;
+      --panel-radius:14px;
+      --panel-border:1px solid rgba(0,255,65,0.85);
+    }
+    *{box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent;}
+    body{
+      margin:0;overflow:hidden;background:var(--bg-dark);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+      color:var(--hud-primary);width:100vw;height:100vh;line-height:1.2;
+    }
+    #viewport{position:relative;width:100%;height:100%;}
+    #camera-feed{
+      position:absolute;inset:0;width:100%;height:100%;
+      object-fit:cover;z-index:0;
+      filter:contrast(1.35) brightness(0.75) hue-rotate(90deg) saturate(1.2);
+      opacity:0.55;
+      background:#000;
+    }
+    #hud-canvas{
+      position:absolute;inset:0;width:100%;height:100%;z-index:10;
     }
 
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-touch-callout: none;
-      font-family: 'Consolas', 'Monaco', monospace;
+    /* HUD text layer (pointer none so it doesn't eat taps) */
+    #ui-layer{
+      position:absolute;inset:0;z-index:20;pointer-events:none;
+      display:flex;flex-direction:column;justify-content:space-between;
+      padding:max(14px, env(safe-area-inset-top));
+      gap:8px;
     }
-
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: var(--bg-dark);
-      color: var(--hud-primary);
-      width: 100vw;
-      height: 100vh;
+    .hud-panel{
+      background:var(--glass);
+      border:var(--panel-border);
+      padding:10px 12px;
+      width:fit-content;
+      backdrop-filter: blur(8px);
+      box-shadow:var(--neon-glow);
+      border-radius:var(--panel-radius);
+      opacity:0.92; /* still readable but not blocking */
     }
-
-    #viewport {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: #000;
+    .hud-panel-wide{width:auto;min-width:240px;max-width:300px;}
+    .panel-title{
+      font-size:10px;font-weight:800;color:var(--hud-secondary);
+      margin-bottom:6px;letter-spacing:2px;text-transform:uppercase;
     }
-
-    #camera-feed {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 0;
-      filter: sepia(0.5) hue-rotate(70deg) contrast(1.2) brightness(0.8);
-      opacity: 0.6;
+    .hud-text{
+      font-size:11px;letter-spacing:0.6px;margin-bottom:3px;
+      text-shadow:var(--neon-glow);display:flex;justify-content:space-between;gap:10px;
     }
-
-    #hud-canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      pointer-events: none;
-    }
-
-    #ui-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: max(16px, env(safe-area-inset-top));
-    }
-
-    .hud-panel {
-      background: var(--glass);
-      border-left: 3px solid var(--hud-primary);
-      padding: 8px 12px;
-      margin: 10px;
-      width: fit-content;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
-    }
-    .hud-panel-wide { width:auto; max-width:320px; }
-
-    .hud-text {
-      font-size: 12px;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-      text-shadow: 0 0 5px var(--hud-primary);
-    }
-    .hud-value { font-weight:bold; color:#fff; }
-    .hud-label { color: var(--hud-secondary); }
+    .hud-value{font-weight:800;color:#e9ffe9;margin-left:8px;white-space:nowrap;}
 
     /* Radar */
-    #radar-container {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      background: rgba(0, 20, 0, 0.9);
-      border: 2px solid var(--hud-primary);
-      box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-      overflow: hidden;
-      z-index: 30;
-      pointer-events: none;
-    }
-    #radar-container::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.35) 360deg);
-      border-radius: 50%;
-      animation: radar-scan 2s linear infinite;
-      pointer-events: none;
-    }
-    .radar-grid {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      border: 1px solid rgba(0,255,65,0.25);
-      border-radius: 50%;
+    #radar-container{
+      position:absolute;bottom:16px;right:16px;width:140px;height:140px;border-radius:50%;
+      background:var(--glass-dark);border:2px solid var(--hud-primary);
+      box-shadow:0 0 18px rgba(0,255,65,0.25);overflow:hidden;z-index:30;
       pointer-events:none;
     }
-    .radar-cross {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100%; height: 1px;
-      background: rgba(0,255,65,0.25);
-      pointer-events:none;
+    #radar-container::after{
+      content:'';position:absolute;inset:0;border-radius:50%;
+      background:conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.35) 360deg);
+      animation:radar-scan 3s linear infinite;
     }
-    .radar-blip {
-      position: absolute;
-      border-radius: 50%;
-      transform: translate(-50%,-50%);
-      box-shadow: 0 0 6px currentColor;
-      transition: transform .12s ease-out, opacity .12s ease-out;
-      will-change: transform, opacity, left, top;
-      pointer-events:none;
+    @keyframes radar-scan{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+    .radar-grid{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      border:1px solid rgba(0,255,65,0.25);border-radius:50%;
     }
-    @keyframes radar-scan { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-    @keyframes pulse {
-      0% { opacity:1; transform:translate(-50%,-50%) scale(1); }
-      50% { opacity:.65; transform:translate(-50%,-50%) scale(1.25); }
-      100% { opacity:1; transform:translate(-50%,-50%) scale(1); }
+    .radar-cross{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:100%;height:1px;background:rgba(0,255,65,0.25);
+    }
+    #radar-blips{position:absolute;inset:0;z-index:2;}
+    .radar-blip{
+      position:absolute;border-radius:50%;transform:translate(-50%,-50%);
+      box-shadow:var(--neon-glow);transition:all .25s ease;will-change:transform,opacity;
+    }
+    .radar-range{
+      position:absolute;bottom:4px;left:50%;transform:translateX(-50%);
+      font-size:9px;color:var(--hud-secondary);z-index:3;
     }
 
-    /* Boot */
-    #boot-overlay {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--hud-primary);
+    /* System status bar */
+    #system-status{
+      position:absolute;bottom:0;left:0;width:100%;z-index:25;
+      background:var(--glass-dark);border-top:1px solid var(--hud-secondary);
+      padding:6px 12px;display:flex;justify-content:space-between;font-size:10px;
+      backdrop-filter:blur(4px);pointer-events:none;
     }
-    #btn-init {
-      background: transparent;
-      color: var(--hud-primary);
-      border: 2px solid var(--hud-primary);
-      padding: 14px 44px;
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: 3px;
-      cursor: pointer;
-      margin-top: 20px;
-      transition: .25s;
-      clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+    .status-section{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .status-item-compact{display:flex;align-items:center;margin-right:8px;}
+    .status-indicator{
+      width:6px;height:6px;border-radius:50%;margin-right:6px;position:relative;background:#444;
     }
-    #btn-init:hover {
-      background: var(--hud-primary);
-      color: #000;
-      box-shadow: 0 0 30px var(--hud-primary);
+    .status-indicator::after{
+      content:'';position:absolute;inset:-1px;border-radius:50%;box-shadow:0 0 6px currentColor;
     }
-    .status-led {
-      display:inline-block; width:8px; height:8px;
-      background:#333; border-radius:50%; margin-right:8px;
-    }
-    .status-led.active { background:var(--hud-primary); box-shadow:0 0 10px var(--hud-primary); }
-    .status-led.error { background:var(--hud-alert); box-shadow:0 0 10px var(--hud-alert); }
-    .status-led.warning { background:var(--hud-warn); box-shadow:0 0 10px var(--hud-warn); }
+    .status-ok{background:var(--hud-primary);}
+    .status-warn{background:var(--hud-warn);}
+    .status-error{background:var(--hud-alert);}
+    .status-offline{background:#555;}
 
-    /* Status bar */
-    #system-status {
-      position:absolute; bottom:0; left:0; width:100%;
-      background: var(--glass-dark);
-      border-top: 1px solid var(--hud-secondary);
-      padding: 6px 12px;
-      display:flex; justify-content:space-between;
-      font-size: 11px; z-index:25;
-      pointer-events:none;
+    /* Boot overlay */
+    #boot-overlay{
+      position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;color:var(--hud-primary);
+      background:radial-gradient(circle at center, #001100 0%, #000 70%);
     }
-    .status-item { display:flex; align-items:center; margin-right:15px; }
-    .status-indicator { width:6px; height:6px; border-radius:50%; margin-right:5px; }
-    .status-ok { background:var(--hud-primary); }
-    .status-warn { background:var(--hud-warn); }
-    .status-error { background:var(--hud-alert); }
-    .status-offline { background:#444; }
+    .boot-title{
+      font-size:44px;font-weight:900;letter-spacing:8px;text-shadow:0 0 20px var(--hud-primary);
+      background:linear-gradient(90deg,var(--hud-primary),var(--hud-secondary));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    }
+    .boot-subtitle{opacity:.75;margin:8px 0 26px;font-size:13px;letter-spacing:3px;}
+    #btn-init{
+      background:transparent;color:var(--hud-primary);border:2px solid var(--hud-primary);
+      padding:14px 44px;font-family:inherit;font-size:15px;font-weight:800;letter-spacing:3px;
+      cursor:pointer;transition:all .25s ease;border-radius:999px;text-transform:uppercase;
+    }
+    #btn-init:hover{background:var(--hud-primary);color:#000;box-shadow:0 0 26px var(--hud-primary);}
+    .status-list{font-size:12px;line-height:1.7;opacity:.9;margin-top:10px;}
+    .status-item{display:flex;align-items:center;margin-bottom:8px;gap:10px;}
+    .status-led{width:9px;height:9px;border-radius:50%;background:#333;box-shadow:0 0 7px currentColor;}
+    .status-led.active{background:var(--hud-primary);}
+    .status-led.warning{background:var(--hud-warn);}
+    .status-led.error{background:var(--hud-alert);}
+    .status-led.loading{background:var(--hud-info);animation:pulse 1.4s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-    /* Control Toggle + Panel (pointer-events ON) */
-    #control-toggle {
-      position: absolute;
-      top: 12px; left: 12px;
-      z-index: 60;
-      pointer-events: auto;
-      background: rgba(0,0,0,0.55);
-      border: 1px solid var(--panel-border);
-      color: var(--hud-primary);
-      padding: 8px 10px;
-      border-radius: 10px;
-      font-size: 12px;
-      letter-spacing: 1px;
-      backdrop-filter: blur(8px);
-      cursor:pointer;
-      display:flex; align-items:center; gap:8px;
+    /* Error / permission overlay */
+    #error-overlay{
+      position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.85);color:#eaffea;padding:20px;text-align:center;
     }
-    #control-panel {
-      position:absolute;
-      top: 50px; left: 12px;
-      width: 290px;
-      max-height: calc(100vh - 90px);
-      overflow: auto;
-      z-index: 60;
-      pointer-events: auto;
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      padding: 12px;
-      display: none;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      backdrop-filter: blur(10px);
+    #error-box{
+      max-width:420px;background:var(--glass-dark);border:var(--panel-border);
+      padding:18px 16px;border-radius:16px;backdrop-filter:blur(8px);
     }
-    #control-panel.open { display:block; }
-    .cp-title { font-size:12px; opacity:.9; margin-bottom:8px; letter-spacing:1px; }
-    .cp-row { display:flex; align-items:center; justify-content:space-between; margin:6px 0; }
-    .cp-row small{opacity:.8;}
-    .cp-btn, .cp-select, .cp-input {
-      background: rgba(0,0,0,0.6);
-      border: 1px solid var(--panel-border);
-      color: var(--hud-primary);
-      padding: 6px 8px;
-      border-radius: 8px;
-      font-size: 12px;
-      cursor:pointer;
-      outline:none;
-    }
-    .cp-btn:active { transform: translateY(1px); }
-    .cp-btn.secondary { color:#d9ffd9; border-color:rgba(0,255,65,0.2); }
-    .cp-pill {
-      display:inline-flex; gap:6px; flex-wrap:wrap;
-    }
-    .cp-chip {
-      border:1px solid var(--panel-border);
-      background: rgba(0,0,0,0.6);
-      padding:4px 8px; border-radius:999px; font-size:11px; cursor:pointer;
-    }
-    .cp-chip.active { background: rgba(0,255,65,0.12); }
+    #error-box h3{margin:0 0 8px;font-size:16px;letter-spacing:1px;}
+    #error-box p{margin:6px 0;font-size:13px;opacity:.9;}
 
-    /* Calibrate Modal */
-    #calibrate-modal {
-      position: fixed; inset: 0; z-index: 80;
-      display: none; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.65);
-      pointer-events: auto;
+    /* Control panel (pointer auto) */
+    #control-panel{
+      position:absolute;top:50%;left:12px;transform:translateY(-50%);
+      z-index:40;pointer-events:auto;
+      display:flex;flex-direction:column;gap:8px;
     }
-    #calibrate-modal.open { display:flex; }
-    .modal-card {
-      width: min(92vw, 360px);
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      padding: 14px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.75);
+    #control-panel.hidden{display:none;}
+    .cp-card{
+      background:var(--glass-dark);
+      border:var(--panel-border);
+      padding:10px;border-radius:14px;min-width:170px;
+      backdrop-filter:blur(10px);
+      box-shadow:0 0 16px rgba(0,255,65,0.18);
     }
-    .modal-card h3 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      letter-spacing: 1px;
-      color: #eaffea;
+    .cp-title{font-size:10px;color:var(--hud-secondary);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+    .cp-row{display:flex;gap:6px;flex-wrap:wrap;}
+    .cp-btn, select.cp-select, input.cp-input{
+      pointer-events:auto;cursor:pointer;border:1px solid rgba(0,255,65,0.6);
+      background:rgba(0,0,0,0.6);color:#eaffea;
+      padding:6px 8px;border-radius:10px;font-family:inherit;font-size:12px;
+      transition:all .2s ease;
     }
-    .modal-card label { font-size: 12px; opacity:.9; display:block; margin-top:8px; }
-    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
-    .modal-note { font-size:11px; opacity:.8; margin-top:8px; line-height:1.4; }
+    .cp-btn:hover, select.cp-select:hover{background:rgba(0,255,65,0.12);}
+    .cp-btn.toggled{background:rgba(0,255,65,0.25);}
+    .cp-btn.danger{border-color:rgba(255,60,60,0.8);color:#ffdede;}
+    .cp-btn.danger:hover{background:rgba(255,60,60,0.15);}
+    .cp-small{font-size:11px;opacity:.85;line-height:1.3;margin-top:4px;}
 
-    /* Error Overlay */
-    #error-overlay {
-      position: fixed; inset:0; z-index:70;
-      display:none; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.9);
-      color: #eaffea;
-      pointer-events:auto;
-      padding: 18px;
-      text-align:center;
+    /* Calibrate modal */
+    #calibrate-modal{
+      position:fixed;inset:0;z-index:8000;display:none;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.7);pointer-events:auto;
     }
-    #error-overlay.open { display:flex; }
-    #error-overlay .card {
-      max-width: 520px;
-      background: rgba(10,20,10,0.9);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      padding: 16px;
+    #calibrate-card{
+      width:min(92vw,420px);background:var(--glass-dark);border:var(--panel-border);
+      padding:16px;border-radius:16px;backdrop-filter:blur(8px);color:#eaffea;
     }
-    #error-overlay h2 { font-size:16px; margin:0 0 8px 0; }
-    #error-overlay p { font-size:12px; opacity:.9; line-height:1.45; }
+    #calibrate-card h3{margin:0 0 8px;font-size:15px;}
+    #calibrate-card .line{font-size:12px;opacity:.9;margin:4px 0;}
+    #calibrate-card label{display:block;font-size:12px;margin:8px 0 4px;}
+    #calibrate-card .cp-input{width:100%;}
+    #calibrate-card .cp-row{justify-content:flex-end;margin-top:10px;}
 
-    /* Toast */
-    #toast {
-      position: fixed;
-      bottom: 52px; left: 50%;
-      transform: translateX(-50%);
-      z-index: 90;
-      background: rgba(0,0,0,0.8);
-      border: 1px solid var(--panel-border);
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      opacity: 0;
-      pointer-events:none;
-      transition: opacity .2s ease;
-      backdrop-filter: blur(6px);
+    /* Layout tweaks for readability */
+    .top-row{display:flex;justify-content:space-between;width:100%;gap:8px;}
+    .bottom-left{position:absolute;left:12px;bottom:170px;}
+    .bottom-right{position:absolute;right:170px;top:110px;}
+
+    @media (max-width:768px){
+      #radar-container{width:125px;height:125px;right:12px;bottom:12px;}
+      .boot-title{font-size:34px;letter-spacing:6px;}
+      #control-panel{left:8px;}
     }
-    #toast.show { opacity: 1; }
   </style>
 </head>
 <body>
+  <div id="viewport">
+    <video id="camera-feed" autoplay playsinline muted></video>
+    <canvas id="hud-canvas"></canvas>
 
-<div id="viewport">
-  <video id="camera-feed" autoplay playsinline muted></video>
-  <canvas id="hud-canvas"></canvas>
+    <div id="ui-layer">
+      <div class="top-row">
+        <div class="hud-panel">
+          <div class="panel-title">SYSTEM METRICS</div>
+          <div class="hud-text">AI FPS (REAL): <span id="val-ai-fps" class="hud-value">0</span></div>
+          <div class="hud-text">RENDER FPS: <span id="val-render-fps" class="hud-value">0</span></div>
+          <div class="hud-text">INFER AVG: <span id="val-cpu" class="hud-value">0</span> ms</div>
+          <div class="hud-text">TRACKS: <span id="val-tracked" class="hud-value">0</span></div>
+        </div>
 
-  <div id="ui-layer">
-    <div style="display:flex; justify-content:space-between; width:100%;">
-      <div class="hud-panel">
-        <div class="hud-text">SYSTEM CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
-        <div class="hud-text">AI FPS / RENDER FPS: <span id="val-ai-fps" class="hud-value">0</span> / <span id="val-render-fps" class="hud-value">0</span></div>
-        <div class="hud-text">TRACKED: <span id="val-tracked" class="hud-value">0</span></div>
+        <div class="hud-panel">
+          <div class="panel-title">AVIONICS</div>
+          <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0.0°</span></div>
+          <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0.0°</span></div>
+          <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0.0°</span></div>
+          <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.00</span></div>
+        </div>
       </div>
-      <div class="hud-panel" style="text-align:right;">
-        <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0</span>°</div>
-        <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0</span>°</div>
-        <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0</span>°</div>
-        <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.00</span></div>
+
+      <!-- Tactical analytics moved to corner to avoid blocking center -->
+      <div class="hud-panel hud-panel-wide bottom-left">
+        <div class="panel-title">TACTICAL ANALYTICS</div>
+        <div class="hud-text">ACTIVE OBJECTS: <span id="val-active" class="hud-value">0</span></div>
+        <div class="hud-text">PERSON DETECT (5M): <span id="val-persons" class="hud-value">0</span></div>
+        <div class="hud-text">DOMINANT CLASS: <span id="val-top-label" class="hud-value">--</span></div>
       </div>
-    </div>
 
-    <div class="hud-panel hud-panel-wide" style="margin-top: auto; margin-bottom: 160px;">
-      <div class="hud-text">ANALYTICS</div>
-      <div class="hud-text">ACTIVE: <span id="val-active" class="hud-value">0</span> | PERSONS (5M): <span id="val-persons" class="hud-value">0</span></div>
-      <div class="hud-text">CLOSEST PERSON: <span id="val-closest-person" class="hud-value">--</span></div>
-      <div class="hud-text">TOP LABEL: <span id="val-top-label" class="hud-value">--</span></div>
-    </div>
+      <div class="hud-panel hud-panel-wide bottom-right">
+        <div class="panel-title">PRIMARY TARGET</div>
+        <div class="hud-text">ID: <span id="val-target-id" class="hud-value">--</span></div>
+        <div class="hud-text">CLASS: <span id="val-target-label" class="hud-value">--</span></div>
+        <div class="hud-text">DIST: <span id="val-target-dist" class="hud-value">--</span></div>
+        <div class="hud-text">BEARING: <span id="val-target-bearing" class="hud-value">--</span></div>
+        <div class="hud-text">MOTION: <span id="val-target-state" class="hud-value">--</span></div>
+        <div class="hud-text">CONF: <span id="val-target-conf" class="hud-value">--</span></div>
+      </div>
 
-    <div class="hud-panel hud-panel-wide" style="margin-left: auto; margin-right: 160px;">
-      <div class="hud-text">PRIMARY TARGET</div>
-      <div class="hud-text"><span id="val-target-label" class="hud-value">--</span></div>
-      <div class="hud-text">DIST: <span id="val-target-dist" class="hud-value">--</span> | BEAR: <span id="val-target-bearing" class="hud-value">--</span></div>
-      <div class="hud-text">STATE: <span id="val-target-state" class="hud-value">--</span></div>
-    </div>
-
-    <div id="radar-container">
-      <div class="radar-grid" style="width: 33%; height: 33%;"></div>
-      <div class="radar-grid" style="width: 66%; height: 66%;"></div>
-      <div class="radar-cross"></div>
-      <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
-      <div id="radar-blips"></div>
-    </div>
-  </div>
-
-  <!-- Control -->
-  <button id="control-toggle">☰ CONTROL</button>
-
-  <div id="control-panel">
-    <div class="cp-title">SYSTEM CONTROL PANEL</div>
-
-    <div class="cp-row">
-      <small>Preset</small>
-      <select id="cp-preset" class="cp-select">
-        <option value="Low">Low</option>
-        <option value="Balanced" selected>Balanced</option>
-        <option value="High">High</option>
-      </select>
-    </div>
-
-    <div class="cp-row">
-      <small>AI Engine</small>
-      <button id="cp-ai-toggle" class="cp-btn">Pause AI</button>
-    </div>
-
-    <div class="cp-row">
-      <small>Camera</small>
-      <button id="cp-cam-toggle" class="cp-btn">Stop Camera</button>
-    </div>
-
-    <div class="cp-row">
-      <small>HUD Elements</small>
-      <div class="cp-pill">
-        <button id="cp-toggle-horizon" class="cp-chip active">Horizon</button>
-        <button id="cp-toggle-radar" class="cp-chip active">Radar</button>
-        <button id="cp-toggle-boxes" class="cp-chip active">Boxes</button>
+      <!-- Radar -->
+      <div id="radar-container">
+        <div class="radar-grid" style="width:33%;height:33%"></div>
+        <div class="radar-grid" style="width:66%;height:66%"></div>
+        <div class="radar-cross"></div>
+        <div class="radar-cross" style="transform:translate(-50%,-50%) rotate(90deg)"></div>
+        <div id="radar-blips"></div>
+        <div class="radar-range">RANGE: 50M</div>
       </div>
     </div>
 
-    <hr style="border:0;border-top:1px solid rgba(0,255,65,0.2); margin:10px 0;">
+    <!-- Control Panel -->
+    <div id="control-panel" class="hidden">
+      <div class="cp-card">
+        <div class="cp-title">Controls</div>
+        <div class="cp-row">
+          <button id="btn-ai-toggle" class="cp-btn">Pause AI</button>
+          <button id="btn-cam-toggle" class="cp-btn danger">Stop Cam</button>
+        </div>
+        <div class="cp-row" style="margin-top:6px">
+          <button id="btn-boxes" class="cp-btn toggled">Boxes</button>
+          <button id="btn-radar" class="cp-btn toggled">Radar</button>
+          <button id="btn-horizon" class="cp-btn toggled">Horizon</button>
+        </div>
+      </div>
 
-    <div class="cp-title">DEPTH CALIBRATION</div>
-    <div class="cp-row">
-      <small>Status</small>
-      <span id="cp-calib-status" style="font-size:12px;">NOT CALIBRATED</span>
-    </div>
-    <div class="cp-row">
-      <small>Calibrate using primary target</small>
-      <button id="cp-open-calib" class="cp-btn secondary">Open CALIBRATE</button>
+      <div class="cp-card">
+        <div class="cp-title">Quality</div>
+        <div class="cp-row">
+          <select id="sel-preset" class="cp-select">
+            <option value="low">Low</option>
+            <option value="balanced" selected>Balanced</option>
+            <option value="high">High</option>
+          </select>
+          <button id="btn-calibrate" class="cp-btn">Calibrate</button>
+        </div>
+        <div class="cp-small" id="calib-status">Depth: RELATIVE (not calibrated)</div>
+      </div>
+
+      <div class="cp-card">
+        <div class="cp-title">Memory</div>
+        <div class="cp-row">
+          <button id="btn-export" class="cp-btn">Export JSON</button>
+          <button id="btn-import" class="cp-btn">Import JSON</button>
+          <button id="btn-clear" class="cp-btn danger">Clear</button>
+        </div>
+      </div>
     </div>
 
-    <hr style="border:0;border-top:1px solid rgba(0,255,65,0.2); margin:10px 0;">
+    <!-- Toggle Panel Button (tiny, not blocking) -->
+    <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:41;pointer-events:auto;">
+      <button id="btn-panel-toggle" class="cp-btn" style="padding:6px 10px;border-radius:999px;">Panel</button>
+    </div>
 
-    <div class="cp-title">MEMORY / KB</div>
-    <div class="cp-row">
-      <small>Export Memory</small>
-      <button id="cp-export" class="cp-btn secondary">Export JSON</button>
+    <!-- System Status Bar -->
+    <div id="system-status">
+      <div class="status-section">
+        <div class="status-item-compact"><span class="status-indicator" id="status-cam"></span><span>OPTICAL</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-ai"></span><span>NEURAL</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-gyro"></span><span>AVIONICS</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-tracker"></span><span>TRACKER</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-memory"></span><span>MEMORY</span></div>
+      </div>
+      <div class="status-section"><span id="status-message">SYSTEM_STANDBY</span></div>
     </div>
-    <div class="cp-row">
-      <small>Import Memory</small>
-      <input id="cp-import" type="file" accept="application/json" class="cp-input" />
+  </div>
+
+  <!-- Boot Screen -->
+  <div id="boot-overlay">
+    <div class="boot-title">OMEGA</div>
+    <div class="boot-subtitle">ADVANCED HUMANOID VISION SYSTEM</div>
+    <div class="status-list">
+      <div class="status-item"><span class="status-led" id="led-cam"></span>OPTICAL SENSOR ARRAY</div>
+      <div class="status-item"><span class="status-led" id="led-ai"></span>DEEP NEURAL NETWORK (COCO-SSD)</div>
+      <div class="status-item"><span class="status-led" id="led-gyro"></span>INERTIAL NAV (GYRO/ACCEL)</div>
+      <div class="status-item"><span class="status-led" id="led-tracker"></span>MULTI-OBJECT TRACKER</div>
+      <div class="status-item"><span class="status-led" id="led-memory"></span>KNOWLEDGE BASE</div>
     </div>
-    <div class="cp-row">
-      <small>Clear Memory</small>
-      <button id="cp-clear" class="cp-btn">Clear</button>
+    <button id="btn-init">INITIALIZE SYSTEM</button>
+  </div>
+
+  <!-- Error Overlay -->
+  <div id="error-overlay">
+    <div id="error-box">
+      <h3 id="error-title">ERROR</h3>
+      <p id="error-msg"></p>
+      <p id="error-hint"></p>
+      <div style="margin-top:10px;">
+        <button class="cp-btn" id="btn-try-again">Try Again</button>
+      </div>
     </div>
   </div>
 
-  <!-- Status bar -->
-  <div id="system-status">
-    <div style="display:flex;">
-      <div class="status-item"><span class="status-indicator" id="status-cam"></span><span>CAM</span></div>
-      <div class="status-item"><span class="status-indicator" id="status-ai"></span><span>AI</span></div>
-      <div class="status-item"><span class="status-indicator" id="status-gyro"></span><span>GYRO</span></div>
-      <div class="status-item"><span class="status-indicator" id="status-tracker"></span><span>TRACKER</span></div>
-      <div class="status-item"><span class="status-indicator" id="status-memory"></span><span>MEMORY</span></div>
-    </div>
-    <div><span id="status-message">SYSTEM INITIALIZING</span></div>
-  </div>
-</div>
-
-<!-- Boot overlay -->
-<div id="boot-overlay">
-  <div style="font-size: 40px; font-weight: 900; margin-bottom: 10px; letter-spacing: 5px;">OMEGA</div>
-  <div style="opacity: 0.7; margin-bottom: 30px;">ADVANCED HUMANOID VISION SYSTEM</div>
-  <div style="text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.8;">
-    <div><span class="status-led" id="led-cam"></span> OPTICAL SENSORS</div>
-    <div><span class="status-led" id="led-ai"></span> NEURAL ENGINE (COCO-SSD)</div>
-    <div><span class="status-led" id="led-gyro"></span> AVIONICS / GYRO</div>
-    <div><span class="status-led" id="led-tracker"></span> OBJECT TRACKER</div>
-    <div><span class="status-led" id="led-memory"></span> KNOWLEDGE BASE</div>
-  </div>
-  <button id="btn-init">INITIALIZE SYSTEM</button>
-</div>
-
-<!-- Calibrate modal -->
-<div id="calibrate-modal">
-  <div class="modal-card">
-    <h3>CALIBRATE DEPTH (PINHOLE MODEL)</h3>
-
-    <label>Target Type</label>
-    <select id="calib-type" class="cp-select" style="width:100%;">
-      <option value="person" selected>Person (full body)</option>
-      <option value="vehicle">Vehicle</option>
-    </select>
-
-    <label>Real Distance to Target (meters)</label>
-    <input id="calib-distance" type="number" min="0.5" step="0.1" class="cp-input" style="width:100%;" value="3.0"/>
-
-    <label>Real Target Height (meters)</label>
-    <input id="calib-height" type="number" min="0.3" step="0.01" class="cp-input" style="width:100%;" value="1.70"/>
-
-    <div class="modal-note">
-      วางเป้า “เต็มตัว” ไว้กลางจอ → ให้ Primary Target จับได้ → กด Calibrate.  
-      สูตร: f ≈ (h_px * Z_real) / H_real, แล้วใช้ Z_est ≈ (f * H_real) / h_px
-    </div>
-
-    <div class="modal-actions">
-      <button id="calib-cancel" class="cp-btn">Cancel</button>
-      <button id="calib-apply" class="cp-btn secondary">Calibrate</button>
+  <!-- Calibrate Modal -->
+  <div id="calibrate-modal">
+    <div id="calibrate-card">
+      <h3>CALIBRATE DEPTH</h3>
+      <div class="line">1) ให้เป้าหมายยืนเต็มตัวในเฟรม</div>
+      <div class="line">2) ใส่ "ระยะจริง" กับ "ความสูงจริง" แล้วกด Calibrate</div>
+      <label>Real Distance (meters)</label>
+      <input id="inp-calib-dist" class="cp-input" type="number" step="0.1" min="0.5" value="3.0" />
+      <label>Target Height (meters)</label>
+      <input id="inp-calib-height" class="cp-input" type="number" step="0.01" min="0.5" value="1.75" />
+      <div class="cp-row">
+        <button id="btn-calib-cancel" class="cp-btn danger">Cancel</button>
+        <button id="btn-calib-ok" class="cp-btn">Calibrate Now</button>
+      </div>
+      <div class="cp-small" style="margin-top:6px;opacity:.8">
+        * ถ้าไม่ calibrate ระบบจะแสดงระยะเป็น REL (0-1)
+      </div>
     </div>
   </div>
-</div>
-
-<!-- Error overlay -->
-<div id="error-overlay">
-  <div class="card">
-    <h2 id="error-title">CAMERA ERROR</h2>
-    <p id="error-msg">Unable to access camera.</p>
-    <p style="margin-top:10px; font-size:12px; opacity:.9;">
-      ✅ iOS: Settings → Safari → Camera → Allow<br/>
-      ✅ Android: Site Settings → Camera → Allow<br/>
-      แล้วกด “INITIALIZE SYSTEM” ใหม่
-    </p>
-    <button id="error-close" class="cp-btn secondary" style="margin-top:10px;">Close</button>
-  </div>
-</div>
-
-<div id="toast"></div>
 
 <script>
-/**
- * OMEGA v3.0 — Production-grade Mobile CV + HUD
- * Single-file, no build tools. tfjs + coco-ssd only.
- */
+(() => {
+  'use strict';
 
-// ============================================================================
-// CONFIG
-// ============================================================================
-const CONFIG = {
-  AI: {
-    MODEL_TYPE: 'lite_mobilenet_v2',
-    CONFIDENCE_THRESHOLD: 0.55,
-    MAX_DETECTIONS: 20,
-    INFERENCE_RATE: 10,     // hard ceiling for adaptive
-    MIN_RATE: 2,            // adaptive floor (foreground)
-    WARMUP_RUNS: 2,
-    ADAPTIVE: {
-      TARGET_MS: 90,        // if slower -> reduce rate
-      HYSTERESIS: 0.15,     // avoid oscillation
-      ADJUST_STEP: 1
+  // ============================================================================
+  // CONFIG
+  // ============================================================================
+  const CONFIG = {
+    AI: {
+      MODEL_TYPE: 'lite_mobilenet_v2',
+      CONFIDENCE_THRESHOLD: 0.65,
+      MAX_DETECTIONS: 25,
+      INFERENCE_RATE: 12 // hard cap
     },
     PRESETS: {
-      Low:      { maxFps: 4,  shadowBlur: 0,  smoothing: 0.82, renderFps: 20 },
-      Balanced: { maxFps: 10, shadowBlur: 8,  smoothing: 0.70, renderFps: 30 },
-      High:     { maxFps: 15, shadowBlur: 12, smoothing: 0.58, renderFps: 40 }
+      low:      { targetHz: 6,  maxDet: 10, shadow: 0,  lineWidth: 2 },
+      balanced: { targetHz: 10, maxDet: 18, shadow: 6,  lineWidth: 2.5 },
+      high:     { targetHz: 14, maxDet: 25, shadow: 10, lineWidth: 3 }
     },
-    DEFAULT_PRESET: 'Balanced'
-  },
+    TRACKING: {
+      MIN_IOU: 0.35,
+      MAX_ASSOC_DIST: 0.28, // normalized in video space
+      MAX_AGE: 45,
+      COASTING_FRAMES: 10,
+      SMOOTHING: 0.75,
+      LABEL_BONUS: 0.12
+    },
+    PHYSICS: {
+      H_FOV_DEG: 67.5,
+      MAX_RANGE_M: 50,
+      MIN_RANGE_M: 0.5,
+      PERSON_HEIGHT_M: 1.75,
+      VEHICLE_HEIGHT_M: 1.6,
+      APPROACH_T: 0.15,
+      RECEDE_T: -0.10,
+      STATIC_T: 0.05
+    },
+    MEMORY: {
+      MAX_EVENTS: 2000,
+      RETENTION_MS: 60 * 60 * 1000,
+      PERSIST_INTERVAL_MS: 5000
+    }
+  };
 
-  TRACKING: {
-    MAX_AGE_FRAMES: 30,
-    MIN_IOU: 0.30,
-    MAX_CENTER_DIST_NORM: 0.35,
-    LABEL_BONUS: 0.10,
-    LABEL_PENALTY: 0.20,
-    ALPHA: 0.85,     // alpha-beta filter constants
-    BETA:  0.005
-  },
+  // ============================================================================
+  // DOM
+  // ============================================================================
+  const video = document.getElementById('camera-feed');
+  const canvas = document.getElementById('hud-canvas');
+  const ctx = canvas.getContext('2d');
 
-  PHYSICS: {
-    HORIZONTAL_FOV: 70,
-    MAX_RANGE: 50,
-    PERSON_HEIGHT: 1.70,
-    VEHICLE_HEIGHT: 1.50,
-    MOTION_THRESHOLD: 0.01,
-    APPROACH_THRESHOLD: 0.02,
-    RECEDE_THRESHOLD: -0.01,
-    GYRO_DAMPING: 0.015
-  },
+  const boot = document.getElementById('boot-overlay');
+  const btnInit = document.getElementById('btn-init');
 
-  RADAR: {
-    RANGE: 50,
-    BLOB_SIZE_MIN: 4,
-    BLOB_SIZE_MAX: 10,
-    SCAN_SPEED: 2,
-    MAX_BLIPS: 24
-  },
+  const errorOverlay = document.getElementById('error-overlay');
+  const errorTitle = document.getElementById('error-title');
+  const errorMsg = document.getElementById('error-msg');
+  const errorHint = document.getElementById('error-hint');
+  const btnTryAgain = document.getElementById('btn-try-again');
 
-  MEMORY: {
-    MAX_EVENTS: 1000,
-    PERSIST_INTERVAL: 30000,
-    STORAGE_KEY: 'OMEGA_KB_V3'
-  },
+  const cp = document.getElementById('control-panel');
+  const btnPanelToggle = document.getElementById('btn-panel-toggle');
+  const btnAiToggle = document.getElementById('btn-ai-toggle');
+  const btnCamToggle = document.getElementById('btn-cam-toggle');
+  const btnBoxes = document.getElementById('btn-boxes');
+  const btnRadar = document.getElementById('btn-radar');
+  const btnHorizon = document.getElementById('btn-horizon');
+  const selPreset = document.getElementById('sel-preset');
+  const btnCalibrate = document.getElementById('btn-calibrate');
+  const calibStatus = document.getElementById('calib-status');
+  const btnExport = document.getElementById('btn-export');
+  const btnImport = document.getElementById('btn-import');
+  const btnClear = document.getElementById('btn-clear');
 
-  UI: {
-    UPDATE_RATE: 30
-  },
+  const calibModal = document.getElementById('calibrate-modal');
+  const inpCalibDist = document.getElementById('inp-calib-dist');
+  const inpCalibHeight = document.getElementById('inp-calib-height');
+  const btnCalibCancel = document.getElementById('btn-calib-cancel');
+  const btnCalibOk = document.getElementById('btn-calib-ok');
 
-  COLORS: {
-    PRIMARY: '#00ff41',
-    SECONDARY: '#008f11',
-    ALERT: '#ff0000',
-    WARN: '#ffcc00',
-    INFO: '#0080ff',
-    PERSON: '#ff0000',
-    VEHICLE: '#ffcc00',
-    OTHER: '#00ff41'
-  }
-};
+  const radarBlipsEl = document.getElementById('radar-blips');
 
-// ============================================================================
-// Utils
-// ============================================================================
-const Utils = {
-  clamp: (n, a, b) => Math.min(Math.max(n, a), b),
-  map: (v, x1, y1, x2, y2) => (v - x1) * (y2 - x2) / (y1 - x1) + x2,
-  distance: (x1, y1, x2, y2) => Math.sqrt((x2-x1)**2 + (y2-y1)**2),
-  iou: (r1, r2) => {
-    const x1 = Math.max(r1.x, r2.x);
-    const y1 = Math.max(r1.y, r2.y);
-    const x2 = Math.min(r1.x + r1.width, r2.x + r2.width);
-    const y2 = Math.min(r1.y + r1.height, r2.y + r2.height);
-    const inter = Math.max(0, x2-x1) * Math.max(0, y2-y1);
-    const a1 = r1.width * r1.height;
-    const a2 = r2.width * r2.height;
-    const uni = a1 + a2 - inter;
-    return uni > 0 ? inter/uni : 0;
-  },
-  ema: (cur, prev, factor) => prev*factor + cur*(1-factor),
-  toRad: d => d * Math.PI / 180,
-  toDeg: r => r * 180 / Math.PI,
-  id: () => 'id_' + Math.random().toString(36).slice(2, 10),
-  fmt: (v, d=1) => Number.isFinite(v) ? v.toFixed(d) : '--'
-};
+  // UI values
+  const el = (id) => document.getElementById(id);
+  const valCpu = el('val-cpu');
+  const valAiFps = el('val-ai-fps');
+  const valRenderFps = el('val-render-fps');
+  const valTracked = el('val-tracked');
+  const valPitch = el('val-pitch');
+  const valRoll = el('val-roll');
+  const valHeading = el('val-heading');
+  const valG = el('val-g');
+  const valActive = el('val-active');
+  const valPersons = el('val-persons');
+  const valTopLabel = el('val-top-label');
 
-// ============================================================================
-// Video Mapper (handles object-fit: cover mapping)
-// ============================================================================
-class VideoMapper {
-  constructor(videoEl, canvasEl){
-    this.video = videoEl;
-    this.canvas = canvasEl;
-    this.viewW = window.innerWidth;
-    this.viewH = window.innerHeight;
-    this.vidW = 0;
-    this.vidH = 0;
-    this.scale = 1;
-    this.offX = 0;
-    this.offY = 0;
-    window.addEventListener('resize', () => this.recompute());
-  }
+  const valTargetId = el('val-target-id');
+  const valTargetLabel = el('val-target-label');
+  const valTargetDist = el('val-target-dist');
+  const valTargetBearing = el('val-target-bearing');
+  const valTargetState = el('val-target-state');
+  const valTargetConf = el('val-target-conf');
 
-  recompute(){
-    this.viewW = this.canvas.width;
-    this.viewH = this.canvas.height;
-    this.vidW = this.video.videoWidth || this.vidW;
-    this.vidH = this.video.videoHeight || this.vidH;
-    if(!this.vidW || !this.vidH) return;
+  const statusCam = el('status-cam');
+  const statusAi = el('status-ai');
+  const statusGyro = el('status-gyro');
+  const statusTracker = el('status-tracker');
+  const statusMemory = el('status-memory');
+  const statusMessage = el('status-message');
 
-    // object-fit: cover => scale by max ratio
-    const s = Math.max(this.viewW / this.vidW, this.viewH / this.vidH);
-    const dispW = this.vidW * s;
-    const dispH = this.vidH * s;
-    this.scale = s;
-    this.offX = (this.viewW - dispW) / 2;
-    this.offY = (this.viewH - dispH) / 2;
-  }
+  const ledCam = el('led-cam');
+  const ledAi = el('led-ai');
+  const ledGyro = el('led-gyro');
+  const ledTracker = el('led-tracker');
+  const ledMemory = el('led-memory');
 
-  // map video-space bbox to screen/canvas-space bbox
-  toScreenBbox(vb){
-    return {
-      x: vb.x * this.scale + this.offX,
-      y: vb.y * this.scale + this.offY,
-      width: vb.width * this.scale,
-      height: vb.height * this.scale
-    };
-  }
+  // ============================================================================
+  // UTILS
+  // ============================================================================
+  const Utils = {
+    clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
+    ema: (x, prev, alpha) => alpha * prev + (1 - alpha) * x,
+    now: () => performance.now(),
+    fmt: (v, d=1) => Number.isFinite(v) ? v.toFixed(d) : '--',
+    iou: (a, b) => {
+      const x1 = Math.max(a.x, b.x);
+      const y1 = Math.max(a.y, b.y);
+      const x2 = Math.min(a.x + a.w, b.x + b.w);
+      const y2 = Math.min(a.y + a.h, b.y + b.h);
+      const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+      const areaA = a.w * a.h, areaB = b.w * b.h;
+      const uni = areaA + areaB - inter;
+      return uni > 0 ? inter / uni : 0;
+    },
+    centerDistNorm: (a, b, vw, vh) => {
+      const acx = a.x + a.w/2, acy = a.y + a.h/2;
+      const bcx = b.x + b.w/2, bcy = b.y + b.h/2;
+      const dx = (acx - bcx)/vw, dy = (acy - bcy)/vh;
+      return Math.sqrt(dx*dx + dy*dy);
+    }
+  };
 
-  // normalized center in video space (-1..1)
-  videoCenterNorm(vb){
-    const cx = vb.x + vb.width/2;
-    const cy = vb.y + vb.height/2;
-    return {
-      xNorm: Utils.map(cx, 0, this.vidW, -1, 1),
-      yNorm: Utils.map(cy, 0, this.vidH, -1, 1)
-    };
-  }
-}
-
-// ============================================================================
-// Avionics (GYRO / ACCEL)
-// ============================================================================
-class Avionics {
-  constructor(){
-    this.pitch = 0;
-    this.roll = 0;
-    this.heading = 0;
-    this.gForce = 1.0;
-    this.acc = {x:0,y:0,z:0};
-    this.rotationRate = {alpha:0,beta:0,gamma:0};
-    this.isAvailable = false;
-    this.isInitialized = false;
-
-    this.smoothing = {
-      orientation: 0.8,
-      acceleration: 0.7,
-      rotation: 0.7
-    };
-  }
-
-  async init(){
-    try{
-      if(!window.DeviceOrientationEvent && !window.DeviceMotionEvent){
-        throw new Error("Sensors not available");
-      }
-
-      // iOS permission
-      if(typeof DeviceOrientationEvent?.requestPermission === 'function'){
-        const state = await DeviceOrientationEvent.requestPermission();
-        if(state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
-      }
-
-      window.addEventListener('deviceorientation', e => this._handleOrientation(e), {passive:true});
-      window.addEventListener('devicemotion', e => this._handleMotion(e), {passive:true});
-
-      this.isAvailable = true;
-      this.isInitialized = true;
-      return true;
-    }catch(err){
-      console.warn("Avionics init failed:", err);
-      this.isAvailable = false;
-      return false;
+  // ============================================================================
+  // LIGHTWEIGHT KALMAN 1D
+  // ============================================================================
+  class Kalman1D {
+    constructor(q=0.1, r=0.5, x0=0){
+      this.q=q; this.r=r; this.x=x0; this.p=1; this.init=false;
+    }
+    update(z){
+      if(!this.init){ this.x=z; this.init=true; return this.x; }
+      // predict
+      this.p += this.q;
+      // update
+      const k = this.p / (this.p + this.r);
+      this.x = this.x + k * (z - this.x);
+      this.p = (1 - k) * this.p;
+      return this.x;
     }
   }
 
-  _handleOrientation(e){
-    // NOTE: rotationRate must NOT be read from deviceorientation (fix)
-    this.roll = Utils.ema(e.gamma || 0, this.roll, this.smoothing.orientation);
-    this.pitch = Utils.ema(e.beta || 0, this.pitch, this.smoothing.orientation);
-    this.heading = Utils.ema(e.alpha || 0, this.heading, this.smoothing.orientation);
-  }
-
-  _handleMotion(e){
-    const acc = e.accelerationIncludingGravity;
-    if(acc){
-      this.acc.x = Utils.ema(acc.x || 0, this.acc.x, this.smoothing.acceleration);
-      this.acc.y = Utils.ema(acc.y || 0, this.acc.y, this.smoothing.acceleration);
-      this.acc.z = Utils.ema(acc.z || 0, this.acc.z, this.smoothing.acceleration);
-
-      const {x,y,z} = this.acc;
-      this.gForce = Math.sqrt(x*x+y*y+z*z)/9.81;
+  // ============================================================================
+  // VIDEO -> CANVAS MAPPER (object-fit: cover)
+  // ============================================================================
+  class VideoMapper {
+    constructor(){
+      this.vw=0; this.vh=0; this.cw=0; this.ch=0;
+      this.scale=1; this.offX=0; this.offY=0;
     }
-
-    // rotationRate ONLY here (fix)
-    const rr = e.rotationRate;
-    if(rr){
-      this.rotationRate.alpha = Utils.ema(rr.alpha || 0, this.rotationRate.alpha, this.smoothing.rotation);
-      this.rotationRate.beta  = Utils.ema(rr.beta  || 0, this.rotationRate.beta,  this.smoothing.rotation);
-      this.rotationRate.gamma = Utils.ema(rr.gamma || 0, this.rotationRate.gamma, this.smoothing.rotation);
+    update(videoEl, canvasEl){
+      this.vw = videoEl.videoWidth || 0;
+      this.vh = videoEl.videoHeight || 0;
+      this.cw = canvasEl.width;
+      this.ch = canvasEl.height;
+      if(!this.vw || !this.vh) return;
+      // cover scale
+      this.scale = Math.max(this.cw/this.vw, this.ch/this.vh);
+      const dispW = this.vw * this.scale;
+      const dispH = this.vh * this.scale;
+      this.offX = (this.cw - dispW)/2;
+      this.offY = (this.ch - dispH)/2;
+    }
+    toScreen(bbox){
+      return {
+        x: bbox.x * this.scale + this.offX,
+        y: bbox.y * this.scale + this.offY,
+        w: bbox.w * this.scale,
+        h: bbox.h * this.scale
+      };
     }
   }
 
-  gyroMagnitude(){
-    const r = this.rotationRate;
-    return Math.sqrt((r.alpha||0)**2 + (r.beta||0)**2 + (r.gamma||0)**2);
-  }
-}
-
-// ============================================================================
-// Vision Engine (tfjs + coco-ssd)
-// ============================================================================
-class VisionEngine {
-  constructor(){
-    this.model = null;
-    this.isModelLoaded = false;
-    this.isProcessing = false;
-    this.lastInferenceMs = 0;
-    this.avgInferenceMs = 0;
-    this.p95Buffer = [];
-  }
-
-  async init(videoEl){
-    try{
-      await tf.ready();
-
-      // Backend selection (webgl -> cpu). WASM not loaded per CDN constraint.
-      let backend = 'cpu';
+  // ============================================================================
+  // AVIONICS (gyro/accel) - rotationRate ONLY from devicemotion
+  // ============================================================================
+  class Avionics {
+    constructor(){
+      this.pitch=0; this.roll=0; this.heading=0;
+      this.gForce=1.0; this.acc={x:0,y:0,z:0}; this.rot={alpha:0,beta:0,gamma:0};
+      this.isAvailable=false; this.isInitialized=false;
+      this.smoothing={orientation:0.8, acceleration:0.7, rotation:0.7};
+    }
+    async init(){
       try{
-        await tf.setBackend('webgl');
+        if(!window.DeviceOrientationEvent && !window.DeviceMotionEvent){
+          throw new Error("Sensors not available");
+        }
+        if(typeof DeviceOrientationEvent?.requestPermission === 'function'){
+          const st = await DeviceOrientationEvent.requestPermission();
+          if(st !== 'granted') throw new Error("GYRO PERMISSION DENIED");
+        }
+        window.addEventListener('deviceorientation', (e)=>this._onOri(e), {passive:true});
+        window.addEventListener('devicemotion', (e)=>this._onMot(e), {passive:true});
+        this.isAvailable=true; this.isInitialized=true;
+        return true;
+      }catch(err){
+        console.warn("Avionics init failed:", err);
+        this.isAvailable=false;
+        return false;
+      }
+    }
+    _onOri(e){
+      this.roll   = Utils.ema(e.gamma||0, this.roll, this.smoothing.orientation);
+      this.pitch  = Utils.ema(e.beta||0,  this.pitch,this.smoothing.orientation);
+      this.heading= Utils.ema(e.alpha||0, this.heading,this.smoothing.orientation);
+      // IMPORTANT: do NOT read rotationRate here (bug fix)
+    }
+    _onMot(e){
+      const acc = e.accelerationIncludingGravity;
+      if(acc){
+        this.acc.x = Utils.ema(acc.x||0, this.acc.x, this.smoothing.acceleration);
+        this.acc.y = Utils.ema(acc.y||0, this.acc.y, this.smoothing.acceleration);
+        this.acc.z = Utils.ema(acc.z||0, this.acc.z, this.smoothing.acceleration);
+        const {x,y,z}=this.acc;
+        this.gForce = Math.sqrt(x*x+y*y+z*z)/9.80665;
+      }
+      // rotationRate exists on devicemotion in iOS/Android
+      const rr = e.rotationRate;
+      if(rr){
+        this.rot.alpha = Utils.ema(rr.alpha||0, this.rot.alpha, this.smoothing.rotation);
+        this.rot.beta  = Utils.ema(rr.beta||0,  this.rot.beta,  this.smoothing.rotation);
+        this.rot.gamma = Utils.ema(rr.gamma||0, this.rot.gamma, this.smoothing.rotation);
+      }
+    }
+  }
+
+  // ============================================================================
+  // VISION ENGINE (backend select + warmup + adaptive rate)
+  // ============================================================================
+  class VisionEngine {
+    constructor(){
+      this.model=null; this.isModelLoaded=false; this.isProcessing=false;
+      this.lastMs=0; this.avgMs=0; this.total=0;
+      this.aiFpsReal=0; this._aiFpsCounter=0; this._aiFpsT0=Utils.now();
+      this.backend='cpu';
+      this.targetHz=CONFIG.PRESETS.balanced.targetHz;
+      this.lastDetectT=0;
+    }
+    async init(){
+      try{
         await tf.ready();
-        backend = tf.getBackend();
-      }catch(e){
-        await tf.setBackend('cpu');
-        backend = 'cpu';
+        // backend selection
+        const backends = ['webgl','wasm','cpu'];
+        for(const b of backends){
+          try{
+            await tf.setBackend(b);
+            await tf.ready();
+            this.backend=b; break;
+          }catch(_){}
+        }
+        this.model = await cocoSsd.load({base: CONFIG.AI.MODEL_TYPE});
+        this.isModelLoaded=true;
+        // warmup (2 runs)
+        if(video.readyState===4){
+          await this.model.detect(video, 1, 0.1);
+          await this.model.detect(video, 1, 0.1);
+        }
+        return true;
+      }catch(err){
+        console.error("Vision init failed:", err);
+        this.isModelLoaded=false;
+        return false;
       }
-      console.log("TF backend:", backend);
+    }
+    setPreset(name){
+      const p = CONFIG.PRESETS[name] || CONFIG.PRESETS.balanced;
+      this.targetHz = Math.min(p.targetHz, CONFIG.AI.INFERENCE_RATE);
+    }
+    async detect(videoEl){
+      if(!this.isModelLoaded || this.isProcessing || videoEl.readyState!==4) return [];
+      this.isProcessing=true;
+      const t0 = Utils.now();
+      try{
+        const maxDet = CONFIG.PRESETS[state.preset].maxDet;
+        const res = await this.model.detect(videoEl, maxDet, CONFIG.AI.CONFIDENCE_THRESHOLD);
+        const t1 = Utils.now();
+        this.lastMs = t1 - t0;
+        this.avgMs = Utils.ema(this.lastMs, this.avgMs, 0.95);
+        this.total++;
 
-      this.model = await cocoSsd.load({ base: CONFIG.AI.MODEL_TYPE });
-      this.isModelLoaded = true;
+        // ai fps real
+        this._aiFpsCounter++;
+        const dt = (t1 - this._aiFpsT0);
+        if(dt >= 1000){
+          this.aiFpsReal = this._aiFpsCounter * 1000 / dt;
+          this._aiFpsCounter=0; this._aiFpsT0=t1;
+        }
 
-      // Warm-up runs (reduce first-frame stutter)
-      for(let i=0;i<CONFIG.AI.WARMUP_RUNS;i++){
-        try{ await this.model.detect(videoEl, 1, 0.1); }catch(_){}
+        return res;
+      }catch(err){
+        console.error("Detect error:", err);
+        return [];
+      }finally{
+        this.isProcessing=false;
       }
+    }
+    nextDelayMs(){
+      // Adaptive inference controller
+      const budget = 1000 / Math.max(1, this.targetHz);
+      if(this.lastMs > budget * 1.35) {
+        this.targetHz = Math.max(3, this.targetHz * 0.85);
+      } else if(this.lastMs < budget * 0.7) {
+        this.targetHz = Math.min(CONFIG.AI.INFERENCE_RATE, this.targetHz * 1.06);
+      }
+      return Math.max(0, (1000/this.targetHz) - this.lastMs);
+    }
+  }
 
-      return true;
-    }catch(err){
-      console.error("Vision init failed:", err);
-      this.isModelLoaded = false;
+  // ============================================================================
+  // PHYSICS (bearing + depth + radial)
+  // ============================================================================
+  class Physics {
+    constructor(){
+      this.calibrated=false;
+      this.focalPx=null;     // computed by calibration
+      this.realHeightM=CONFIG.PHYSICS.PERSON_HEIGHT_M;
+      this.loadCalib();
+    }
+    loadCalib(){
+      try{
+        const j = localStorage.getItem('omega_calib');
+        if(!j) return;
+        const d = JSON.parse(j);
+        if(d && d.focalPx && d.realHeightM){
+          this.focalPx=d.focalPx; this.realHeightM=d.realHeightM;
+          this.calibrated=true;
+        }
+      }catch(_){}
+      this._updateCalibStatusUI();
+    }
+    saveCalib(){
+      if(!this.calibrated) return;
+      localStorage.setItem('omega_calib', JSON.stringify({
+        focalPx:this.focalPx, realHeightM:this.realHeightM
+      }));
+      this._updateCalibStatusUI();
+    }
+    clearCalib(){
+      this.calibrated=false; this.focalPx=null;
+      localStorage.removeItem('omega_calib');
+      this._updateCalibStatusUI();
+    }
+    _updateCalibStatusUI(){
+      calibStatus.textContent = this.calibrated
+        ? `Depth: CALIBRATED (f≈${Utils.fmt(this.focalPx,0)}px)`
+        : 'Depth: RELATIVE (not calibrated)';
+    }
+    calibrateFromTrack(track, ZrealM, HrealM, videoHpx){
+      // f ≈ (h_px * Z_real) / H_real  (pinhole model)
+      const hpx = track.bbox.h;
+      if(hpx > 2 && ZrealM > 0.1 && HrealM > 0.1){
+        this.focalPx = (hpx * ZrealM) / HrealM;
+        this.realHeightM = HrealM;
+        this.calibrated=true;
+        this.saveCalib();
+        return true;
+      }
       return false;
     }
-  }
-
-  async detect(videoEl){
-    if(!this.model || !this.isModelLoaded || this.isProcessing || videoEl.readyState !== 4){
-      return [];
+    estimateDepth(track, videoHpx){
+      const hpx = track.bbox.h;
+      if(this.calibrated && this.focalPx){
+        const Z = (this.focalPx * this.realHeightM) / Math.max(1, hpx);
+        return { meters: Utils.clamp(Z, CONFIG.PHYSICS.MIN_RANGE_M, CONFIG.PHYSICS.MAX_RANGE_M), relative: null };
+      }
+      // relative distance (0 near, 1 far)
+      const rel = Utils.clamp(1 - (hpx / Math.max(1, videoHpx)), 0, 1);
+      return { meters: null, relative: rel };
     }
-    this.isProcessing = true;
-    const t0 = performance.now();
-    try{
-      const res = await this.model.detect(
-        videoEl,
-        CONFIG.AI.MAX_DETECTIONS,
-        CONFIG.AI.CONFIDENCE_THRESHOLD
-      );
-      const dt = performance.now() - t0;
-      this.lastInferenceMs = dt;
-      this.avgInferenceMs = Utils.ema(dt, this.avgInferenceMs, 0.95);
-      this._pushP95(dt);
-      return res;
-    }catch(err){
-      console.warn("Detect error:", err);
-      return [];
-    }finally{
-      this.isProcessing = false;
+    bearingDeg(track, videoWpx){
+      // f = (W/2)/tan(FOV/2)
+      const fov = CONFIG.PHYSICS.H_FOV_DEG * Math.PI/180;
+      const f = (videoWpx/2) / Math.tan(fov/2);
+      const cx = videoWpx/2;
+      const x = track.bbox.x + track.bbox.w/2;
+      const theta = Math.atan((x - cx) / f); // rad
+      return theta * 180/Math.PI;
+    }
+    motionState(vRad){
+      if(!Number.isFinite(vRad)) return 'unknown';
+      if(vRad > CONFIG.PHYSICS.APPROACH_T) return 'approaching';
+      if(vRad < CONFIG.PHYSICS.RECEDE_T) return 'receding';
+      if(Math.abs(vRad) < CONFIG.PHYSICS.STATIC_T) return 'static';
+      return 'moving';
     }
   }
 
-  _pushP95(ms){
-    this.p95Buffer.push(ms);
-    if(this.p95Buffer.length > 60) this.p95Buffer.shift();
+  // ============================================================================
+  // TRACKER (IoU + distance + label gating + CV predictor + kalman smoothing)
+  // ============================================================================
+  class Track {
+    constructor(id, det, t){
+      this.id=id;
+      this.label=det.label;
+      this.confidence=det.confidence;
+      this.bbox={...det.bbox};
+      this.status='new';
+      this.age=0;
+      this.missed=0;
+      this.lastT=t;
+      this.prevBbox={...det.bbox};
+      this.velocity={x:0,y:0,w:0,h:0};
+
+      this.kx=new Kalman1D(0.05,0.6,this.bbox.x);
+      this.ky=new Kalman1D(0.05,0.6,this.bbox.y);
+      this.kw=new Kalman1D(0.08,0.7,this.bbox.w);
+      this.kh=new Kalman1D(0.08,0.7,this.bbox.h);
+
+      this.depth=null; this.relativeDepth=null;
+      this.bearing=0;
+      this.vRad=0;
+      this.motion='unknown';
+    }
+    predict(dt){
+      // constant velocity prediction
+      this.bbox.x += this.velocity.x * dt;
+      this.bbox.y += this.velocity.y * dt;
+      this.bbox.w += this.velocity.w * dt;
+      this.bbox.h += this.velocity.h * dt;
+      this.status = (this.status==='lost') ? 'lost' : 'coasting';
+    }
+    updateFromDetection(det, t){
+      const dt = Math.max(1e-3, (t - this.lastT)/1000);
+
+      // estimate velocity from last bbox
+      this.velocity.x = Utils.ema((det.bbox.x - this.prevBbox.x)/dt, this.velocity.x, 0.7);
+      this.velocity.y = Utils.ema((det.bbox.y - this.prevBbox.y)/dt, this.velocity.y, 0.7);
+      this.velocity.w = Utils.ema((det.bbox.w - this.prevBbox.w)/dt, this.velocity.w, 0.7);
+      this.velocity.h = Utils.ema((det.bbox.h - this.prevBbox.h)/dt, this.velocity.h, 0.7);
+
+      // kalman smooth
+      this.bbox.x = this.kx.update(det.bbox.x);
+      this.bbox.y = this.ky.update(det.bbox.y);
+      this.bbox.w = this.kw.update(det.bbox.w);
+      this.bbox.h = this.kh.update(det.bbox.h);
+
+      this.prevBbox={...this.bbox};
+      this.label = det.label;
+      this.confidence = det.confidence;
+      this.lastT=t;
+      this.missed=0;
+      this.status = (this.status==='new') ? 'active' : 'active';
+    }
   }
 
-  p95(){
-    if(!this.p95Buffer.length) return 0;
-    const a = [...this.p95Buffer].sort((x,y)=>x-y);
-    return a[Math.floor(a.length*0.95)];
-  }
+  class ObjectTracker {
+    constructor(){
+      this.tracks=new Map();
+      this.nextId=1;
+      this.frame=0;
+    }
+    update(detections, t, vw, vh){
+      this.frame++;
 
-  status(){
-    return {
-      isModelLoaded: this.isModelLoaded,
-      lastInferenceMs: this.lastInferenceMs,
-      avgInferenceMs: this.avgInferenceMs,
-      p95InferenceMs: this.p95()
-    };
-  }
-}
-
-// ============================================================================
-// Tracker (alpha-beta Kalman-lite + gating)
-// ============================================================================
-class ObjectTracker {
-  constructor(){
-    this.tracks = new Map();
-    this.nextId = 1;
-  }
-
-  update(detections, timestamp, vidW, vidH){
-    const dets = detections.map(d => ({
-      bbox: { x:d.bbox[0], y:d.bbox[1], width:d.bbox[2], height:d.bbox[3] },
-      label: d.class,
-      confidence: d.score
-    }));
-
-    const used = new Set();
-
-    // 1) match existing tracks
-    for(const [id, tr] of this.tracks.entries()){
-      if(tr.state === 'removed') continue;
-
-      const dt = Math.max(0.001, (timestamp - tr.lastSeen)/1000);
-      tr._predict(dt);
-
-      let best = null;
-      let bestScore = -1;
-
-      for(let i=0;i<dets.length;i++){
-        if(used.has(i)) continue;
-        const det = dets[i];
-
-        const iou = Utils.iou(tr.bbox, det.bbox);
-        const tcx = tr.bbox.x + tr.bbox.width/2;
-        const tcy = tr.bbox.y + tr.bbox.height/2;
-        const dcx = det.bbox.x + det.bbox.width/2;
-        const dcy = det.bbox.y + det.bbox.height/2;
-
-        const diag = Math.sqrt(vidW*vidW + vidH*vidH) || 1;
-        const centerDistNorm = Utils.distance(tcx,tcy,dcx,dcy)/diag;
-
-        // gating
-        if(iou < CONFIG.TRACKING.MIN_IOU && centerDistNorm > CONFIG.TRACKING.MAX_CENTER_DIST_NORM) continue;
-
-        let score = iou * 0.7 + (1-centerDistNorm) * 0.3;
-        if(det.label === tr.label) score += CONFIG.TRACKING.LABEL_BONUS;
-        else score -= CONFIG.TRACKING.LABEL_PENALTY;
-
-        if(score > bestScore){
-          bestScore = score;
-          best = {i, det};
+      // predict existing
+      for(const tr of this.tracks.values()){
+        const dt = Math.max(0, (t - tr.lastT)/1000);
+        if(tr.status==='active' || tr.status==='coasting'){
+          tr.predict(dt);
+          tr.missed++;
         }
       }
 
-      if(best){
-        used.add(best.i);
-        tr._update(best.det, dt, timestamp);
-      }else{
-        tr._markLost(timestamp);
-      }
-    }
+      // association (greedy with gating)
+      const dets = detections.map(d => ({
+        bbox:{x:d.bbox[0], y:d.bbox[1], w:d.bbox[2], h:d.bbox[3]},
+        label:d.class, confidence:d.score
+      }));
 
-    // 2) create new tracks for unmatched detections
-    for(let i=0;i<dets.length;i++){
-      if(used.has(i)) continue;
-      this._create(dets[i], timestamp);
-    }
+      const activeTracks = Array.from(this.tracks.values()).filter(tr => tr.status!=='removed');
+      const usedDet = new Set();
 
-    // 3) remove too-old lost tracks
-    for(const [id, tr] of this.tracks.entries()){
-      if(tr.state === 'lost' && tr.lostFrames > CONFIG.TRACKING.MAX_AGE_FRAMES){
-        tr.state = 'removed';
-        this.tracks.delete(id);
-      }
-    }
+      for(const tr of activeTracks){
+        let bestJ=-1; let bestScore=0;
+        for(let j=0;j<dets.length;j++){
+          if(usedDet.has(j)) continue;
+          const det=dets[j];
 
-    return Array.from(this.tracks.values());
-  }
+          const iou = Utils.iou(tr.bbox, det.bbox);
+          const dist = Utils.centerDistNorm(tr.bbox, det.bbox, vw, vh);
+          const labelMatch = (tr.label===det.label);
 
-  _create(det, timestamp){
-    const id = this.nextId++;
-    const tr = new Track(id, det, timestamp);
-    this.tracks.set(id, tr);
-  }
+          // gating
+          const gate = (iou >= CONFIG.TRACKING.MIN_IOU) ||
+                       (dist <= CONFIG.TRACKING.MAX_ASSOC_DIST && labelMatch);
 
-  activeTracks(){
-    return Array.from(this.tracks.values()).filter(t => t.state !== 'lost');
-  }
+          if(!gate) continue;
 
-  status(){
-    const active = this.activeTracks();
-    return {
-      totalTracks: this.tracks.size,
-      activeTracks: active.length,
-      newTracks: active.filter(t=>t.state==='new').length
-    };
-  }
-}
+          let score = iou*0.6 + (1-dist)*0.3 + (labelMatch?CONFIG.TRACKING.LABEL_BONUS:0);
+          if(score>bestScore){ bestScore=score; bestJ=j; }
+        }
 
-class Track {
-  constructor(id, det, ts){
-    this.id = id;
-    this.label = det.label;
-    this.confidence = det.confidence;
-    this.bbox = {...det.bbox};   // video-space bbox
-    this.rawBbox = {...det.bbox};
-    this.state = 'new';
-    this.firstSeen = ts;
-    this.lastSeen = ts;
-
-    // alpha-beta filter state (center + velocity)
-    const cx = det.bbox.x + det.bbox.width/2;
-    const cy = det.bbox.y + det.bbox.height/2;
-    this.cx = cx; this.cy = cy;
-    this.vx = 0; this.vy = 0;
-
-    this.lostFrames = 0;
-    this.prevArea = det.bbox.width * det.bbox.height;
-    this.prevHeight = det.bbox.height;
-    this.prevDepthRel = null;
-  }
-
-  _predict(dt){
-    this.cx += this.vx * dt;
-    this.cy += this.vy * dt;
-    // bbox prediction: keep size same, move center
-    const w = this.bbox.width, h = this.bbox.height;
-    this.bbox.x = this.cx - w/2;
-    this.bbox.y = this.cy - h/2;
-  }
-
-  _update(det, dt, ts){
-    const alpha = CONFIG.TRACKING.ALPHA;
-    const beta  = CONFIG.TRACKING.BETA;
-
-    this.rawBbox = {...det.bbox};
-
-    const mx = det.bbox.x + det.bbox.width/2;
-    const my = det.bbox.y + det.bbox.height/2;
-
-    const rx = mx - this.cx;
-    const ry = my - this.cy;
-
-    this.cx = this.cx + alpha*rx;
-    this.cy = this.cy + alpha*ry;
-    this.vx = this.vx + (beta*rx)/dt;
-    this.vy = this.vy + (beta*ry)/dt;
-
-    // smooth size separately (match original vibe)
-    const smooth = OmegaKernel.currentPreset().smoothing;
-    this.bbox.x = Utils.ema(det.bbox.x, this.bbox.x, smooth);
-    this.bbox.y = Utils.ema(det.bbox.y, this.bbox.y, smooth);
-    this.bbox.width  = Utils.ema(det.bbox.width,  this.bbox.width,  smooth);
-    this.bbox.height = Utils.ema(det.bbox.height, this.bbox.height, smooth);
-
-    this.label = det.label;
-    this.confidence = det.confidence;
-    this.lastSeen = ts;
-    this.lostFrames = 0;
-
-    if(this.state === 'new') this.state = 'active';
-  }
-
-  _markLost(ts){
-    this.state = 'lost';
-    this.lastSeen = ts;
-    this.lostFrames++;
-  }
-}
-
-// ============================================================================
-// Depth Calibration (Pinhole)
-// ============================================================================
-class DepthCalibrator {
-  constructor(){
-    this.isCalibrated = false;
-    this.focalPx = null;
-    this.realHeightM = null;
-    this.labelType = null;
-  }
-
-  calibrate(track, ZrealM, HrealM){
-    if(!track || !track.bbox) return false;
-
-    const h_px = track.bbox.height;
-    if(h_px <= 2 || ZrealM <= 0 || HrealM <= 0) return false;
-
-    // f ≈ (h_px * Z_real) / H_real
-    this.focalPx = (h_px * ZrealM) / HrealM;
-    this.realHeightM = HrealM;
-    this.labelType = track.label;
-    this.isCalibrated = true;
-    return true;
-  }
-
-  estimateMeters(track){
-    if(!this.isCalibrated || !this.focalPx || !this.realHeightM) return null;
-    const h_px = track.bbox.height;
-    if(h_px <= 2) return null;
-    // Z_est ≈ (f * H_real) / h_px
-    return (this.focalPx * this.realHeightM) / h_px;
-  }
-}
-
-// ============================================================================
-// Physics Engine (bearing, depth, radial speed)
-// ============================================================================
-class PhysicsEngine {
-  constructor(mapper, avionics, calibrator){
-    this.mapper = mapper;
-    this.avionics = avionics;
-    this.calibrator = calibrator;
-  }
-
-  analyze(tracks){
-    return tracks.map(tr => {
-      const enhanced = {...tr};
-
-      const vb = tr.bbox;
-      const sb = this.mapper.toScreenBbox(vb);
-      enhanced.screenBbox = sb;
-      enhanced.videoBbox = vb;
-
-      enhanced.screenPosition = this.mapper.videoCenterNorm(vb);
-
-      // Bearing (deg) from video-space xNorm
-      enhanced.bearingDeg = enhanced.screenPosition.xNorm * (CONFIG.PHYSICS.HORIZONTAL_FOV/2);
-
-      // Depth
-      const absMeters = this.calibrator.estimateMeters(tr);
-      if(absMeters != null){
-        enhanced.depthMeters = absMeters;
-        enhanced.depthRel = Utils.clamp(absMeters / CONFIG.PHYSICS.MAX_RANGE, 0, 1);
-        enhanced.depthMode = 'abs';
-      }else{
-        const bboxHeightNorm = vb.height / (this.mapper.vidH || 1);
-        const rel = 1 - Math.min(bboxHeightNorm*2, 1);
-        enhanced.depthRel = Utils.clamp(rel, 0, 1);
-        enhanced.depthMeters = null;
-        enhanced.depthMode = 'rel';
+        if(bestJ>=0){
+          tr.updateFromDetection(dets[bestJ], t);
+          usedDet.add(bestJ);
+        }
       }
 
-      // Radial motion from bbox area/height changes
-      const area = vb.width * vb.height;
-      const dh = vb.height - tr.prevHeight;
-      const dA = area - tr.prevArea;
-
-      const depthRel = enhanced.depthRel;
-      let radial = 0;
-      if(tr.prevDepthRel != null){
-        // negative depthRel change => approaching
-        radial = (tr.prevDepthRel - depthRel);
-      }else{
-        radial = (dA/Math.max(1, tr.prevArea))*0.5 + (dh/Math.max(1,tr.prevHeight))*0.5;
+      // new tracks
+      for(let j=0;j<dets.length;j++){
+        if(usedDet.has(j)) continue;
+        const tr = new Track(this.nextId++, dets[j], t);
+        this.tracks.set(tr.id, tr);
       }
 
-      // damp ego-motion from gyro
-      const gyroMag = this.avionics?.gyroMagnitude?.() || 0;
-      radial *= (1 / (1 + gyroMag*CONFIG.PHYSICS.GYRO_DAMPING));
+      // lifecycle
+      for(const tr of this.tracks.values()){
+        if(tr.status==='coasting' && tr.missed>CONFIG.TRACKING.COASTING_FRAMES){
+          tr.status='lost';
+        }
+        if(tr.missed>CONFIG.TRACKING.MAX_AGE){
+          tr.status='removed';
+        }
+      }
 
-      enhanced.radialSpeed = radial;
-      enhanced.motionState = this._classify(radial);
-
-      // cache for next frame
-      tr.prevArea = area;
-      tr.prevHeight = vb.height;
-      tr.prevDepthRel = depthRel;
-
-      return enhanced;
-    });
-  }
-
-  _classify(rad){
-    if(rad > CONFIG.PHYSICS.APPROACH_THRESHOLD) return 'approaching';
-    if(rad < CONFIG.PHYSICS.RECEDE_THRESHOLD) return 'receding';
-    if(Math.abs(rad) < CONFIG.PHYSICS.MOTION_THRESHOLD) return 'static';
-    return 'moving';
-  }
-}
-
-// ============================================================================
-// Radar System (reuse pool + bearing=0 fix)
-// ============================================================================
-class RadarSystem {
-  constructor(containerId){
-    this.container = document.getElementById(containerId);
-    this.width = 140; this.height = 140;
-    this.centerX = this.width/2; this.centerY = this.height/2;
-    this.maxRadius = this.width/2 - 6;
-
-    this.pool = [];
-    this._ensurePool(CONFIG.RADAR.MAX_BLIPS);
-  }
-
-  _ensurePool(n){
-    while(this.pool.length < n){
-      const b = document.createElement('div');
-      b.className = 'radar-blip';
-      b.style.opacity = '0';
-      this.container.appendChild(b);
-      this.pool.push(b);
+      // return active + coasting (not removed)
+      return Array.from(this.tracks.values()).filter(tr => tr.status!=='removed');
+    }
+    getActiveTracks(){
+      return Array.from(this.tracks.values()).filter(tr => tr.status==='active' || tr.status==='new');
+    }
+    getStatus(){
+      const active = this.getActiveTracks().length;
+      return { activeTracks: active, totalTracks: this.tracks.size };
     }
   }
 
-  update(tracks, showRadar=true){
-    if(!showRadar){
-      for(const el of this.pool) el.style.opacity='0';
-      return;
+  // ============================================================================
+  // MEMORY (persistent, capped, safe)
+  // ============================================================================
+  class MemoryDB {
+    constructor(){
+      this.events=[];
+      this.lastPersist=0;
+      this.load();
+      setInterval(()=>this.persist(), CONFIG.MEMORY.PERSIST_INTERVAL_MS);
     }
-    const capped = tracks.slice(0, CONFIG.RADAR.MAX_BLIPS);
-
-    for(let i=0;i<this.pool.length;i++){
-      const el = this.pool[i];
-      const tr = capped[i];
-      if(!tr){ el.style.opacity='0'; continue; }
-
-      const bearingOk = (tr.bearingDeg != null);  // FIX: allow 0
-      const depthOk = (tr.depthRel != null);
-      if(!bearingOk || !depthOk){ el.style.opacity='0'; continue; }
-
-      const angle = Utils.toRad(tr.bearingDeg);
-      const radius = tr.depthRel * this.maxRadius;
-
-      const x = this.centerX + radius*Math.sin(angle);
-      const y = this.centerY - radius*Math.cos(angle);
-
-      const baseSize = this._baseSize(tr.label);
-      const motionSize = (tr.motionState==='approaching') ? 2 : (tr.motionState==='receding' ? -1 : 0);
-      const size = baseSize + motionSize;
-
-      el.style.left = x+'px';
-      el.style.top  = y+'px';
-      el.style.width = size+'px';
-      el.style.height= size+'px';
-      el.style.backgroundColor = this._color(tr.label);
-      el.style.color = this._color(tr.label);
-      el.style.opacity='1';
-      el.style.animation = (tr.motionState==='approaching') ? 'pulse 1s infinite' : 'none';
+    load(){
+      try{
+        const j=localStorage.getItem('omega_memory');
+        if(!j) return;
+        const arr=JSON.parse(j);
+        if(Array.isArray(arr)) this.events=arr;
+      }catch(_){}
+    }
+    persist(){
+      try{
+        const cutoff=Date.now()-CONFIG.MEMORY.RETENTION_MS;
+        this.events=this.events.filter(e=>e.t>=cutoff).slice(-CONFIG.MEMORY.MAX_EVENTS);
+        localStorage.setItem('omega_memory', JSON.stringify(this.events));
+        statusMemory.className='status-indicator status-ok';
+      }catch(err){
+        console.warn("persist failed", err);
+        statusMemory.className='status-indicator status-warn';
+      }
+    }
+    record(type, payload){
+      this.events.push({t:Date.now(), type, payload});
+      if(this.events.length>CONFIG.MEMORY.MAX_EVENTS) this.events.shift();
+    }
+    clear(){
+      this.events=[]; localStorage.removeItem('omega_memory');
+    }
+    import(json){
+      if(Array.isArray(json)){
+        this.events=json.slice(-CONFIG.MEMORY.MAX_EVENTS);
+        this.persist();
+      }
+    }
+    export(){
+      return JSON.stringify(this.events, null, 2);
+    }
+    getActiveObjectCount(){
+      const cutoff=Date.now()-60000;
+      const ids=new Set();
+      for(const e of this.events){
+        if(e.t<cutoff) continue;
+        if(e.payload?.objectId!=null) ids.add(e.payload.objectId);
+      }
+      return ids.size;
+    }
+    getPersonDetectionsInLast(mins){
+      const cutoff=Date.now()-mins*60000;
+      let c=0;
+      for(const e of this.events){
+        if(e.t>=cutoff && e.payload?.label==='person') c++;
+      }
+      return c;
+    }
+    getDominantClass(){
+      const cutoff=Date.now()-5*60000;
+      const hist=new Map();
+      for(const e of this.events){
+        if(e.t<cutoff) continue;
+        const l=e.payload?.label; if(!l) continue;
+        hist.set(l,(hist.get(l)||0)+1);
+      }
+      let best='--', bestN=0;
+      for(const [k,v] of hist){ if(v>bestN){best=k;bestN=v;} }
+      return best;
+    }
+    getClosestPerson(){
+      // last 5 mins, use smallest depth or biggest scale proxy
+      const cutoff=Date.now()-5*60000;
+      let best=null;
+      for(let i=this.events.length-1;i>=0;i--){
+        const e=this.events[i];
+        if(e.t<cutoff) break;
+        if(e.payload?.label!=='person') continue;
+        const d=e.payload.depthMeters;
+        if(d!=null){
+          if(!best || d<best.depthMeters) best=e.payload;
+        }else{
+          // fallback: use relative
+          const r=e.payload.depthRel;
+          if(!best || (best.depthRel!=null && r<best.depthRel)) best=e.payload;
+        }
+      }
+      return best;
     }
   }
 
-  _baseSize(label){
-    if(label==='person') return CONFIG.RADAR.BLOB_SIZE_MIN;
-    if(['car','truck','bus','motorcycle','bicycle'].includes(label)) return CONFIG.RADAR.BLOB_SIZE_MAX;
-    return (CONFIG.RADAR.BLOB_SIZE_MIN+CONFIG.RADAR.BLOB_SIZE_MAX)/2;
-  }
-  _color(label){
-    if(label==='person') return CONFIG.COLORS.PERSON;
-    if(['car','truck','bus','motorcycle','bicycle'].includes(label)) return CONFIG.COLORS.VEHICLE;
-    return CONFIG.COLORS.OTHER;
-  }
-}
-
-// ============================================================================
-// Knowledge Base (persistence + export/import)
-// ============================================================================
-class KnowledgeBase {
-  constructor(){
-    this.events = [];
-    this.objectHistory = new Map();
-    this.stats = { totalDetections:0, personDetections:0, vehicleDetections:0, uniqueObjects:0 };
-
-    this._load();
-    this._persistTimer = setInterval(()=>this._save(), CONFIG.MEMORY.PERSIST_INTERVAL);
-  }
-
-  recordEvent(type, data, ts=Date.now()){
-    const ev = { type, data, timestamp: ts, id: Utils.id() };
-    this.events.push(ev);
-    if(this.events.length > CONFIG.MEMORY.MAX_EVENTS) this.events.shift();
-    this._updateStats(ev);
-    if(data.objectId) this._updateObjHistory(data.objectId, ev);
-  }
-
-  _updateStats(ev){
-    this.stats.totalDetections++;
-    if(ev.type==='object_detected' || ev.type==='object_updated'){
-      const l = ev.data.label;
-      if(l==='person') this.stats.personDetections++;
-      else if(['car','truck','bus','motorcycle','bicycle'].includes(l)) this.stats.vehicleDetections++;
+  // ============================================================================
+  // RADAR (DOM blip reuse, bearing 0 safe)
+  // ============================================================================
+  class Radar {
+    constructor(container, maxBlips=20){
+      this.container=container;
+      this.maxBlips=maxBlips;
+      this.pool=[];
+      for(let i=0;i<maxBlips;i++){
+        const el=document.createElement('div');
+        el.className='radar-blip';
+        el.style.opacity='0';
+        container.appendChild(el);
+        this.pool.push(el);
+      }
     }
-    if(ev.type==='object_detected') this.stats.uniqueObjects++;
-  }
+    update(tracks, physics){
+      const radius = this.container.clientWidth/2;
+      let k=0;
+      for(const tr of tracks){
+        if(k>=this.maxBlips) break;
 
-  _updateObjHistory(id, ev){
-    if(!this.objectHistory.has(id)) this.objectHistory.set(id, []);
-    const h = this.objectHistory.get(id);
-    h.push(ev);
-    if(h.length > 50) h.shift();
-  }
+        // bearingDeg might be 0 -> must still render
+        const bearing = tr.bearing;
+        if(bearing == null) continue;
 
-  getActiveObjectCount(){
-    const recent = Date.now()-5000;
-    const s = new Set();
-    for(const ev of [...this.events].reverse()){
-      if(ev.timestamp < recent) break;
-      if(ev.type==='object_detected' || ev.type==='object_updated') s.add(ev.data.objectId);
+        const distNorm = physics.calibrated && tr.depth!=null
+          ? Utils.clamp(tr.depth/CONFIG.PHYSICS.MAX_RANGE_M, 0, 1)
+          : (tr.relativeDepth!=null ? tr.relativeDepth : 0.7);
+
+        const ang = (bearing + 90) * Math.PI/180; // 0 deg up
+        const r = distNorm * (radius*0.9);
+        const x = radius + r*Math.cos(ang);
+        const y = radius + r*Math.sin(ang);
+
+        const el=this.pool[k++];
+        const size = Utils.clamp(4 + (1-distNorm)*8, 4, 12);
+        el.style.width=size+'px';
+        el.style.height=size+'px';
+        el.style.left=x+'px';
+        el.style.top=y+'px';
+        el.style.opacity='0.95';
+        el.style.background=(tr.label==='person')?'#00ff41':'#ffcc00';
+      }
+      // hide rest
+      for(;k<this.maxBlips;k++){
+        const el=this.pool[k];
+        el.style.opacity='0';
+      }
     }
-    return s.size;
   }
 
-  getPersonDetectionsInLast(min){
-    const cut = Date.now()-min*60*1000;
-    return this.events.filter(ev =>
-      ev.timestamp>=cut &&
-      ev.data.label==='person' &&
-      (ev.type==='object_detected' || ev.type==='object_updated')
-    ).length;
-  }
+  // ============================================================================
+  // MAIN SYSTEM
+  // ============================================================================
+  const state = {
+    running:false,
+    aiPaused:false,
+    cameraOn:false,
+    showBoxes:true,
+    showRadar:true,
+    showHorizon:true,
+    preset:'balanced'
+  };
 
-  getClosestPerson(){
-    const evs = this.events.filter(ev =>
-      ev.data.label==='person' &&
-      ev.type==='object_updated' &&
-      ev.data.depthRel != null
-    );
-    if(!evs.length) return null;
-    const closest = evs.reduce((p,c)=> (p.data.depthRel < c.data.depthRel) ? p : c);
-    const distM = closest.data.depthMode==='abs'
-      ? closest.data.depthMeters
-      : closest.data.depthRel * CONFIG.PHYSICS.MAX_RANGE;
+  const mapper = new VideoMapper();
+  const avionics = new Avionics();
+  const vision = new VisionEngine();
+  const tracker = new ObjectTracker();
+  const memory = new MemoryDB();
+  const physics = new Physics();
+  const radar = new Radar(radarBlipsEl, 20);
 
-    return { distance: distM, bearing: closest.data.bearingDeg, timestamp: closest.timestamp, mode: closest.data.depthMode };
-  }
+  let tracks = [];
+  let primaryTarget = null;
 
-  getMostCommonLabelInLast(min){
-    const cut = Date.now()-min*60*1000;
-    const recent = this.events.filter(ev =>
-      ev.timestamp>=cut && (ev.type==='object_detected' || ev.type==='object_updated')
-    );
-    const m = {};
-    for(const ev of recent){
-      const l = ev.data.label;
-      m[l]=(m[l]||0)+1;
-    }
-    let best='none', bestC=0;
-    for(const [l,c] of Object.entries(m)){
-      if(c>bestC){ bestC=c; best=l; }
-    }
-    return best;
-  }
+  // FPS for render loop
+  let renderFpsReal=0, _rfpsCount=0, _rfpsT0=Utils.now();
 
-  exportJSON(){
-    return JSON.stringify({
-      events: this.events,
-      objectHistory: Array.from(this.objectHistory.entries()),
-      stats: this.stats
-    }, null, 2);
-  }
-
-  importJSON(raw){
+  async function initCamera(){
     try{
-      const j = JSON.parse(raw);
-      this.events = Array.isArray(j.events) ? j.events.slice(-CONFIG.MEMORY.MAX_EVENTS) : [];
-      this.objectHistory = new Map(Array.isArray(j.objectHistory) ? j.objectHistory : []);
-      this.stats = j.stats || this.stats;
-      this._save();
+      ledCam.className='status-led loading';
+      statusCam.className='status-indicator status-warn';
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:'environment'}, audio:false
+      });
+      video.srcObject = stream;
+      await video.play();
+      state.cameraOn=true;
+      ledCam.className='status-led active';
+      statusCam.className='status-indicator status-ok';
+      statusMessage.textContent='CAMERA_OK';
       return true;
-    }catch(e){
-      console.warn("Import failed:", e);
-      return false;
-    }
-  }
-
-  clear(){
-    this.events = [];
-    this.objectHistory.clear();
-    this.stats = { totalDetections:0, personDetections:0, vehicleDetections:0, uniqueObjects:0 };
-    this._save();
-  }
-
-  _save(){
-    try{
-      localStorage.setItem(CONFIG.MEMORY.STORAGE_KEY, this.exportJSON());
-    }catch(e){
-      console.warn("Persist save failed:", e);
-    }
-  }
-
-  _load(){
-    try{
-      const raw = localStorage.getItem(CONFIG.MEMORY.STORAGE_KEY);
-      if(raw) this.importJSON(raw);
-    }catch(e){
-      console.warn("Persist load failed:", e);
-    }
-  }
-}
-
-// ============================================================================
-// HUD Renderer (OffscreenCanvas if available)
-// ============================================================================
-class HUDRenderer {
-  constructor(){
-    this.canvas = document.getElementById('hud-canvas');
-    this.ctx = this.canvas.getContext('2d');
-    this.resize();
-    window.addEventListener('resize',()=>this.resize());
-  }
-
-  resize(){
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = Math.floor(window.innerWidth*dpr);
-    this.canvas.height= Math.floor(window.innerHeight*dpr);
-    this.canvas.style.width = window.innerWidth+'px';
-    this.canvas.style.height= window.innerHeight+'px';
-    this.ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-
-  clear(){
-    this.ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
-  }
-
-  drawHorizon(pitch, roll){
-    const ctx=this.ctx;
-    const w=window.innerWidth, h=window.innerHeight;
-    const horizonY = pitch*2;
-
-    ctx.save();
-    ctx.translate(w/2, h/2);
-    ctx.rotate(Utils.toRad(roll));
-
-    // ground/sky hints
-    ctx.fillStyle='rgba(139,69,19,0.18)';
-    ctx.fillRect(-w, horizonY, w*2, h);
-    ctx.fillStyle='rgba(0,100,200,0.18)';
-    ctx.fillRect(-w, -h, w*2, h+horizonY);
-
-    ctx.strokeStyle=CONFIG.COLORS.PRIMARY;
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(-w, horizonY);
-    ctx.lineTo(w, horizonY);
-    ctx.stroke();
-
-    // pitch ladder
-    ctx.strokeStyle=CONFIG.COLORS.PRIMARY;
-    ctx.lineWidth=1;
-    ctx.fillStyle=CONFIG.COLORS.PRIMARY;
-    ctx.font='12px monospace';
-    ctx.textAlign='center';
-
-    for(let i=-4;i<=4;i++){
-      if(i===0) continue;
-      const y = horizonY + i*30;
-      const major = i%2===0;
-      const len = major?60:40;
-      const val = i*10;
-
-      ctx.beginPath();
-      ctx.moveTo(-len/2,y); ctx.lineTo(len/2,y); ctx.stroke();
-      if(major) ctx.fillText(`${Math.abs(val)}°`, len/2+20, y+4);
-    }
-
-    ctx.restore();
-
-    // center reference
-    ctx.strokeStyle=CONFIG.COLORS.PRIMARY;
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(w/2-20,h/2); ctx.lineTo(w/2+20,h/2);
-    ctx.moveTo(w/2,h/2-10); ctx.lineTo(w/2,h/2+10);
-    ctx.stroke();
-  }
-
-  drawCrosshair(){
-    const ctx=this.ctx;
-    const cx=window.innerWidth/2, cy=window.innerHeight/2;
-
-    ctx.strokeStyle=CONFIG.COLORS.PRIMARY;
-    ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.arc(cx,cy,25,0,Math.PI*2); ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(cx-15,cy); ctx.lineTo(cx-40,cy);
-    ctx.moveTo(cx+15,cy); ctx.lineTo(cx+40,cy);
-    ctx.moveTo(cx,cy-15); ctx.lineTo(cx,cy-40);
-    ctx.moveTo(cx,cy+15); ctx.lineTo(cx,cy+40);
-    ctx.stroke();
-
-    ctx.fillStyle=CONFIG.COLORS.ALERT;
-    ctx.fillRect(cx-2,cy-2,4,4);
-  }
-
-  drawTargetBoxes(tracks, showBoxes=true){
-    if(!showBoxes) return;
-    for(const tr of tracks) this._drawBox(tr);
-  }
-
-  _drawBox(tr){
-    const ctx=this.ctx;
-    const sb = tr.screenBbox;
-    if(!sb) return;
-
-    const {x,y,width,height}=sb;
-
-    let color=CONFIG.COLORS.OTHER;
-    if(tr.label==='person') color=CONFIG.COLORS.PERSON;
-    else if(['car','truck','bus','motorcycle','bicycle'].includes(tr.label)) color=CONFIG.COLORS.VEHICLE;
-
-    const bracket = Math.min(width,height)*0.15;
-    ctx.strokeStyle=color;
-    ctx.lineWidth=2;
-    ctx.shadowBlur = OmegaKernel.currentPreset().shadowBlur;
-    ctx.shadowColor=color;
-
-    ctx.beginPath();
-    // TL
-    ctx.moveTo(x, y+bracket); ctx.lineTo(x, y); ctx.lineTo(x+bracket, y);
-    // TR
-    ctx.moveTo(x+width-bracket, y); ctx.lineTo(x+width, y); ctx.lineTo(x+width, y+bracket);
-    // BR
-    ctx.moveTo(x+width, y+height-bracket); ctx.lineTo(x+width, y+height); ctx.lineTo(x+width-bracket, y+height);
-    // BL
-    ctx.moveTo(x+bracket, y+height); ctx.lineTo(x, y+height); ctx.lineTo(x, y+height-bracket);
-    ctx.stroke();
-    ctx.shadowBlur=0;
-
-    const label = `${tr.label.toUpperCase()} ${Math.floor(tr.confidence*100)}%  #${tr.id}`;
-    const distText = tr.depthMode==='abs'
-      ? `~${Utils.fmt(tr.depthMeters,1)}m`
-      : `REL ${Utils.fmt(tr.depthRel,2)}`;
-    const info = `${distText} @ ${Utils.fmt(tr.bearingDeg,0)}°`;
-
-    ctx.font='bold 11px monospace';
-    const w1=ctx.measureText(label).width;
-    const w2=ctx.measureText(info).width;
-    const mw=Math.max(w1,w2);
-
-    ctx.fillStyle='rgba(0,0,0,0.7)';
-    ctx.fillRect(x, y-32, mw+10, 26);
-
-    ctx.fillStyle=color;
-    ctx.fillText(label, x+5, y-17);
-    ctx.fillText(info,  x+5, y-6);
-  }
-}
-
-// ============================================================================
-// Omega Kernel (orchestrator)
-// ============================================================================
-class OmegaKernel {
-  static presetName = CONFIG.AI.DEFAULT_PRESET;
-  static currentPreset(){ return CONFIG.AI.PRESETS[OmegaKernel.presetName]; }
-
-  constructor(){
-    this.video = document.getElementById('camera-feed');
-
-    this.avionics = new Avionics();
-    this.vision = new VisionEngine();
-    this.tracker = new ObjectTracker();
-    this.calibrator = new DepthCalibrator();
-    this.renderer = new HUDRenderer();
-    this.mapper = new VideoMapper(this.video, this.renderer.canvas);
-    this.physics = new PhysicsEngine(this.mapper, this.avionics, this.calibrator);
-    this.radar = new RadarSystem('radar-blips');
-    this.memory = new KnowledgeBase();
-
-    this.isRunning = false;
-    this.aiPaused = false;
-    this.cameraOn = true;
-
-    // adaptive AI loop
-    this.aiRate = OmegaKernel.currentPreset().maxFps;
-    this.aiIntervalMs = 1000/this.aiRate;
-    this.lastAIStamp = 0;
-
-    // render loop
-    this.renderIntervalMs = 1000/OmegaKernel.currentPreset().renderFps;
-    this.lastRenderStamp = 0;
-
-    // FPS counters
-    this.aiFrames = 0;
-    this.renderFrames = 0;
-    this.aiFpsReal = 0;
-    this.renderFpsReal = 0;
-    this.fpsTimer = performance.now();
-
-    this.tracked = [];
-    this.primaryTarget = null;
-
-    this.hudFlags = { horizon:true, radar:true, boxes:true };
-
-    this._bindVisibility();
-  }
-
-  async boot(){
-    try{
-      this._status("SYSTEM INITIALIZING...");
-
-      this._bootLED('led-gyro','loading');
-      const gyroOk = await this.avionics.init();
-      this._bootLED('led-gyro', gyroOk ? 'active' : 'error');
-
-      this._bootLED('led-cam','loading');
-      const camOk = await this._initCamera();
-      this._bootLED('led-cam', camOk ? 'active' : 'error');
-      if(!camOk) throw new Error("Camera permission denied or unavailable.");
-
-      this.mapper.recompute();
-
-      this._bootLED('led-ai','loading');
-      const aiOk = await this.vision.init(this.video);
-      this._bootLED('led-ai', aiOk ? 'active' : 'error');
-
-      this._bootLED('led-tracker','active');
-      this._bootLED('led-memory','active');
-
-      this.isRunning = true;
-
-      document.getElementById('boot-overlay').style.display='none';
-
-      this._aiLoop();
-      this._renderLoop();
-
-      this._status(aiOk ? "SYSTEM OPERATIONAL" : "SYSTEM OPERATIONAL (AI OFFLINE)");
     }catch(err){
       console.error(err);
-      this._status("SYSTEM ERROR: "+err.message);
-      this._showError("CAMERA ERROR", err.message);
-    }
-  }
-
-  async _initCamera(){
-    try{
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video:{
-          facingMode:'environment',
-          width:{ideal:1280}, height:{ideal:720}
-        },
-        audio:false
-      });
-      this.video.srcObject = stream;
-      await new Promise(res=>{
-        this.video.onloadedmetadata=()=>{
-          this.video.play();
-          res();
-        };
-      });
-      return true;
-    }catch(err){
-      console.warn("Camera init failed:", err);
+      ledCam.className='status-led error';
+      statusCam.className='status-indicator status-error';
+      showError(
+        "CAMERA PERMISSION DENIED",
+        "ไม่สามารถเปิดกล้องได้",
+        "ไปที่ Settings > Safari/Chrome > Camera แล้วอนุญาตสิทธิ์ให้เว็บนี้"
+      );
       return false;
     }
   }
 
-  _adaptiveStep(){
-    if(!this.vision.isModelLoaded) return;
-
-    const st = this.vision.status();
-    const presetMax = OmegaKernel.currentPreset().maxFps;
-    const target = CONFIG.AI.ADAPTIVE.TARGET_MS;
-
-    // if too slow decrease, if fast increase (hysteresis)
-    if(st.avgInferenceMs > target*(1+CONFIG.AI.ADAPTIVE.HYSTERESIS)){
-      this.aiRate = Math.max(CONFIG.AI.MIN_RATE, this.aiRate - CONFIG.AI.ADAPTIVE.ADJUST_STEP);
-    }else if(st.avgInferenceMs < target*(1-CONFIG.AI.ADAPTIVE.HYSTERESIS)){
-      this.aiRate = Math.min(presetMax, this.aiRate + CONFIG.AI.ADAPTIVE.ADJUST_STEP);
-    }
-    this.aiRate = Math.min(this.aiRate, CONFIG.AI.INFERENCE_RATE);
-    this.aiIntervalMs = 1000/this.aiRate;
-  }
-
-  async _aiLoop(){
-    if(!this.isRunning) return;
-
-    const now = performance.now();
-    if(!this.aiPaused && now - this.lastAIStamp >= this.aiIntervalMs){
-      this.lastAIStamp = now;
-
-      try{
-        const dets = await this.vision.detect(this.video);
-        this.aiFrames++;
-
-        const rawTracks = this.tracker.update(dets, Date.now(), this.video.videoWidth||1, this.video.videoHeight||1);
-        this.mapper.recompute();
-        this.tracked = this.physics.analyze(rawTracks);
-
-        this._updateMemory(this.tracked);
-        this._updatePrimaryTarget();
-        this._adaptiveStep();
-      }catch(e){
-        console.warn("AI loop error:", e);
-      }
-    }
-
-    setTimeout(()=>this._aiLoop(), this.aiIntervalMs);
-  }
-
-  _renderLoop(){
-    if(!this.isRunning) return;
-
-    const now = performance.now();
-    if(now - this.lastRenderStamp >= this.renderIntervalMs){
-      this.lastRenderStamp = now;
-      this.renderFrames++;
-
-      try{
-        this.renderer.clear();
-        if(this.hudFlags.horizon && this.avionics.isAvailable){
-          this.renderer.drawHorizon(this.avionics.pitch, this.avionics.roll);
-        }
-        this.renderer.drawCrosshair();
-        this.renderer.drawTargetBoxes(this.tracked, this.hudFlags.boxes);
-        this.radar.update(this.tracked, this.hudFlags.radar);
-        this._updateUI();
-      }catch(e){
-        console.warn("Render loop error:", e);
-      }
-    }
-
-    requestAnimationFrame(()=>this._renderLoop());
-  }
-
-  _updateMemory(tracks){
-    for(const tr of tracks){
-      const type = (tr.state==='new') ? 'object_detected' : 'object_updated';
-      this.memory.recordEvent(type, {
-        objectId: tr.id,
-        label: tr.label,
-        confidence: tr.confidence,
-        depthRel: tr.depthRel,
-        depthMeters: tr.depthMeters,
-        depthMode: tr.depthMode,
-        bearingDeg: tr.bearingDeg,
-        motionState: tr.motionState
-      });
-    }
-
-    // FIX: iterator -> array before filter
-    const lost = Array.from(this.tracker.tracks.values()).filter(t=>t.state==='lost');
-    for(const tr of lost){
-      this.memory.recordEvent('object_lost', { objectId: tr.id, label: tr.label });
-    }
-  }
-
-  _updatePrimaryTarget(){
-    if(!this.tracked.length){ this.primaryTarget=null; return; }
-    this.primaryTarget = this.tracked.reduce((a,b)=>{
-      const da = Math.abs(a.screenPosition.xNorm)+Math.abs(a.screenPosition.yNorm);
-      const db = Math.abs(b.screenPosition.xNorm)+Math.abs(b.screenPosition.yNorm);
-      // hysteresis: keep old if close
-      if(this.primaryTarget && a.id===this.primaryTarget.id && da <= db+0.02) return a;
-      return db<da ? b : a;
-    });
-  }
-
-  _updateUI(){
-    // FPS real-time calc
-    const t = performance.now();
-    if(t - this.fpsTimer >= 1000){
-      this.aiFpsReal = this.aiFrames;
-      this.renderFpsReal = this.renderFrames;
-      this.aiFrames = 0;
-      this.renderFrames = 0;
-      this.fpsTimer = t;
-    }
-
-    const vs = this.vision.status();
-    document.getElementById('val-cpu').innerText = Utils.fmt(vs.avgInferenceMs,1);
-    document.getElementById('val-ai-fps').innerText = Utils.fmt(this.aiFpsReal,0);
-    document.getElementById('val-render-fps').innerText = Utils.fmt(this.renderFpsReal,0);
-
-    document.getElementById('val-pitch').innerText = Utils.fmt(this.avionics.pitch,1);
-    document.getElementById('val-roll').innerText = Utils.fmt(this.avionics.roll,1);
-    document.getElementById('val-heading').innerText = Utils.fmt(this.avionics.heading,1);
-    document.getElementById('val-g').innerText = Utils.fmt(this.avionics.gForce,2);
-
-    const ts = this.tracker.status();
-    document.getElementById('val-tracked').innerText = ts.activeTracks;
-
-    document.getElementById('val-active').innerText = this.memory.getActiveObjectCount();
-    document.getElementById('val-persons').innerText = this.memory.getPersonDetectionsInLast(5);
-
-    const cp = this.memory.getClosestPerson();
-    document.getElementById('val-closest-person').innerText = cp
-      ? `${cp.mode==='abs'?'~'+Utils.fmt(cp.distance,1)+'m':'REL '+Utils.fmt(cp.distance/CONFIG.PHYSICS.MAX_RANGE,2)} @ ${Utils.fmt(cp.bearing,0)}°`
-      : '--';
-
-    document.getElementById('val-top-label').innerText = this.memory.getMostCommonLabelInLast(5);
-
-    if(this.primaryTarget){
-      document.getElementById('val-target-label').innerText = this.primaryTarget.label.toUpperCase();
-      document.getElementById('val-target-dist').innerText = (this.primaryTarget.depthMode==='abs')
-        ? `~${Utils.fmt(this.primaryTarget.depthMeters,1)}m`
-        : `REL ${Utils.fmt(this.primaryTarget.depthRel,2)}`;
-      document.getElementById('val-target-bearing').innerText = `${Utils.fmt(this.primaryTarget.bearingDeg,1)}°`;
-      document.getElementById('val-target-state').innerText = this.primaryTarget.motionState.toUpperCase();
-    }else{
-      document.getElementById('val-target-label').innerText = '--';
-      document.getElementById('val-target-dist').innerText = '--';
-      document.getElementById('val-target-bearing').innerText = '--';
-      document.getElementById('val-target-state').innerText = '--';
-    }
-
-    this._updateStatusIndicators();
-  }
-
-  _updateStatusIndicators(){
-    const camOk = this.video.srcObject && this.video.readyState===4 && this.cameraOn;
-    document.getElementById('status-cam').className = `status-indicator ${camOk?'status-ok':'status-error'}`;
-
-    document.getElementById('status-ai').className = `status-indicator ${this.vision.isModelLoaded?'status-ok':'status-offline'}`;
-    document.getElementById('status-gyro').className = `status-indicator ${this.avionics.isAvailable?'status-ok':'status-offline'}`;
-
-    const hasActive = this.tracker.status().activeTracks>0;
-    document.getElementById('status-tracker').className = `status-indicator ${hasActive?'status-ok':'status-warn'}`;
-
-    document.getElementById('status-memory').className = `status-indicator ${this.memory.events.length?'status-ok':'status-warn'}`;
-  }
-
-  setPreset(name){
-    if(!CONFIG.AI.PRESETS[name]) return;
-    OmegaKernel.presetName = name;
-
-    const p = OmegaKernel.currentPreset();
-    this.aiRate = Math.min(this.aiRate, p.maxFps);
-    this.aiIntervalMs = 1000/this.aiRate;
-    this.renderIntervalMs = 1000/p.renderFps;
-
-    this._toast(`Preset set: ${name}`);
-  }
-
-  toggleAI(){
-    this.aiPaused = !this.aiPaused;
-    this._toast(this.aiPaused ? "AI Paused" : "AI Resumed");
-  }
-
-  async toggleCamera(){
-    this.cameraOn = !this.cameraOn;
-    if(!this.cameraOn){
-      if(this.video.srcObject){
-        this.video.srcObject.getTracks().forEach(t=>t.stop());
-      }
-      this.video.srcObject = null;
-      this._toast("Camera stopped");
-    }else{
-      const ok = await this._initCamera();
-      this.mapper.recompute();
-      this._toast(ok ? "Camera resumed" : "Camera resume failed");
-    }
-  }
-
-  calibratePrimary(Zreal, Hreal){
-    if(!this.primaryTarget) return false;
-    const ok = this.calibrator.calibrate(this.primaryTarget, Zreal, Hreal);
+  async function initAI(){
+    ledAi.className='status-led loading';
+    statusAi.className='status-indicator status-warn';
+    const ok = await vision.init();
     if(ok){
-      this._toast("Calibration stored");
+      ledAi.className='status-led active';
+      statusAi.className='status-indicator status-ok';
+      statusMessage.textContent=`AI_OK (${vision.backend})`;
+    }else{
+      ledAi.className='status-led warning';
+      statusAi.className='status-indicator status-warn';
+      statusMessage.textContent='AI_OFFLINE (HUD ONLY)';
     }
     return ok;
   }
 
-  shutdown(){
-    this.isRunning = false;
-    if(this.video.srcObject){
-      this.video.srcObject.getTracks().forEach(t=>t.stop());
+  async function initGyro(){
+    ledGyro.className='status-led loading';
+    statusGyro.className='status-indicator status-warn';
+    const ok = await avionics.init();
+    if(ok){
+      ledGyro.className='status-led active';
+      statusGyro.className='status-indicator status-ok';
+      statusMessage.textContent='GYRO_OK';
+    }else{
+      ledGyro.className='status-led warning';
+      statusGyro.className='status-indicator status-offline';
+      state.showHorizon=false;
+      btnHorizon.classList.remove('toggled');
+      statusMessage.textContent='GYRO_OFFLINE';
+    }
+    return ok;
+  }
+
+  function resize(){
+    canvas.width = window.innerWidth * devicePixelRatio;
+    canvas.height= window.innerHeight * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  window.addEventListener('resize', resize);
+
+  // Inference loop
+  async function inferenceLoop(){
+    if(!state.running) return;
+    if(state.aiPaused || !vision.isModelLoaded){
+      setTimeout(inferenceLoop, 200);
+      return;
+    }
+    try{
+      const dets = await vision.detect(video);
+      const vw = video.videoWidth || 0, vh = video.videoHeight || 0;
+      if(vw && vh){
+        tracks = tracker.update(dets, Date.now(), vw, vh);
+      } else {
+        tracks = [];
+      }
+      statusTracker.className='status-indicator status-ok';
+    }catch(err){
+      console.error("inferenceLoop error", err);
+      statusTracker.className='status-indicator status-warn';
+    }finally{
+      const delay = (document.hidden) ? 400 : vision.nextDelayMs();
+      setTimeout(inferenceLoop, delay);
     }
   }
 
-  _bootLED(id, state){
-    const led=document.getElementById(id);
-    led.className='status-led';
-    if(state==='active') led.classList.add('active');
-    if(state==='error') led.classList.add('error');
-    if(state==='warning') led.classList.add('warning');
+  function updatePrimaryTarget(){
+    const act = tracks.filter(t => t.status==='active' || t.status==='new');
+    if(!act.length){ primaryTarget=null; return; }
+    const vw=video.videoWidth||1, vh=video.videoHeight||1;
+    let best=null, bestScore=1e9;
+    for(const t of act){
+      const cx=(t.bbox.x+t.bbox.w/2)/vw - 0.5;
+      const cy=(t.bbox.y+t.bbox.h/2)/vh - 0.5;
+      const score=Math.abs(cx)+Math.abs(cy) - t.confidence*0.2;
+      if(score<bestScore){bestScore=score;best=t;}
+    }
+    primaryTarget=best;
   }
 
-  _status(msg){
-    document.getElementById('status-message').textContent = msg;
-  }
+  function computePerTrackPhysics(){
+    const vw=video.videoWidth||1, vh=video.videoHeight||1;
+    for(const tr of tracks){
+      tr.bearing = physics.bearingDeg(tr, vw);
+      const depth = physics.estimateDepth(tr, vh);
+      tr.depth = depth.meters;
+      tr.relativeDepth = depth.relative;
 
-  _toast(msg){
-    const t=document.getElementById('toast');
-    t.textContent=msg;
-    t.classList.add('show');
-    clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(()=>t.classList.remove('show'), 1200);
-  }
-
-  _showError(title, msg){
-    document.getElementById('error-title').textContent=title;
-    document.getElementById('error-msg').textContent=msg;
-    document.getElementById('error-overlay').classList.add('open');
-  }
-
-  _bindVisibility(){
-    document.addEventListener('visibilitychange', ()=>{
-      if(document.hidden){
-        // battery-save mode
-        this.aiRate = 1;
-        this.aiIntervalMs = 1000;
-        this._toast("Background mode: AI throttled");
-      }else{
-        this.aiRate = Math.min(this.aiRate, OmegaKernel.currentPreset().maxFps);
-        this.aiIntervalMs = 1000/this.aiRate;
-        this._toast("Foreground mode");
+      // radial speed
+      if(tr._prevDepthT){
+        const dt = Math.max(1e-3,(Date.now()-tr._prevDepthT)/1000);
+        if(physics.calibrated && tr.depth!=null && tr._prevDepth!=null){
+          const v = (tr._prevDepth - tr.depth)/dt; // positive if approaching
+          tr.vRad = Utils.ema(v, tr.vRad, 0.6);
+        } else {
+          const scale = tr.bbox.h / vh;
+          const vScale = (scale - (tr._prevScale||scale)) / dt;
+          tr.vRad = Utils.ema(vScale, tr.vRad, 0.6);
+          tr._prevScale = scale;
+        }
       }
-    });
+      tr._prevDepth = tr.depth;
+      tr._prevDepthT = Date.now();
+
+      // motion state
+      tr.motion = physics.motionState(tr.vRad);
+    }
   }
-}
 
-// ============================================================================
-// UI Controller
-// ============================================================================
-const OMEGA = new OmegaKernel();
+  // Render loop
+  function renderLoop(){
+    if(!state.running) return;
+    requestAnimationFrame(renderLoop);
 
-document.getElementById('btn-init').addEventListener('click', ()=>OMEGA.boot());
+    // render fps
+    _rfpsCount++;
+    const t=Utils.now();
+    if(t-_rfpsT0>=1000){
+      renderFpsReal=_rfpsCount*1000/(t-_rfpsT0);
+      _rfpsCount=0; _rfpsT0=t;
+    }
 
-const toggleBtn = document.getElementById('control-toggle');
-const panel = document.getElementById('control-panel');
-toggleBtn.addEventListener('click', ()=>{
-  panel.classList.toggle('open');
-});
+    // clear
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    mapper.update(video, canvas);
 
-// Preset
-const presetSel = document.getElementById('cp-preset');
-presetSel.value = CONFIG.AI.DEFAULT_PRESET;
-presetSel.addEventListener('change', e=>{
-  OMEGA.setPreset(e.target.value);
-});
+    // compute physics for HUD + radar
+    computePerTrackPhysics();
+    updatePrimaryTarget();
 
-// AI toggle
-const aiBtn = document.getElementById('cp-ai-toggle');
-aiBtn.addEventListener('click', ()=>{
-  OMEGA.toggleAI();
-  aiBtn.textContent = OMEGA.aiPaused ? "Resume AI" : "Pause AI";
-});
+    // draw HUD (boxes/horizon)
+    if(state.showBoxes){
+      drawBoxes();
+    }
+    if(state.showHorizon && avionics.isAvailable){
+      drawHorizon();
+    }
+    if(state.showRadar){
+      radar.update(tracks, physics);
+      document.getElementById('radar-container').style.display='block';
+    } else {
+      document.getElementById('radar-container').style.display='none';
+    }
 
-// Camera toggle
-const camBtn = document.getElementById('cp-cam-toggle');
-camBtn.addEventListener('click', async ()=>{
-  await OMEGA.toggleCamera();
-  camBtn.textContent = OMEGA.cameraOn ? "Stop Camera" : "Start Camera";
-});
+    // memory update (fail-soft)
+    safeUpdateMemory();
 
-// HUD toggles
-const hHorizon = document.getElementById('cp-toggle-horizon');
-const hRadar   = document.getElementById('cp-toggle-radar');
-const hBoxes   = document.getElementById('cp-toggle-boxes');
+    // UI update
+    updateUI();
+  }
 
-function chipToggle(el, key){
-  el.addEventListener('click', ()=>{
-    OMEGA.hudFlags[key] = !OMEGA.hudFlags[key];
-    el.classList.toggle('active', OMEGA.hudFlags[key]);
-    if(key==='horizon' && !OMEGA.avionics.isAvailable){
-      OMEGA._toast("Gyro offline");
+  function drawBoxes(){
+    const p = CONFIG.PRESETS[state.preset];
+    ctx.save();
+    ctx.lineWidth=p.lineWidth;
+    ctx.shadowBlur=p.shadow;
+    ctx.shadowColor='#00ff41';
+    ctx.font='12px ui-monospace, monospace';
+    for(const tr of tracks){
+      if(tr.status==='removed') continue;
+      const s = mapper.toScreen(tr.bbox);
+
+      // alpha for lost/coasting
+      const alpha = (tr.status==='lost')?0.35 : (tr.status==='coasting'?0.55:0.95);
+      ctx.globalAlpha=alpha;
+
+      // color by class
+      ctx.strokeStyle = tr.label==='person' ? '#00ff41' : '#ffcc00';
+      ctx.strokeRect(s.x, s.y, s.w, s.h);
+
+      // label plate
+      const txt = `${tr.label.toUpperCase()} #${tr.id} ${(tr.confidence*100).toFixed(0)}%`;
+      const pad=4;
+      const tw=ctx.measureText(txt).width;
+      ctx.fillStyle='rgba(0,0,0,0.55)';
+      ctx.fillRect(s.x, s.y-16, tw+pad*2, 16);
+      ctx.fillStyle='#eaffea';
+      ctx.fillText(txt, s.x+pad, s.y-4);
+
+      // distance/bearing small
+      const distStr = physics.calibrated && tr.depth!=null
+        ? `${Utils.fmt(tr.depth,1)}m`
+        : `REL ${Utils.fmt(tr.relativeDepth,2)}`;
+      const bearStr = `${Utils.fmt(tr.bearing,0)}°`;
+      const motStr = tr.motion;
+      const txt2 = `${distStr} | ${bearStr} | ${motStr}`;
+      const tw2=ctx.measureText(txt2).width;
+      ctx.fillStyle='rgba(0,0,0,0.55)';
+      ctx.fillRect(s.x, s.y+s.h, tw2+pad*2, 16);
+      ctx.fillStyle='#eaffea';
+      ctx.fillText(txt2, s.x+pad, s.y+s.h+12);
+    }
+    ctx.restore();
+  }
+
+  function drawHorizon(){
+    // simple artificial horizon from pitch/roll
+    const w=canvas.width/devicePixelRatio, h=canvas.height/devicePixelRatio;
+    const pitch = avionics.pitch || 0;
+    const roll  = avionics.roll || 0;
+
+    ctx.save();
+    ctx.translate(w/2, h/2);
+    ctx.rotate(-roll * Math.PI/180);
+    const yOff = Utils.clamp(pitch, -45, 45) * (h/360);
+
+    ctx.strokeStyle='rgba(0,255,65,0.6)';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(-w, yOff);
+    ctx.lineTo(w, yOff);
+    ctx.stroke();
+
+    // center reticle
+    ctx.resetTransform();
+    ctx.strokeStyle='rgba(0,255,65,0.8)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.arc(w/2, h/2, 18, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function safeUpdateMemory(){
+    try{
+      for(const tr of tracks){
+        const payload={
+          objectId: tr.id,
+          label: tr.label,
+          confidence: tr.confidence,
+          depthMeters: tr.depth,
+          depthRel: tr.relativeDepth,
+          bearing: tr.bearing,
+          motionState: tr.motion,
+          status: tr.status
+        };
+        if(tr.status==='new') memory.record('object_detected', payload);
+        else if(tr.status==='active' || tr.status==='coasting') memory.record('object_updated', payload);
+        else if(tr.status==='lost') memory.record('object_lost', payload);
+      }
+      statusMemory.className='status-indicator status-ok';
+    }catch(err){
+      console.error("Memory update error:", err);
+      statusMemory.className='status-indicator status-warn';
+    }
+  }
+
+  function updateUI(){
+    valCpu.textContent = Utils.fmt(vision.avgMs,1);
+    valAiFps.textContent = Utils.fmt(vision.aiFpsReal,1);
+    valRenderFps.textContent = Utils.fmt(renderFpsReal,1);
+
+    valPitch.textContent = Utils.fmt(avionics.pitch,1)+'°';
+    valRoll.textContent  = Utils.fmt(avionics.roll,1)+'°';
+    valHeading.textContent=Utils.fmt(avionics.heading,1)+'°';
+    valG.textContent = Utils.fmt(avionics.gForce,2);
+
+    const ts=tracker.getStatus();
+    valTracked.textContent = ts.activeTracks;
+
+    valActive.textContent = memory.getActiveObjectCount();
+    valPersons.textContent = memory.getPersonDetectionsInLast(5);
+    valTopLabel.textContent = memory.getDominantClass();
+
+    if(primaryTarget){
+      valTargetId.textContent = primaryTarget.id;
+      valTargetLabel.textContent = primaryTarget.label;
+      valTargetConf.textContent = Utils.fmt(primaryTarget.confidence,2);
+      valTargetBearing.textContent = Utils.fmt(primaryTarget.bearing,0)+'°';
+
+      if(physics.calibrated && primaryTarget.depth!=null){
+        valTargetDist.textContent = Utils.fmt(primaryTarget.depth,1)+' m';
+      }else{
+        valTargetDist.textContent = 'REL '+Utils.fmt(primaryTarget.relativeDepth,2);
+      }
+      valTargetState.textContent = primaryTarget.motion;
+    }else{
+      valTargetId.textContent='--';
+      valTargetLabel.textContent='--';
+      valTargetDist.textContent='--';
+      valTargetBearing.textContent='--';
+      valTargetState.textContent='--';
+      valTargetConf.textContent='--';
+    }
+  }
+
+  // ============================================================================
+  // ERROR UX
+  // ============================================================================
+  function showError(title, msg, hint){
+    errorTitle.textContent=title;
+    errorMsg.textContent=msg;
+    errorHint.textContent=hint||'';
+    errorOverlay.style.display='flex';
+  }
+  function hideError(){ errorOverlay.style.display='none'; }
+
+  // ============================================================================
+  // UI EVENTS
+  // ============================================================================
+  btnPanelToggle.addEventListener('click', ()=>{
+    cp.classList.toggle('hidden');
+  });
+
+  btnAiToggle.addEventListener('click', ()=>{
+    state.aiPaused = !state.aiPaused;
+    btnAiToggle.textContent = state.aiPaused ? 'Resume AI' : 'Pause AI';
+    btnAiToggle.classList.toggle('toggled', !state.aiPaused);
+  });
+
+  btnCamToggle.addEventListener('click', ()=>{
+    if(!state.cameraOn) return;
+    const stream = video.srcObject;
+    if(stream){
+      stream.getTracks().forEach(t=>t.stop());
+    }
+    state.cameraOn=false;
+    statusCam.className='status-indicator status-offline';
+    ledCam.className='status-led warning';
+    btnCamToggle.textContent='Start Cam';
+    btnCamToggle.classList.remove('danger');
+  });
+
+  btnBoxes.addEventListener('click', ()=>{
+    state.showBoxes=!state.showBoxes;
+    btnBoxes.classList.toggle('toggled', state.showBoxes);
+  });
+  btnRadar.addEventListener('click', ()=>{
+    state.showRadar=!state.showRadar;
+    btnRadar.classList.toggle('toggled', state.showRadar);
+  });
+  btnHorizon.addEventListener('click', ()=>{
+    state.showHorizon=!state.showHorizon;
+    btnHorizon.classList.toggle('toggled', state.showHorizon);
+  });
+
+  selPreset.addEventListener('change', ()=>{
+    state.preset = selPreset.value;
+    vision.setPreset(state.preset);
+  });
+
+  btnCalibrate.addEventListener('click', ()=>{
+    calibModal.style.display='flex';
+  });
+  btnCalibCancel.addEventListener('click', ()=>{
+    calibModal.style.display='none';
+  });
+  btnCalibOk.addEventListener('click', ()=>{
+    calibModal.style.display='none';
+    if(!primaryTarget){
+      statusMessage.textContent='CALIBRATE_FAIL_NO_TARGET';
+      return;
+    }
+    const Zreal = parseFloat(inpCalibDist.value);
+    const Hreal = parseFloat(inpCalibHeight.value);
+    const ok = physics.calibrateFromTrack(primaryTarget, Zreal, Hreal, video.videoHeight||1);
+    statusMessage.textContent = ok ? 'CALIBRATED_OK' : 'CALIBRATE_FAIL';
+  });
+
+  btnExport.addEventListener('click', ()=>{
+    const data = memory.export();
+    const blob = new Blob([data], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='omega_memory.json'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  btnImport.addEventListener('click', ()=>{
+    const inp=document.createElement('input');
+    inp.type='file'; inp.accept='application/json';
+    inp.onchange = () => {
+      const f=inp.files[0]; if(!f) return;
+      const r=new FileReader();
+      r.onload = () => {
+        try{
+          const json=JSON.parse(r.result);
+          memory.import(json);
+          statusMessage.textContent='MEMORY_IMPORTED';
+        }catch(err){
+          statusMessage.textContent='IMPORT_FAIL';
+        }
+      };
+      r.readAsText(f);
+    };
+    inp.click();
+  });
+
+  btnClear.addEventListener('click', ()=>{
+    memory.clear();
+    statusMessage.textContent='MEMORY_CLEARED';
+  });
+
+  btnTryAgain.addEventListener('click', async ()=>{
+    hideError();
+    if(!state.running){
+      await System.init();
     }
   });
-}
-chipToggle(hHorizon,'horizon');
-chipToggle(hRadar,'radar');
-chipToggle(hBoxes,'boxes');
 
-// Calibration modal
-const calibModal = document.getElementById('calibrate-modal');
-document.getElementById('cp-open-calib').addEventListener('click', ()=>{
-  calibModal.classList.add('open');
-});
-document.getElementById('calib-cancel').addEventListener('click', ()=>{
-  calibModal.classList.remove('open');
-});
-document.getElementById('calib-apply').addEventListener('click', ()=>{
-  const Z = parseFloat(document.getElementById('calib-distance').value);
-  const H = parseFloat(document.getElementById('calib-height').value);
-  const ok = OMEGA.calibratePrimary(Z, H);
-  document.getElementById('cp-calib-status').textContent = ok ? "CALIBRATED" : "FAILED (Need primary target full body)";
-  calibModal.classList.remove('open');
-});
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden){
+      // slow down AI automatically
+      vision.targetHz = Math.min(vision.targetHz, 4);
+    }else{
+      vision.setPreset(state.preset);
+    }
+  });
 
-// Memory export/import/clear
-document.getElementById('cp-export').addEventListener('click', ()=>{
-  const data = OMEGA.memory.exportJSON();
-  const blob = new Blob([data],{type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href=url; a.download='omega_memory.json'; a.click();
-  URL.revokeObjectURL(url);
-});
+  // ============================================================================
+  // SYSTEM INIT
+  // ============================================================================
+  const System = {
+    async init(){
+      resize();
+      ledTracker.className='status-led loading';
+      ledMemory.className='status-led active';
+      statusMemory.className='status-indicator status-ok';
 
-document.getElementById('cp-import').addEventListener('change', async (e)=>{
-  const f = e.target.files?.[0];
-  if(!f) return;
-  const raw = await f.text();
-  const ok = OMEGA.memory.importJSON(raw);
-  OMEGA._toast(ok ? "Memory imported" : "Import failed");
-  e.target.value='';
-});
+      const camOK = await initCamera();
+      const gyroOK = await initGyro();
+      const aiOK = await initAI();
 
-document.getElementById('cp-clear').addEventListener('click', ()=>{
-  OMEGA.memory.clear();
-  OMEGA._toast("Memory cleared");
-});
+      ledTracker.className='status-led active';
+      statusTracker.className='status-indicator status-ok';
 
-// Error overlay close
-document.getElementById('error-close').addEventListener('click', ()=>{
-  document.getElementById('error-overlay').classList.remove('open');
-});
+      if(!camOK){
+        return;
+      }
 
-// Shutdown on unload
-window.addEventListener('beforeunload', ()=>OMEGA.shutdown());
+      state.running=true;
+      vision.setPreset(state.preset);
 
-console.log("OMEGA v3.0 loaded");
+      // start loops
+      inferenceLoop();
+      renderLoop();
+    }
+  };
+
+  btnInit.addEventListener('click', async ()=>{
+    btnInit.disabled=true;
+    statusMessage.textContent='INITIALIZING...';
+    await System.init();
+    boot.style.display='none';
+    cp.classList.remove('hidden'); // open panel after boot
+  });
+
+})();
 </script>
 </body>
 </html>
