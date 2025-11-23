@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
 
-  <!-- Only allowed CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
@@ -17,11 +16,11 @@
       --hud-warn:#ffcc00;
       --hud-info:#35a7ff;
       --bg-dark:#050505;
-      --glass:rgba(0, 18, 0, 0.55);      /* lighter -> not blocking sight */
-      --glass-dark:rgba(0, 10, 0, 0.80);
+      --glass:rgba(0, 18, 0, 0.45);      /* lighter */
+      --glass-dark:rgba(0, 10, 0, 0.75);
       --neon-glow:0 0 10px currentColor;
-      --panel-radius:14px;
-      --panel-border:1px solid rgba(0,255,65,0.85);
+      --panel-radius:12px;
+      --panel-border:1px solid rgba(0,255,65,0.75);
     }
     *{box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent;}
     body{
@@ -34,61 +33,69 @@
       position:absolute;inset:0;width:100%;height:100%;
       object-fit:cover;z-index:0;
       filter:contrast(1.35) brightness(0.75) hue-rotate(90deg) saturate(1.2);
-      opacity:0.55;
-      background:#000;
+      opacity:0.55;background:#000;
     }
-    #hud-canvas{
-      position:absolute;inset:0;width:100%;height:100%;z-index:10;
-    }
+    #hud-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:10;}
 
-    /* HUD text layer (pointer none so it doesn't eat taps) */
+    /* HUD text layer (auto-hide capable) */
     #ui-layer{
       position:absolute;inset:0;z-index:20;pointer-events:none;
       display:flex;flex-direction:column;justify-content:space-between;
-      padding:max(14px, env(safe-area-inset-top));
-      gap:8px;
+      padding:max(10px, env(safe-area-inset-top));
+      gap:6px;
+      transition:opacity .25s ease, transform .25s ease;
     }
+    body.ui-hidden #ui-layer{
+      opacity:0; transform:translateY(-6px);
+    }
+
     .hud-panel{
       background:var(--glass);
       border:var(--panel-border);
-      padding:10px 12px;
-      width:fit-content;
-      backdrop-filter: blur(8px);
-      box-shadow:var(--neon-glow);
+      padding:7px 9px; /* smaller */
+      width:fit-content;max-width:220px;
+      backdrop-filter: blur(6px);
+      box-shadow:0 0 8px rgba(0,255,65,0.25);
       border-radius:var(--panel-radius);
-      opacity:0.92; /* still readable but not blocking */
+      opacity:0.85;
     }
-    .hud-panel-wide{width:auto;min-width:240px;max-width:300px;}
+    .hud-panel-wide{width:auto;min-width:200px;max-width:240px;}
     .panel-title{
-      font-size:10px;font-weight:800;color:var(--hud-secondary);
-      margin-bottom:6px;letter-spacing:2px;text-transform:uppercase;
+      font-size:9px;font-weight:800;color:var(--hud-secondary);
+      margin-bottom:4px;letter-spacing:1.6px;text-transform:uppercase;
     }
     .hud-text{
-      font-size:11px;letter-spacing:0.6px;margin-bottom:3px;
-      text-shadow:var(--neon-glow);display:flex;justify-content:space-between;gap:10px;
+      font-size:10px;letter-spacing:0.4px;margin-bottom:2px;
+      text-shadow:var(--neon-glow);display:flex;justify-content:space-between;gap:8px;
     }
-    .hud-value{font-weight:800;color:#e9ffe9;margin-left:8px;white-space:nowrap;}
+    .hud-value{font-weight:800;color:#e9ffe9;margin-left:6px;white-space:nowrap;}
 
-    /* Radar */
+    /* compact top stack */
+    .top-row{display:flex;justify-content:space-between;width:100%;gap:6px;}
+    .bottom-left{position:absolute;left:8px;bottom:150px;}
+    .bottom-right{position:absolute;right:150px;top:90px;}
+
+    /* Radar smaller by default */
     #radar-container{
-      position:absolute;bottom:16px;right:16px;width:140px;height:140px;border-radius:50%;
+      position:absolute;bottom:10px;right:10px;width:110px;height:110px;border-radius:50%;
       background:var(--glass-dark);border:2px solid var(--hud-primary);
-      box-shadow:0 0 18px rgba(0,255,65,0.25);overflow:hidden;z-index:30;
-      pointer-events:none;
+      box-shadow:0 0 14px rgba(0,255,65,0.22);overflow:hidden;z-index:30;
+      pointer-events:none;transition:opacity .25s ease;
     }
+    body.ui-hidden #radar-container{opacity:0.9;} /* keep radar visible */
     #radar-container::after{
       content:'';position:absolute;inset:0;border-radius:50%;
-      background:conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.35) 360deg);
+      background:conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.32) 360deg);
       animation:radar-scan 3s linear infinite;
     }
     @keyframes radar-scan{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
     .radar-grid{
       position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      border:1px solid rgba(0,255,65,0.25);border-radius:50%;
+      border:1px solid rgba(0,255,65,0.22);border-radius:50%;
     }
     .radar-cross{
       position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      width:100%;height:1px;background:rgba(0,255,65,0.25);
+      width:100%;height:1px;background:rgba(0,255,65,0.22);
     }
     #radar-blips{position:absolute;inset:0;z-index:2;}
     .radar-blip{
@@ -96,21 +103,23 @@
       box-shadow:var(--neon-glow);transition:all .25s ease;will-change:transform,opacity;
     }
     .radar-range{
-      position:absolute;bottom:4px;left:50%;transform:translateX(-50%);
-      font-size:9px;color:var(--hud-secondary);z-index:3;
+      position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+      font-size:8px;color:var(--hud-secondary);z-index:3;
     }
 
-    /* System status bar */
+    /* System status bar stays slim */
     #system-status{
       position:absolute;bottom:0;left:0;width:100%;z-index:25;
       background:var(--glass-dark);border-top:1px solid var(--hud-secondary);
-      padding:6px 12px;display:flex;justify-content:space-between;font-size:10px;
-      backdrop-filter:blur(4px);pointer-events:none;
+      padding:5px 10px;display:flex;justify-content:space-between;font-size:9px;
+      backdrop-filter:blur(3px);pointer-events:none;
+      transition:opacity .25s ease;
     }
-    .status-section{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-    .status-item-compact{display:flex;align-items:center;margin-right:8px;}
+    body.ui-hidden #system-status{opacity:0.6;}
+    .status-section{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .status-item-compact{display:flex;align-items:center;margin-right:6px;}
     .status-indicator{
-      width:6px;height:6px;border-radius:50%;margin-right:6px;position:relative;background:#444;
+      width:6px;height:6px;border-radius:50%;margin-right:5px;position:relative;background:#444;
     }
     .status-indicator::after{
       content:'';position:absolute;inset:-1px;border-radius:50%;box-shadow:0 0 6px currentColor;
@@ -127,19 +136,19 @@
       background:radial-gradient(circle at center, #001100 0%, #000 70%);
     }
     .boot-title{
-      font-size:44px;font-weight:900;letter-spacing:8px;text-shadow:0 0 20px var(--hud-primary);
+      font-size:40px;font-weight:900;letter-spacing:7px;text-shadow:0 0 18px var(--hud-primary);
       background:linear-gradient(90deg,var(--hud-primary),var(--hud-secondary));
       -webkit-background-clip:text;-webkit-text-fill-color:transparent;
     }
-    .boot-subtitle{opacity:.75;margin:8px 0 26px;font-size:13px;letter-spacing:3px;}
+    .boot-subtitle{opacity:.75;margin:8px 0 24px;font-size:12px;letter-spacing:3px;}
     #btn-init{
       background:transparent;color:var(--hud-primary);border:2px solid var(--hud-primary);
-      padding:14px 44px;font-family:inherit;font-size:15px;font-weight:800;letter-spacing:3px;
+      padding:12px 38px;font-family:inherit;font-size:14px;font-weight:800;letter-spacing:3px;
       cursor:pointer;transition:all .25s ease;border-radius:999px;text-transform:uppercase;
     }
-    #btn-init:hover{background:var(--hud-primary);color:#000;box-shadow:0 0 26px var(--hud-primary);}
+    #btn-init:hover{background:var(--hud-primary);color:#000;box-shadow:0 0 22px var(--hud-primary);}
     .status-list{font-size:12px;line-height:1.7;opacity:.9;margin-top:10px;}
-    .status-item{display:flex;align-items:center;margin-bottom:8px;gap:10px;}
+    .status-item{display:flex;align-items:center;margin-bottom:6px;gap:10px;}
     .status-led{width:9px;height:9px;border-radius:50%;background:#333;box-shadow:0 0 7px currentColor;}
     .status-led.active{background:var(--hud-primary);}
     .status-led.warning{background:var(--hud-warn);}
@@ -147,7 +156,7 @@
     .status-led.loading{background:var(--hud-info);animation:pulse 1.4s infinite;}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-    /* Error / permission overlay */
+    /* Error overlay */
     #error-overlay{
       position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;
       background:rgba(0,0,0,0.85);color:#eaffea;padding:20px;text-align:center;
@@ -159,33 +168,43 @@
     #error-box h3{margin:0 0 8px;font-size:16px;letter-spacing:1px;}
     #error-box p{margin:6px 0;font-size:13px;opacity:.9;}
 
-    /* Control panel (pointer auto) */
+    /* Control panel (also auto-hide with HUD) */
     #control-panel{
-      position:absolute;top:50%;left:12px;transform:translateY(-50%);
-      z-index:40;pointer-events:auto;
-      display:flex;flex-direction:column;gap:8px;
+      position:absolute;top:50%;left:8px;transform:translateY(-50%);
+      z-index:40;pointer-events:auto;display:flex;flex-direction:column;gap:7px;
+      transition:opacity .25s ease, transform .25s ease;
     }
+    body.ui-hidden #control-panel{opacity:0;transform:translateY(-50%) translateX(-6px);pointer-events:none;}
     #control-panel.hidden{display:none;}
     .cp-card{
       background:var(--glass-dark);
       border:var(--panel-border);
-      padding:10px;border-radius:14px;min-width:170px;
-      backdrop-filter:blur(10px);
-      box-shadow:0 0 16px rgba(0,255,65,0.18);
+      padding:8px;border-radius:12px;min-width:160px;
+      backdrop-filter:blur(9px);
+      box-shadow:0 0 14px rgba(0,255,65,0.15);
     }
-    .cp-title{font-size:10px;color:var(--hud-secondary);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+    .cp-title{font-size:9px;color:var(--hud-secondary);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;}
     .cp-row{display:flex;gap:6px;flex-wrap:wrap;}
     .cp-btn, select.cp-select, input.cp-input{
       pointer-events:auto;cursor:pointer;border:1px solid rgba(0,255,65,0.6);
       background:rgba(0,0,0,0.6);color:#eaffea;
-      padding:6px 8px;border-radius:10px;font-family:inherit;font-size:12px;
+      padding:5px 7px;border-radius:9px;font-family:inherit;font-size:11px;
       transition:all .2s ease;
     }
     .cp-btn:hover, select.cp-select:hover{background:rgba(0,255,65,0.12);}
-    .cp-btn.toggled{background:rgba(0,255,65,0.25);}
+    .cp-btn.toggled{background:rgba(0,255,65,0.22);}
     .cp-btn.danger{border-color:rgba(255,60,60,0.8);color:#ffdede;}
     .cp-btn.danger:hover{background:rgba(255,60,60,0.15);}
-    .cp-small{font-size:11px;opacity:.85;line-height:1.3;margin-top:4px;}
+    .cp-small{font-size:10px;opacity:.85;line-height:1.3;margin-top:4px;}
+
+    /* HUD handle button (stays always visible, tiny) */
+    #hud-handle{
+      position:absolute;left:8px;bottom:12px;z-index:45;pointer-events:auto;
+    }
+    #hud-handle .cp-btn{
+      padding:5px 10px;border-radius:999px;font-size:11px;letter-spacing:1px;
+      background:rgba(0,0,0,0.7);
+    }
 
     /* Calibrate modal */
     #calibrate-modal{
@@ -202,15 +221,11 @@
     #calibrate-card .cp-input{width:100%;}
     #calibrate-card .cp-row{justify-content:flex-end;margin-top:10px;}
 
-    /* Layout tweaks for readability */
-    .top-row{display:flex;justify-content:space-between;width:100%;gap:8px;}
-    .bottom-left{position:absolute;left:12px;bottom:170px;}
-    .bottom-right{position:absolute;right:170px;top:110px;}
-
     @media (max-width:768px){
-      #radar-container{width:125px;height:125px;right:12px;bottom:12px;}
-      .boot-title{font-size:34px;letter-spacing:6px;}
-      #control-panel{left:8px;}
+      #radar-container{width:105px;height:105px;right:8px;bottom:8px;}
+      .boot-title{font-size:32px;letter-spacing:6px;}
+      #control-panel{left:6px;}
+      .bottom-right{right:135px;top:80px;}
     }
   </style>
 </head>
@@ -222,52 +237,49 @@
     <div id="ui-layer">
       <div class="top-row">
         <div class="hud-panel">
-          <div class="panel-title">SYSTEM METRICS</div>
-          <div class="hud-text">AI FPS (REAL): <span id="val-ai-fps" class="hud-value">0</span></div>
-          <div class="hud-text">RENDER FPS: <span id="val-render-fps" class="hud-value">0</span></div>
-          <div class="hud-text">INFER AVG: <span id="val-cpu" class="hud-value">0</span> ms</div>
-          <div class="hud-text">TRACKS: <span id="val-tracked" class="hud-value">0</span></div>
+          <div class="panel-title">SYSTEM</div>
+          <div class="hud-text">AI FPS: <span id="val-ai-fps" class="hud-value">0</span></div>
+          <div class="hud-text">R FPS: <span id="val-render-fps" class="hud-value">0</span></div>
+          <div class="hud-text">AVG: <span id="val-cpu" class="hud-value">0</span> ms</div>
+          <div class="hud-text">TRK: <span id="val-tracked" class="hud-value">0</span></div>
         </div>
 
         <div class="hud-panel">
           <div class="panel-title">AVIONICS</div>
-          <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0.0°</span></div>
-          <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0.0°</span></div>
-          <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0.0°</span></div>
-          <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.00</span></div>
+          <div class="hud-text">PIT: <span id="val-pitch" class="hud-value">0.0°</span></div>
+          <div class="hud-text">ROL: <span id="val-roll" class="hud-value">0.0°</span></div>
+          <div class="hud-text">HDG: <span id="val-heading" class="hud-value">0.0°</span></div>
+          <div class="hud-text">G: <span id="val-g" class="hud-value">1.00</span></div>
         </div>
       </div>
 
-      <!-- Tactical analytics moved to corner to avoid blocking center -->
       <div class="hud-panel hud-panel-wide bottom-left">
-        <div class="panel-title">TACTICAL ANALYTICS</div>
-        <div class="hud-text">ACTIVE OBJECTS: <span id="val-active" class="hud-value">0</span></div>
-        <div class="hud-text">PERSON DETECT (5M): <span id="val-persons" class="hud-value">0</span></div>
-        <div class="hud-text">DOMINANT CLASS: <span id="val-top-label" class="hud-value">--</span></div>
+        <div class="panel-title">TACTICAL</div>
+        <div class="hud-text">ACTIVE: <span id="val-active" class="hud-value">0</span></div>
+        <div class="hud-text">PERS 5M: <span id="val-persons" class="hud-value">0</span></div>
+        <div class="hud-text">DOM: <span id="val-top-label" class="hud-value">--</span></div>
       </div>
 
       <div class="hud-panel hud-panel-wide bottom-right">
-        <div class="panel-title">PRIMARY TARGET</div>
+        <div class="panel-title">TARGET</div>
         <div class="hud-text">ID: <span id="val-target-id" class="hud-value">--</span></div>
-        <div class="hud-text">CLASS: <span id="val-target-label" class="hud-value">--</span></div>
-        <div class="hud-text">DIST: <span id="val-target-dist" class="hud-value">--</span></div>
-        <div class="hud-text">BEARING: <span id="val-target-bearing" class="hud-value">--</span></div>
-        <div class="hud-text">MOTION: <span id="val-target-state" class="hud-value">--</span></div>
-        <div class="hud-text">CONF: <span id="val-target-conf" class="hud-value">--</span></div>
+        <div class="hud-text">CLS: <span id="val-target-label" class="hud-value">--</span></div>
+        <div class="hud-text">DST: <span id="val-target-dist" class="hud-value">--</span></div>
+        <div class="hud-text">BRG: <span id="val-target-bearing" class="hud-value">--</span></div>
+        <div class="hud-text">MOT: <span id="val-target-state" class="hud-value">--</span></div>
+        <div class="hud-text">CNF: <span id="val-target-conf" class="hud-value">--</span></div>
       </div>
 
-      <!-- Radar -->
       <div id="radar-container">
         <div class="radar-grid" style="width:33%;height:33%"></div>
         <div class="radar-grid" style="width:66%;height:66%"></div>
         <div class="radar-cross"></div>
         <div class="radar-cross" style="transform:translate(-50%,-50%) rotate(90deg)"></div>
         <div id="radar-blips"></div>
-        <div class="radar-range">RANGE: 50M</div>
+        <div class="radar-range">R:50M</div>
       </div>
     </div>
 
-    <!-- Control Panel -->
     <div id="control-panel" class="hidden">
       <div class="cp-card">
         <div class="cp-title">Controls</div>
@@ -292,7 +304,7 @@
           </select>
           <button id="btn-calibrate" class="cp-btn">Calibrate</button>
         </div>
-        <div class="cp-small" id="calib-status">Depth: RELATIVE (not calibrated)</div>
+        <div class="cp-small" id="calib-status">Depth: RELATIVE</div>
       </div>
 
       <div class="cp-card">
@@ -305,25 +317,24 @@
       </div>
     </div>
 
-    <!-- Toggle Panel Button (tiny, not blocking) -->
-    <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:41;pointer-events:auto;">
-      <button id="btn-panel-toggle" class="cp-btn" style="padding:6px 10px;border-radius:999px;">Panel</button>
+    <!-- Always-visible tiny HUD handle -->
+    <div id="hud-handle">
+      <button id="btn-hud-toggle" class="cp-btn">HUD</button>
+      <button id="btn-panel-toggle" class="cp-btn" style="margin-left:6px;">Panel</button>
     </div>
 
-    <!-- System Status Bar -->
     <div id="system-status">
       <div class="status-section">
-        <div class="status-item-compact"><span class="status-indicator" id="status-cam"></span><span>OPTICAL</span></div>
-        <div class="status-item-compact"><span class="status-indicator" id="status-ai"></span><span>NEURAL</span></div>
-        <div class="status-item-compact"><span class="status-indicator" id="status-gyro"></span><span>AVIONICS</span></div>
-        <div class="status-item-compact"><span class="status-indicator" id="status-tracker"></span><span>TRACKER</span></div>
-        <div class="status-item-compact"><span class="status-indicator" id="status-memory"></span><span>MEMORY</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-cam"></span><span>OPT</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-ai"></span><span>AI</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-gyro"></span><span>GYR</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-tracker"></span><span>TRK</span></div>
+        <div class="status-item-compact"><span class="status-indicator" id="status-memory"></span><span>MEM</span></div>
       </div>
       <div class="status-section"><span id="status-message">SYSTEM_STANDBY</span></div>
     </div>
   </div>
 
-  <!-- Boot Screen -->
   <div id="boot-overlay">
     <div class="boot-title">OMEGA</div>
     <div class="boot-subtitle">ADVANCED HUMANOID VISION SYSTEM</div>
@@ -337,7 +348,6 @@
     <button id="btn-init">INITIALIZE SYSTEM</button>
   </div>
 
-  <!-- Error Overlay -->
   <div id="error-overlay">
     <div id="error-box">
       <h3 id="error-title">ERROR</h3>
@@ -349,22 +359,17 @@
     </div>
   </div>
 
-  <!-- Calibrate Modal -->
   <div id="calibrate-modal">
     <div id="calibrate-card">
       <h3>CALIBRATE DEPTH</h3>
-      <div class="line">1) ให้เป้าหมายยืนเต็มตัวในเฟรม</div>
-      <div class="line">2) ใส่ "ระยะจริง" กับ "ความสูงจริง" แล้วกด Calibrate</div>
-      <label>Real Distance (meters)</label>
+      <div class="line">ให้เป้าหมายยืนเต็มตัวในเฟรม แล้วกด Calibrate</div>
+      <label>Real Distance (m)</label>
       <input id="inp-calib-dist" class="cp-input" type="number" step="0.1" min="0.5" value="3.0" />
-      <label>Target Height (meters)</label>
+      <label>Target Height (m)</label>
       <input id="inp-calib-height" class="cp-input" type="number" step="0.01" min="0.5" value="1.75" />
       <div class="cp-row">
         <button id="btn-calib-cancel" class="cp-btn danger">Cancel</button>
         <button id="btn-calib-ok" class="cp-btn">Calibrate Now</button>
-      </div>
-      <div class="cp-small" style="margin-top:6px;opacity:.8">
-        * ถ้าไม่ calibrate ระบบจะแสดงระยะเป็น REL (0-1)
       </div>
     </div>
   </div>
@@ -373,49 +378,19 @@
 (() => {
   'use strict';
 
-  // ============================================================================
-  // CONFIG
-  // ============================================================================
   const CONFIG = {
-    AI: {
-      MODEL_TYPE: 'lite_mobilenet_v2',
-      CONFIDENCE_THRESHOLD: 0.65,
-      MAX_DETECTIONS: 25,
-      INFERENCE_RATE: 12 // hard cap
-    },
+    AI: { MODEL_TYPE:'lite_mobilenet_v2', CONFIDENCE_THRESHOLD:0.65, MAX_DETECTIONS:25, INFERENCE_RATE:12 },
     PRESETS: {
-      low:      { targetHz: 6,  maxDet: 10, shadow: 0,  lineWidth: 2 },
-      balanced: { targetHz: 10, maxDet: 18, shadow: 6,  lineWidth: 2.5 },
-      high:     { targetHz: 14, maxDet: 25, shadow: 10, lineWidth: 3 }
+      low:{targetHz:6,maxDet:10,shadow:0,lineWidth:2},
+      balanced:{targetHz:10,maxDet:18,shadow:6,lineWidth:2.5},
+      high:{targetHz:14,maxDet:25,shadow:10,lineWidth:3}
     },
-    TRACKING: {
-      MIN_IOU: 0.35,
-      MAX_ASSOC_DIST: 0.28, // normalized in video space
-      MAX_AGE: 45,
-      COASTING_FRAMES: 10,
-      SMOOTHING: 0.75,
-      LABEL_BONUS: 0.12
-    },
-    PHYSICS: {
-      H_FOV_DEG: 67.5,
-      MAX_RANGE_M: 50,
-      MIN_RANGE_M: 0.5,
-      PERSON_HEIGHT_M: 1.75,
-      VEHICLE_HEIGHT_M: 1.6,
-      APPROACH_T: 0.15,
-      RECEDE_T: -0.10,
-      STATIC_T: 0.05
-    },
-    MEMORY: {
-      MAX_EVENTS: 2000,
-      RETENTION_MS: 60 * 60 * 1000,
-      PERSIST_INTERVAL_MS: 5000
-    }
+    TRACKING:{ MIN_IOU:0.35, MAX_ASSOC_DIST:0.28, MAX_AGE:45, COASTING_FRAMES:10, SMOOTHING:0.75, LABEL_BONUS:0.12 },
+    PHYSICS:{ H_FOV_DEG:67.5, MAX_RANGE_M:50, MIN_RANGE_M:0.5, PERSON_HEIGHT_M:1.75,  APPROACH_T:0.15, RECEDE_T:-0.10, STATIC_T:0.05 },
+    MEMORY:{ MAX_EVENTS:2000, RETENTION_MS:60*60*1000, PERSIST_INTERVAL_MS:5000 },
+    UI:{ AUTO_HIDE_MS:4000 }
   };
 
-  // ============================================================================
-  // DOM
-  // ============================================================================
   const video = document.getElementById('camera-feed');
   const canvas = document.getElementById('hud-canvas');
   const ctx = canvas.getContext('2d');
@@ -430,6 +405,7 @@
   const btnTryAgain = document.getElementById('btn-try-again');
 
   const cp = document.getElementById('control-panel');
+  const btnHudToggle = document.getElementById('btn-hud-toggle');
   const btnPanelToggle = document.getElementById('btn-panel-toggle');
   const btnAiToggle = document.getElementById('btn-ai-toggle');
   const btnCamToggle = document.getElementById('btn-cam-toggle');
@@ -451,654 +427,343 @@
 
   const radarBlipsEl = document.getElementById('radar-blips');
 
-  // UI values
-  const el = (id) => document.getElementById(id);
-  const valCpu = el('val-cpu');
-  const valAiFps = el('val-ai-fps');
-  const valRenderFps = el('val-render-fps');
-  const valTracked = el('val-tracked');
-  const valPitch = el('val-pitch');
-  const valRoll = el('val-roll');
-  const valHeading = el('val-heading');
-  const valG = el('val-g');
-  const valActive = el('val-active');
-  const valPersons = el('val-persons');
-  const valTopLabel = el('val-top-label');
+  const el = (id)=>document.getElementById(id);
+  const valCpu=el('val-cpu'), valAiFps=el('val-ai-fps'), valRenderFps=el('val-render-fps'), valTracked=el('val-tracked');
+  const valPitch=el('val-pitch'), valRoll=el('val-roll'), valHeading=el('val-heading'), valG=el('val-g');
+  const valActive=el('val-active'), valPersons=el('val-persons'), valTopLabel=el('val-top-label');
+  const valTargetId=el('val-target-id'), valTargetLabel=el('val-target-label'), valTargetDist=el('val-target-dist');
+  const valTargetBearing=el('val-target-bearing'), valTargetState=el('val-target-state'), valTargetConf=el('val-target-conf');
 
-  const valTargetId = el('val-target-id');
-  const valTargetLabel = el('val-target-label');
-  const valTargetDist = el('val-target-dist');
-  const valTargetBearing = el('val-target-bearing');
-  const valTargetState = el('val-target-state');
-  const valTargetConf = el('val-target-conf');
+  const statusCam=el('status-cam'), statusAi=el('status-ai'), statusGyro=el('status-gyro');
+  const statusTracker=el('status-tracker'), statusMemory=el('status-memory'), statusMessage=el('status-message');
 
-  const statusCam = el('status-cam');
-  const statusAi = el('status-ai');
-  const statusGyro = el('status-gyro');
-  const statusTracker = el('status-tracker');
-  const statusMemory = el('status-memory');
-  const statusMessage = el('status-message');
+  const ledCam=el('led-cam'), ledAi=el('led-ai'), ledGyro=el('led-gyro'), ledTracker=el('led-tracker'), ledMemory=el('led-memory');
 
-  const ledCam = el('led-cam');
-  const ledAi = el('led-ai');
-  const ledGyro = el('led-gyro');
-  const ledTracker = el('led-tracker');
-  const ledMemory = el('led-memory');
-
-  // ============================================================================
-  // UTILS
-  // ============================================================================
-  const Utils = {
-    clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
-    ema: (x, prev, alpha) => alpha * prev + (1 - alpha) * x,
-    now: () => performance.now(),
-    fmt: (v, d=1) => Number.isFinite(v) ? v.toFixed(d) : '--',
-    iou: (a, b) => {
-      const x1 = Math.max(a.x, b.x);
-      const y1 = Math.max(a.y, b.y);
-      const x2 = Math.min(a.x + a.w, b.x + b.w);
-      const y2 = Math.min(a.y + a.h, b.y + b.h);
-      const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-      const areaA = a.w * a.h, areaB = b.w * b.h;
-      const uni = areaA + areaB - inter;
-      return uni > 0 ? inter / uni : 0;
+  const Utils={
+    clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
+    ema:(x,prev,a)=>a*prev+(1-a)*x,
+    now:()=>performance.now(),
+    fmt:(v,d=1)=>Number.isFinite(v)?v.toFixed(d):'--',
+    iou:(a,b)=>{
+      const x1=Math.max(a.x,b.x), y1=Math.max(a.y,b.y);
+      const x2=Math.min(a.x+a.w,b.x+b.w), y2=Math.min(a.y+a.h,b.y+b.h);
+      const inter=Math.max(0,x2-x1)*Math.max(0,y2-y1);
+      const uni=a.w*a.h+b.w*b.h-inter;
+      return uni>0?inter/uni:0;
     },
-    centerDistNorm: (a, b, vw, vh) => {
-      const acx = a.x + a.w/2, acy = a.y + a.h/2;
-      const bcx = b.x + b.w/2, bcy = b.y + b.h/2;
-      const dx = (acx - bcx)/vw, dy = (acy - bcy)/vh;
-      return Math.sqrt(dx*dx + dy*dy);
+    centerDistNorm:(a,b,vw,vh)=>{
+      const acx=a.x+a.w/2, acy=a.y+a.h/2;
+      const bcx=b.x+b.w/2, bcy=b.y+b.h/2;
+      const dx=(acx-bcx)/vw, dy=(acy-bcy)/vh;
+      return Math.sqrt(dx*dx+dy*dy);
     }
   };
 
-  // ============================================================================
-  // LIGHTWEIGHT KALMAN 1D
-  // ============================================================================
-  class Kalman1D {
-    constructor(q=0.1, r=0.5, x0=0){
-      this.q=q; this.r=r; this.x=x0; this.p=1; this.init=false;
-    }
+  class Kalman1D{
+    constructor(q=0.1,r=0.5,x0=0){this.q=q;this.r=r;this.x=x0;this.p=1;this.init=false;}
     update(z){
-      if(!this.init){ this.x=z; this.init=true; return this.x; }
-      // predict
-      this.p += this.q;
-      // update
-      const k = this.p / (this.p + this.r);
-      this.x = this.x + k * (z - this.x);
-      this.p = (1 - k) * this.p;
+      if(!this.init){this.x=z;this.init=true;return this.x;}
+      this.p+=this.q;
+      const k=this.p/(this.p+this.r);
+      this.x=this.x+k*(z-this.x);
+      this.p=(1-k)*this.p;
       return this.x;
     }
   }
 
-  // ============================================================================
-  // VIDEO -> CANVAS MAPPER (object-fit: cover)
-  // ============================================================================
-  class VideoMapper {
-    constructor(){
-      this.vw=0; this.vh=0; this.cw=0; this.ch=0;
-      this.scale=1; this.offX=0; this.offY=0;
+  class VideoMapper{
+    constructor(){this.vw=0;this.vh=0;this.cw=0;this.ch=0;this.scale=1;this.offX=0;this.offY=0;}
+    update(v, c){
+      this.vw=v.videoWidth||0; this.vh=v.videoHeight||0;
+      this.cw=c.width; this.ch=c.height;
+      if(!this.vw||!this.vh) return;
+      this.scale=Math.max(this.cw/this.vw, this.ch/this.vh);
+      const dispW=this.vw*this.scale, dispH=this.vh*this.scale;
+      this.offX=(this.cw-dispW)/2; this.offY=(this.ch-dispH)/2;
     }
-    update(videoEl, canvasEl){
-      this.vw = videoEl.videoWidth || 0;
-      this.vh = videoEl.videoHeight || 0;
-      this.cw = canvasEl.width;
-      this.ch = canvasEl.height;
-      if(!this.vw || !this.vh) return;
-      // cover scale
-      this.scale = Math.max(this.cw/this.vw, this.ch/this.vh);
-      const dispW = this.vw * this.scale;
-      const dispH = this.vh * this.scale;
-      this.offX = (this.cw - dispW)/2;
-      this.offY = (this.ch - dispH)/2;
-    }
-    toScreen(bbox){
-      return {
-        x: bbox.x * this.scale + this.offX,
-        y: bbox.y * this.scale + this.offY,
-        w: bbox.w * this.scale,
-        h: bbox.h * this.scale
-      };
-    }
+    toScreen(b){return {x:b.x*this.scale+this.offX, y:b.y*this.scale+this.offY, w:b.w*this.scale, h:b.h*this.scale};}
   }
 
-  // ============================================================================
-  // AVIONICS (gyro/accel) - rotationRate ONLY from devicemotion
-  // ============================================================================
-  class Avionics {
+  class Avionics{
     constructor(){
-      this.pitch=0; this.roll=0; this.heading=0;
-      this.gForce=1.0; this.acc={x:0,y:0,z:0}; this.rot={alpha:0,beta:0,gamma:0};
-      this.isAvailable=false; this.isInitialized=false;
-      this.smoothing={orientation:0.8, acceleration:0.7, rotation:0.7};
+      this.pitch=0;this.roll=0;this.heading=0;this.gForce=1.0;this.acc={x:0,y:0,z:0};this.rot={alpha:0,beta:0,gamma:0};
+      this.isAvailable=false;this.smoothing={orientation:0.8,acceleration:0.7,rotation:0.7};
     }
     async init(){
       try{
-        if(!window.DeviceOrientationEvent && !window.DeviceMotionEvent){
-          throw new Error("Sensors not available");
+        if(!window.DeviceOrientationEvent&&!window.DeviceMotionEvent) throw new Error("Sensors not available");
+        if(typeof DeviceOrientationEvent?.requestPermission==='function'){
+          const st=await DeviceOrientationEvent.requestPermission();
+          if(st!=='granted') throw new Error("GYRO PERMISSION DENIED");
         }
-        if(typeof DeviceOrientationEvent?.requestPermission === 'function'){
-          const st = await DeviceOrientationEvent.requestPermission();
-          if(st !== 'granted') throw new Error("GYRO PERMISSION DENIED");
-        }
-        window.addEventListener('deviceorientation', (e)=>this._onOri(e), {passive:true});
-        window.addEventListener('devicemotion', (e)=>this._onMot(e), {passive:true});
-        this.isAvailable=true; this.isInitialized=true;
-        return true;
-      }catch(err){
-        console.warn("Avionics init failed:", err);
-        this.isAvailable=false;
-        return false;
-      }
+        window.addEventListener('deviceorientation', e=>this._onOri(e), {passive:true});
+        window.addEventListener('devicemotion', e=>this._onMot(e), {passive:true});
+        this.isAvailable=true; return true;
+      }catch(err){console.warn(err);this.isAvailable=false;return false;}
     }
     _onOri(e){
-      this.roll   = Utils.ema(e.gamma||0, this.roll, this.smoothing.orientation);
-      this.pitch  = Utils.ema(e.beta||0,  this.pitch,this.smoothing.orientation);
-      this.heading= Utils.ema(e.alpha||0, this.heading,this.smoothing.orientation);
-      // IMPORTANT: do NOT read rotationRate here (bug fix)
+      this.roll=Utils.ema(e.gamma||0,this.roll,this.smoothing.orientation);
+      this.pitch=Utils.ema(e.beta||0,this.pitch,this.smoothing.orientation);
+      this.heading=Utils.ema(e.alpha||0,this.heading,this.smoothing.orientation);
     }
     _onMot(e){
-      const acc = e.accelerationIncludingGravity;
+      const acc=e.accelerationIncludingGravity;
       if(acc){
-        this.acc.x = Utils.ema(acc.x||0, this.acc.x, this.smoothing.acceleration);
-        this.acc.y = Utils.ema(acc.y||0, this.acc.y, this.smoothing.acceleration);
-        this.acc.z = Utils.ema(acc.z||0, this.acc.z, this.smoothing.acceleration);
-        const {x,y,z}=this.acc;
-        this.gForce = Math.sqrt(x*x+y*y+z*z)/9.80665;
+        this.acc.x=Utils.ema(acc.x||0,this.acc.x,this.smoothing.acceleration);
+        this.acc.y=Utils.ema(acc.y||0,this.acc.y,this.smoothing.acceleration);
+        this.acc.z=Utils.ema(acc.z||0,this.acc.z,this.smoothing.acceleration);
+        const {x,y,z}=this.acc; this.gForce=Math.sqrt(x*x+y*y+z*z)/9.80665;
       }
-      // rotationRate exists on devicemotion in iOS/Android
-      const rr = e.rotationRate;
+      const rr=e.rotationRate;
       if(rr){
-        this.rot.alpha = Utils.ema(rr.alpha||0, this.rot.alpha, this.smoothing.rotation);
-        this.rot.beta  = Utils.ema(rr.beta||0,  this.rot.beta,  this.smoothing.rotation);
-        this.rot.gamma = Utils.ema(rr.gamma||0, this.rot.gamma, this.smoothing.rotation);
+        this.rot.alpha=Utils.ema(rr.alpha||0,this.rot.alpha,this.smoothing.rotation);
+        this.rot.beta=Utils.ema(rr.beta||0,this.rot.beta,this.smoothing.rotation);
+        this.rot.gamma=Utils.ema(rr.gamma||0,this.rot.gamma,this.smoothing.rotation);
       }
     }
   }
 
-  // ============================================================================
-  // VISION ENGINE (backend select + warmup + adaptive rate)
-  // ============================================================================
-  class VisionEngine {
+  class VisionEngine{
     constructor(){
-      this.model=null; this.isModelLoaded=false; this.isProcessing=false;
-      this.lastMs=0; this.avgMs=0; this.total=0;
-      this.aiFpsReal=0; this._aiFpsCounter=0; this._aiFpsT0=Utils.now();
-      this.backend='cpu';
-      this.targetHz=CONFIG.PRESETS.balanced.targetHz;
-      this.lastDetectT=0;
+      this.model=null;this.isModelLoaded=false;this.isProcessing=false;
+      this.lastMs=0;this.avgMs=0;this.aiFpsReal=0;this._cnt=0;this._t0=Utils.now();
+      this.backend='cpu';this.targetHz=CONFIG.PRESETS.balanced.targetHz;
     }
     async init(){
       try{
         await tf.ready();
-        // backend selection
-        const backends = ['webgl','wasm','cpu'];
-        for(const b of backends){
-          try{
-            await tf.setBackend(b);
-            await tf.ready();
-            this.backend=b; break;
-          }catch(_){}
+        for(const b of ['webgl','wasm','cpu']){
+          try{await tf.setBackend(b);await tf.ready();this.backend=b;break;}catch(_){}
         }
-        this.model = await cocoSsd.load({base: CONFIG.AI.MODEL_TYPE});
+        this.model=await cocoSsd.load({base:CONFIG.AI.MODEL_TYPE});
         this.isModelLoaded=true;
-        // warmup (2 runs)
         if(video.readyState===4){
-          await this.model.detect(video, 1, 0.1);
-          await this.model.detect(video, 1, 0.1);
+          await this.model.detect(video,1,0.1);
+          await this.model.detect(video,1,0.1);
         }
         return true;
-      }catch(err){
-        console.error("Vision init failed:", err);
-        this.isModelLoaded=false;
-        return false;
-      }
+      }catch(err){console.error(err);this.isModelLoaded=false;return false;}
     }
     setPreset(name){
-      const p = CONFIG.PRESETS[name] || CONFIG.PRESETS.balanced;
-      this.targetHz = Math.min(p.targetHz, CONFIG.AI.INFERENCE_RATE);
+      const p=CONFIG.PRESETS[name]||CONFIG.PRESETS.balanced;
+      this.targetHz=Math.min(p.targetHz, CONFIG.AI.INFERENCE_RATE);
     }
-    async detect(videoEl){
-      if(!this.isModelLoaded || this.isProcessing || videoEl.readyState!==4) return [];
+    async detect(v){
+      if(!this.isModelLoaded||this.isProcessing||v.readyState!==4) return [];
       this.isProcessing=true;
-      const t0 = Utils.now();
+      const t0=Utils.now();
       try{
-        const maxDet = CONFIG.PRESETS[state.preset].maxDet;
-        const res = await this.model.detect(videoEl, maxDet, CONFIG.AI.CONFIDENCE_THRESHOLD);
-        const t1 = Utils.now();
-        this.lastMs = t1 - t0;
-        this.avgMs = Utils.ema(this.lastMs, this.avgMs, 0.95);
-        this.total++;
-
-        // ai fps real
-        this._aiFpsCounter++;
-        const dt = (t1 - this._aiFpsT0);
-        if(dt >= 1000){
-          this.aiFpsReal = this._aiFpsCounter * 1000 / dt;
-          this._aiFpsCounter=0; this._aiFpsT0=t1;
-        }
-
+        const maxDet=CONFIG.PRESETS[state.preset].maxDet;
+        const res=await this.model.detect(v,maxDet,CONFIG.AI.CONFIDENCE_THRESHOLD);
+        const t1=Utils.now();
+        this.lastMs=t1-t0; this.avgMs=Utils.ema(this.lastMs,this.avgMs,0.95);
+        this._cnt++;
+        const dt=t1-this._t0;
+        if(dt>=1000){this.aiFpsReal=this._cnt*1000/dt;this._cnt=0;this._t0=t1;}
         return res;
-      }catch(err){
-        console.error("Detect error:", err);
-        return [];
-      }finally{
-        this.isProcessing=false;
-      }
+      }catch(err){console.error(err);return [];}
+      finally{this.isProcessing=false;}
     }
     nextDelayMs(){
-      // Adaptive inference controller
-      const budget = 1000 / Math.max(1, this.targetHz);
-      if(this.lastMs > budget * 1.35) {
-        this.targetHz = Math.max(3, this.targetHz * 0.85);
-      } else if(this.lastMs < budget * 0.7) {
-        this.targetHz = Math.min(CONFIG.AI.INFERENCE_RATE, this.targetHz * 1.06);
-      }
-      return Math.max(0, (1000/this.targetHz) - this.lastMs);
+      const budget=1000/Math.max(1,this.targetHz);
+      if(this.lastMs>budget*1.35) this.targetHz=Math.max(3,this.targetHz*0.85);
+      else if(this.lastMs<budget*0.7) this.targetHz=Math.min(CONFIG.AI.INFERENCE_RATE,this.targetHz*1.06);
+      return Math.max(0,(1000/this.targetHz)-this.lastMs);
     }
   }
 
-  // ============================================================================
-  // PHYSICS (bearing + depth + radial)
-  // ============================================================================
-  class Physics {
-    constructor(){
-      this.calibrated=false;
-      this.focalPx=null;     // computed by calibration
-      this.realHeightM=CONFIG.PHYSICS.PERSON_HEIGHT_M;
-      this.loadCalib();
-    }
-    loadCalib(){
+  class Physics{
+    constructor(){this.calibrated=false;this.focalPx=null;this.realHeightM=CONFIG.PHYSICS.PERSON_HEIGHT_M;this.load();}
+    load(){
       try{
-        const j = localStorage.getItem('omega_calib');
-        if(!j) return;
-        const d = JSON.parse(j);
-        if(d && d.focalPx && d.realHeightM){
-          this.focalPx=d.focalPx; this.realHeightM=d.realHeightM;
-          this.calibrated=true;
-        }
+        const j=localStorage.getItem('omega_calib'); if(!j) return;
+        const d=JSON.parse(j);
+        if(d?.focalPx&&d?.realHeightM){this.focalPx=d.focalPx;this.realHeightM=d.realHeightM;this.calibrated=true;}
       }catch(_){}
-      this._updateCalibStatusUI();
+      calibStatus.textContent=this.calibrated?`Depth: CALIBRATED`:`Depth: RELATIVE`;
     }
-    saveCalib(){
-      if(!this.calibrated) return;
-      localStorage.setItem('omega_calib', JSON.stringify({
-        focalPx:this.focalPx, realHeightM:this.realHeightM
-      }));
-      this._updateCalibStatusUI();
+    save(){ if(this.calibrated) localStorage.setItem('omega_calib',JSON.stringify({focalPx:this.focalPx,realHeightM:this.realHeightM})); }
+    calibrateFromTrack(tr,Zreal,Hreal){
+      const hpx=tr.bbox.h;
+      if(hpx>2&&Zreal>0.1&&Hreal>0.1){
+        this.focalPx=(hpx*Zreal)/Hreal; this.realHeightM=Hreal;this.calibrated=true;this.save();
+        calibStatus.textContent=`Depth: CALIBRATED`; return true;
+      } return false;
     }
-    clearCalib(){
-      this.calibrated=false; this.focalPx=null;
-      localStorage.removeItem('omega_calib');
-      this._updateCalibStatusUI();
-    }
-    _updateCalibStatusUI(){
-      calibStatus.textContent = this.calibrated
-        ? `Depth: CALIBRATED (f≈${Utils.fmt(this.focalPx,0)}px)`
-        : 'Depth: RELATIVE (not calibrated)';
-    }
-    calibrateFromTrack(track, ZrealM, HrealM, videoHpx){
-      // f ≈ (h_px * Z_real) / H_real  (pinhole model)
-      const hpx = track.bbox.h;
-      if(hpx > 2 && ZrealM > 0.1 && HrealM > 0.1){
-        this.focalPx = (hpx * ZrealM) / HrealM;
-        this.realHeightM = HrealM;
-        this.calibrated=true;
-        this.saveCalib();
-        return true;
+    estimateDepth(tr, vh){
+      const hpx=tr.bbox.h;
+      if(this.calibrated&&this.focalPx){
+        const Z=(this.focalPx*this.realHeightM)/Math.max(1,hpx);
+        return {meters:Utils.clamp(Z,CONFIG.PHYSICS.MIN_RANGE_M,CONFIG.PHYSICS.MAX_RANGE_M),relative:null};
       }
-      return false;
+      const rel=Utils.clamp(1-(hpx/Math.max(1,vh)),0,1);
+      return {meters:null,relative:rel};
     }
-    estimateDepth(track, videoHpx){
-      const hpx = track.bbox.h;
-      if(this.calibrated && this.focalPx){
-        const Z = (this.focalPx * this.realHeightM) / Math.max(1, hpx);
-        return { meters: Utils.clamp(Z, CONFIG.PHYSICS.MIN_RANGE_M, CONFIG.PHYSICS.MAX_RANGE_M), relative: null };
-      }
-      // relative distance (0 near, 1 far)
-      const rel = Utils.clamp(1 - (hpx / Math.max(1, videoHpx)), 0, 1);
-      return { meters: null, relative: rel };
+    bearingDeg(tr,vw){
+      const fov=CONFIG.PHYSICS.H_FOV_DEG*Math.PI/180;
+      const f=(vw/2)/Math.tan(fov/2);
+      const cx=vw/2;
+      const x=tr.bbox.x+tr.bbox.w/2;
+      return Math.atan((x-cx)/f)*180/Math.PI;
     }
-    bearingDeg(track, videoWpx){
-      // f = (W/2)/tan(FOV/2)
-      const fov = CONFIG.PHYSICS.H_FOV_DEG * Math.PI/180;
-      const f = (videoWpx/2) / Math.tan(fov/2);
-      const cx = videoWpx/2;
-      const x = track.bbox.x + track.bbox.w/2;
-      const theta = Math.atan((x - cx) / f); // rad
-      return theta * 180/Math.PI;
-    }
-    motionState(vRad){
-      if(!Number.isFinite(vRad)) return 'unknown';
-      if(vRad > CONFIG.PHYSICS.APPROACH_T) return 'approaching';
-      if(vRad < CONFIG.PHYSICS.RECEDE_T) return 'receding';
-      if(Math.abs(vRad) < CONFIG.PHYSICS.STATIC_T) return 'static';
+    motionState(v){
+      if(!Number.isFinite(v)) return 'unknown';
+      if(v>CONFIG.PHYSICS.APPROACH_T) return 'approaching';
+      if(v<CONFIG.PHYSICS.RECEDE_T) return 'receding';
+      if(Math.abs(v)<CONFIG.PHYSICS.STATIC_T) return 'static';
       return 'moving';
     }
   }
 
-  // ============================================================================
-  // TRACKER (IoU + distance + label gating + CV predictor + kalman smoothing)
-  // ============================================================================
-  class Track {
-    constructor(id, det, t){
-      this.id=id;
-      this.label=det.label;
-      this.confidence=det.confidence;
-      this.bbox={...det.bbox};
-      this.status='new';
-      this.age=0;
-      this.missed=0;
-      this.lastT=t;
-      this.prevBbox={...det.bbox};
+  class Track{
+    constructor(id,det,t){
+      this.id=id;this.label=det.label;this.confidence=det.confidence;this.bbox={...det.bbox};
+      this.status='new';this.missed=0;this.lastT=t;this.prevBbox={...det.bbox};
       this.velocity={x:0,y:0,w:0,h:0};
-
       this.kx=new Kalman1D(0.05,0.6,this.bbox.x);
       this.ky=new Kalman1D(0.05,0.6,this.bbox.y);
       this.kw=new Kalman1D(0.08,0.7,this.bbox.w);
       this.kh=new Kalman1D(0.08,0.7,this.bbox.h);
-
-      this.depth=null; this.relativeDepth=null;
-      this.bearing=0;
-      this.vRad=0;
-      this.motion='unknown';
+      this.depth=null;this.relativeDepth=null;this.bearing=0;this.vRad=0;this.motion='unknown';
     }
     predict(dt){
-      // constant velocity prediction
-      this.bbox.x += this.velocity.x * dt;
-      this.bbox.y += this.velocity.y * dt;
-      this.bbox.w += this.velocity.w * dt;
-      this.bbox.h += this.velocity.h * dt;
-      this.status = (this.status==='lost') ? 'lost' : 'coasting';
+      this.bbox.x+=this.velocity.x*dt;
+      this.bbox.y+=this.velocity.y*dt;
+      this.bbox.w+=this.velocity.w*dt;
+      this.bbox.h+=this.velocity.h*dt;
+      this.status=(this.status==='lost')?'lost':'coasting';
     }
-    updateFromDetection(det, t){
-      const dt = Math.max(1e-3, (t - this.lastT)/1000);
+    updateFromDetection(det,t){
+      const dt=Math.max(1e-3,(t-this.lastT)/1000);
+      this.velocity.x=Utils.ema((det.bbox.x-this.prevBbox.x)/dt,this.velocity.x,0.7);
+      this.velocity.y=Utils.ema((det.bbox.y-this.prevBbox.y)/dt,this.velocity.y,0.7);
+      this.velocity.w=Utils.ema((det.bbox.w-this.prevBbox.w)/dt,this.velocity.w,0.7);
+      this.velocity.h=Utils.ema((det.bbox.h-this.prevBbox.h)/dt,this.velocity.h,0.7);
 
-      // estimate velocity from last bbox
-      this.velocity.x = Utils.ema((det.bbox.x - this.prevBbox.x)/dt, this.velocity.x, 0.7);
-      this.velocity.y = Utils.ema((det.bbox.y - this.prevBbox.y)/dt, this.velocity.y, 0.7);
-      this.velocity.w = Utils.ema((det.bbox.w - this.prevBbox.w)/dt, this.velocity.w, 0.7);
-      this.velocity.h = Utils.ema((det.bbox.h - this.prevBbox.h)/dt, this.velocity.h, 0.7);
-
-      // kalman smooth
-      this.bbox.x = this.kx.update(det.bbox.x);
-      this.bbox.y = this.ky.update(det.bbox.y);
-      this.bbox.w = this.kw.update(det.bbox.w);
-      this.bbox.h = this.kh.update(det.bbox.h);
+      this.bbox.x=this.kx.update(det.bbox.x);
+      this.bbox.y=this.ky.update(det.bbox.y);
+      this.bbox.w=this.kw.update(det.bbox.w);
+      this.bbox.h=this.kh.update(det.bbox.h);
 
       this.prevBbox={...this.bbox};
-      this.label = det.label;
-      this.confidence = det.confidence;
-      this.lastT=t;
-      this.missed=0;
-      this.status = (this.status==='new') ? 'active' : 'active';
+      this.label=det.label;this.confidence=det.confidence;this.lastT=t;this.missed=0;
+      this.status=(this.status==='new')?'active':'active';
     }
   }
 
-  class ObjectTracker {
-    constructor(){
-      this.tracks=new Map();
-      this.nextId=1;
-      this.frame=0;
-    }
-    update(detections, t, vw, vh){
-      this.frame++;
-
-      // predict existing
+  class ObjectTracker{
+    constructor(){this.tracks=new Map();this.nextId=1;}
+    update(detections,t,vw,vh){
       for(const tr of this.tracks.values()){
-        const dt = Math.max(0, (t - tr.lastT)/1000);
-        if(tr.status==='active' || tr.status==='coasting'){
-          tr.predict(dt);
-          tr.missed++;
-        }
+        const dt=Math.max(0,(t-tr.lastT)/1000);
+        if(tr.status==='active'||tr.status==='coasting'){tr.predict(dt);tr.missed++;}
       }
+      const dets=detections.map(d=>({bbox:{x:d.bbox[0],y:d.bbox[1],w:d.bbox[2],h:d.bbox[3]},label:d.class,confidence:d.score}));
+      const active=Array.from(this.tracks.values()).filter(tr=>tr.status!=='removed');
+      const used=new Set();
 
-      // association (greedy with gating)
-      const dets = detections.map(d => ({
-        bbox:{x:d.bbox[0], y:d.bbox[1], w:d.bbox[2], h:d.bbox[3]},
-        label:d.class, confidence:d.score
-      }));
-
-      const activeTracks = Array.from(this.tracks.values()).filter(tr => tr.status!=='removed');
-      const usedDet = new Set();
-
-      for(const tr of activeTracks){
-        let bestJ=-1; let bestScore=0;
+      for(const tr of active){
+        let best=-1,bestScore=0;
         for(let j=0;j<dets.length;j++){
-          if(usedDet.has(j)) continue;
+          if(used.has(j)) continue;
           const det=dets[j];
-
-          const iou = Utils.iou(tr.bbox, det.bbox);
-          const dist = Utils.centerDistNorm(tr.bbox, det.bbox, vw, vh);
-          const labelMatch = (tr.label===det.label);
-
-          // gating
-          const gate = (iou >= CONFIG.TRACKING.MIN_IOU) ||
-                       (dist <= CONFIG.TRACKING.MAX_ASSOC_DIST && labelMatch);
-
+          const iou=Utils.iou(tr.bbox,det.bbox);
+          const dist=Utils.centerDistNorm(tr.bbox,det.bbox,vw,vh);
+          const labelMatch=tr.label===det.label;
+          const gate=(iou>=CONFIG.TRACKING.MIN_IOU)||(dist<=CONFIG.TRACKING.MAX_ASSOC_DIST&&labelMatch);
           if(!gate) continue;
-
-          let score = iou*0.6 + (1-dist)*0.3 + (labelMatch?CONFIG.TRACKING.LABEL_BONUS:0);
-          if(score>bestScore){ bestScore=score; bestJ=j; }
+          const score=iou*0.6+(1-dist)*0.3+(labelMatch?CONFIG.TRACKING.LABEL_BONUS:0);
+          if(score>bestScore){bestScore=score;best=j;}
         }
-
-        if(bestJ>=0){
-          tr.updateFromDetection(dets[bestJ], t);
-          usedDet.add(bestJ);
-        }
+        if(best>=0){tr.updateFromDetection(dets[best],t);used.add(best);}
       }
 
-      // new tracks
       for(let j=0;j<dets.length;j++){
-        if(usedDet.has(j)) continue;
-        const tr = new Track(this.nextId++, dets[j], t);
-        this.tracks.set(tr.id, tr);
+        if(used.has(j)) continue;
+        this.tracks.set(this.nextId, new Track(this.nextId++, dets[j], t));
       }
-
-      // lifecycle
       for(const tr of this.tracks.values()){
-        if(tr.status==='coasting' && tr.missed>CONFIG.TRACKING.COASTING_FRAMES){
-          tr.status='lost';
-        }
-        if(tr.missed>CONFIG.TRACKING.MAX_AGE){
-          tr.status='removed';
-        }
+        if(tr.status==='coasting'&&tr.missed>CONFIG.TRACKING.COASTING_FRAMES) tr.status='lost';
+        if(tr.missed>CONFIG.TRACKING.MAX_AGE) tr.status='removed';
       }
-
-      // return active + coasting (not removed)
-      return Array.from(this.tracks.values()).filter(tr => tr.status!=='removed');
+      return Array.from(this.tracks.values()).filter(tr=>tr.status!=='removed');
     }
-    getActiveTracks(){
-      return Array.from(this.tracks.values()).filter(tr => tr.status==='active' || tr.status==='new');
-    }
-    getStatus(){
-      const active = this.getActiveTracks().length;
-      return { activeTracks: active, totalTracks: this.tracks.size };
-    }
+    getActiveTracks(){return Array.from(this.tracks.values()).filter(tr=>tr.status==='active'||tr.status==='new');}
+    getStatus(){return {activeTracks:this.getActiveTracks().length,totalTracks:this.tracks.size};}
   }
 
-  // ============================================================================
-  // MEMORY (persistent, capped, safe)
-  // ============================================================================
-  class MemoryDB {
-    constructor(){
-      this.events=[];
-      this.lastPersist=0;
-      this.load();
-      setInterval(()=>this.persist(), CONFIG.MEMORY.PERSIST_INTERVAL_MS);
-    }
-    load(){
-      try{
-        const j=localStorage.getItem('omega_memory');
-        if(!j) return;
-        const arr=JSON.parse(j);
-        if(Array.isArray(arr)) this.events=arr;
-      }catch(_){}
-    }
+  class MemoryDB{
+    constructor(){this.events=[];this.load();setInterval(()=>this.persist(),CONFIG.MEMORY.PERSIST_INTERVAL_MS);}
+    load(){try{const j=localStorage.getItem('omega_memory');if(j){const a=JSON.parse(j);if(Array.isArray(a))this.events=a;}}catch(_){}}
     persist(){
       try{
         const cutoff=Date.now()-CONFIG.MEMORY.RETENTION_MS;
         this.events=this.events.filter(e=>e.t>=cutoff).slice(-CONFIG.MEMORY.MAX_EVENTS);
-        localStorage.setItem('omega_memory', JSON.stringify(this.events));
+        localStorage.setItem('omega_memory',JSON.stringify(this.events));
         statusMemory.className='status-indicator status-ok';
-      }catch(err){
-        console.warn("persist failed", err);
-        statusMemory.className='status-indicator status-warn';
-      }
+      }catch(_){statusMemory.className='status-indicator status-warn';}
     }
-    record(type, payload){
-      this.events.push({t:Date.now(), type, payload});
-      if(this.events.length>CONFIG.MEMORY.MAX_EVENTS) this.events.shift();
-    }
-    clear(){
-      this.events=[]; localStorage.removeItem('omega_memory');
-    }
-    import(json){
-      if(Array.isArray(json)){
-        this.events=json.slice(-CONFIG.MEMORY.MAX_EVENTS);
-        this.persist();
-      }
-    }
-    export(){
-      return JSON.stringify(this.events, null, 2);
-    }
-    getActiveObjectCount(){
-      const cutoff=Date.now()-60000;
-      const ids=new Set();
-      for(const e of this.events){
-        if(e.t<cutoff) continue;
-        if(e.payload?.objectId!=null) ids.add(e.payload.objectId);
-      }
-      return ids.size;
-    }
-    getPersonDetectionsInLast(mins){
-      const cutoff=Date.now()-mins*60000;
-      let c=0;
-      for(const e of this.events){
-        if(e.t>=cutoff && e.payload?.label==='person') c++;
-      }
-      return c;
-    }
-    getDominantClass(){
-      const cutoff=Date.now()-5*60000;
-      const hist=new Map();
-      for(const e of this.events){
-        if(e.t<cutoff) continue;
-        const l=e.payload?.label; if(!l) continue;
-        hist.set(l,(hist.get(l)||0)+1);
-      }
-      let best='--', bestN=0;
-      for(const [k,v] of hist){ if(v>bestN){best=k;bestN=v;} }
-      return best;
-    }
-    getClosestPerson(){
-      // last 5 mins, use smallest depth or biggest scale proxy
-      const cutoff=Date.now()-5*60000;
-      let best=null;
-      for(let i=this.events.length-1;i>=0;i--){
-        const e=this.events[i];
-        if(e.t<cutoff) break;
-        if(e.payload?.label!=='person') continue;
-        const d=e.payload.depthMeters;
-        if(d!=null){
-          if(!best || d<best.depthMeters) best=e.payload;
-        }else{
-          // fallback: use relative
-          const r=e.payload.depthRel;
-          if(!best || (best.depthRel!=null && r<best.depthRel)) best=e.payload;
-        }
-      }
-      return best;
-    }
+    record(type,payload){this.events.push({t:Date.now(),type,payload}); if(this.events.length>CONFIG.MEMORY.MAX_EVENTS) this.events.shift();}
+    clear(){this.events=[];localStorage.removeItem('omega_memory');}
+    import(json){if(Array.isArray(json)){this.events=json.slice(-CONFIG.MEMORY.MAX_EVENTS);this.persist();}}
+    export(){return JSON.stringify(this.events,null,2);}
+    getActiveObjectCount(){const c=Date.now()-60000;const ids=new Set();for(const e of this.events){if(e.t<c)continue;if(e.payload?.objectId!=null)ids.add(e.payload.objectId);}return ids.size;}
+    getPersonDetectionsInLast(mins){const c=Date.now()-mins*60000;let n=0;for(const e of this.events){if(e.t>=c&&e.payload?.label==='person')n++;}return n;}
+    getDominantClass(){const c=Date.now()-5*60000;const h=new Map();for(const e of this.events){if(e.t<c)continue;const l=e.payload?.label;if(!l)continue;h.set(l,(h.get(l)||0)+1);}let b='--',bn=0;for(const [k,v] of h){if(v>bn){b=k;bn=v;}}return b;}
   }
 
-  // ============================================================================
-  // RADAR (DOM blip reuse, bearing 0 safe)
-  // ============================================================================
-  class Radar {
-    constructor(container, maxBlips=20){
-      this.container=container;
-      this.maxBlips=maxBlips;
-      this.pool=[];
-      for(let i=0;i<maxBlips;i++){
-        const el=document.createElement('div');
-        el.className='radar-blip';
-        el.style.opacity='0';
-        container.appendChild(el);
-        this.pool.push(el);
-      }
+  class Radar{
+    constructor(container,maxBlips=20){
+      this.container=container;this.maxBlips=maxBlips;this.pool=[];
+      for(let i=0;i<maxBlips;i++){const e=document.createElement('div');e.className='radar-blip';e.style.opacity='0';container.appendChild(e);this.pool.push(e);}
     }
-    update(tracks, physics){
-      const radius = this.container.clientWidth/2;
-      let k=0;
+    update(tracks,physics){
+      const radius=this.container.clientWidth/2;let k=0;
       for(const tr of tracks){
         if(k>=this.maxBlips) break;
-
-        // bearingDeg might be 0 -> must still render
-        const bearing = tr.bearing;
-        if(bearing == null) continue;
-
-        const distNorm = physics.calibrated && tr.depth!=null
-          ? Utils.clamp(tr.depth/CONFIG.PHYSICS.MAX_RANGE_M, 0, 1)
-          : (tr.relativeDepth!=null ? tr.relativeDepth : 0.7);
-
-        const ang = (bearing + 90) * Math.PI/180; // 0 deg up
-        const r = distNorm * (radius*0.9);
-        const x = radius + r*Math.cos(ang);
-        const y = radius + r*Math.sin(ang);
-
-        const el=this.pool[k++];
-        const size = Utils.clamp(4 + (1-distNorm)*8, 4, 12);
-        el.style.width=size+'px';
-        el.style.height=size+'px';
-        el.style.left=x+'px';
-        el.style.top=y+'px';
-        el.style.opacity='0.95';
-        el.style.background=(tr.label==='person')?'#00ff41':'#ffcc00';
+        const bearing=tr.bearing;
+        if(bearing==null) continue; // allow 0
+        const distNorm=(physics.calibrated&&tr.depth!=null)
+          ? Utils.clamp(tr.depth/CONFIG.PHYSICS.MAX_RANGE_M,0,1)
+          : (tr.relativeDepth!=null?tr.relativeDepth:0.7);
+        const ang=(bearing+90)*Math.PI/180;
+        const r=distNorm*(radius*0.9);
+        const x=radius+r*Math.cos(ang), y=radius+r*Math.sin(ang);
+        const e=this.pool[k++];const size=Utils.clamp(4+(1-distNorm)*7,4,11);
+        e.style.width=size+'px';e.style.height=size+'px';
+        e.style.left=x+'px';e.style.top=y+'px';
+        e.style.opacity='0.9';
+        e.style.background=(tr.label==='person')?'#00ff41':'#ffcc00';
       }
-      // hide rest
-      for(;k<this.maxBlips;k++){
-        const el=this.pool[k];
-        el.style.opacity='0';
-      }
+      for(;k<this.maxBlips;k++) this.pool[k].style.opacity='0';
     }
   }
 
-  // ============================================================================
-  // MAIN SYSTEM
-  // ============================================================================
-  const state = {
-    running:false,
-    aiPaused:false,
-    cameraOn:false,
-    showBoxes:true,
-    showRadar:true,
-    showHorizon:true,
-    preset:'balanced'
-  };
+  const state={running:false,aiPaused:false,cameraOn:false,showBoxes:true,showRadar:true,showHorizon:true,preset:'balanced'};
+  const mapper=new VideoMapper();
+  const avionics=new Avionics();
+  const vision=new VisionEngine();
+  const tracker=new ObjectTracker();
+  const memory=new MemoryDB();
+  const physics=new Physics();
+  const radar=new Radar(radarBlipsEl,20);
 
-  const mapper = new VideoMapper();
-  const avionics = new Avionics();
-  const vision = new VisionEngine();
-  const tracker = new ObjectTracker();
-  const memory = new MemoryDB();
-  const physics = new Physics();
-  const radar = new Radar(radarBlipsEl, 20);
+  let tracks=[], primaryTarget=null;
+  let renderFpsReal=0,_rfpsCount=0,_rfpsT0=Utils.now();
 
-  let tracks = [];
-  let primaryTarget = null;
-
-  // FPS for render loop
-  let renderFpsReal=0, _rfpsCount=0, _rfpsT0=Utils.now();
+  function resize(){
+    canvas.width=window.innerWidth*devicePixelRatio;
+    canvas.height=window.innerHeight*devicePixelRatio;
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  window.addEventListener('resize', resize);
 
   async function initCamera(){
     try{
       ledCam.className='status-led loading';
       statusCam.className='status-indicator status-warn';
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:'environment'}, audio:false
-      });
-      video.srcObject = stream;
-      await video.play();
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+      video.srcObject=stream; await video.play();
       state.cameraOn=true;
       ledCam.className='status-led active';
       statusCam.className='status-indicator status-ok';
@@ -1108,19 +773,14 @@
       console.error(err);
       ledCam.className='status-led error';
       statusCam.className='status-indicator status-error';
-      showError(
-        "CAMERA PERMISSION DENIED",
-        "ไม่สามารถเปิดกล้องได้",
-        "ไปที่ Settings > Safari/Chrome > Camera แล้วอนุญาตสิทธิ์ให้เว็บนี้"
-      );
+      showError("CAMERA DENIED","เปิดกล้องไม่ได้","ไปที่ Settings แล้วอนุญาต Camera ให้เว็บนี้");
       return false;
     }
   }
-
   async function initAI(){
     ledAi.className='status-led loading';
     statusAi.className='status-indicator status-warn';
-    const ok = await vision.init();
+    const ok=await vision.init();
     if(ok){
       ledAi.className='status-led active';
       statusAi.className='status-indicator status-ok';
@@ -1128,110 +788,83 @@
     }else{
       ledAi.className='status-led warning';
       statusAi.className='status-indicator status-warn';
-      statusMessage.textContent='AI_OFFLINE (HUD ONLY)';
+      statusMessage.textContent='AI_OFFLINE';
     }
     return ok;
   }
-
   async function initGyro(){
     ledGyro.className='status-led loading';
     statusGyro.className='status-indicator status-warn';
-    const ok = await avionics.init();
+    const ok=await avionics.init();
     if(ok){
       ledGyro.className='status-led active';
       statusGyro.className='status-indicator status-ok';
-      statusMessage.textContent='GYRO_OK';
     }else{
       ledGyro.className='status-led warning';
       statusGyro.className='status-indicator status-offline';
-      state.showHorizon=false;
-      btnHorizon.classList.remove('toggled');
-      statusMessage.textContent='GYRO_OFFLINE';
+      state.showHorizon=false; btnHorizon.classList.remove('toggled');
     }
     return ok;
   }
 
-  function resize(){
-    canvas.width = window.innerWidth * devicePixelRatio;
-    canvas.height= window.innerHeight * devicePixelRatio;
-    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-  }
-  window.addEventListener('resize', resize);
-
-  // Inference loop
   async function inferenceLoop(){
     if(!state.running) return;
-    if(state.aiPaused || !vision.isModelLoaded){
-      setTimeout(inferenceLoop, 200);
-      return;
-    }
+    if(state.aiPaused || !vision.isModelLoaded){setTimeout(inferenceLoop,200);return;}
     try{
-      const dets = await vision.detect(video);
-      const vw = video.videoWidth || 0, vh = video.videoHeight || 0;
-      if(vw && vh){
-        tracks = tracker.update(dets, Date.now(), vw, vh);
-      } else {
-        tracks = [];
-      }
+      const dets=await vision.detect(video);
+      const vw=video.videoWidth||0,vh=video.videoHeight||0;
+      tracks=(vw&&vh)?tracker.update(dets,Date.now(),vw,vh):[];
       statusTracker.className='status-indicator status-ok';
     }catch(err){
-      console.error("inferenceLoop error", err);
-      statusTracker.className='status-indicator status-warn';
+      console.error(err); statusTracker.className='status-indicator status-warn';
     }finally{
-      const delay = (document.hidden) ? 400 : vision.nextDelayMs();
-      setTimeout(inferenceLoop, delay);
+      const delay=document.hidden?400:vision.nextDelayMs();
+      setTimeout(inferenceLoop,delay);
     }
   }
 
   function updatePrimaryTarget(){
-    const act = tracks.filter(t => t.status==='active' || t.status==='new');
-    if(!act.length){ primaryTarget=null; return; }
-    const vw=video.videoWidth||1, vh=video.videoHeight||1;
-    let best=null, bestScore=1e9;
+    const act=tracks.filter(t=>t.status==='active'||t.status==='new');
+    if(!act.length){primaryTarget=null;return;}
+    const vw=video.videoWidth||1,vh=video.videoHeight||1;
+    let best=null,bestScore=1e9;
     for(const t of act){
-      const cx=(t.bbox.x+t.bbox.w/2)/vw - 0.5;
-      const cy=(t.bbox.y+t.bbox.h/2)/vh - 0.5;
-      const score=Math.abs(cx)+Math.abs(cy) - t.confidence*0.2;
+      const cx=(t.bbox.x+t.bbox.w/2)/vw-0.5;
+      const cy=(t.bbox.y+t.bbox.h/2)/vh-0.5;
+      const score=Math.abs(cx)+Math.abs(cy)-t.confidence*0.2;
       if(score<bestScore){bestScore=score;best=t;}
     }
     primaryTarget=best;
   }
 
   function computePerTrackPhysics(){
-    const vw=video.videoWidth||1, vh=video.videoHeight||1;
+    const vw=video.videoWidth||1,vh=video.videoHeight||1;
     for(const tr of tracks){
-      tr.bearing = physics.bearingDeg(tr, vw);
-      const depth = physics.estimateDepth(tr, vh);
-      tr.depth = depth.meters;
-      tr.relativeDepth = depth.relative;
+      tr.bearing=physics.bearingDeg(tr,vw);
+      const d=physics.estimateDepth(tr,vh);
+      tr.depth=d.meters; tr.relativeDepth=d.relative;
 
-      // radial speed
       if(tr._prevDepthT){
-        const dt = Math.max(1e-3,(Date.now()-tr._prevDepthT)/1000);
-        if(physics.calibrated && tr.depth!=null && tr._prevDepth!=null){
-          const v = (tr._prevDepth - tr.depth)/dt; // positive if approaching
-          tr.vRad = Utils.ema(v, tr.vRad, 0.6);
-        } else {
-          const scale = tr.bbox.h / vh;
-          const vScale = (scale - (tr._prevScale||scale)) / dt;
-          tr.vRad = Utils.ema(vScale, tr.vRad, 0.6);
-          tr._prevScale = scale;
+        const dt=Math.max(1e-3,(Date.now()-tr._prevDepthT)/1000);
+        if(physics.calibrated&&tr.depth!=null&&tr._prevDepth!=null){
+          const v=(tr._prevDepth-tr.depth)/dt;
+          tr.vRad=Utils.ema(v,tr.vRad,0.6);
+        }else{
+          const scale=tr.bbox.h/vh;
+          const vScale=(scale-(tr._prevScale||scale))/dt;
+          tr.vRad=Utils.ema(vScale,tr.vRad,0.6);
+          tr._prevScale=scale;
         }
       }
-      tr._prevDepth = tr.depth;
-      tr._prevDepthT = Date.now();
-
-      // motion state
-      tr.motion = physics.motionState(tr.vRad);
+      tr._prevDepth=tr.depth; tr._prevDepthT=Date.now();
+      tr.motion=physics.motionState(tr.vRad);
     }
   }
 
-  // Render loop
   function renderLoop(){
     if(!state.running) return;
     requestAnimationFrame(renderLoop);
 
-    // render fps
     _rfpsCount++;
     const t=Utils.now();
     if(t-_rfpsT0>=1000){
@@ -1239,331 +872,252 @@
       _rfpsCount=0; _rfpsT0=t;
     }
 
-    // clear
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    mapper.update(video, canvas);
+    mapper.update(video,canvas);
 
-    // compute physics for HUD + radar
     computePerTrackPhysics();
     updatePrimaryTarget();
 
-    // draw HUD (boxes/horizon)
-    if(state.showBoxes){
-      drawBoxes();
-    }
-    if(state.showHorizon && avionics.isAvailable){
-      drawHorizon();
-    }
-    if(state.showRadar){
-      radar.update(tracks, physics);
-      document.getElementById('radar-container').style.display='block';
-    } else {
-      document.getElementById('radar-container').style.display='none';
-    }
+    if(state.showBoxes) drawBoxes();
+    if(state.showHorizon && avionics.isAvailable) drawHorizon();
+    if(state.showRadar){radar.update(tracks,physics);document.getElementById('radar-container').style.display='block';}
+    else document.getElementById('radar-container').style.display='none';
 
-    // memory update (fail-soft)
     safeUpdateMemory();
-
-    // UI update
     updateUI();
   }
 
   function drawBoxes(){
-    const p = CONFIG.PRESETS[state.preset];
+    const p=CONFIG.PRESETS[state.preset];
     ctx.save();
-    ctx.lineWidth=p.lineWidth;
-    ctx.shadowBlur=p.shadow;
-    ctx.shadowColor='#00ff41';
+    ctx.lineWidth=p.lineWidth; ctx.shadowBlur=p.shadow; ctx.shadowColor='#00ff41';
     ctx.font='12px ui-monospace, monospace';
     for(const tr of tracks){
-      if(tr.status==='removed') continue;
-      const s = mapper.toScreen(tr.bbox);
-
-      // alpha for lost/coasting
-      const alpha = (tr.status==='lost')?0.35 : (tr.status==='coasting'?0.55:0.95);
+      const s=mapper.toScreen(tr.bbox);
+      const alpha=(tr.status==='lost')?0.35:(tr.status==='coasting'?0.55:0.95);
       ctx.globalAlpha=alpha;
+      ctx.strokeStyle=(tr.label==='person')?'#00ff41':'#ffcc00';
+      ctx.strokeRect(s.x,s.y,s.w,s.h);
 
-      // color by class
-      ctx.strokeStyle = tr.label==='person' ? '#00ff41' : '#ffcc00';
-      ctx.strokeRect(s.x, s.y, s.w, s.h);
-
-      // label plate
-      const txt = `${tr.label.toUpperCase()} #${tr.id} ${(tr.confidence*100).toFixed(0)}%`;
-      const pad=4;
-      const tw=ctx.measureText(txt).width;
+      const txt=`${tr.label.toUpperCase()} #${tr.id} ${(tr.confidence*100).toFixed(0)}%`;
+      const pad=4, tw=ctx.measureText(txt).width;
       ctx.fillStyle='rgba(0,0,0,0.55)';
-      ctx.fillRect(s.x, s.y-16, tw+pad*2, 16);
+      ctx.fillRect(s.x,s.y-16,tw+pad*2,16);
       ctx.fillStyle='#eaffea';
-      ctx.fillText(txt, s.x+pad, s.y-4);
+      ctx.fillText(txt,s.x+pad,s.y-4);
 
-      // distance/bearing small
-      const distStr = physics.calibrated && tr.depth!=null
-        ? `${Utils.fmt(tr.depth,1)}m`
-        : `REL ${Utils.fmt(tr.relativeDepth,2)}`;
-      const bearStr = `${Utils.fmt(tr.bearing,0)}°`;
-      const motStr = tr.motion;
-      const txt2 = `${distStr} | ${bearStr} | ${motStr}`;
+      const distStr=(physics.calibrated&&tr.depth!=null)?`${Utils.fmt(tr.depth,1)}m`:`REL ${Utils.fmt(tr.relativeDepth,2)}`;
+      const txt2=`${distStr} | ${Utils.fmt(tr.bearing,0)}° | ${tr.motion}`;
       const tw2=ctx.measureText(txt2).width;
       ctx.fillStyle='rgba(0,0,0,0.55)';
-      ctx.fillRect(s.x, s.y+s.h, tw2+pad*2, 16);
+      ctx.fillRect(s.x,s.y+s.h,tw2+pad*2,16);
       ctx.fillStyle='#eaffea';
-      ctx.fillText(txt2, s.x+pad, s.y+s.h+12);
+      ctx.fillText(txt2,s.x+pad,s.y+s.h+12);
     }
     ctx.restore();
   }
 
   function drawHorizon(){
-    // simple artificial horizon from pitch/roll
-    const w=canvas.width/devicePixelRatio, h=canvas.height/devicePixelRatio;
-    const pitch = avionics.pitch || 0;
-    const roll  = avionics.roll || 0;
-
+    const w=canvas.width/devicePixelRatio,h=canvas.height/devicePixelRatio;
+    const pitch=avionics.pitch||0, roll=avionics.roll||0;
     ctx.save();
-    ctx.translate(w/2, h/2);
-    ctx.rotate(-roll * Math.PI/180);
-    const yOff = Utils.clamp(pitch, -45, 45) * (h/360);
-
-    ctx.strokeStyle='rgba(0,255,65,0.6)';
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(-w, yOff);
-    ctx.lineTo(w, yOff);
-    ctx.stroke();
-
-    // center reticle
+    ctx.translate(w/2,h/2);
+    ctx.rotate(-roll*Math.PI/180);
+    const yOff=Utils.clamp(pitch,-45,45)*(h/360);
+    ctx.strokeStyle='rgba(0,255,65,0.6)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(-w,yOff); ctx.lineTo(w,yOff); ctx.stroke();
     ctx.resetTransform();
-    ctx.strokeStyle='rgba(0,255,65,0.8)';
-    ctx.lineWidth=1.5;
-    ctx.beginPath();
-    ctx.arc(w/2, h/2, 18, 0, Math.PI*2);
-    ctx.stroke();
+    ctx.strokeStyle='rgba(0,255,65,0.8)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(w/2,h/2,18,0,Math.PI*2); ctx.stroke();
     ctx.restore();
   }
 
   function safeUpdateMemory(){
     try{
       for(const tr of tracks){
-        const payload={
-          objectId: tr.id,
-          label: tr.label,
-          confidence: tr.confidence,
-          depthMeters: tr.depth,
-          depthRel: tr.relativeDepth,
-          bearing: tr.bearing,
-          motionState: tr.motion,
-          status: tr.status
-        };
-        if(tr.status==='new') memory.record('object_detected', payload);
-        else if(tr.status==='active' || tr.status==='coasting') memory.record('object_updated', payload);
-        else if(tr.status==='lost') memory.record('object_lost', payload);
+        const payload={objectId:tr.id,label:tr.label,confidence:tr.confidence,depthMeters:tr.depth,depthRel:tr.relativeDepth,bearing:tr.bearing,motionState:tr.motion,status:tr.status};
+        if(tr.status==='new') memory.record('object_detected',payload);
+        else if(tr.status==='active'||tr.status==='coasting') memory.record('object_updated',payload);
+        else if(tr.status==='lost') memory.record('object_lost',payload);
       }
       statusMemory.className='status-indicator status-ok';
-    }catch(err){
-      console.error("Memory update error:", err);
-      statusMemory.className='status-indicator status-warn';
-    }
+    }catch(err){console.error(err);statusMemory.className='status-indicator status-warn';}
   }
 
   function updateUI(){
-    valCpu.textContent = Utils.fmt(vision.avgMs,1);
-    valAiFps.textContent = Utils.fmt(vision.aiFpsReal,1);
-    valRenderFps.textContent = Utils.fmt(renderFpsReal,1);
-
-    valPitch.textContent = Utils.fmt(avionics.pitch,1)+'°';
-    valRoll.textContent  = Utils.fmt(avionics.roll,1)+'°';
+    valCpu.textContent=Utils.fmt(vision.avgMs,1);
+    valAiFps.textContent=Utils.fmt(vision.aiFpsReal,1);
+    valRenderFps.textContent=Utils.fmt(renderFpsReal,1);
+    valPitch.textContent=Utils.fmt(avionics.pitch,1)+'°';
+    valRoll.textContent=Utils.fmt(avionics.roll,1)+'°';
     valHeading.textContent=Utils.fmt(avionics.heading,1)+'°';
-    valG.textContent = Utils.fmt(avionics.gForce,2);
-
+    valG.textContent=Utils.fmt(avionics.gForce,2);
     const ts=tracker.getStatus();
-    valTracked.textContent = ts.activeTracks;
-
-    valActive.textContent = memory.getActiveObjectCount();
-    valPersons.textContent = memory.getPersonDetectionsInLast(5);
-    valTopLabel.textContent = memory.getDominantClass();
+    valTracked.textContent=ts.activeTracks;
+    valActive.textContent=memory.getActiveObjectCount();
+    valPersons.textContent=memory.getPersonDetectionsInLast(5);
+    valTopLabel.textContent=memory.getDominantClass();
 
     if(primaryTarget){
-      valTargetId.textContent = primaryTarget.id;
-      valTargetLabel.textContent = primaryTarget.label;
-      valTargetConf.textContent = Utils.fmt(primaryTarget.confidence,2);
-      valTargetBearing.textContent = Utils.fmt(primaryTarget.bearing,0)+'°';
-
-      if(physics.calibrated && primaryTarget.depth!=null){
-        valTargetDist.textContent = Utils.fmt(primaryTarget.depth,1)+' m';
-      }else{
-        valTargetDist.textContent = 'REL '+Utils.fmt(primaryTarget.relativeDepth,2);
-      }
-      valTargetState.textContent = primaryTarget.motion;
+      valTargetId.textContent=primaryTarget.id;
+      valTargetLabel.textContent=primaryTarget.label;
+      valTargetConf.textContent=Utils.fmt(primaryTarget.confidence,2);
+      valTargetBearing.textContent=Utils.fmt(primaryTarget.bearing,0)+'°';
+      valTargetDist.textContent=(physics.calibrated&&primaryTarget.depth!=null)
+        ? Utils.fmt(primaryTarget.depth,1)+' m'
+        : 'REL '+Utils.fmt(primaryTarget.relativeDepth,2);
+      valTargetState.textContent=primaryTarget.motion;
     }else{
-      valTargetId.textContent='--';
-      valTargetLabel.textContent='--';
-      valTargetDist.textContent='--';
-      valTargetBearing.textContent='--';
-      valTargetState.textContent='--';
-      valTargetConf.textContent='--';
+      valTargetId.textContent=valTargetLabel.textContent=valTargetDist.textContent=
+      valTargetBearing.textContent=valTargetState.textContent=valTargetConf.textContent='--';
     }
   }
 
-  // ============================================================================
-  // ERROR UX
-  // ============================================================================
-  function showError(title, msg, hint){
-    errorTitle.textContent=title;
-    errorMsg.textContent=msg;
-    errorHint.textContent=hint||'';
+  function showError(title,msg,hint){
+    errorTitle.textContent=title;errorMsg.textContent=msg;errorHint.textContent=hint||'';
     errorOverlay.style.display='flex';
   }
-  function hideError(){ errorOverlay.style.display='none'; }
+  function hideError(){errorOverlay.style.display='none';}
 
-  // ============================================================================
-  // UI EVENTS
-  // ============================================================================
+  // ========= AUTO-HIDE HUD =========
+  let hideTimer=null;
+  function showHUDTemporarily(){
+    document.body.classList.remove('ui-hidden');
+    clearTimeout(hideTimer);
+    hideTimer=setTimeout(()=>document.body.classList.add('ui-hidden'), CONFIG.UI.AUTO_HIDE_MS);
+  }
+  // show on any user intent
+  ['pointerdown','touchstart','mousemove','keydown'].forEach(ev=>{
+    window.addEventListener(ev, showHUDTemporarily, {passive:true});
+  });
+
+  btnHudToggle.addEventListener('click', ()=>{
+    document.body.classList.toggle('ui-hidden');
+    showHUDTemporarily();
+  });
   btnPanelToggle.addEventListener('click', ()=>{
     cp.classList.toggle('hidden');
+    showHUDTemporarily();
   });
 
   btnAiToggle.addEventListener('click', ()=>{
-    state.aiPaused = !state.aiPaused;
-    btnAiToggle.textContent = state.aiPaused ? 'Resume AI' : 'Pause AI';
-    btnAiToggle.classList.toggle('toggled', !state.aiPaused);
+    state.aiPaused=!state.aiPaused;
+    btnAiToggle.textContent=state.aiPaused?'Resume AI':'Pause AI';
+    btnAiToggle.classList.toggle('toggled',!state.aiPaused);
+    showHUDTemporarily();
   });
 
   btnCamToggle.addEventListener('click', ()=>{
     if(!state.cameraOn) return;
-    const stream = video.srcObject;
-    if(stream){
-      stream.getTracks().forEach(t=>t.stop());
-    }
+    const stream=video.srcObject;
+    if(stream) stream.getTracks().forEach(t=>t.stop());
     state.cameraOn=false;
     statusCam.className='status-indicator status-offline';
     ledCam.className='status-led warning';
     btnCamToggle.textContent='Start Cam';
     btnCamToggle.classList.remove('danger');
+    showHUDTemporarily();
   });
 
   btnBoxes.addEventListener('click', ()=>{
     state.showBoxes=!state.showBoxes;
-    btnBoxes.classList.toggle('toggled', state.showBoxes);
+    btnBoxes.classList.toggle('toggled',state.showBoxes);
+    showHUDTemporarily();
   });
   btnRadar.addEventListener('click', ()=>{
     state.showRadar=!state.showRadar;
-    btnRadar.classList.toggle('toggled', state.showRadar);
+    btnRadar.classList.toggle('toggled',state.showRadar);
+    showHUDTemporarily();
   });
   btnHorizon.addEventListener('click', ()=>{
     state.showHorizon=!state.showHorizon;
-    btnHorizon.classList.toggle('toggled', state.showHorizon);
+    btnHorizon.classList.toggle('toggled',state.showHorizon);
+    showHUDTemporarily();
   });
 
   selPreset.addEventListener('change', ()=>{
-    state.preset = selPreset.value;
-    vision.setPreset(state.preset);
+    state.preset=selPreset.value; vision.setPreset(state.preset);
+    showHUDTemporarily();
   });
 
-  btnCalibrate.addEventListener('click', ()=>{
-    calibModal.style.display='flex';
-  });
-  btnCalibCancel.addEventListener('click', ()=>{
-    calibModal.style.display='none';
-  });
+  btnCalibrate.addEventListener('click', ()=>{calibModal.style.display='flex';showHUDTemporarily();});
+  btnCalibCancel.addEventListener('click', ()=>{calibModal.style.display='none';showHUDTemporarily();});
   btnCalibOk.addEventListener('click', ()=>{
     calibModal.style.display='none';
-    if(!primaryTarget){
-      statusMessage.textContent='CALIBRATE_FAIL_NO_TARGET';
-      return;
-    }
-    const Zreal = parseFloat(inpCalibDist.value);
-    const Hreal = parseFloat(inpCalibHeight.value);
-    const ok = physics.calibrateFromTrack(primaryTarget, Zreal, Hreal, video.videoHeight||1);
-    statusMessage.textContent = ok ? 'CALIBRATED_OK' : 'CALIBRATE_FAIL';
+    if(!primaryTarget){statusMessage.textContent='CALIBRATE_FAIL_NO_TARGET';return;}
+    const Zreal=parseFloat(inpCalibDist.value), Hreal=parseFloat(inpCalibHeight.value);
+    const ok=physics.calibrateFromTrack(primaryTarget,Zreal,Hreal);
+    statusMessage.textContent=ok?'CALIBRATED_OK':'CALIBRATE_FAIL';
+    showHUDTemporarily();
   });
 
   btnExport.addEventListener('click', ()=>{
-    const data = memory.export();
-    const blob = new Blob([data], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url; a.download='omega_memory.json'; a.click();
+    const data=memory.export();
+    const blob=new Blob([data],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='omega_memory.json';a.click();
     URL.revokeObjectURL(url);
+    showHUDTemporarily();
   });
-
   btnImport.addEventListener('click', ()=>{
-    const inp=document.createElement('input');
-    inp.type='file'; inp.accept='application/json';
-    inp.onchange = () => {
+    const inp=document.createElement('input');inp.type='file';inp.accept='application/json';
+    inp.onchange=()=>{
       const f=inp.files[0]; if(!f) return;
       const r=new FileReader();
-      r.onload = () => {
-        try{
-          const json=JSON.parse(r.result);
-          memory.import(json);
-          statusMessage.textContent='MEMORY_IMPORTED';
-        }catch(err){
-          statusMessage.textContent='IMPORT_FAIL';
-        }
-      };
+      r.onload=()=>{try{memory.import(JSON.parse(r.result));statusMessage.textContent='MEMORY_IMPORTED';}catch(_){statusMessage.textContent='IMPORT_FAIL';}};
       r.readAsText(f);
     };
-    inp.click();
+    inp.click(); showHUDTemporarily();
   });
+  btnClear.addEventListener('click', ()=>{memory.clear();statusMessage.textContent='MEMORY_CLEARED';showHUDTemporarily();});
 
-  btnClear.addEventListener('click', ()=>{
-    memory.clear();
-    statusMessage.textContent='MEMORY_CLEARED';
-  });
-
-  btnTryAgain.addEventListener('click', async ()=>{
-    hideError();
-    if(!state.running){
-      await System.init();
-    }
-  });
+  btnTryAgain.addEventListener('click', async ()=>{hideError(); if(!state.running) await System.init();});
 
   document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden){
-      // slow down AI automatically
-      vision.targetHz = Math.min(vision.targetHz, 4);
-    }else{
-      vision.setPreset(state.preset);
-    }
+    if(document.hidden) vision.targetHz=Math.min(vision.targetHz,4);
+    else vision.setPreset(state.preset);
   });
 
-  // ============================================================================
-  // SYSTEM INIT
-  // ============================================================================
-  const System = {
+  const mapper=new VideoMapper();
+  const avionics=new Avionics();
+  const vision=new VisionEngine();
+  const tracker=new ObjectTracker();
+  const memory=new MemoryDB();
+  const physics=new Physics();
+  const radar=new Radar(radarBlipsEl,20);
+
+  let tracks=[],primaryTarget=null;
+  let renderFpsReal=0,_rfpsCount=0,_rfpsT0=Utils.now();
+
+  const System={
     async init(){
       resize();
       ledTracker.className='status-led loading';
       ledMemory.className='status-led active';
       statusMemory.className='status-indicator status-ok';
 
-      const camOK = await initCamera();
-      const gyroOK = await initGyro();
-      const aiOK = await initAI();
+      const camOK=await initCamera();
+      await initGyro();
+      await initAI();
 
       ledTracker.className='status-led active';
       statusTracker.className='status-indicator status-ok';
-
-      if(!camOK){
-        return;
-      }
+      if(!camOK) return;
 
       state.running=true;
       vision.setPreset(state.preset);
 
-      // start loops
       inferenceLoop();
       renderLoop();
+      showHUDTemporarily(); // start visible briefly
     }
   };
 
   btnInit.addEventListener('click', async ()=>{
-    btnInit.disabled=true;
-    statusMessage.textContent='INITIALIZING...';
-    await System.init();
-    boot.style.display='none';
-    cp.classList.remove('hidden'); // open panel after boot
+    btnInit.disabled=true; statusMessage.textContent='INITIALIZING...';
+    await System.init(); boot.style.display='none';
+    cp.classList.remove('hidden');
   });
-
 })();
 </script>
 </body>
