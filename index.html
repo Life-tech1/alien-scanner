@@ -3,459 +3,401 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OMEGA-PRIME: SINGULARITY</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-
+    <title>OMEGA: OMNI-TOOL</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --hud-primary: #00f3ff;
-            --hud-secondary: #00ff41;
-            --hud-alert: #ff2a2a;
-            --bg-dark: #050505;
+            --bg: #111;
+            --text: #0f0;
+            --panel: rgba(0, 20, 0, 0.8);
+            --border: 1px solid #0f0;
         }
 
-        body { 
-            margin: 0; overflow: hidden; background: var(--bg-dark); 
-            font-family: 'Rajdhani', sans-serif; cursor: crosshair;
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            margin: 0; overflow: hidden; background: var(--bg);
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text);
         }
 
-        /* LAYERS */
+        /* BACKGROUND CAMERA */
         #camera-feed {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0.4; filter: contrast(1.2) grayscale(0.3); z-index: 0;
-        }
-        
-        #hud-canvas { /* The Tesla/SpaceX Layer */
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2; mix-blend-mode: screen;
+            object-fit: cover; z-index: 0;
         }
 
-        #mochi-canvas { /* The Avatar Layer */
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 3;
-        }
-
-        /* UI OVERLAY */
+        /* UI LAYER */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none; padding: 20px;
-            display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 10; pointer-events: none;
+            display: grid; grid-template-rows: auto 1fr auto;
+            padding: 20px; gap: 10px;
         }
 
-        .hud-header {
-            display: flex; justify-content: space-between; align-items: flex-start;
+        /* MODULES */
+        .tool-panel {
+            background: var(--panel); border: var(--border);
+            padding: 15px; border-radius: 8px;
+            backdrop-filter: blur(4px); pointer-events: auto;
+            transition: all 0.3s;
         }
         
-        .data-block {
-            font-family: 'Share Tech Mono', monospace;
-            color: var(--hud-primary); text-shadow: 0 0 5px var(--hud-primary);
-            background: rgba(0, 20, 40, 0.6);
-            border: 1px solid rgba(0, 243, 255, 0.3);
-            padding: 10px; border-radius: 4px;
-            font-size: 12px; line-height: 1.5;
-            backdrop-filter: blur(4px);
+        .tool-header {
+            font-size: 12px; font-weight: 800; margin-bottom: 10px;
+            border-bottom: 1px solid rgba(0,255,0,0.3); padding-bottom: 5px;
+            display: flex; justify-content: space-between;
         }
 
-        .radar-box {
-            width: 100px; height: 100px; border-radius: 50%;
-            border: 2px solid rgba(0, 255, 65, 0.3);
-            background: radial-gradient(circle, rgba(0,255,65,0.1) 0%, transparent 70%);
-            position: relative; margin-top: 10px;
-            overflow: hidden;
+        /* TOOL 1: COLOR PICKER */
+        #color-preview {
+            width: 100%; height: 40px; border: 1px solid #fff;
+            margin-bottom: 5px; display: flex; align-items: center; justify-content: center;
+            text-shadow: 0 0 2px black; font-weight: bold; color: #fff; cursor: pointer;
         }
-        .radar-sweep {
-            position: absolute; top: 50%; left: 50%; width: 50%; height: 2px;
-            background: var(--hud-secondary); transform-origin: 0 0;
-            animation: radar-spin 2s linear infinite;
-            box-shadow: 0 0 10px var(--hud-secondary);
+        .crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 20px; height: 20px; border: 2px solid #fff; z-index: 5;
+            pointer-events: none; border-radius: 50%; box-shadow: 0 0 5px black;
+        }
+        .crosshair::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
+            background: red; transform: translate(-50%, -50%); border-radius: 50%;
         }
 
-        /* LOADING */
-        #boot-sequence {
+        /* TOOL 2: SPIRIT LEVEL */
+        .level-tube {
+            width: 100%; height: 30px; background: #222;
+            border-radius: 15px; border: 2px solid #555;
+            position: relative; overflow: hidden; margin-bottom: 5px;
+        }
+        .level-bubble {
+            width: 40px; height: 100%; background: #0f0;
+            border-radius: 50%; position: absolute; top: 0; left: 50%;
+            transform: translateX(-50%); transition: left 0.1s;
+            box-shadow: 0 0 10px #0f0;
+        }
+        .level-mark {
+            position: absolute; top: 0; left: 50%; width: 2px; height: 100%;
+            background: #fff; transform: translateX(-50%); z-index: 2;
+        }
+
+        /* TOOL 3: LUX METER */
+        #lux-bar-container {
+            width: 100%; height: 10px; background: #333; margin-top: 5px;
+        }
+        #lux-bar { height: 100%; background: yellow; width: 0%; transition: width 0.2s; }
+
+        /* BUTTONS */
+        .btn {
+            width: 100%; padding: 10px; background: rgba(0,255,0,0.1);
+            border: 1px solid #0f0; color: #0f0; font-family: inherit;
+            cursor: pointer; font-weight: bold; text-transform: uppercase;
+        }
+        .btn:active { background: #0f0; color: #000; }
+
+        /* MODE SELECTOR */
+        .mode-selector {
+            display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px;
+        }
+        .mode-btn {
+            flex: 1; padding: 10px; background: #000; border: 1px solid #555;
+            color: #888; font-size: 10px; white-space: nowrap; cursor: pointer;
+        }
+        .mode-btn.active { border-color: #0f0; color: #0f0; background: rgba(0,255,0,0.1); }
+
+        #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 100; color: var(--hud-primary);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-family: 'Share Tech Mono';
+            background: #000; z-index: 100; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
         }
-        
-        .terminal-log {
-            width: 300px; height: 150px; overflow: hidden; 
-            font-size: 10px; text-align: left; opacity: 0.7;
-            border-top: 1px solid #333; margin-top: 20px;
-        }
-
-        #btn-engage {
-            margin-top: 20px; padding: 15px 40px; 
-            background: transparent; color: var(--hud-primary);
-            border: 2px solid var(--hud-primary);
-            font-family: 'Share Tech Mono'; font-size: 18px; cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
-            display: none; text-transform: uppercase;
-        }
-        #btn-engage:hover { background: var(--hud-primary); color: #000; }
-
-        @keyframes radar-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
     </style>
 </head>
 <body>
 
     <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="hud-canvas"></canvas>
-    <canvas id="mochi-canvas"></canvas>
+    <canvas id="process-canvas" style="display:none;"></canvas>
+    <div class="crosshair" id="crosshair"></div>
 
     <div id="ui-layer">
-        <div class="hud-header">
-            <div class="data-block">
-                SYS: OMEGA-PRIME<br>
-                MODE: QUANTUM FUSION<br>
-                FPS: <span id="val-fps">0</span>
+        <div class="tool-panel" style="height: fit-content;">
+            <div class="tool-header">
+                <span>OMEGA OMNI-TOOL</span>
+                <span id="battery-stat">BAT: --%</span>
             </div>
-            <div class="data-block" style="text-align: right;">
-                TARGETS: <span id="val-targets">0</span><br>
-                CONFIDENCE: <span id="val-conf">0.00%</span>
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="App.setMode('COLOR')">🎨 COLOR PICKER</button>
+                <button class="mode-btn" onclick="App.setMode('LEVEL')">📐 SPIRIT LEVEL</button>
+                <button class="mode-btn" onclick="App.setMode('LIGHT')">💡 LUX METER</button>
             </div>
         </div>
 
-        <div style="align-self: flex-end;">
-            <div class="data-block">
-                <div>TELEMETRY RADAR</div>
-                <div class="radar-box">
-                    <div class="radar-sweep"></div>
-                    <canvas id="radar-canvas" width="100" height="100" style="position:absolute; top:0; left:0;"></canvas>
+        <div id="tool-container" style="display: flex; flex-direction: column; justify-content: center;">
+            
+            <div id="ui-color" class="tool-panel">
+                <div class="tool-header">REAL-TIME HEX DETECTOR</div>
+                <div id="color-preview" onclick="Tools.Color.copy()">TAP TO COPY</div>
+                <div style="font-size: 10px; color:#aaa; margin-top:5px;">
+                    RGB: <span id="rgb-text">0,0,0</span>
+                </div>
+                <div style="font-size: 10px; color:#aaa;">
+                    AI NAME: <span id="color-name">Unknown</span>
                 </div>
             </div>
+
+            <div id="ui-level" class="tool-panel" style="display:none;">
+                <div class="tool-header">DIGITAL SURFACE LEVEL</div>
+                
+                <div style="margin-bottom:5px; font-size:10px;">X-AXIS (Left/Right)</div>
+                <div class="level-tube">
+                    <div class="level-mark"></div>
+                    <div class="level-bubble" id="bubble-x"></div>
+                </div>
+                <div style="text-align:right; font-size:10px;" id="val-x">0°</div>
+
+                <div style="margin-top:10px; margin-bottom:5px; font-size:10px;">Y-AXIS (Up/Down)</div>
+                <div class="level-tube" style="transform: rotate(0deg);">
+                    <div class="level-mark"></div>
+                    <div class="level-bubble" id="bubble-y"></div>
+                </div>
+                <div style="text-align:right; font-size:10px;" id="val-y">0°</div>
+                
+                <div id="level-status" style="text-align:center; margin-top:10px; font-weight:bold; color:red;">UNBALANCED</div>
+            </div>
+
+            <div id="ui-light" class="tool-panel" style="display:none;">
+                <div class="tool-header">ENVIRONMENTAL LIGHT</div>
+                <div style="font-size: 30px; font-weight:bold;" id="lux-val">0</div>
+                <div style="font-size: 12px; opacity:0.7;">ESTIMATED LUX</div>
+                <div id="lux-bar-container"><div id="lux-bar"></div></div>
+                <div style="margin-top:10px; padding:10px; border:1px dashed #555; text-align:center;">
+                    SUITABLE FOR:<br>
+                    <span id="lux-advice" style="color:yellow;">...</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="tool-panel" style="height: fit-content;">
+            <button class="btn" id="action-btn" onclick="App.action()">CAPTURE VALUE</button>
         </div>
     </div>
 
-    <div id="boot-sequence">
-        <h1 style="font-size: 40px; margin: 0; letter-spacing: 5px;">OMEGA</h1>
-        <div style="font-size: 12px; letter-spacing: 2px;">THE FUSION SINGULARITY</div>
-        <div class="terminal-log" id="terminal"></div>
-        <button id="btn-engage">ENGAGE SYSTEM</button>
+    <div id="start-screen">
+        <h1 style="color:#0f0; margin-bottom:10px;">OMEGA TOOL</h1>
+        <p style="color:#fff; font-size:12px;">REAL-WORLD SENSOR UTILITIES</p>
+        <button class="btn" style="width:200px; margin-top:20px;" onclick="App.init()">ACTIVATE SENSORS</button>
     </div>
 
 <script>
 /**
- * PROJECT: OMEGA-PRIME
- * Technologies: TensorFlow.js, Kalman Filters, Canvas Particle Physics
- * Concept: Fusion of "Cute" and "Hard Sci-Fi"
+ * PROJECT: OMEGA OMNI-TOOL
+ * Purpose: Real-world utilities using Browser APIs (No libraries, Raw math)
  */
 
-// --- 1. MATH & PHYSICS CORE ---
-const MathCore = {
-    lerp: (a, b, t) => a + (b - a) * t,
-    
-    // Kalman Filter-ish Smoothing (Exponential Moving Average)
-    smoothBox: (prev, curr, factor = 0.2) => {
-        if(!prev) return curr;
-        return {
-            x: prev.x + (curr.x - prev.x) * factor,
-            y: prev.y + (curr.y - prev.y) * factor,
-            w: prev.w + (curr.w - prev.w) * factor,
-            h: prev.h + (curr.h - prev.h) * factor,
-            class: curr.class,
-            score: curr.score
-        };
-    }
-};
-
-// --- 2. SYSTEM STATE ---
-const SYS = {
-    w: window.innerWidth,
-    h: window.innerHeight,
+const App = {
+    mode: 'COLOR', // COLOR, LEVEL, LIGHT
     video: document.getElementById('camera-feed'),
-    hudCtx: document.getElementById('hud-canvas').getContext('2d'),
-    mochiCtx: document.getElementById('mochi-canvas').getContext('2d'),
-    radarCtx: document.getElementById('radar-canvas').getContext('2d'),
-    model: null,
-    predictions: [],
-    activeTarget: null, // The smoothed target object
-    particles: [], // Quantum cloud particles
-    lastFrame: Date.now(),
-    fps: 0
-};
+    canvas: document.getElementById('process-canvas'),
+    ctx: null,
+    loopId: null,
 
-// --- 3. TENSORFLOW ENGINE ---
-const NeuralNet = {
     async init() {
-        Log.write("INITIALIZING NEURAL NETWORK...");
-        Log.write("LOADING COCO-SSD MODEL...");
-        SYS.model = await cocoSsd.load();
-        Log.write("MODEL LOADED. MEMORY OK.");
-        Log.write("WAITING FOR OPTICAL SENSORS...");
-        
-        document.getElementById('btn-engage').style.display = 'block';
+        try {
+            // 1. Camera Access
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: { ideal: "environment" } }, 
+                audio: false 
+            });
+            this.video.srcObject = stream;
+            
+            // 2. Battery Access
+            if(navigator.getBattery) {
+                const bat = await navigator.getBattery();
+                this.updateBattery(bat);
+                bat.addEventListener('levelchange', () => this.updateBattery(bat));
+            }
+
+            // 3. Sensors Access (iOS Permission)
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                await DeviceOrientationEvent.requestPermission();
+            }
+            window.addEventListener('deviceorientation', (e) => Tools.Level.update(e));
+
+            document.getElementById('start-screen').style.display = 'none';
+            
+            this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+            this.canvas.width = 64; // Low res for processing
+            this.canvas.height = 64;
+
+            this.startLoop();
+
+        } catch(e) {
+            alert("Error: Hardware access denied. This tool needs Camera & Sensors.");
+        }
     },
 
-    async loop() {
-        if (SYS.video.readyState === 4) {
-            const preds = await SYS.model.detect(SYS.video);
-            
-            // Find best target (Person > Phone > Cup > Any)
-            const priority = ['person', 'cell phone', 'laptop', 'cup', 'bottle'];
-            let best = null;
-            
-            for(let p of priority) {
-                best = preds.find(x => x.class === p);
-                if(best) break;
-            }
-            if(!best && preds.length > 0) best = preds[0];
-
-            if (best) {
-                // Convert to object format
-                const curr = {
-                    x: best.bbox[0], y: best.bbox[1],
-                    w: best.bbox[2], h: best.bbox[3],
-                    class: best.class, score: best.score
-                };
-                
-                // Apply Smoothing (Kalman)
-                SYS.activeTarget = MathCore.smoothBox(SYS.activeTarget, curr, 0.15);
-            } else {
-                SYS.activeTarget = null;
-            }
-            
-            SYS.predictions = preds; // Keep raw for radar
-        }
-        requestAnimationFrame(NeuralNet.loop);
-    }
-};
-
-// --- 4. MOCHI AVATAR (QUANTUM FORM) ---
-const Mochi = {
-    x: SYS.w/2, y: SYS.h/2,
-    r: 60,
-    state: 'IDLE', // IDLE, LOCKING, LOCKED
-
-    draw(ctx, target) {
-        let tx = SYS.w/2;
-        let ty = SYS.h/2;
-        let color = '#00f3ff'; // Default Cyan
-        
-        if (target) {
-            // Calculate center of box
-            tx = target.x + target.w/2;
-            ty = target.y - 60; // Float above object
-            
-            // Color based on type
-            if(target.class === 'person') color = '#ff9a9e'; // Pink
-            else if(target.class === 'cell phone') color = '#00ff41'; // Matrix Green
-            else color = '#ffd700'; // Gold
-        }
-
-        // Physics Glide
-        this.x = MathCore.lerp(this.x, tx, 0.1);
-        this.y = MathCore.lerp(this.y, ty, 0.1);
-
-        // 1. Draw Quantum Particles (The Tail/Aura)
-        if (Math.abs(this.x - tx) > 10) {
-            Particles.emit(this.x, this.y, color);
-        }
-        Particles.update(ctx);
-
-        // 2. Draw Mochi Body
-        ctx.shadowBlur = 25; ctx.shadowColor = color;
-        ctx.fillStyle = color;
-        
-        // Pulsing effect
-        const pulse = Math.sin(Date.now()/200) * 2;
-        
-        ctx.beginPath(); 
-        ctx.arc(this.x, this.y, this.r + pulse, 0, Math.PI*2); 
-        ctx.fill();
-        
-        // Highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.beginPath(); ctx.arc(this.x - 20, this.y - 20, 20, 0, Math.PI*2); ctx.fill();
-        
-        // Face (Cyber Cute)
-        this.drawFace(ctx);
-        
-        ctx.shadowBlur = 0;
+    updateBattery(bat) {
+        document.getElementById('battery-stat').innerText = `BAT: ${Math.round(bat.level * 100)}%`;
     },
 
-    drawFace(ctx) {
-        ctx.fillStyle = '#111';
+    setMode(mode) {
+        this.mode = mode;
+        // UI Toggle
+        document.querySelectorAll('.tool-panel[id^="ui-"]').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.mode-btn').forEach(el => el.classList.remove('active'));
         
-        if (SYS.activeTarget) {
-            // Happy/Locked Eyes
-            ctx.beginPath(); ctx.ellipse(this.x - 20, this.y - 5, 8, 12, 0, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(this.x + 20, this.y - 5, 8, 12, 0, 0, Math.PI*2); ctx.fill();
-            
-            // Smile
-            ctx.strokeStyle = '#111'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-            ctx.beginPath(); ctx.arc(this.x, this.y + 10, 10, 0, Math.PI); ctx.stroke();
+        if(mode === 'COLOR') {
+            document.getElementById('ui-color').style.display = 'block';
+            document.getElementById('crosshair').style.display = 'block';
+            document.querySelectorAll('.mode-btn')[0].classList.add('active');
+        } else if(mode === 'LEVEL') {
+            document.getElementById('ui-level').style.display = 'block';
+            document.getElementById('crosshair').style.display = 'none';
+            document.querySelectorAll('.mode-btn')[1].classList.add('active');
         } else {
-            // Scanning Eyes (Horizontal lines)
-            ctx.fillRect(this.x - 30, this.y - 10, 20, 4);
-            ctx.fillRect(this.x + 10, this.y - 10, 20, 4);
-            
-            // Straight Mouth
-            ctx.strokeStyle = '#111'; ctx.lineWidth = 4; 
-            ctx.beginPath(); ctx.moveTo(this.x - 5, this.y + 20); ctx.lineTo(this.x + 5, this.y + 20); ctx.stroke();
+            document.getElementById('ui-light').style.display = 'block';
+            document.getElementById('crosshair').style.display = 'none';
+            document.querySelectorAll('.mode-btn')[2].classList.add('active');
         }
+    },
+
+    startLoop() {
+        const loop = () => {
+            if(this.mode === 'COLOR' || this.mode === 'LIGHT') {
+                this.processVideo();
+            }
+            requestAnimationFrame(loop);
+        };
+        loop();
+    },
+
+    processVideo() {
+        if(this.video.readyState === 4) {
+            this.ctx.drawImage(this.video, 0, 0, 64, 64);
+            const frame = this.ctx.getImageData(0, 0, 64, 64);
+            
+            if(this.mode === 'COLOR') Tools.Color.process(frame);
+            if(this.mode === 'LIGHT') Tools.Light.process(frame);
+        }
+    },
+
+    action() {
+        if(this.mode === 'COLOR') Tools.Color.copy();
+        if(this.mode === 'LEVEL') alert("Level Calibrated (Zeroed).");
+        if(this.mode === 'LIGHT') alert(`Current Reading: ${document.getElementById('lux-val').innerText} LUX`);
     }
 };
 
-// --- 5. HUD SYSTEM (Tesla/SpaceX Style) ---
-const HUD = {
-    draw(ctx, target) {
-        ctx.clearRect(0, 0, SYS.w, SYS.h);
+const Tools = {
+    // --- TOOL 1: COLOR PICKER ---
+    Color: {
+        currentHex: '#000000',
+        process(frame) {
+            // Get center pixel
+            const x = 32; const y = 32;
+            const i = (y * 64 + x) * 4;
+            const r = frame.data[i];
+            const g = frame.data[i+1];
+            const b = frame.data[i+2];
 
-        if (target) {
-            const {x, y, w, h, score} = target;
-            const color = '#00f3ff';
-            
-            // 1. Bounding Brackets (Not a boring box)
-            const len = 20; // Corner length
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 10; ctx.shadowColor = color;
-            
-            ctx.beginPath();
-            // TL
-            ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
-            // TR
-            ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
-            // BL
-            ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h);
-            // BR
-            ctx.moveTo(x + w - len, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - len);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-
-            // 2. Data Tag
-            ctx.fillStyle = 'rgba(0, 20, 40, 0.8)';
-            ctx.fillRect(x + w + 10, y, 120, 50);
-            ctx.fillStyle = color;
-            ctx.font = "12px 'Share Tech Mono'";
-            ctx.fillText(`ID: ${target.class.toUpperCase()}`, x + w + 20, y + 20);
-            ctx.fillText(`CONF: ${(score*100).toFixed(4)}%`, x + w + 20, y + 40);
-
-            // 3. Velocity Vector (Visualizing Prediction)
-            ctx.strokeStyle = '#00ff41';
-            ctx.beginPath();
-            ctx.moveTo(x + w/2, y + h/2);
-            ctx.lineTo(Mochi.x, Mochi.y); // Line connecting Object to AI
-            ctx.stroke();
+            this.currentHex = this.rgbToHex(r, g, b);
             
             // Update UI
-            document.getElementById('val-conf').innerText = (score*100).toFixed(2) + "%";
-            document.getElementById('val-conf').style.color = color;
-        } else {
-            document.getElementById('val-conf').innerText = "SCANNING";
-            document.getElementById('val-conf').style.color = "#555";
+            const preview = document.getElementById('color-preview');
+            preview.style.backgroundColor = this.currentHex;
+            preview.innerText = this.currentHex;
+            
+            // Adaptive text color
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            preview.style.color = brightness > 125 ? 'black' : 'white';
+
+            document.getElementById('rgb-text').innerText = `${r}, ${g}, ${b}`;
+            document.getElementById('color-name').innerText = this.getColorName(r,g,b);
+        },
+        rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+        },
+        copy() {
+            navigator.clipboard.writeText(this.currentHex).then(() => {
+                alert(`Copied ${this.currentHex} to clipboard!`);
+            });
+        },
+        getColorName(r, g, b) {
+            if(r>200 && g<100 && b<100) return "Reddish";
+            if(g>200 && r<100 && b<100) return "Greenish";
+            if(b>200 && r<100 && g<100) return "Blueish";
+            if(r>200 && g>200 && b<100) return "Yellowish";
+            if(r<50 && g<50 && b<50) return "Dark/Black";
+            if(r>200 && g>200 && b>200) return "Bright/White";
+            return "Mixed Tone";
         }
-        
-        document.getElementById('val-targets').innerText = SYS.predictions.length;
     },
 
-    drawRadar() {
-        const ctx = SYS.radarCtx;
-        ctx.clearRect(0, 0, 100, 100);
-        
-        // Center dot (You)
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(48, 48, 4, 4);
-        
-        // Targets
-        SYS.predictions.forEach(p => {
-            // Normalize position to radar
-            const rx = (p.bbox[0] / SYS.w) * 100;
-            const ry = (p.bbox[1] / SYS.h) * 100;
+    // --- TOOL 2: SPIRIT LEVEL ---
+    Level: {
+        update(e) {
+            if(App.mode !== 'LEVEL') return;
             
-            ctx.fillStyle = '#00ff41';
-            ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI*2); ctx.fill();
-        });
-    }
-};
+            // Beta = Front/Back (-180 to 180) -> Y Axis
+            // Gamma = Left/Right (-90 to 90) -> X Axis
+            let x = e.gamma || 0;
+            let y = e.beta || 0;
 
-// --- 6. PARTICLE PHYSICS ---
-const Particles = {
-    pool: [],
-    emit(x, y, color) {
-        this.pool.push({
-            x: x + (Math.random()-0.5)*20, 
-            y: y + (Math.random()-0.5)*20,
-            vx: (Math.random()-0.5)*2,
-            vy: (Math.random()-0.5)*2,
-            life: 1.0,
-            color: color
-        });
-    },
-    update(ctx) {
-        for(let i = this.pool.length-1; i>=0; i--) {
-            let p = this.pool[i];
-            p.x += p.vx; p.y += p.vy;
-            p.life -= 0.05;
+            // Clamp for UI
+            const maxAngle = 45;
+            const moveX = Math.max(-maxAngle, Math.min(maxAngle, x));
+            const moveY = Math.max(-maxAngle, Math.min(maxAngle, y));
+
+            // Map angle to percentage (50% is center)
+            const pctX = 50 + (moveX / maxAngle * 50);
+            const pctY = 50 + (moveY / maxAngle * 50);
+
+            document.getElementById('bubble-x').style.left = `${pctX}%`;
+            document.getElementById('bubble-y').style.left = `${pctY}%`;
+
+            document.getElementById('val-x').innerText = `${x.toFixed(1)}°`;
+            document.getElementById('val-y').innerText = `${y.toFixed(1)}°`;
+
+            const isLevel = Math.abs(x) < 2 && Math.abs(y) < 2;
+            const status = document.getElementById('level-status');
             
-            if(p.life <= 0) {
-                this.pool.splice(i, 1);
+            if(isLevel) {
+                status.innerText = "PERFECTLY LEVEL";
+                status.style.color = "#0f0";
             } else {
-                ctx.globalAlpha = p.life;
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, 3, 3);
-                ctx.globalAlpha = 1;
+                status.innerText = "UNBALANCED";
+                status.style.color = "red";
             }
         }
-    }
-};
+    },
 
-// --- 7. UTILS & INIT ---
-const Log = {
-    el: document.getElementById('terminal'),
-    write(txt) {
-        const span = document.createElement('div');
-        span.innerText = `> ${txt}`;
-        this.el.appendChild(span);
-        this.el.scrollTop = this.el.scrollHeight;
-    }
-};
-
-function loop() {
-    // FPS Calc
-    const now = Date.now();
-    const delta = now - SYS.lastFrame;
-    SYS.fps = Math.round(1000 / delta);
-    SYS.lastFrame = now;
-    document.getElementById('val-fps').innerText = SYS.fps;
-
-    // Render Layers
-    SYS.mochiCtx.clearRect(0, 0, SYS.w, SYS.h);
-    
-    HUD.draw(SYS.hudCtx, SYS.activeTarget);
-    HUD.drawRadar();
-    Mochi.draw(SYS.mochiCtx, SYS.activeTarget);
-
-    requestAnimationFrame(loop);
-}
-
-document.getElementById('btn-engage').addEventListener('click', async () => {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-        SYS.video.srcObject = stream;
-        SYS.video.onloadeddata = () => {
-            document.getElementById('boot-sequence').style.display = 'none';
+    // --- TOOL 3: LUX METER ---
+    Light: {
+        process(frame) {
+            let total = 0;
+            for(let i=0; i<frame.data.length; i+=4) {
+                total += (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
+            }
+            const avgPixel = total / (frame.data.length / 4);
             
-            SYS.w = window.innerWidth;
-            SYS.h = window.innerHeight;
-            [document.getElementById('hud-canvas'), document.getElementById('mochi-canvas')]
-                .forEach(c => { c.width = SYS.w; c.height = SYS.h; });
+            // Approximate Lux (Calibration is tricky without hardware access, using estimation)
+            // 0-255 pixel value -> 0-1000 lux rough mapping
+            const lux = Math.round(Math.pow(avgPixel / 255, 2.2) * 1000); 
 
-            NeuralNet.loop();
-            loop();
-        };
-    } catch(e) {
-        Log.write("ERR: CAMERA ACCESS DENIED");
+            document.getElementById('lux-val').innerText = lux;
+            document.getElementById('lux-bar').style.width = Math.min(100, (lux/500)*100) + "%";
+
+            let advice = "";
+            if(lux < 50) advice = "Too Dark (Night Vision)";
+            else if(lux < 200) advice = "Dim (Romantic/Relax)";
+            else if(lux < 500) advice = "Good for Reading";
+            else advice = "Bright (Office/Daylight)";
+            
+            document.getElementById('lux-advice').innerText = advice;
+        }
     }
-});
-
-NeuralNet.init();
+};
 
 </script>
 </body>
