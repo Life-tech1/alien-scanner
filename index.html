@@ -2,31 +2,40 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOCHI ULTIMATE: AR PET</title>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MOCHI: 14 PRO EDITION</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #ff9a9e;
-            --bg-gradient: linear-gradient(to top, #a18cd1 0%, #fbc2eb 100%);
-            --ui-bg: rgba(255, 255, 255, 0.9);
+            --secondary: #fecfef;
+            --accent: #a18cd1;
+            --glass: rgba(255, 255, 255, 0.65);
+            --island-w: 126px; /* Dynamic Island width approx */
+            --island-h: 37px;
         }
 
+        * { box-sizing: border-box; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+
         body {
-            margin: 0; overflow: hidden; background: #222;
+            margin: 0; overflow: hidden; background: #000;
             font-family: 'Nunito', sans-serif;
-            touch-action: none; user-select: none;
         }
 
         /* LAYERS */
         #camera-feed {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 1; z-index: 0;
+            object-fit: cover; z-index: 0;
         }
         
-        #game-canvas {
+        #lidar-canvas { /* Edge Detection Layer */
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
+            z-index: 1; mix-blend-mode: screen; pointer-events: none;
+        }
+
+        #game-canvas { /* Mochi Layer */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2;
         }
 
         /* UI OVERLAY */
@@ -34,568 +43,442 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 15px;
+            /* iPhone Safe Area Support */
+            padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)) 20px;
         }
 
-        /* TOP HUD */
-        .hud-top {
-            display: flex; justify-content: space-between; align-items: flex-start;
+        /* DYNAMIC ISLAND VISUALIZER (Hidden hitbox visualization) */
+        #island-zone {
+            position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+            width: var(--island-w); height: var(--island-h);
+            border-radius: 20px;
+            /* border: 1px solid red; Un-comment to see hitbox */ 
+            z-index: 20; pointer-events: none;
         }
 
-        .stats-card {
-            background: var(--ui-bg);
-            border-radius: 20px; padding: 10px 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            backdrop-filter: blur(5px);
+        /* HUD CARDS */
+        .hud-top { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; }
+
+        .tech-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.4);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             width: 140px;
+            display: flex; flex-direction: column; gap: 5px;
         }
 
-        .stat-row { margin-bottom: 5px; }
-        .stat-label { font-size: 10px; color: #888; font-weight: bold; display: flex; justify-content: space-between; }
+        .card-label { font-size: 10px; color: #ff6b81; font-weight: 900; letter-spacing: 1px; }
+        .raw-data { font-family: 'Courier New', monospace; font-size: 9px; color: #333; font-weight: 600; }
         
-        .progress-bar {
-            height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin-top: 2px;
+        .mini-graph {
+            width: 100%; height: 40px;
+            background: rgba(255,154,158, 0.1);
+            border-radius: 10px;
         }
-        .progress-fill { height: 100%; width: 50%; transition: width 0.5s; }
-
-        .level-badge {
-            background: #fff; border-radius: 50%; width: 50px; height: 50px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 3px solid var(--primary);
-        }
-        .lvl-txt { font-size: 8px; color: #888; }
-        .lvl-num { font-family: 'Fredoka One', cursive; font-size: 20px; color: var(--primary); line-height: 1; }
 
         /* BOTTOM ACTIONS */
         .action-bar {
-            display: flex; justify-content: center; gap: 15px;
-            pointer-events: auto; margin-bottom: 20px;
+            display: flex; justify-content: center; gap: 20px;
+            pointer-events: auto; margin-bottom: 10px;
         }
 
-        .btn-action {
-            width: 60px; height: 60px; border-radius: 20px;
-            border: none; background: #fff;
-            font-size: 24px; cursor: pointer;
-            box-shadow: 0 5px 0 #ddd;
-            transition: transform 0.1s, box-shadow 0.1s;
-            display: flex; align-items: center; justify-content: center;
+        .btn-tech {
+            width: 65px; height: 65px; border-radius: 22px;
+            border: none; background: rgba(255,255,255,0.9);
+            color: #ff9a9e; font-size: 28px; cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transition: transform 0.1s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .btn-action:active { transform: translateY(5px); box-shadow: 0 0 0 #ddd; }
-        .btn-action.critical { animation: shake 0.5s infinite; border: 2px solid red; }
-
-        @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-2px);} 75%{transform:translateX(2px);} }
+        .btn-tech span { font-size: 9px; font-weight: 900; margin-top: 2px; color: #aaa; }
+        .btn-tech:active { transform: scale(0.9); background: #fff; }
+        .btn-tech.active { background: #ff9a9e; color: #fff; }
+        .btn-tech.active span { color: #fff; }
 
         /* START SCREEN */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%);
+            background: #000;
             z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: #fff;
         }
         #btn-init {
-            background: #fff; color: #ff9a9e; border: none; padding: 15px 50px;
-            border-radius: 50px; font-size: 22px; font-family: 'Fredoka One';
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2); cursor: pointer;
+            background: #fff; color: #000; border: none; padding: 18px 40px;
+            border-radius: 50px; font-size: 18px; font-weight: bold;
+            cursor: pointer; margin-top: 20px;
         }
+        .ios-note { font-size: 12px; color: #888; margin-top: 10px; max-width: 80%; text-align: center; }
 
     </style>
 </head>
 <body>
 
     <video id="camera-feed" autoplay playsinline muted></video>
+    <canvas id="lidar-canvas"></canvas>
     <canvas id="game-canvas"></canvas>
 
     <div id="ui-layer">
-        <div class="hud-top">
-            <div class="level-badge">
-                <span class="lvl-txt">LVL</span>
-                <span class="lvl-num" id="disp-lvl">1</span>
+        <div id="island-zone"></div> <div class="hud-top">
+            <div class="tech-card">
+                <div class="card-label">GYRO-A16</div>
+                <canvas id="graph-gyro" class="mini-graph"></canvas>
+                <div class="raw-data" id="txt-gyro">CALIBRATING...</div>
             </div>
-            <div class="stats-card">
-                <div class="stat-row">
-                    <div class="stat-label"><span>HUNGER</span><span id="txt-hunger">50%</span></div>
-                    <div class="progress-bar"><div id="bar-hunger" class="progress-fill" style="background:#ff9a9e;"></div></div>
-                </div>
-                <div class="stat-row">
-                    <div class="stat-label"><span>FUN</span><span id="txt-fun">50%</span></div>
-                    <div class="progress-bar"><div id="bar-fun" class="progress-fill" style="background:#84fab0;"></div></div>
-                </div>
-                <div class="stat-row">
-                    <div class="stat-label"><span>HYGIENE</span><span id="txt-hygiene">50%</span></div>
-                    <div class="progress-bar"><div id="bar-hygiene" class="progress-fill" style="background:#a1c4fd;"></div></div>
-                </div>
+            
+            <div class="tech-card">
+                <div class="card-label">AUDIO-ENGINE</div>
+                <canvas id="graph-audio" class="mini-graph"></canvas>
+                <div class="raw-data" id="txt-db">SILENT</div>
             </div>
         </div>
 
         <div class="action-bar">
-            <button class="btn-action" id="btn-feed" onclick="Game.action('FEED')">🍖</button>
-            <button class="btn-action" id="btn-play" onclick="Game.action('PLAY')">🎾</button>
-            <button class="btn-action" id="btn-clean" onclick="Game.action('CLEAN')">🧼</button>
+            <button class="btn-tech" id="btn-scan" onclick="Tech.toggleLidar()">
+                👁️<span>LIDAR</span>
+            </button>
+            <button class="btn-tech" onclick="Tech.analyze()">
+                📊<span>STATS</span>
+            </button>
+            <button class="btn-tech" onclick="Tech.reset()">
+                ↺<span>RESET</span>
+            </button>
         </div>
     </div>
 
     <div id="start-screen">
-        <h1 style="font-family: 'Fredoka One'; font-size: 3rem; margin-bottom: 10px;">MOCHI</h1>
-        <p style="opacity: 0.8; margin-bottom: 30px;">Ultimate AR Companion</p>
-        <button id="btn-init">START GAME</button>
+        <h1 style="font-family: 'Fredoka One'; font-size: 3rem; margin: 0; background: linear-gradient(to right, #ff9a9e, #fecfef); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MOCHI</h1>
+        <div style="font-weight: bold; letter-spacing: 2px; font-size: 12px; margin-bottom: 20px;">PRO EDITION</div>
+        <button id="btn-init">ALLOW SENSORS</button>
+        <div class="ios-note">Requires Sensor Access for Gyro & Camera.<br>Tap to Grant Permission.</div>
     </div>
 
 <script>
 /**
- * PROJECT: MOCHI ULTIMATE
- * Features: Tamagotchi Systems, Save/Load, Speech Synthesis, Physics, Particle System
+ * MOCHI: iPHONE 14 PRO EDITION
+ * Optimized for iOS Safari, Retina Displays, and Dynamic Island
  */
 
-// --- CONFIG ---
-const CONFIG = {
-    tickRate: 1000, // Logic update every 1s
-    decay: {
-        hunger: 1,
-        fun: 0.5,
-        hygiene: 0.2
-    },
-    colors: {
-        body: '#ff9a9e',
-        happy: '#ff9a9e',
-        dirty: '#d4fc79',
-        sick: '#a18cd1'
-    }
-};
-
-// --- 1. GAME STATE & SAVE SYSTEM ---
-const State = {
-    stats: {
-        hunger: 100, // 0-100 (0 = Starving)
-        fun: 100,    // 0-100 (0 = Depressed)
-        hygiene: 100,// 0-100 (0 = Filthy)
-        xp: 0,
-        level: 1
-    },
-    lastSave: Date.now(),
-
-    init() {
-        const saved = localStorage.getItem('MOCHI_V3_DATA');
-        if (saved) {
-            const data = JSON.parse(saved);
-            this.stats = data.stats;
-            // Calculate offline decay
-            const elapsedSecs = (Date.now() - data.timestamp) / 1000;
-            this.applyDecay(elapsedSecs * 0.1); // 10% decay rate when offline
+// --- 1. HARDWARE LAYER (iOS Optimized) ---
+const HAL = {
+    gyro: { x:0, y:0, z:0 },
+    history: [],
+    audioData: null,
+    analyser: null,
+    
+    async requestPermissions() {
+        // 1. Motion Permission (iOS 13+ Requirement)
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const response = await DeviceOrientationEvent.requestPermission();
+                if (response !== 'granted') {
+                    alert('Gyroscope permission denied. Mochi needs balance!');
+                    return false;
+                }
+            } catch (e) { console.error(e); }
         }
-        this.save();
-        setInterval(() => this.tick(), CONFIG.tickRate);
-    },
 
-    tick() {
-        this.applyDecay(1);
-        this.save();
-        UI.update();
-        
-        // Random Events
-        if (this.stats.hygiene < 50 && Math.random() < 0.1) World.spawnPoop();
-    },
-
-    applyDecay(multiplier) {
-        this.stats.hunger = Math.max(0, this.stats.hunger - (CONFIG.decay.hunger * multiplier));
-        this.stats.fun = Math.max(0, this.stats.fun - (CONFIG.decay.fun * multiplier));
-        this.stats.hygiene = Math.max(0, this.stats.hygiene - (CONFIG.decay.hygiene * multiplier));
-    },
-
-    save() {
-        const data = { stats: this.stats, timestamp: Date.now() };
-        localStorage.setItem('MOCHI_V3_DATA', JSON.stringify(data));
-    },
-
-    addXp(amount) {
-        this.stats.xp += amount;
-        if (this.stats.xp > this.stats.level * 100) {
-            this.stats.xp = 0;
-            this.stats.level++;
-            Voice.speak("Level Up! Yay!");
-            Particles.explode(Mochi.x, Mochi.y, '⭐');
+        // 2. Camera/Mic Permission
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, // Optimize res
+                audio: true 
+            });
+            document.getElementById('camera-feed').srcObject = stream;
+            this.initAudio(stream);
+        } catch(e) {
+            alert('Camera/Mic blocked. Please check Settings > Safari > Camera.');
+            return false;
         }
+
+        this.startSensors();
+        return true;
+    },
+
+    initAudio(stream) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createMediaStreamSource(stream);
+        this.analyser = ctx.createAnalyser();
+        this.analyser.fftSize = 64;
+        src.connect(this.analyser);
+        this.audioData = new Uint8Array(this.analyser.frequencyBinCount);
+    },
+
+    startSensors() {
+        window.addEventListener('deviceorientation', e => {
+            this.gyro = { x: e.gamma || 0, y: e.beta || 0, z: e.alpha || 0 };
+        });
+        // Accelerometer not strictly needed for basic movement, saving battery
+    },
+
+    updateGraphs() {
+        // Gyro Graph
+        this.history.push(this.gyro.y);
+        if(this.history.length > 40) this.history.shift();
+        
+        const cvsG = document.getElementById('graph-gyro');
+        const ctxG = cvsG.getContext('2d');
+        ctxG.clearRect(0,0,cvsG.width, cvsG.height);
+        ctxG.strokeStyle = '#ff9a9e'; ctxG.lineWidth = 2; ctxG.beginPath();
+        const step = cvsG.width/40;
+        this.history.forEach((v, i) => {
+            const y = (cvsG.height/2) - (v*1.5); // Sensitivity
+            if(i===0) ctxG.moveTo(i*step, y); else ctxG.lineTo(i*step, y);
+        });
+        ctxG.stroke();
+        document.getElementById('txt-gyro').innerText = `X:${this.gyro.x.toFixed(1)} Y:${this.gyro.y.toFixed(1)}`;
+
+        // Audio Graph
+        if(this.analyser) {
+            this.analyser.getByteFrequencyData(this.audioData);
+            let sum = 0; this.audioData.forEach(v => sum+=v);
+            const avg = sum/this.audioData.length;
+            
+            const cvsA = document.getElementById('graph-audio');
+            const ctxA = cvsA.getContext('2d');
+            ctxA.clearRect(0,0,cvsA.width, cvsA.height);
+            ctxA.fillStyle = avg > 60 ? '#ff6b81' : '#a18cd1';
+            
+            const barW = cvsA.width / this.audioData.length;
+            for(let i=0; i<this.audioData.length; i++) {
+                const h = (this.audioData[i] / 255) * cvsA.height;
+                ctxA.fillRect(i*barW, cvsA.height-h, barW-1, h);
+            }
+            document.getElementById('txt-db').innerText = `NOISE: ${Math.floor(avg)}%`;
+            return avg; // Return volume level
+        }
+        return 0;
     }
 };
 
-// --- 2. VOICE SYSTEM (Cute Pitch) ---
-const Voice = {
-    synth: window.speechSynthesis,
-    speak(text) {
-        if (!this.synth) return;
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.2; // Faster
-        u.pitch = 1.5; // Higher pitch (Cute)
-        
-        // Find a "child" or "female" voice if possible
-        const voices = this.synth.getVoices();
-        const cuteVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha'));
-        if(cuteVoice) u.voice = cuteVoice;
-        
-        this.synth.speak(u);
-    }
-};
-
-// --- 3. PHYSICS & WORLD ---
-const World = {
+// --- 2. RETINA RENDERER ---
+const Renderer = {
     canvas: document.getElementById('game-canvas'),
     ctx: null,
-    items: [], // Food, Balls, Poop
-    
+    dpr: window.devicePixelRatio || 1, // Retina scaling
+
     init() {
         this.ctx = this.canvas.getContext('2d');
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
-        // Interaction
-        this.canvas.addEventListener('pointerdown', (e) => this.handleTouch(e));
+        // Init Mini Graphs
+        ['graph-gyro', 'graph-audio'].forEach(id => {
+            const c = document.getElementById(id);
+            c.width = c.clientWidth; c.height = c.clientHeight;
+        });
+    },
+
+    resize() {
+        // High DPI Scaling
+        this.canvas.width = window.innerWidth * this.dpr;
+        this.canvas.height = window.innerHeight * this.dpr;
+        this.ctx.scale(this.dpr, this.dpr);
+        this.canvas.style.width = window.innerWidth + 'px';
+        this.canvas.style.height = window.innerHeight + 'px';
+    }
+};
+
+// --- 3. LIDAR SYSTEM ---
+const Lidar = {
+    active: false,
+    canvas: document.getElementById('lidar-canvas'),
+    ctx: null,
+    tmpCvs: document.createElement('canvas'),
+    tmpCtx: null,
+    video: document.getElementById('camera-feed'),
+
+    init() {
+        this.ctx = this.canvas.getContext('2d');
+        this.tmpCtx = this.tmpCvs.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
     },
 
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
+        // Low res buffer for performance
+        this.tmpCvs.width = 160; this.tmpCvs.height = 240; 
     },
 
-    spawnItem(type) {
-        const item = {
-            type: type, // 'FOOD', 'BALL', 'POOP', 'BUBBLE'
-            x: Math.random() * this.canvas.width,
-            y: -50,
-            vx: 0, vy: 5,
-            size: 40,
-            emoji: type === 'FOOD' ? '🍖' : (type === 'POOP' ? '💩' : '🧼'),
-            grounded: false
-        };
+    process() {
+        if(!this.active || this.video.readyState !== 4) {
+            this.ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
+            return;
+        }
+        // Draw video to temp
+        this.tmpCtx.drawImage(this.video, 0, 0, 160, 240);
+        const frame = this.tmpCtx.getImageData(0, 0, 160, 240);
+        const data = frame.data;
         
-        if (type === 'BALL') { item.emoji = '🎾'; item.vx = (Math.random()-0.5)*10; }
+        // Fast Sobel
+        const output = this.tmpCtx.createImageData(160, 240);
+        const out = output.data;
         
-        this.items.push(item);
-    },
-
-    spawnPoop() {
-        if (this.items.filter(i => i.type === 'POOP').length > 5) return; // Max poops
-        this.items.push({
-            type: 'POOP',
-            x: Mochi.x + (Math.random()-0.5)*50,
-            y: Mochi.y + 50,
-            vx: 0, vy: 0,
-            size: 30, emoji: '💩',
-            grounded: true
-        });
-        Voice.speak("Oh no! Poopy!");
-    },
-
-    update() {
-        // Items Physics
-        this.items.forEach(item => {
-            if (!item.grounded) {
-                item.x += item.vx;
-                item.y += item.vy;
-                
-                // Gravity / Bounce
-                if (item.y > this.canvas.height - 100) {
-                    item.y = this.canvas.height - 100;
-                    item.vy *= -0.5;
-                    item.vx *= 0.8;
-                    if(Math.abs(item.vy) < 1) item.grounded = true;
-                } else {
-                    item.vy += 0.5; // Gravity
-                }
-            }
-
-            // Mochi Interaction
-            const dx = item.x - Mochi.x;
-            const dy = item.y - Mochi.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-
-            if (dist < Mochi.radius + item.size) {
-                if (item.type === 'FOOD' && State.stats.hunger < 100) {
-                    this.consume(item);
-                } else if (item.type === 'BALL') {
-                    item.vx += (item.x - Mochi.x) * 0.2;
-                    item.vy -= 5;
-                    item.grounded = false;
-                    Mochi.jump();
-                    State.stats.fun = Math.min(100, State.stats.fun + 2);
-                }
-            }
-        });
-    },
-
-    consume(item) {
-        this.items = this.items.filter(i => i !== item);
-        State.stats.hunger = Math.min(100, State.stats.hunger + 20);
-        State.addXp(10);
-        Voice.speak("Yummy!");
-        Particles.explode(Mochi.x, Mochi.y, '✨');
-        Mochi.squish();
-    },
-
-    cleanPoop(item) {
-        this.items = this.items.filter(i => i !== item);
-        State.stats.hygiene = Math.min(100, State.stats.hygiene + 20);
-        Particles.explode(item.x, item.y, '🫧');
-    },
-
-    handleTouch(e) {
-        const x = e.clientX;
-        const y = e.clientY;
-        
-        // Check Poops
-        let clickedItem = false;
-        this.items.forEach(item => {
-            if (item.type === 'POOP') {
-                const dx = x - item.x;
-                const dy = y - item.y;
-                if (Math.sqrt(dx*dx+dy*dy) < 50) {
-                    this.cleanPoop(item);
-                    clickedItem = true;
-                }
-            }
-        });
-
-        if (!clickedItem) {
-            // Check Mochi
-            const dx = x - Mochi.x;
-            const dy = y - Mochi.y;
-            if (Math.sqrt(dx*dx+dy*dy) < Mochi.radius) {
-                Mochi.jump();
-                Voice.speak("Hehe!");
-                State.stats.fun += 5;
-                Particles.explode(x, y, '❤️');
-            } else {
-                // Move Mochi
-                Mochi.targetX = x;
-                Mochi.targetY = y;
+        for(let i=0; i<data.length; i+=4) {
+            const diff = Math.abs(data[i] - (data[i+4]||0));
+            if(diff > 15) {
+                out[i] = 255; out[i+1] = 192; out[i+2] = 203; out[i+3] = 200; // Pink Lines
             }
         }
-    },
-
-    draw(ctx) {
-        this.items.forEach(item => {
-            ctx.font = `${item.size}px Arial`;
-            ctx.fillText(item.emoji, item.x - item.size/2, item.y + item.size/2);
-        });
+        this.tmpCtx.putImageData(output, 0, 0);
+        
+        // Draw scaled
+        this.ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.drawImage(this.tmpCvs, 0, 0, this.canvas.width, this.canvas.height);
     }
 };
 
-// --- 4. MOCHI CHARACTER ---
+// --- 4. MOCHI (Dynamic Island Aware) ---
 const Mochi = {
     x: window.innerWidth/2, y: window.innerHeight/2,
-    targetX: window.innerWidth/2, targetY: window.innerHeight/2,
     vx: 0, vy: 0,
-    radius: 60,
-    squishX: 1, squishY: 1,
-    blink: 0,
+    r: 60,
     
-    update() {
-        // AI Logic
-        // Go to food if hungry
-        const food = World.items.find(i => i.type === 'FOOD');
-        if (food && State.stats.hunger < 90) {
-            this.targetX = food.x;
-            this.targetY = food.y;
-        } else if (State.stats.fun < 30) {
-             // Sad wandering
-             if(Math.random() < 0.01) {
-                 this.targetX = Math.random() * window.innerWidth;
-                 this.targetY = window.innerHeight - 100;
-             }
-        }
+    // Dynamic Island Config
+    islandW: 126,
+    islandH: 37,
+    islandY: 11,
 
-        // Physics
-        const dx = this.targetX - this.x;
-        const dy = this.targetY - this.y;
+    update(vol) {
+        // Physics (Gyro + Gravity)
+        let gx = HAL.gyro.z * 0.8;
+        let gy = (HAL.gyro.y - 45) * 0.8;
         
-        this.vx += dx * 0.005;
-        this.vy += dy * 0.005;
-        this.vx *= 0.9; this.vy *= 0.9; // Friction
+        this.vx += gx * 0.08;
+        this.vy += gy * 0.08;
+        this.vx *= 0.92; this.vy *= 0.92;
         
         this.x += this.vx;
         this.y += this.vy;
 
-        // Squish Animation
+        // Boundaries (Screen)
+        const W = window.innerWidth; const H = window.innerHeight;
+        if(this.x < this.r) { this.x = this.r; this.vx *= -0.6; }
+        if(this.x > W-this.r) { this.x = W-this.r; this.vx *= -0.6; }
+        if(this.y < this.r) { this.y = this.r; this.vy *= -0.6; }
+        if(this.y > H-this.r) { this.y = H-this.r; this.vy *= -0.6; }
+
+        // --- DYNAMIC ISLAND COLLISION ---
+        const islandLeft = (W/2) - (this.islandW/2);
+        const islandRight = (W/2) + (this.islandW/2);
+        const islandBottom = this.islandY + this.islandH;
+
+        // Check if Mochi hits the island area
+        if (this.y - this.r < islandBottom && this.x > islandLeft - 20 && this.x < islandRight + 20) {
+            // Push down
+            this.y = islandBottom + this.r;
+            this.vy = Math.abs(this.vy) * 0.8 + 2; // Bounce down
+            this.squishY = 0.7; // Squish effect
+        }
+        
+        // Squish Physics
         const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
-        this.squishX = 1 + (speed * 0.02) + Math.sin(Date.now()/100)*0.05;
-        this.squishY = 1 - (speed * 0.02) - Math.sin(Date.now()/100)*0.05;
-
-        // Blink
-        if(Math.random() < 0.01) this.blink = 10;
-        if(this.blink > 0) this.blink--;
+        this.squishX = 1 + (speed*0.02) + (vol/200); // React to speed & sound
+        this.squishY = 1 - (speed*0.02) - (vol/200);
     },
 
-    jump() {
-        this.vy = -15;
-        this.squishY = 0.5;
-        this.squishX = 1.5;
-    },
-
-    squish() {
-        this.squishX = 1.4;
-        this.squishY = 0.6;
-    },
-
-    draw(ctx) {
+    draw(ctx, vol) {
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.scale(this.squishX * (1 + State.stats.level * 0.05), this.squishY * (1 + State.stats.level * 0.05)); // Grow with level
+        ctx.scale(this.squishX, this.squishY);
 
-        // Determine Color based on status
-        let color = CONFIG.colors.body;
-        if (State.stats.hygiene < 30) color = CONFIG.colors.dirty;
-        if (State.stats.hunger < 20) color = '#eee'; // Pale
+        // Glow
+        ctx.shadowBlur = 30; ctx.shadowColor = 'rgba(255,255,255,0.6)';
         
         // Body
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.fill();
-        
-        // Glow
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.beginPath(); ctx.arc(-this.radius/3, -this.radius/3, this.radius/3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ff9a9e';
+        ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Highlights
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.arc(-20,-20,20,0,Math.PI*2); ctx.fill();
 
         // Face
-        this.drawFace(ctx);
-
-        // Dirt particles if dirty
-        if (State.stats.hygiene < 50) {
-            ctx.fillStyle = '#556b2f';
-            for(let i=0; i<3; i++) {
-                ctx.beginPath(); ctx.arc(Math.sin(Date.now()/500 + i)*40, Math.cos(Date.now()/300 + i)*40, 5, 0, Math.PI*2); ctx.fill();
-            }
-        }
-
+        this.drawFace(ctx, vol);
         ctx.restore();
     },
 
-    drawFace(ctx) {
+    drawFace(ctx, vol) {
+        // Eyes follow center
+        const lookX = (this.vx * 1.5);
+        const lookY = (this.vy * 1.5);
+        
         ctx.fillStyle = '#333';
-        // Eyes
-        if (this.blink > 0) {
-            ctx.beginPath(); ctx.moveTo(-20, -10); ctx.lineTo(-10, -10); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(20, -10); ctx.stroke();
+        
+        if(Lidar.active) {
+            // Scan Mode Eyes
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(-25+lookX, -5+lookY, 10, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(25+lookX, -5+lookY, 10, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#00ff00'; ctx.fillRect(-30, -5, 60, 2); // Laser
         } else {
-            ctx.beginPath(); ctx.arc(-15, -10, 6, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(15, -10, 6, 0, Math.PI*2); ctx.fill();
-        }
+            // Cute Eyes
+            ctx.beginPath(); ctx.arc(-25+lookX, -5+lookY, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(25+lookX, -5+lookY, 8, 0, Math.PI*2); ctx.fill();
+            
+            // Cheeks
+            ctx.fillStyle = 'rgba(255,0,0,0.15)';
+            ctx.beginPath(); ctx.arc(-35, 8, 10, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(35, 8, 10, 0, Math.PI*2); ctx.fill();
 
-        // Cheeks
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-        ctx.beginPath(); ctx.arc(-25, 5, 8, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(25, 5, 8, 0, Math.PI*2); ctx.fill();
-
-        // Mouth
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        if (State.stats.fun < 30 || State.stats.hunger < 20) {
-            ctx.arc(0, 15, 5, Math.PI, 0); // Sad mouth
-        } else {
-            ctx.arc(0, 10, 5, 0, Math.PI); // Smile
-        }
-        ctx.stroke();
-    }
-};
-
-// --- 5. PARTICLES ---
-const Particles = {
-    list: [],
-    explode(x, y, char) {
-        for(let i=0; i<5; i++) {
-            this.list.push({
-                x, y, char,
-                vx: (Math.random()-0.5)*5,
-                vy: (Math.random()-0.5)*5 - 5,
-                life: 1
-            });
-        }
-    },
-    updateAndDraw(ctx) {
-        for(let i=this.list.length-1; i>=0; i--) {
-            const p = this.list[i];
-            p.x += p.vx; p.y += p.vy;
-            p.life -= 0.02;
-            ctx.globalAlpha = p.life;
-            ctx.font = "20px Arial";
-            ctx.fillText(p.char, p.x, p.y);
-            if(p.life <= 0) this.list.splice(i, 1);
-        }
-        ctx.globalAlpha = 1;
-    }
-};
-
-// --- 6. GAME LOOP ---
-const Game = {
-    action(type) {
-        if (type === 'FEED') {
-            World.spawnItem('FOOD');
-        } else if (type === 'PLAY') {
-            World.spawnItem('BALL');
-            Voice.speak("Ball!");
-        } else if (type === 'CLEAN') {
-            // Clean all dirt
-            if (State.stats.hygiene < 100) {
-                State.stats.hygiene = 100;
-                Particles.explode(Mochi.x, Mochi.y, '🧼');
-                Voice.speak("So fresh!");
+            // Mouth
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+            ctx.beginPath();
+            if(vol > 40) {
+                ctx.arc(0, 15, 8, 0, Math.PI*2); // Singing/Surprised
             } else {
-                Voice.speak("I am clean!");
+                ctx.arc(0, 12, 6, 0, Math.PI); // Smile
             }
-            // Remove all poops
-            World.items = World.items.filter(i => i.type !== 'POOP');
+            ctx.stroke();
         }
+    }
+};
+
+// --- 5. CONTROLS ---
+const Tech = {
+    toggleLidar() {
+        Lidar.active = !Lidar.active;
+        const btn = document.getElementById('btn-scan');
+        btn.classList.toggle('active', Lidar.active);
     },
+    analyze() {
+        const speed = Math.sqrt(Mochi.vx**2 + Mochi.vy**2).toFixed(1);
+        alert(`[SYSTEM REPORT]\nSPEED: ${speed} px/f\nCOORDS: ${Mochi.x.toFixed(0)}, ${Mochi.y.toFixed(0)}\nGYRO-X: ${HAL.gyro.x.toFixed(1)}\nISLAND: DETECTED`);
+    },
+    reset() {
+        Mochi.x = window.innerWidth/2; Mochi.y = window.innerHeight/2;
+        Mochi.vx = 0; Mochi.vy = 0;
+    }
+};
+
+// --- 6. MAIN LOOP ---
+function loop() {
+    const vol = HAL.updateGraphs();
+    Lidar.process();
     
-    loop() {
-        World.ctx.clearRect(0, 0, World.canvas.width, World.canvas.height);
-        
-        World.update();
-        World.draw(World.ctx);
-        
-        Mochi.update();
-        Mochi.draw(World.ctx);
-        
-        Particles.updateAndDraw(World.ctx);
-        
-        requestAnimationFrame(Game.loop);
-    }
-};
+    Renderer.ctx.clearRect(0, 0, Renderer.canvas.width/Renderer.dpr, Renderer.canvas.height/Renderer.dpr);
+    
+    Mochi.update(vol);
+    Mochi.draw(Renderer.ctx, vol);
+    
+    requestAnimationFrame(loop);
+}
 
-// --- 7. UI UPDATER ---
-const UI = {
-    update() {
-        document.getElementById('bar-hunger').style.width = State.stats.hunger + "%";
-        document.getElementById('bar-fun').style.width = State.stats.fun + "%";
-        document.getElementById('bar-hygiene').style.width = State.stats.hygiene + "%";
-        
-        document.getElementById('txt-hunger').innerText = Math.floor(State.stats.hunger) + "%";
-        document.getElementById('txt-fun').innerText = Math.floor(State.stats.fun) + "%";
-        document.getElementById('txt-hygiene').innerText = Math.floor(State.stats.hygiene) + "%";
-        
-        document.getElementById('disp-lvl').innerText = State.stats.level;
-
-        // Critical Warnings
-        const btns = document.querySelectorAll('.btn-action');
-        btns[0].classList.toggle('critical', State.stats.hunger < 30);
-        btns[1].classList.toggle('critical', State.stats.fun < 30);
-        btns[2].classList.toggle('critical', State.stats.hygiene < 30);
-    }
-};
-
-// --- 8. START ---
+// --- START ---
 document.getElementById('btn-init').addEventListener('click', async () => {
-    document.getElementById('start-screen').style.display = 'none';
-    
-    // Camera Init
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        document.getElementById('camera-feed').srcObject = stream;
-    } catch(e) { console.log("No camera"); }
-
-    World.init();
-    State.init();
-    Game.loop();
-    
-    Voice.speak("Hi! I am Mochi!");
+    const granted = await HAL.requestPermissions();
+    if(granted) {
+        document.getElementById('start-screen').style.display = 'none';
+        Renderer.init();
+        Lidar.init();
+        loop();
+    }
 });
 
 </script>
