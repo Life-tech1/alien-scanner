@@ -3,350 +3,459 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOCHI: MAGNETIC ANCHOR</title>
+    <title>OMEGA-PRIME: SINGULARITY</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <style>
-        body { margin: 0; overflow: hidden; background: #111; font-family: 'Nunito', sans-serif; }
-
-        /* FULLSCREEN LAYERS */
-        #camera {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0.6; /* Dim real world to make AR pop */
-        }
-        #ar-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2;
+        :root {
+            --hud-primary: #00f3ff;
+            --hud-secondary: #00ff41;
+            --hud-alert: #ff2a2a;
+            --bg-dark: #050505;
         }
 
-        /* HUD */
+        body { 
+            margin: 0; overflow: hidden; background: var(--bg-dark); 
+            font-family: 'Rajdhani', sans-serif; cursor: crosshair;
+        }
+
+        /* LAYERS */
+        #camera-feed {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; opacity: 0.4; filter: contrast(1.2) grayscale(0.3); z-index: 0;
+        }
+        
+        #hud-canvas { /* The Tesla/SpaceX Layer */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2; mix-blend-mode: screen;
+        }
+
+        #mochi-canvas { /* The Avatar Layer */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 3;
+        }
+
+        /* UI OVERLAY */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; pointer-events: none; padding: 20px;
             display: flex; flex-direction: column; justify-content: space-between;
         }
 
-        /* INFO PILLS */
-        .pill {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff; padding: 8px 16px; border-radius: 30px;
-            font-size: 12px; font-weight: bold;
-            display: inline-flex; align-items: center; gap: 8px;
-            margin-bottom: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        .hud-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
         }
-        .pill span { color: #00f3ff; }
+        
+        .data-block {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--hud-primary); text-shadow: 0 0 5px var(--hud-primary);
+            background: rgba(0, 20, 40, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 10px; border-radius: 4px;
+            font-size: 12px; line-height: 1.5;
+            backdrop-filter: blur(4px);
+        }
 
-        /* LOCK INDICATOR */
-        .lock-icon {
-            width: 10px; height: 10px; border-radius: 50%;
-            background: #ff3e3e; box-shadow: 0 0 10px #ff3e3e;
-            transition: background 0.3s;
+        .radar-box {
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 2px solid rgba(0, 255, 65, 0.3);
+            background: radial-gradient(circle, rgba(0,255,65,0.1) 0%, transparent 70%);
+            position: relative; margin-top: 10px;
+            overflow: hidden;
         }
-        .locked .lock-icon { background: #00f3ff; box-shadow: 0 0 10px #00f3ff; }
+        .radar-sweep {
+            position: absolute; top: 50%; left: 50%; width: 50%; height: 2px;
+            background: var(--hud-secondary); transform-origin: 0 0;
+            animation: radar-spin 2s linear infinite;
+            box-shadow: 0 0 10px var(--hud-secondary);
+        }
 
         /* LOADING */
-        #loader {
+        #boot-sequence {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 100;
+            background: #000; z-index: 100; color: var(--hud-primary);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #fff;
+            font-family: 'Share Tech Mono';
         }
-        .spinner {
-            width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #00f3ff;
-            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        
+        .terminal-log {
+            width: 300px; height: 150px; overflow: hidden; 
+            font-size: 10px; text-align: left; opacity: 0.7;
+            border-top: 1px solid #333; margin-top: 20px;
         }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        #btn-start {
-            display: none; padding: 15px 40px; background: #fff; color: #000;
-            border: none; border-radius: 50px; font-weight: bold; font-size: 18px;
-            cursor: pointer; font-family: 'Fredoka One';
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        #btn-engage {
+            margin-top: 20px; padding: 15px 40px; 
+            background: transparent; color: var(--hud-primary);
+            border: 2px solid var(--hud-primary);
+            font-family: 'Share Tech Mono'; font-size: 18px; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            display: none; text-transform: uppercase;
         }
+        #btn-engage:hover { background: var(--hud-primary); color: #000; }
+
+        @keyframes radar-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
 
-    <video id="camera" autoplay playsinline muted></video>
-    <canvas id="ar-layer"></canvas>
+    <video id="camera-feed" autoplay playsinline muted></video>
+    <canvas id="hud-canvas"></canvas>
+    <canvas id="mochi-canvas"></canvas>
 
     <div id="ui-layer">
-        <div>
-            <div class="pill" id="status-pill">
-                <div class="lock-icon"></div>
-                STATUS: <span id="status-text">SEARCHING...</span>
+        <div class="hud-header">
+            <div class="data-block">
+                SYS: OMEGA-PRIME<br>
+                MODE: QUANTUM FUSION<br>
+                FPS: <span id="val-fps">0</span>
             </div>
-            <br>
-            <div class="pill">
-                ANCHOR: <span id="anchor-target">NONE</span>
+            <div class="data-block" style="text-align: right;">
+                TARGETS: <span id="val-targets">0</span><br>
+                CONFIDENCE: <span id="val-conf">0.00%</span>
             </div>
         </div>
-        
-        <div class="pill" style="align-self: center; margin-bottom: 40px;">
-            🧠 NEURAL TRACKING: ACTIVE
+
+        <div style="align-self: flex-end;">
+            <div class="data-block">
+                <div>TELEMETRY RADAR</div>
+                <div class="radar-box">
+                    <div class="radar-sweep"></div>
+                    <canvas id="radar-canvas" width="100" height="100" style="position:absolute; top:0; left:0;"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="loader">
-        <div class="spinner"></div>
-        <div id="load-text">LOADING NEURAL NETWORK...</div>
-        <button id="btn-start">START SYSTEM</button>
+    <div id="boot-sequence">
+        <h1 style="font-size: 40px; margin: 0; letter-spacing: 5px;">OMEGA</h1>
+        <div style="font-size: 12px; letter-spacing: 2px;">THE FUSION SINGULARITY</div>
+        <div class="terminal-log" id="terminal"></div>
+        <button id="btn-engage">ENGAGE SYSTEM</button>
     </div>
 
 <script>
 /**
- * PROJECT: MOCHI MAGNETIC
- * Core: TensorFlow Object Detection + Weighted Position Smoothing
- * Solves: "Sliding" issue by anchoring Mochi to detected real-world objects.
+ * PROJECT: OMEGA-PRIME
+ * Technologies: TensorFlow.js, Kalman Filters, Canvas Particle Physics
+ * Concept: Fusion of "Cute" and "Hard Sci-Fi"
  */
 
-const SYS = {
-    width: window.innerWidth,
-    height: window.innerHeight,
-    canvas: document.getElementById('ar-layer'),
-    ctx: null,
-    video: document.getElementById('camera'),
-    model: null,
-    isReady: false
-};
-
-// --- 1. INTELLIGENT ANCHOR SYSTEM ---
-const Anchor = {
-    targetX: SYS.width / 2,
-    targetY: SYS.height / 2,
-    currentX: SYS.width / 2,
-    currentY: SYS.height / 2,
-    locked: false,
-    targetName: "VOID",
+// --- 1. MATH & PHYSICS CORE ---
+const MathCore = {
+    lerp: (a, b, t) => a + (b - a) * t,
     
-    // Objects Mochi loves to sit on (Priority List)
-    preferences: ['person', 'laptop', 'keyboard', 'cell phone', 'cup', 'book', 'tv'],
-
-    update(predictions) {
-        if (predictions.length > 0) {
-            // 1. Find best object to anchor to
-            let bestObj = null;
-            
-            // Look for preferred objects first
-            for (let pref of this.preferences) {
-                const found = predictions.find(p => p.class === pref);
-                if (found) {
-                    bestObj = found;
-                    break;
-                }
-            }
-            // Fallback to highest confidence object if no preference found
-            if (!bestObj) bestObj = predictions[0];
-
-            // 2. Calculate "Sit Spot" (Top center of object)
-            const [x, y, w, h] = bestObj.bbox;
-            const centerX = x + (w / 2);
-            const topY = y; // Sit on top edge
-            
-            // 3. Set Target
-            this.targetX = centerX;
-            
-            // Special logic: If it's a person, sit on shoulder (approx) or float near face
-            if (bestObj.class === 'person') {
-                 this.targetY = y + (h * 0.3); // Near face/shoulder height
-            } else {
-                 this.targetY = y - 50; // Sit slightly above the object
-            }
-
-            this.targetName = bestObj.class.toUpperCase();
-            this.locked = true;
-            
-            // UI Update
-            document.getElementById('status-pill').classList.add('locked');
-            document.getElementById('status-text').innerText = "LOCKED";
-            document.getElementById('status-text').style.color = "#00f3ff";
-
-        } else {
-            // No object found: Floating Mode (Drift back to center slowly)
-            this.targetX = SYS.width / 2;
-            this.targetY = SYS.height / 2;
-            this.locked = false;
-            this.targetName = "HOVERING";
-            
-            // UI Update
-            document.getElementById('status-pill').classList.remove('locked');
-            document.getElementById('status-text').innerText = "FLOATING";
-            document.getElementById('status-text').style.color = "#aaa";
-        }
-
-        document.getElementById('anchor-target').innerText = this.targetName;
-
-        // 4. PHYSICS SMOOTHING (The Anti-Slide Logic)
-        // Instead of direct assignment, we LERP (Linear Interpolate)
-        // This creates a smooth magnetic glide instead of jitter
-        const smoothFactor = 0.1; // Lower = smoother/slower, Higher = snappier
-        this.currentX += (this.targetX - this.currentX) * smoothFactor;
-        this.currentY += (this.targetY - this.currentY) * smoothFactor;
+    // Kalman Filter-ish Smoothing (Exponential Moving Average)
+    smoothBox: (prev, curr, factor = 0.2) => {
+        if(!prev) return curr;
+        return {
+            x: prev.x + (curr.x - prev.x) * factor,
+            y: prev.y + (curr.y - prev.y) * factor,
+            w: prev.w + (curr.w - prev.w) * factor,
+            h: prev.h + (curr.h - prev.h) * factor,
+            class: curr.class,
+            score: curr.score
+        };
     }
 };
 
-// --- 2. MOCHI AVATAR ---
+// --- 2. SYSTEM STATE ---
+const SYS = {
+    w: window.innerWidth,
+    h: window.innerHeight,
+    video: document.getElementById('camera-feed'),
+    hudCtx: document.getElementById('hud-canvas').getContext('2d'),
+    mochiCtx: document.getElementById('mochi-canvas').getContext('2d'),
+    radarCtx: document.getElementById('radar-canvas').getContext('2d'),
+    model: null,
+    predictions: [],
+    activeTarget: null, // The smoothed target object
+    particles: [], // Quantum cloud particles
+    lastFrame: Date.now(),
+    fps: 0
+};
+
+// --- 3. TENSORFLOW ENGINE ---
+const NeuralNet = {
+    async init() {
+        Log.write("INITIALIZING NEURAL NETWORK...");
+        Log.write("LOADING COCO-SSD MODEL...");
+        SYS.model = await cocoSsd.load();
+        Log.write("MODEL LOADED. MEMORY OK.");
+        Log.write("WAITING FOR OPTICAL SENSORS...");
+        
+        document.getElementById('btn-engage').style.display = 'block';
+    },
+
+    async loop() {
+        if (SYS.video.readyState === 4) {
+            const preds = await SYS.model.detect(SYS.video);
+            
+            // Find best target (Person > Phone > Cup > Any)
+            const priority = ['person', 'cell phone', 'laptop', 'cup', 'bottle'];
+            let best = null;
+            
+            for(let p of priority) {
+                best = preds.find(x => x.class === p);
+                if(best) break;
+            }
+            if(!best && preds.length > 0) best = preds[0];
+
+            if (best) {
+                // Convert to object format
+                const curr = {
+                    x: best.bbox[0], y: best.bbox[1],
+                    w: best.bbox[2], h: best.bbox[3],
+                    class: best.class, score: best.score
+                };
+                
+                // Apply Smoothing (Kalman)
+                SYS.activeTarget = MathCore.smoothBox(SYS.activeTarget, curr, 0.15);
+            } else {
+                SYS.activeTarget = null;
+            }
+            
+            SYS.predictions = preds; // Keep raw for radar
+        }
+        requestAnimationFrame(NeuralNet.loop);
+    }
+};
+
+// --- 4. MOCHI AVATAR (QUANTUM FORM) ---
 const Mochi = {
-    radius: 60,
-    blinkTimer: 0,
-    hoverOffset: 0,
+    x: SYS.w/2, y: SYS.h/2,
+    r: 60,
+    state: 'IDLE', // IDLE, LOCKING, LOCKED
 
-    draw(ctx, x, y) {
-        // Bobbing animation (Breathing)
-        this.hoverOffset = Math.sin(Date.now() / 500) * 10;
-        const drawY = y + this.hoverOffset;
-
-        ctx.save();
-        ctx.translate(x, drawY);
-
-        // 1. Anchor Line (Sci-Fi HUD style) if locked
-        if (Anchor.locked) {
-            ctx.strokeStyle = 'rgba(0, 243, 255, 0.3)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, 100); // Visual line connecting to object
-            ctx.stroke();
-            ctx.setLineDash([]);
+    draw(ctx, target) {
+        let tx = SYS.w/2;
+        let ty = SYS.h/2;
+        let color = '#00f3ff'; // Default Cyan
+        
+        if (target) {
+            // Calculate center of box
+            tx = target.x + target.w/2;
+            ty = target.y - 60; // Float above object
+            
+            // Color based on type
+            if(target.class === 'person') color = '#ff9a9e'; // Pink
+            else if(target.class === 'cell phone') color = '#00ff41'; // Matrix Green
+            else color = '#ffd700'; // Gold
         }
 
-        // 2. Shadow (If locked, show shadow on object)
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(0, 80, 30, 10, 0, 0, Math.PI*2);
-        ctx.fill();
+        // Physics Glide
+        this.x = MathCore.lerp(this.x, tx, 0.1);
+        this.y = MathCore.lerp(this.y, ty, 0.1);
 
-        // 3. Body
-        const color = Anchor.locked ? '#ff9a9e' : '#a18cd1'; // Pink if locked, Purple if floating
+        // 1. Draw Quantum Particles (The Tail/Aura)
+        if (Math.abs(this.x - tx) > 10) {
+            Particles.emit(this.x, this.y, color);
+        }
+        Particles.update(ctx);
+
+        // 2. Draw Mochi Body
+        ctx.shadowBlur = 25; ctx.shadowColor = color;
         ctx.fillStyle = color;
         
-        // Soft Body Glow
-        ctx.shadowBlur = 20; ctx.shadowColor = color;
+        // Pulsing effect
+        const pulse = Math.sin(Date.now()/200) * 2;
         
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+        ctx.beginPath(); 
+        ctx.arc(this.x, this.y, this.r + pulse, 0, Math.PI*2); 
         ctx.fill();
-        ctx.shadowBlur = 0;
-
+        
         // Highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.arc(-20, -20, 20, 0, Math.PI*2); ctx.fill();
-
-        // 4. Face
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath(); ctx.arc(this.x - 20, this.y - 20, 20, 0, Math.PI*2); ctx.fill();
+        
+        // Face (Cyber Cute)
         this.drawFace(ctx);
-
-        ctx.restore();
+        
+        ctx.shadowBlur = 0;
     },
 
     drawFace(ctx) {
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = '#111';
         
-        // Blink Logic
-        this.blinkTimer--;
-        let eyeH = 8;
-        if (this.blinkTimer < 0) {
-            this.blinkTimer = Math.random() * 200 + 100;
-            eyeH = 1; // Close eye
-        }
-
-        // Eyes
-        ctx.beginPath(); ctx.ellipse(-20, -10, 8, eyeH, 0, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(20, -10, 8, eyeH, 0, 0, Math.PI*2); ctx.fill();
-
-        // Cheeks
-        ctx.fillStyle = 'rgba(255,0,0,0.2)';
-        ctx.beginPath(); ctx.arc(-30, 5, 10, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(30, 5, 10, 0, Math.PI*2); ctx.fill();
-
-        // Mouth
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-        ctx.beginPath();
-        if (Anchor.locked) {
-            ctx.arc(0, 10, 8, 0, Math.PI); // Happy Smile
+        if (SYS.activeTarget) {
+            // Happy/Locked Eyes
+            ctx.beginPath(); ctx.ellipse(this.x - 20, this.y - 5, 8, 12, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(this.x + 20, this.y - 5, 8, 12, 0, 0, Math.PI*2); ctx.fill();
+            
+            // Smile
+            ctx.strokeStyle = '#111'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(this.x, this.y + 10, 10, 0, Math.PI); ctx.stroke();
         } else {
-            ctx.arc(0, 15, 5, 0, Math.PI*2); // "O" mouth (Searching)
+            // Scanning Eyes (Horizontal lines)
+            ctx.fillRect(this.x - 30, this.y - 10, 20, 4);
+            ctx.fillRect(this.x + 10, this.y - 10, 20, 4);
+            
+            // Straight Mouth
+            ctx.strokeStyle = '#111'; ctx.lineWidth = 4; 
+            ctx.beginPath(); ctx.moveTo(this.x - 5, this.y + 20); ctx.lineTo(this.x + 5, this.y + 20); ctx.stroke();
         }
-        ctx.stroke();
     }
 };
 
-// --- 3. MAIN LOOP ---
-async function startApp() {
-    SYS.ctx = SYS.canvas.getContext('2d');
-    SYS.canvas.width = window.innerWidth;
-    SYS.canvas.height = window.innerHeight;
+// --- 5. HUD SYSTEM (Tesla/SpaceX Style) ---
+const HUD = {
+    draw(ctx, target) {
+        ctx.clearRect(0, 0, SYS.w, SYS.h);
 
-    // Start Prediction Loop
-    predictLoop();
-    // Start Render Loop
-    renderLoop();
-}
+        if (target) {
+            const {x, y, w, h, score} = target;
+            const color = '#00f3ff';
+            
+            // 1. Bounding Brackets (Not a boring box)
+            const len = 20; // Corner length
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 10; ctx.shadowColor = color;
+            
+            ctx.beginPath();
+            // TL
+            ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+            // TR
+            ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
+            // BL
+            ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h);
+            // BR
+            ctx.moveTo(x + w - len, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - len);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
 
-async function predictLoop() {
-    if (SYS.video.readyState === 4) {
-        const predictions = await SYS.model.detect(SYS.video);
-        Anchor.update(predictions);
-    }
-    requestAnimationFrame(predictLoop);
-}
+            // 2. Data Tag
+            ctx.fillStyle = 'rgba(0, 20, 40, 0.8)';
+            ctx.fillRect(x + w + 10, y, 120, 50);
+            ctx.fillStyle = color;
+            ctx.font = "12px 'Share Tech Mono'";
+            ctx.fillText(`ID: ${target.class.toUpperCase()}`, x + w + 20, y + 20);
+            ctx.fillText(`CONF: ${(score*100).toFixed(4)}%`, x + w + 20, y + 40);
 
-function renderLoop() {
-    SYS.ctx.clearRect(0, 0, SYS.width, SYS.height);
-    
-    // Draw Target Box (AR HUD)
-    if (Anchor.locked) {
-        const size = 40;
-        const x = Anchor.targetX;
-        const y = Anchor.targetY;
-        
-        // Draw Tech Crosshair at target destination
-        SYS.ctx.strokeStyle = 'rgba(0, 243, 255, 0.5)';
-        SYS.ctx.lineWidth = 2;
-        SYS.ctx.beginPath();
-        SYS.ctx.moveTo(x - size, y); SYS.ctx.lineTo(x + size, y);
-        SYS.ctx.moveTo(x, y - size); SYS.ctx.lineTo(x, y + size);
-        SYS.ctx.stroke();
-    }
-
-    // Draw Mochi at smoothed position
-    Mochi.draw(SYS.ctx, Anchor.currentX, Anchor.currentY);
-
-    requestAnimationFrame(renderLoop);
-}
-
-// --- INIT ---
-(async function() {
-    // 1. Load Model
-    SYS.model = await cocoSsd.load();
-    document.getElementById('load-text').innerText = "AI READY. WAITING FOR CAMERA...";
-    document.getElementById('btn-start').style.display = 'block';
-    document.querySelector('.spinner').style.display = 'none';
-
-    // 2. Button Event
-    document.getElementById('btn-start').addEventListener('click', async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment' }, 
-                audio: false 
-            });
-            SYS.video.srcObject = stream;
-            SYS.video.onloadeddata = () => {
-                document.getElementById('loader').style.display = 'none';
-                startApp();
-            };
-        } catch(e) {
-            alert("Camera Error: " + e);
+            // 3. Velocity Vector (Visualizing Prediction)
+            ctx.strokeStyle = '#00ff41';
+            ctx.beginPath();
+            ctx.moveTo(x + w/2, y + h/2);
+            ctx.lineTo(Mochi.x, Mochi.y); // Line connecting Object to AI
+            ctx.stroke();
+            
+            // Update UI
+            document.getElementById('val-conf').innerText = (score*100).toFixed(2) + "%";
+            document.getElementById('val-conf').style.color = color;
+        } else {
+            document.getElementById('val-conf').innerText = "SCANNING";
+            document.getElementById('val-conf').style.color = "#555";
         }
-    });
-})();
+        
+        document.getElementById('val-targets').innerText = SYS.predictions.length;
+    },
+
+    drawRadar() {
+        const ctx = SYS.radarCtx;
+        ctx.clearRect(0, 0, 100, 100);
+        
+        // Center dot (You)
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(48, 48, 4, 4);
+        
+        // Targets
+        SYS.predictions.forEach(p => {
+            // Normalize position to radar
+            const rx = (p.bbox[0] / SYS.w) * 100;
+            const ry = (p.bbox[1] / SYS.h) * 100;
+            
+            ctx.fillStyle = '#00ff41';
+            ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI*2); ctx.fill();
+        });
+    }
+};
+
+// --- 6. PARTICLE PHYSICS ---
+const Particles = {
+    pool: [],
+    emit(x, y, color) {
+        this.pool.push({
+            x: x + (Math.random()-0.5)*20, 
+            y: y + (Math.random()-0.5)*20,
+            vx: (Math.random()-0.5)*2,
+            vy: (Math.random()-0.5)*2,
+            life: 1.0,
+            color: color
+        });
+    },
+    update(ctx) {
+        for(let i = this.pool.length-1; i>=0; i--) {
+            let p = this.pool[i];
+            p.x += p.vx; p.y += p.vy;
+            p.life -= 0.05;
+            
+            if(p.life <= 0) {
+                this.pool.splice(i, 1);
+            } else {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 3, 3);
+                ctx.globalAlpha = 1;
+            }
+        }
+    }
+};
+
+// --- 7. UTILS & INIT ---
+const Log = {
+    el: document.getElementById('terminal'),
+    write(txt) {
+        const span = document.createElement('div');
+        span.innerText = `> ${txt}`;
+        this.el.appendChild(span);
+        this.el.scrollTop = this.el.scrollHeight;
+    }
+};
+
+function loop() {
+    // FPS Calc
+    const now = Date.now();
+    const delta = now - SYS.lastFrame;
+    SYS.fps = Math.round(1000 / delta);
+    SYS.lastFrame = now;
+    document.getElementById('val-fps').innerText = SYS.fps;
+
+    // Render Layers
+    SYS.mochiCtx.clearRect(0, 0, SYS.w, SYS.h);
+    
+    HUD.draw(SYS.hudCtx, SYS.activeTarget);
+    HUD.drawRadar();
+    Mochi.draw(SYS.mochiCtx, SYS.activeTarget);
+
+    requestAnimationFrame(loop);
+}
+
+document.getElementById('btn-engage').addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        SYS.video.srcObject = stream;
+        SYS.video.onloadeddata = () => {
+            document.getElementById('boot-sequence').style.display = 'none';
+            
+            SYS.w = window.innerWidth;
+            SYS.h = window.innerHeight;
+            [document.getElementById('hud-canvas'), document.getElementById('mochi-canvas')]
+                .forEach(c => { c.width = SYS.w; c.height = SYS.h; });
+
+            NeuralNet.loop();
+            loop();
+        };
+    } catch(e) {
+        Log.write("ERR: CAMERA ACCESS DENIED");
+    }
+});
+
+NeuralNet.init();
 
 </script>
 </body>
