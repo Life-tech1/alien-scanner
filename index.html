@@ -3,371 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: ADVANCED IDENTITY TRACKER</title>
+    <title>OMEGA: SNIPER SIGHT</title>
     
+    <!-- AI CORE -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6"></script>
 
     <style>
         :root {
-            --p: #00ff9d; --s: #008f7a; --a: #ff2a6d; --w: #ffae00;
-            --bg: #000; --glass: rgba(0, 20, 10, 0.9);
+            --p: #00ff9d; --a: #ff2a6d; --w: #ffae00;
+            --bg: #000; --glass: rgba(0, 15, 10, 0.85);
             --font: 'Segoe UI', monospace;
         }
-        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); user-select: none; }
         
-        #viewport { position: relative; width: 100vw; height: 100vh; }
-        #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.9; filter: contrast(1.1) brightness(0.9); }
-        #layer-3d, #hud-canvas { position: absolute; inset: 0; z-index: 10; }
-        #hud-canvas { cursor: crosshair; }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
+        
+        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        
+        /* CAMERA ZOOM CONTAINER */
+        #cam-container {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transform-origin: center;
+        }
+        
+        #camera-feed { 
+            width: 100%; height: 100%; object-fit: cover; 
+            /* เพิ่มความคมชัดสำหรับระยะไกล */
+            filter: contrast(1.1) saturate(1.2) sharpen(1px); 
+        }
+        
+        #hud-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
 
-        /* UI Overlay */
+        /* SNIPER CROSSHAIR */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 300px; height: 300px; border-radius: 50%;
+            border: 1px solid rgba(0, 255, 157, 0.3);
+            z-index: 15; pointer-events: none;
+            display: flex; justify-content: center; align-items: center;
+        }
+        #crosshair::before { content: ''; position: absolute; width: 100%; height: 1px; background: rgba(0,255,157,0.5); }
+        #crosshair::after { content: ''; position: absolute; height: 100%; width: 1px; background: rgba(0,255,157,0.5); }
+        
+        .center-dot { width: 4px; height: 4px; background: var(--a); border-radius: 50%; box-shadow: 0 0 10px var(--a); z-index: 20; }
+
+        /* UI */
         #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         
         .panel {
-            background: var(--glass); border-left: 4px solid var(--p); padding: 10px 15px;
-            margin-bottom: 5px; backdrop-filter: blur(10px); pointer-events: auto;
-            width: fit-content; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            background: var(--glass); border-left: 4px solid var(--p);
+            padding: 10px; backdrop-filter: blur(5px); width: fit-content;
+            pointer-events: auto; margin-bottom: 5px;
         }
         .label { font-size: 9px; color: #00a8ff; font-weight: 900; letter-spacing: 2px; }
-        .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
-
-        /* Input Prompt (Custom Style) */
-        #tag-input {
-            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); border: 2px solid var(--p); padding: 20px; z-index: 100;
-            text-align: center; border-radius: 10px; box-shadow: 0 0 30px var(--p);
+        .val { font-size: 16px; font-weight: bold; color: #fff; }
+        
+        .zoom-indicator {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
         }
-        #tag-input input { background: #222; border: 1px solid #555; color: white; padding: 10px; font-size: 16px; width: 200px; text-align: center; }
-        #tag-input button { margin-top: 10px; background: var(--p); border: none; padding: 8px 20px; font-weight: bold; cursor: pointer; }
+        .zoom-btn {
+            background: rgba(0,0,0,0.8); border: 1px solid var(--p); color: var(--p);
+            width: 50px; height: 50px; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .zoom-btn.active { background: var(--p); color: #000; }
 
-        /* Boot Screen */
+        /* Boot */
         #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #loader { width: 60px; height: 60px; border: 4px solid #111; border-top: 4px solid var(--p); border-radius: 50%; animation: spin 0.8s infinite; margin: 30px; }
+        .loader { width: 50px; height: 50px; border: 3px solid #333; border-top: 3px solid var(--p); border-radius: 50%; animation: spin 1s infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        button.start-btn { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
-
-        /* Control Panel */
-        #control-panel { position: absolute; bottom: 20px; right: 20px; z-index: 30; }
-        .control-btn { background: var(--glass); border: 1px solid var(--p); color: var(--p); padding: 8px 15px; margin: 5px; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold; }
-
-        /* Data Panel */
-        #data-panel { position: absolute; top: 20px; right: 20px; width: 300px; max-height: 70vh; overflow-y: auto; background: var(--glass); border: 1px solid var(--p); border-radius: 4px; padding: 10px; display: none; }
-        .data-item { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 12px; }
-        .data-item:last-child { border-bottom: none; }
-        .data-name { color: var(--p); font-weight: bold; }
-        .data-id { color: #aaa; }
-
-        /* Notification */
-        #notification { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--a); padding: 10px 20px; border-radius: 4px; display: none; z-index: 40; color: var(--a); font-weight: bold; }
-
-        /* Filter Panel */
-        #filter-panel { position: absolute; bottom: 80px; right: 20px; background: var(--glass); border: 1px solid var(--p); padding: 10px; border-radius: 4px; display: none; }
-        .filter-option { margin: 5px 0; }
+        
+        button.start { background: var(--p); border: none; padding: 15px 40px; font-weight: 900; cursor: pointer; letter-spacing: 2px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div id="viewport">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="layer-3d"></canvas>
+        <div id="cam-container">
+            <video id="camera-feed" autoplay playsinline muted></video>
+        </div>
         <canvas id="hud-canvas"></canvas>
-
-        <!-- Custom Tag Input Modal -->
-        <div id="tag-input">
-            <div style="color:var(--p); margin-bottom:10px; font-weight:bold;">IDENTIFY TARGET</div>
-            <input type="text" id="target-name" placeholder="Enter Name (e.g. Boss)">
-            <br>
-            <button onclick="OMEGA.confirmTag()">CONFIRM</button>
-            <button onclick="OMEGA.cancelTag()" style="background:#333; color:#fff;">CANCEL</button>
+        
+        <!-- SNIPER SCOPE UI -->
+        <div id="crosshair">
+            <div class="center-dot"></div>
+            <!-- Range markings -->
+            <div style="position:absolute; top:60%; font-size:10px; color:rgba(0,255,157,0.5)">20m</div>
+            <div style="position:absolute; top:70%; font-size:10px; color:rgba(0,255,157,0.5)">50m</div>
+            <div style="position:absolute; top:80%; font-size:10px; color:rgba(0,255,157,0.5)">100m</div>
         </div>
 
         <div id="ui-layer">
-            <div style="display:flex; justify-content:space-between;">
-                <div class="panel">
-                    <div class="label">IDENTITY SYSTEM</div>
-                    <div>STATUS: <span class="val" style="color:var(--p)">ACTIVE</span></div>
-                    <div style="font-size:10px; color:#aaa;">CLICK BOX TO TAG NAME</div>
-                </div>
-                <div class="panel">
-                    <div class="label">TARGETS</div>
-                    <div>COUNT: <span id="count" class="val">0</span></div>
-                </div>
+            <div class="panel">
+                <div class="label">LONG RANGE SENSOR</div>
+                <div>MODE: <span class="val" style="color:var(--w)">SNIPER (THUNDER)</span></div>
+                <div>DIST: <span id="dist-val" class="val">--</span></div>
             </div>
-        </div>
-
-        <!-- Control Panel -->
-        <div id="control-panel">
-            <button class="control-btn" onclick="OMEGA.toggleDataPanel()">DATA LOG</button>
-            <button class="control-btn" onclick="OMEGA.toggleFilterPanel()">FILTER</button>
-            <button class="control-btn" onclick="OMEGA.exportData()">EXPORT</button>
-        </div>
-
-        <!-- Data Panel -->
-        <div id="data-panel">
-            <div style="color:var(--p); font-weight:bold; margin-bottom:10px;">TARGET LOG</div>
-            <div id="data-list"></div>
-        </div>
-
-        <!-- Notification -->
-        <div id="notification"></div>
-
-        <!-- Filter Panel -->
-        <div id="filter-panel">
-            <div style="color:var(--p); font-weight:bold; margin-bottom:10px;">FILTER OPTIONS</div>
-            <div class="filter-option">
-                <input type="checkbox" id="filter-person" checked onchange="OMEGA.applyFilters()">
-                <label for="filter-person">Person</label>
-            </div>
-            <div class="filter-option">
-                <input type="checkbox" id="filter-vehicle" checked onchange="OMEGA.applyFilters()">
-                <label for="filter-vehicle">Vehicle</label>
-            </div>
-            <div class="filter-option">
-                <input type="checkbox" id="filter-animal" checked onchange="OMEGA.applyFilters()">
-                <label for="filter-animal">Animal</label>
-            </div>
-            <div class="filter-option">
-                <input type="text" id="filter-name" placeholder="Filter by name" onkeyup="OMEGA.applyFilters()">
+            
+            <div class="zoom-indicator">
+                <div class="zoom-btn active" onclick="OMEGA.setZoom(1)">1x</div>
+                <div class="zoom-btn" onclick="OMEGA.setZoom(2)">2x</div>
+                <div class="zoom-btn" onclick="OMEGA.setZoom(4)">4x</div>
             </div>
         </div>
     </div>
 
     <div id="boot">
-        <h1 style="color:var(--p); letter-spacing: 8px; font-size: 32px;">OMEGA</h1>
-        <div style="color:#666;">ADVANCED IDENTITY TRACKING MODULE</div>
-        <div id="loader"></div>
-        <button id="btn-start" class="start-btn" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
+        <h1 style="color:var(--p); letter-spacing: 5px;">OMEGA</h1>
+        <div style="color:#666; font-size:12px; margin-bottom:20px;">LOADING HIGH-RES MODELS...</div>
+        <div class="loader"></div>
+        <button id="btn-start" class="start" onclick="OMEGA.start()" style="display:none;">ENGAGE SYSTEM</button>
     </div>
 
 <script>
 /**
- * OMEGA: ADVANCED IDENTITY EDITION
- * Enhanced Features: Sticky Tracking + Manual Tagging + Data Logging + 3D Visualization
+ * OMEGA: SNIPER EDITION
+ * Focused on Long Range Detection & High Resolution
  */
 
 const CONFIG = {
-    AI_CONF: 0.5,
-    TRACK: { SMOOTH: 0.15, MAX_LOST: 30, MATCH_DIST: 150 },
-    NOTIFICATION_TIMEOUT: 3000,
-    DATA_RETENTION: 100 // จำนวนข้อมูลสูงสุดที่จะเก็บ
+    // ลด Threshold ลงเพื่อให้จับวัตถุไกลๆ (ที่ AI ไม่ค่อยมั่นใจ) ได้ง่ายขึ้น
+    OBJ_CONF: 0.30, 
+    POSE_CONF: 0.30,
+    
+    // Physics for distance calc
+    PHYSICS: { FOCAL_LEN: 900, PERSON_H: 1.7 }
 };
 
-const Vector = {
-    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
-    lerp: (a, b, t) => a + (b - a) * t,
-    getCenter: (box) => ({ x: box[0] + box[2]/2, y: box[1] + box[3]/2 })
-};
-
-// --- IDENTITY MANAGER (สมองจำชื่อ) ---
-class IdentityManager {
+class SniperSystem {
     constructor() {
-        this.identities = new Map(); // เก็บ ID -> Name
-        this.detectionHistory = []; // ประวัติการตรวจจับ
-    }
-    
-    setName(trackId, name) {
-        this.identities.set(trackId, name);
-    }
-    
-    getName(trackId) {
-        return this.identities.get(trackId) || null;
-    }
-    
-    addDetection(track) {
-        // เพิ่มข้อมูลการตรวจจับลงในประวัติ
-        const detection = {
-            id: track.id,
-            name: this.getName(track.id) || track.class,
-            class: track.class,
-            timestamp: new Date().toISOString(),
-            x: track.x,
-            y: track.y
-        };
-        
-        this.detectionHistory.unshift(detection);
-        
-        // จำกัดจำนวนข้อมูลที่เก็บ
-        if (this.detectionHistory.length > CONFIG.DATA_RETENTION) {
-            this.detectionHistory = this.detectionHistory.slice(0, CONFIG.DATA_RETENTION);
-        }
-    }
-    
-    getFilteredDetections(filters = {}) {
-        let filtered = [...this.detectionHistory];
-        
-        if (filters.classes && filters.classes.length > 0) {
-            filtered = filtered.filter(d => filters.classes.includes(d.class));
-        }
-        
-        if (filters.name) {
-            filtered = filtered.filter(d => 
-                d.name.toLowerCase().includes(filters.name.toLowerCase())
-            );
-        }
-        
-        return filtered;
-    }
-}
-
-// --- PREDICTIVE TRACKER (ตัวเดิมที่หนึบๆ) ---
-class Tracker {
-    constructor() {
-        this.tracks = [];
-        this.nextId = 1;
-    }
-
-    update(detections) {
-        // 1. Predict
-        this.tracks.forEach(t => {
-            t.x += t.vx; t.y += t.vy; t.lost++;
-        });
-
-        // 2. Match
-        detections.forEach(det => {
-            const center = Vector.getCenter(det.bbox);
-            let bestDist = CONFIG.TRACK.MATCH_DIST;
-            let bestTrack = null;
-
-            this.tracks.forEach(t => {
-                const d = Vector.dist({x: t.x, y: t.y}, center);
-                if (d < bestDist) { bestDist = d; bestTrack = t; }
-            });
-
-            if (bestTrack) {
-                // Update Existing
-                const newVx = center.x - bestTrack.x;
-                const newVy = center.y - bestTrack.y;
-                bestTrack.vx = Vector.lerp(bestTrack.vx, newVx, 0.4);
-                bestTrack.vy = Vector.lerp(bestTrack.vy, newVy, 0.4);
-                bestTrack.x = Vector.lerp(bestTrack.x, center.x, CONFIG.TRACK.SMOOTH);
-                bestTrack.y = Vector.lerp(bestTrack.y, center.y, CONFIG.TRACK.SMOOTH);
-                bestTrack.w = Vector.lerp(bestTrack.w, det.bbox[2], CONFIG.TRACK.SMOOTH);
-                bestTrack.h = Vector.lerp(bestTrack.h, det.bbox[3], CONFIG.TRACK.SMOOTH);
-                bestTrack.lost = 0;
-                // Keep Identity if exists
-            } else {
-                // Create New
-                this.tracks.push({
-                    id: this.nextId++,
-                    x: center.x, y: center.y,
-                    w: det.bbox[2], h: det.bbox[3],
-                    vx: 0, vy: 0,
-                    class: det.class,
-                    lost: 0
-                });
-            }
-        });
-
-        // 3. Prune
-        this.tracks = this.tracks.filter(t => t.lost < CONFIG.TRACK.MAX_LOST);
-        return this.tracks;
-    }
-}
-
-// --- 3D VISUALIZATION ---
-class ThreeDVisualizer {
-    constructor() {
-        this.scene = null;
-        this.camera = null;
-        this.renderer = null;
-        this.targetMeshes = new Map();
-        this.isInitialized = false;
-        
-        this.init();
-    }
-    
-    init() {
-        try {
-            const canvas = document.getElementById('layer-3d');
-            this.scene = new THREE.Scene();
-            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-            
-            // Add some ambient light
-            const ambientLight = new THREE.AmbientLight(0x404040);
-            this.scene.add(ambientLight);
-            
-            // Add directional light
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(1, 1, 1);
-            this.scene.add(directionalLight);
-            
-            this.camera.position.z = 5;
-            this.isInitialized = true;
-        } catch (e) {
-            console.warn("3D visualization not available:", e);
-            this.isInitialized = false;
-        }
-    }
-    
-    updateTargets(tracks, identities) {
-        if (!this.isInitialized) return;
-        
-        // Remove old meshes
-        this.targetMeshes.forEach((mesh, id) => {
-            if (!tracks.some(t => t.id === id)) {
-                this.scene.remove(mesh);
-                this.targetMeshes.delete(id);
-            }
-        });
-        
-        // Add/update meshes
-        tracks.forEach(track => {
-            const customName = identities.getName(track.id);
-            const isTagged = !!customName;
-            const color = isTagged ? 0x00ff9d : (track.class === 'person' ? 0xffae00 : 0x00a8ff);
-            
-            if (!this.targetMeshes.has(track.id)) {
-                // Create new mesh
-                const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-                const material = new THREE.MeshPhongMaterial({ color, transparent: true, opacity: 0.7 });
-                const mesh = new THREE.Mesh(geometry, material);
-                
-                // Position based on track position (normalized)
-                mesh.position.x = (track.x / 640 - 0.5) * 10;
-                mesh.position.y = -(track.y / 480 - 0.5) * 10;
-                mesh.position.z = 0;
-                
-                this.scene.add(mesh);
-                this.targetMeshes.set(track.id, mesh);
-            } else {
-                // Update existing mesh
-                const mesh = this.targetMeshes.get(track.id);
-                mesh.position.x = (track.x / 640 - 0.5) * 10;
-                mesh.position.y = -(track.y / 480 - 0.5) * 10;
-                
-                // Update color if needed
-                if (mesh.material.color.getHex() !== color) {
-                    mesh.material.color.setHex(color);
-                }
-            }
-        });
-        
-        this.renderer.render(this.scene, this.camera);
-    }
-    
-    resize() {
-        if (!this.isInitialized) return;
-        
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-}
-
-// --- RENDERER ---
-class HUD {
-    constructor(sys) {
-        this.sys = sys;
+        this.video = document.getElementById('camera-feed');
         this.canvas = document.getElementById('hud-canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.resize();
         
-        // Event Listener for Tagging
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+        this.netObj = null;
+        this.netPose = null;
+        this.zoomLevel = 1;
+        this.isRunning = false;
+        
+        window.onresize = () => this.resize();
     }
 
     resize() {
@@ -375,294 +153,194 @@ class HUD {
         this.canvas.height = window.innerHeight;
     }
 
-    handleClick(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
+    async init() {
+        try {
+            // 1. Load COCO-SSD (Standard)
+            this.netObj = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+            
+            // 2. Load Pose Detection (THUNDER VERSION)
+            // Thunder = ช้ากว่า Lightning แต่แม่นยำกว่ามาก เหมาะสำหรับระยะไกล
+            this.netPose = await poseDetection.createDetector(
+                poseDetection.SupportedModels.MoveNet,
+                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
+            );
 
-        // Find clicked track
-        // ต้องแปลงพิกัดเมาส์กลับไปหาพิกัดวิดีโอ
-        const sx = this.canvas.width / this.sys.video.videoWidth;
-        const sy = this.canvas.height / this.sys.video.videoHeight;
-
-        let clickedTrack = null;
-        this.sys.tracker.tracks.forEach(t => {
-            const tx = (t.x - t.w/2) * sx;
-            const ty = (t.y - t.h/2) * sy;
-            const tw = t.w * sx;
-            const th = t.h * sy;
-
-            if(mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th) {
-                clickedTrack = t;
-            }
-        });
-
-        if(clickedTrack) {
-            this.sys.openTagModal(clickedTrack.id);
+            document.getElementById('btn-start').style.display = 'block';
+            document.querySelector('.loader').style.display = 'none';
+        } catch(e) {
+            alert("Error loading AI: " + e.message);
         }
     }
 
-    render(video, tracks, identities) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        const sx = this.canvas.width / video.videoWidth;
-        const sy = this.canvas.height / video.videoHeight;
-
-        tracks.forEach(t => {
-            const x = (t.x - t.w/2) * sx;
-            const y = (t.y - t.h/2) * sy;
-            const w = t.w * sx;
-            const h = t.h * sy;
-
-            // Check for custom name
-            const customName = identities.getName(t.id);
-            const displayName = customName ? customName.toUpperCase() : t.class.toUpperCase();
-            const isTagged = !!customName;
-
-            // Style
-            const color = isTagged ? '#00ff9d' : (t.class === 'person' ? '#ffae00' : '#00a8ff');
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = isTagged ? 3 : 2;
-            this.ctx.shadowBlur = isTagged ? 10 : 0;
-            this.ctx.shadowColor = color;
-
-            // Draw Tech Corners
-            this.ctx.beginPath();
-            const L = w * 0.2;
-            this.ctx.moveTo(x, y+L); this.ctx.lineTo(x, y); this.ctx.lineTo(x+L, y);
-            this.ctx.moveTo(x+w-L, y); this.ctx.lineTo(x+w, y); this.ctx.lineTo(x+w, y+L);
-            this.ctx.moveTo(x+w, y+h-L); this.ctx.lineTo(x+w, y+h); this.ctx.lineTo(x+w-L, y+h);
-            this.ctx.moveTo(x+L, y+h); this.ctx.lineTo(x, y+h); this.ctx.lineTo(x, y+h-L);
-            this.ctx.stroke();
-            this.ctx.shadowBlur = 0;
-
-            // Label Box
-            this.ctx.fillStyle = color;
-            this.ctx.fillRect(x, y-20, isTagged ? w : Math.min(w, 100), 20);
-            
-            // Text
-            this.ctx.fillStyle = '#000';
-            this.ctx.font = "bold 12px monospace";
-            const label = isTagged ? `★ ${displayName}` : `ID_${t.id} ${displayName}`;
-            this.ctx.fillText(label, x+5, y-6);
-
-            // Tag Hint (ถ้ายังไม่ได้ Tag)
-            if(!isTagged) {
-                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                this.ctx.fillText("[TAP TO TAG]", x, y+h+15);
-            }
-        });
-    }
-}
-
-// --- MAIN SYSTEM ---
-class System {
-    constructor() {
-        this.video = document.getElementById('camera-feed');
-        this.tracker = new Tracker();
-        this.identities = new IdentityManager();
-        this.hud = new HUD(this);
-        this.visualizer = new ThreeDVisualizer();
-        this.model = null;
-        this.isRunning = false;
-        this.pendingTagId = null;
-        this.activeFilters = {
-            classes: ['person', 'car', 'truck', 'dog', 'cat'],
-            name: ''
-        };
-        
-        window.onresize = () => {
-            this.hud.resize();
-            this.visualizer.resize();
-        };
-    }
-
     async start() {
-        document.getElementById('btn-start').innerText = "LOADING AI...";
         try {
+            // Request High Resolution (HD 720p+)
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} },
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 }, // ขอความละเอียดสูง
+                    height: { ideal: 720 }
+                },
                 audio: false
             });
             this.video.srcObject = stream;
             await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
-
-            this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
             
+            this.resize();
             document.getElementById('boot').style.display = 'none';
             this.isRunning = true;
             this.loop();
-        } catch(e) { 
-            console.error("Error starting system:", e);
-            alert("Error: " + e.message); 
+        } catch(e) {
+            alert("Camera Error: " + e.message);
         }
+    }
+
+    setZoom(level) {
+        this.zoomLevel = level;
+        // CSS Zoom (Visual only)
+        document.getElementById('cam-container').style.transform = `scale(${level})`;
+        
+        // Update UI Buttons
+        document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
     }
 
     async loop() {
         if(!this.isRunning) return;
+
+        // Run AI Detection
+        // Note: AI runs on the full video frame, regardless of visual zoom
+        const objects = await this.netObj.detect(this.video, 10, CONFIG.OBJ_CONF);
         
-        try {
-            const detections = await this.model.detect(this.video, 20, CONFIG.AI_CONF);
-            const tracks = this.tracker.update(detections);
-            
-            // Log detections
-            tracks.forEach(track => {
-                this.identities.addDetection(track);
-            });
-            
-            // Update UI
-            this.hud.render(this.video, tracks, this.identities);
-            this.visualizer.updateTargets(tracks, this.identities);
-            document.getElementById('count').innerText = tracks.length;
-            
-            // Check for important targets
-            this.checkForImportantTargets(tracks);
-            
-            requestAnimationFrame(() => this.loop());
-        } catch(e) {
-            console.error("Error in main loop:", e);
-            // Continue loop even if there's an error
-            requestAnimationFrame(() => this.loop());
+        // Get Poses (Only if person detected to save CPU)
+        let poses = [];
+        if(objects.some(o => o.class === 'person')) {
+            poses = await this.netPose.estimatePoses(this.video);
         }
+
+        this.render(objects, poses);
+        requestAnimationFrame(() => this.loop());
     }
 
-    checkForImportantTargets(tracks) {
-        // Check if any tagged targets are detected
-        const taggedTargets = tracks.filter(t => this.identities.getName(t.id));
+    render(objects, poses) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        if (taggedTargets.length > 0 && !this.notificationShown) {
-            this.showNotification(`TAGGED TARGET${taggedTargets.length > 1 ? 'S' : ''} DETECTED: ${taggedTargets.length}`);
-            this.notificationShown = true;
+        // Scale factors needs to account for Zoom Level visually?
+        // No, HTML Canvas overlays the video container. 
+        // If video container scales via CSS, Canvas must match visually.
+        // Standard logic: Map video coords -> Screen coords -> Apply Zoom Offset
+        
+        const sx = this.canvas.width / this.video.videoWidth;
+        const sy = this.canvas.height / this.video.videoHeight;
+        
+        // Center of screen for zoom origin
+        const cx = this.canvas.width / 2;
+        const cy = this.canvas.height / 2;
+
+        // Helper to transform coordinates based on zoom
+        const transform = (x, y) => {
+            // 1. Scale to screen
+            let sx_x = x * sx;
+            let sx_y = y * sy;
             
-            // Reset after timeout
-            setTimeout(() => {
-                this.notificationShown = false;
-            }, CONFIG.NOTIFICATION_TIMEOUT);
-        }
-    }
+            // 2. Apply Zoom from center
+            sx_x = (sx_x - cx) * this.zoomLevel + cx;
+            sx_y = (sx_y - cy) * this.zoomLevel + cy;
+            
+            return { x: sx_x, y: sx_y };
+        };
 
-    showNotification(message) {
-        const notification = document.getElementById('notification');
-        notification.textContent = message;
-        notification.style.display = 'block';
-        
-        setTimeout(() => {
-            notification.style.display = 'none';
-        }, CONFIG.NOTIFICATION_TIMEOUT);
-    }
+        let nearestDist = 9999;
 
-    // Tagging Logic
-    openTagModal(trackId) {
-        this.pendingTagId = trackId;
-        const modal = document.getElementById('tag-input');
-        const input = document.getElementById('target-name');
-        
-        // Check current name
-        const currentName = this.identities.getName(trackId);
-        input.value = currentName || '';
-        
-        modal.style.display = 'block';
-        input.focus();
-    }
+        // 1. Draw Objects
+        objects.forEach(obj => {
+            const p1 = transform(obj.bbox[0], obj.bbox[1]);
+            const p2 = transform(obj.bbox[0] + obj.bbox[2], obj.bbox[1] + obj.bbox[3]);
+            const w = p2.x - p1.x;
+            const h = p2.y - p1.y;
 
-    confirmTag() {
-        const name = document.getElementById('target-name').value;
-        if(this.pendingTagId && name) {
-            this.identities.setName(this.pendingTagId, name);
-            this.showNotification(`TARGET ${this.pendingTagId} TAGGED AS: ${name}`);
-        }
-        this.cancelTag();
-    }
+            // Filter off-screen objects (when zoomed in)
+            if(p2.x < 0 || p1.x > this.canvas.width || p2.y < 0 || p1.y > this.canvas.height) return;
 
-    cancelTag() {
-        document.getElementById('tag-input').style.display = 'none';
-        this.pendingTagId = null;
-    }
+            const color = obj.class === 'person' ? '#ff2a6d' : '#00ff9d';
+            
+            // Box
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(p1.x, p1.y, w, h);
 
-    // Data Panel
-    toggleDataPanel() {
-        const panel = document.getElementById('data-panel');
-        if (panel.style.display === 'block') {
-            panel.style.display = 'none';
-        } else {
-            panel.style.display = 'block';
-            this.updateDataPanel();
-        }
-    }
+            // Distance Calculation
+            const dist = (CONFIG.PHYSICS.PERSON_H * CONFIG.PHYSICS.FOCAL_LEN) / obj.bbox[3];
+            if(dist < nearestDist) nearestDist = dist;
 
-    updateDataPanel() {
-        const dataList = document.getElementById('data-list');
-        const filteredData = this.identities.getFilteredDetections(this.activeFilters);
-        
-        dataList.innerHTML = '';
-        
-        if (filteredData.length === 0) {
-            dataList.innerHTML = '<div style="color:#666; text-align:center;">No data to display</div>';
-            return;
-        }
-        
-        filteredData.forEach(detection => {
-            const item = document.createElement('div');
-            item.className = 'data-item';
-            item.innerHTML = `
-                <div class="data-name">${detection.name}</div>
-                <div class="data-id">ID: ${detection.id} | ${detection.class} | ${new Date(detection.timestamp).toLocaleTimeString()}</div>
-            `;
-            dataList.appendChild(item);
+            // Label
+            this.ctx.fillStyle = color;
+            this.ctx.font = "bold 12px monospace";
+            this.ctx.fillText(`${obj.class.toUpperCase()} ${dist.toFixed(1)}m`, p1.x, p1.y - 5);
         });
-    }
 
-    // Filter Panel
-    toggleFilterPanel() {
-        const panel = document.getElementById('filter-panel');
-        if (panel.style.display === 'block') {
-            panel.style.display = 'none';
+        // 2. Draw Skeleton (Pose) - The High Precision Part
+        if(poses.length > 0) {
+            poses.forEach(pose => {
+                const keypoints = pose.keypoints;
+                this.ctx.fillStyle = '#00a8ff';
+                this.ctx.strokeStyle = '#00a8ff';
+                this.ctx.lineWidth = 2;
+
+                // Draw Connections
+                const connections = [
+                    ['nose', 'left_eye'], ['left_eye', 'left_ear'],
+                    ['nose', 'right_eye'], ['right_eye', 'right_ear'],
+                    ['left_shoulder', 'right_shoulder'],
+                    ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+                    ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+                    ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+                    ['left_hip', 'right_hip'],
+                    ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
+                    ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
+                ];
+
+                connections.forEach(([a, b]) => {
+                    const k1 = keypoints.find(k => k.name === a);
+                    const k2 = keypoints.find(k => k.name === b);
+                    
+                    if(k1 && k2 && k1.score > 0.3 && k2.score > 0.3) {
+                        const p1 = transform(k1.x, k1.y);
+                        const p2 = transform(k2.x, k2.y);
+                        
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(p1.x, p1.y);
+                        this.ctx.lineTo(p2.x, p2.y);
+                        this.ctx.stroke();
+                    }
+                });
+
+                // Draw Joints
+                keypoints.forEach(kp => {
+                    if(kp.score > 0.3) {
+                        const p = transform(kp.x, kp.y);
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, 3, 0, 2*Math.PI);
+                        this.ctx.fill();
+                    }
+                });
+            });
+        }
+
+        // Update Distance UI
+        const distEl = document.getElementById('dist-val');
+        if(nearestDist !== 9999) {
+            distEl.innerText = nearestDist.toFixed(1) + "m";
+            distEl.style.color = nearestDist < 5 ? '#ff2a6d' : '#fff';
         } else {
-            panel.style.display = 'block';
+            distEl.innerText = "--";
+            distEl.style.color = '#fff';
         }
-    }
-
-    applyFilters() {
-        // Get filter values
-        const personChecked = document.getElementById('filter-person').checked;
-        const vehicleChecked = document.getElementById('filter-vehicle').checked;
-        const animalChecked = document.getElementById('filter-animal').checked;
-        const nameFilter = document.getElementById('filter-name').value;
-        
-        // Update active filters
-        this.activeFilters.classes = [];
-        if (personChecked) this.activeFilters.classes.push('person');
-        if (vehicleChecked) this.activeFilters.classes.push('car', 'truck', 'bus', 'motorcycle');
-        if (animalChecked) this.activeFilters.classes.push('dog', 'cat', 'bird', 'horse', 'sheep', 'cow');
-        
-        this.activeFilters.name = nameFilter;
-        
-        // Update data panel if visible
-        if (document.getElementById('data-panel').style.display === 'block') {
-            this.updateDataPanel();
-        }
-    }
-
-    // Export Data
-    exportData() {
-        const data = this.identities.detectionHistory;
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `omega-tracking-data-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        this.showNotification('DATA EXPORTED SUCCESSFULLY');
     }
 }
 
-const OMEGA = new System();
-document.getElementById('btn-start').style.display = 'block';
+const OMEGA = new SniperSystem();
+OMEGA.init();
 
 </script>
 </body>
