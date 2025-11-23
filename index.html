@@ -5,2078 +5,912 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 
     <style>
         :root {
+            /* Palette: Aerospace / Tactical / Sci-Fi */
             --hud-primary: #00ff41;   /* Matrix Green */
             --hud-secondary: #008f11; /* Dimmed Green */
-            --hud-alert: #ff0000;     /* Critical Red */
+            --hud-alert: #ff3333;     /* Critical Red */
             --hud-warn: #ffcc00;      /* Warning Yellow */
-            --hud-info: #0080ff;      /* Information Blue */
-            --bg-dark: #050505;
-            --glass: rgba(0, 20, 0, 0.8);
-            --glass-dark: rgba(0, 10, 0, 0.9);
+            --hud-info: #00aaff;      /* Cyan/Blue */
+            --bg-dark: #000000;
+            --glass: rgba(0, 20, 0, 0.65);
+            --glass-border: 1px solid rgba(0, 255, 65, 0.3);
+            --font-mono: 'SF Mono', 'Consolas', 'Menlo', monospace;
         }
 
         /* --- CORE SETUP --- */
-        * { 
-            box-sizing: border-box; 
-            user-select: none; 
-            -webkit-touch-callout: none; 
-        }
+        * { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; outline: none; }
         
         body {
-            margin: 0; 
-            overflow: hidden; 
-            background: var(--bg-dark);
-            font-family: 'Consolas', 'Monaco', monospace;
-            color: var(--hud-primary);
-            width: 100vw; 
-            height: 100vh;
+            margin: 0; overflow: hidden; background: var(--bg-dark);
+            font-family: var(--font-mono); color: var(--hud-primary);
+            width: 100vw; height: 100vh;
         }
 
         /* --- VIEWPORT & LAYERS --- */
-        #viewport { 
-            position: relative; 
-            width: 100%; 
-            height: 100%; 
-        }
+        #viewport { position: relative; width: 100%; height: 100%; overflow: hidden; }
         
-        /* Video Layer: High Contrast for Machine Vision aesthetic */
+        /* Video: Object-fit cover ensures full screen, logic handles mapping */
         #camera-feed {
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover;
-            z-index: 0; 
-            filter: sepia(0.5) hue-rotate(70deg) contrast(1.2) brightness(0.8);
-            opacity: 0.6;
+            position: absolute; width: 100%; height: 100%; 
+            object-fit: cover; z-index: 0; 
+            filter: sepia(0.2) hue-rotate(50deg) contrast(1.1) brightness(0.9) grayscale(0.3);
+            opacity: 0.8;
+            transform: scaleX(-1); /* Mirror effect for selfie mode feel, remove if rear cam preferred */
         }
         
-        /* HUD Canvas: Vector Graphics */
-        #hud-canvas { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            z-index: 10; 
-        }
+        #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
 
-        /* --- UI PANELS --- */
+        /* --- UI LAYER --- */
         #ui-layer {
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            z-index: 20; 
-            pointer-events: none;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between;
-            padding: max(20px, env(safe-area-inset-top));
+            position: absolute; inset: 0; z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: max(15px, env(safe-area-inset-top));
         }
 
         .hud-panel {
-            background: var(--glass); 
-            border-left: 3px solid var(--hud-primary);
-            padding: 8px 12px; 
-            margin: 10px; 
-            width: fit-content;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+            background: var(--glass); border-left: 2px solid var(--hud-primary);
+            padding: 6px 10px; margin: 5px; width: fit-content;
+            backdrop-filter: blur(4px); pointer-events: auto;
+            transition: all 0.2s;
         }
         
-        .hud-panel-wide {
-            width: auto;
-            max-width: 300px;
-        }
-        
-        .hud-text { 
-            font-size: 12px; 
-            letter-spacing: 1px; 
-            margin-bottom: 4px; 
-            text-shadow: 0 0 5px var(--hud-primary); 
-        }
-        
-        .hud-value { 
-            font-weight: bold; 
-            color: #fff; 
-        }
-        
-        .hud-label {
-            color: var(--hud-secondary);
-        }
+        .hud-text { font-size: 11px; letter-spacing: 0.5px; margin-bottom: 2px; text-shadow: 0 0 2px rgba(0,255,65,0.5); }
+        .hud-value { font-weight: 700; color: #fff; }
+        .hud-sub { color: var(--hud-secondary); font-size: 9px; }
 
-        /* --- RADAR COMPONENT --- */
+        /* --- RADAR --- */
         #radar-container {
-            position: absolute; 
-            bottom: 20px; 
-            right: 20px;
-            width: 140px; 
-            height: 140px;
-            border-radius: 50%;
-            background: rgba(0, 20, 0, 0.9);
-            border: 2px solid var(--hud-primary);
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-            overflow: hidden;
-            z-index: 30;
+            position: absolute; bottom: 80px; right: 20px;
+            width: 120px; height: 120px;
+            border-radius: 50%; background: rgba(0, 15, 0, 0.85);
+            border: 1px solid var(--hud-primary);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+            overflow: hidden; pointer-events: auto;
         }
-        
         #radar-container::after {
-            /* Scanning Line Animation */
-            content: ''; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.4) 360deg);
-            border-radius: 50%;
-            animation: radar-scan 2s linear infinite;
+            content: ''; position: absolute; inset: 0;
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.3) 360deg);
+            border-radius: 50%; animation: radar-scan 2s linear infinite;
         }
-        
-        /* Radar Grid Lines */
-        .radar-grid {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            border: 1px solid rgba(0,255,65,0.3); 
-            border-radius: 50%; 
-            pointer-events: none;
-        }
-        
-        .radar-cross {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            width: 100%; 
-            height: 1px; 
-            background: rgba(0,255,65,0.3);
-        }
-        
         .radar-blip {
-            position: absolute; 
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 5px currentColor;
-            transition: all 0.2s ease-out;
+            position: absolute; border-radius: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 4px currentColor; transition: top 0.2s, left 0.2s;
         }
-        
-        @keyframes radar-scan { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
-        }
+        @keyframes radar-scan { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* --- BOOT SCREEN --- */
-        #boot-overlay {
-            position: fixed; 
-            inset: 0; 
-            background: #000; 
-            z-index: 9999;
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            color: var(--hud-primary);
+        /* --- CONTROL PANEL (Overlay) --- */
+        #control-panel {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 400px; background: rgba(0, 10, 0, 0.95);
+            border: 1px solid var(--hud-primary); padding: 20px;
+            z-index: 100; display: none; flex-direction: column; gap: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
+            backdrop-filter: blur(10px); pointer-events: auto;
         }
+        .panel-header { font-size: 16px; font-weight: bold; border-bottom: 1px solid var(--hud-secondary); padding-bottom: 10px; margin-bottom: 10px; }
+        .btn {
+            background: rgba(0, 255, 65, 0.1); border: 1px solid var(--hud-primary);
+            color: var(--hud-primary); padding: 10px; cursor: pointer;
+            font-family: inherit; font-size: 12px; text-transform: uppercase;
+            transition: 0.2s;
+        }
+        .btn:hover { background: var(--hud-primary); color: #000; }
+        .btn:active { transform: scale(0.98); }
+        .btn-danger { border-color: var(--hud-alert); color: var(--hud-alert); background: rgba(255, 0, 0, 0.1); }
+        .btn-danger:hover { background: var(--hud-alert); color: #fff; }
         
-        #btn-init {
-            background: transparent; 
-            color: var(--hud-primary); 
-            border: 2px solid var(--hud-primary);
-            padding: 15px 50px; 
-            font-family: inherit; 
-            font-size: 16px; 
-            font-weight: bold;
-            letter-spacing: 3px; 
-            cursor: pointer; 
-            margin-top: 20px;
-            transition: 0.3s; 
-            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-        }
-        
-        #btn-init:hover { 
-            background: var(--hud-primary); 
-            color: #000; 
-            box-shadow: 0 0 30px var(--hud-primary); 
-        }
-        
-        .status-led { 
-            display: inline-block; 
-            width: 8px; 
-            height: 8px; 
-            background: #333; 
-            border-radius: 50%; 
-            margin-right: 8px; 
-        }
-        
-        .status-led.active { 
-            background: var(--hud-primary); 
-            box-shadow: 0 0 10px var(--hud-primary); 
-        }
-        
-        .status-led.error { 
-            background: var(--hud-alert); 
-            box-shadow: 0 0 10px var(--hud-alert); 
-        }
-        
-        .status-led.warning { 
-            background: var(--hud-warn); 
-            box-shadow: 0 0 10px var(--hud-warn); 
-        }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 10px; color: var(--hud-secondary); }
 
-        /* --- SYSTEM STATUS BAR --- */
+        /* --- STATUS BAR --- */
         #system-status {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--glass-dark);
-            border-top: 1px solid var(--hud-secondary);
-            padding: 6px 12px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            z-index: 25;
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: rgba(0, 0, 0, 0.8); border-top: 1px solid var(--hud-secondary);
+            padding: 4px 10px; display: flex; justify-content: space-between;
+            font-size: 10px; z-index: 25; pointer-events: none;
         }
-        
-        .status-item {
-            display: flex;
-            align-items: center;
-            margin-right: 15px;
-        }
-        
-        .status-indicator {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-        
-        .status-ok { background: var(--hud-primary); }
-        .status-warn { background: var(--hud-warn); }
-        .status-error { background: var(--hud-alert); }
-        .status-offline { background: #444; }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .bg-ok { background: var(--hud-primary); box-shadow: 0 0 5px var(--hud-primary); }
+        .bg-warn { background: var(--hud-warn); box-shadow: 0 0 5px var(--hud-warn); }
+        .bg-err { background: var(--hud-alert); box-shadow: 0 0 5px var(--hud-alert); }
+        .bg-off { background: #444; }
 
+        /* --- TOAST --- */
+        #toast-container { position: absolute; top: 10%; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: none; }
+        .toast { background: rgba(0,0,0,0.8); border: 1px solid var(--hud-primary); color: var(--hud-primary); padding: 8px 16px; margin-bottom: 5px; font-size: 12px; animation: fadein 0.3s; }
+        @keyframes fadein { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- BOOT --- */
+        #boot-screen {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
     </style>
 </head>
 <body>
 
     <div id="viewport">
         <video id="camera-feed" autoplay playsinline muted></video>
+        
         <canvas id="hud-canvas"></canvas>
         
         <div id="ui-layer">
-            <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel">
-                    <div class="hud-text">SYSTEM CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
-                    <div class="hud-text">VISION FPS: <span id="val-fps" class="hud-value">0</span></div>
-                    <div class="hud-text">TRACKED: <span id="val-tracked" class="hud-value">0</span></div>
+            <div style="display:flex; justify-content:space-between;">
+                <div class="hud-panel" onclick="OMEGA.ui.toggleControlPanel()">
+                    <div class="hud-text">CPU/AI: <span id="disp-ai-ms">0</span>ms</div>
+                    <div class="hud-text">AI FPS: <span id="disp-ai-fps">0</span></div>
+                    <div class="hud-text">UI FPS: <span id="disp-ui-fps">0</span></div>
+                    <div class="hud-sub">[TAP FOR MENU]</div>
                 </div>
                 <div class="hud-panel" style="text-align:right;">
-                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0</span>°</div>
-                    <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0</span>°</div>
-                    <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0</span>°</div>
-                    <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.0</span></div>
+                    <div class="hud-text">GYRO: <span id="disp-gyro">OFFLINE</span></div>
+                    <div class="hud-text">HDG: <span id="disp-hdg">000</span>°</div>
+                    <div class="hud-text">PITCH: <span id="disp-pitch">0</span>°</div>
                 </div>
             </div>
-            
-            <!-- Analytics Panel -->
-            <div class="hud-panel hud-panel-wide" style="margin-top: auto; margin-bottom: 160px;">
-                <div class="hud-text">ANALYTICS</div>
-                <div class="hud-text">ACTIVE: <span id="val-active" class="hud-value">0</span> | PERSONS (5M): <span id="val-persons" class="hud-value">0</span></div>
-                <div class="hud-text">CLOSEST PERSON: <span id="val-closest-person" class="hud-value">--</span></div>
-                <div class="hud-text">TOP LABEL: <span id="val-top-label" class="hud-value">--</span></div>
-            </div>
-            
-            <!-- Target Info Panel -->
-            <div class="hud-panel hud-panel-wide" style="margin-left: auto; margin-right: 160px;">
-                <div class="hud-text">PRIMARY TARGET</div>
-                <div class="hud-text"><span id="val-target-label" class="hud-value">--</span></div>
-                <div class="hud-text">DIST: <span id="val-target-dist" class="hud-value">--</span> | BEAR: <span id="val-target-bearing" class="hud-value">--</span></div>
-                <div class="hud-text">STATE: <span id="val-target-state" class="hud-value">--</span></div>
+
+            <div style="position: absolute; top: 50%; left: 20px; transform: translateY(-50%);">
+                <div class="hud-panel" id="primary-target-panel" style="display:none; border-left-color: var(--hud-info);">
+                    <div class="hud-text" style="color:var(--hud-info)">PRIORITY TARGET</div>
+                    <div class="hud-value" id="pt-label" style="font-size:16px;">UNKNOWN</div>
+                    <div class="hud-text">CONF: <span id="pt-conf">0</span>%</div>
+                    <div class="hud-text">DIST: <span id="pt-dist">--</span></div>
+                    <div class="hud-text">BRNG: <span id="pt-brng">0</span>°</div>
+                </div>
             </div>
 
             <div id="radar-container">
-                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
-                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
-                <div class="radar-cross"></div>
-                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
+                <div style="position:absolute; top:50%; left:50%; width:1px; height:100%; background:rgba(0,255,65,0.2); transform:translate(-50%,-50%);"></div>
+                <div style="position:absolute; top:50%; left:50%; width:100%; height:1px; background:rgba(0,255,65,0.2); transform:translate(-50%,-50%);"></div>
+                <div style="position:absolute; top:50%; left:50%; width:33%; height:33%; border:1px solid rgba(0,255,65,0.2); border-radius:50%; transform:translate(-50%,-50%);"></div>
+                <div style="position:absolute; top:50%; left:50%; width:66%; height:66%; border:1px solid rgba(0,255,65,0.2); border-radius:50%; transform:translate(-50%,-50%);"></div>
                 <div id="radar-blips"></div>
             </div>
         </div>
-        
-        <!-- System Status Bar -->
+
         <div id="system-status">
-            <div style="display: flex;">
-                <div class="status-item">
-                    <span class="status-indicator" id="status-cam"></span>
-                    <span>CAM</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-indicator" id="status-ai"></span>
-                    <span>AI</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-indicator" id="status-gyro"></span>
-                    <span>GYRO</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-indicator" id="status-tracker"></span>
-                    <span>TRACKER</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-indicator" id="status-memory"></span>
-                    <span>MEMORY</span>
-                </div>
-            </div>
             <div>
-                <span id="status-message">SYSTEM INITIALIZING</span>
+                <span class="status-dot bg-off" id="st-cam"></span>CAM
+                <span class="status-dot bg-off" id="st-ai" style="margin-left:8px;"></span>AI
+                <span class="status-dot bg-off" id="st-mem" style="margin-left:8px;"></span>MEM
             </div>
+            <div id="sys-msg">INITIALIZING...</div>
         </div>
     </div>
 
-    <div id="boot-overlay">
-        <div style="font-size: 40px; font-weight: 900; margin-bottom: 10px; letter-spacing: 5px;">OMEGA</div>
-        <div style="opacity: 0.7; margin-bottom: 30px;">ADVANCED HUMANOID VISION SYSTEM</div>
-        <div style="text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.8;">
-            <div><span class="status-led" id="led-cam"></span> OPTICAL SENSORS</div>
-            <div><span class="status-led" id="led-ai"></span> NEURAL ENGINE (COCO-SSD)</div>
-            <div><span class="status-led" id="led-gyro"></span> AVIONICS / GYRO</div>
-            <div><span class="status-led" id="led-tracker"></span> OBJECT TRACKER</div>
-            <div><span class="status-led" id="led-memory"></span> KNOWLEDGE BASE</div>
+    <div id="toast-container"></div>
+
+    <div id="control-panel">
+        <div class="panel-header">OMEGA SYSTEM CONTROL</div>
+        
+        <div class="row">
+            <button class="btn col" onclick="OMEGA.toggleAI()">⏯ PAUSE AI</button>
+            <button class="btn col btn-danger" onclick="OMEGA.shutdown()">⛔ SHUTDOWN</button>
         </div>
-        <button id="btn-init">INITIALIZE SYSTEM</button>
+
+        <div style="margin-top:10px;">
+            <label>PERFORMANCE PROFILE</label>
+            <div class="row">
+                <button class="btn col" onclick="OMEGA.setProfile('low')">ECO</button>
+                <button class="btn col" onclick="OMEGA.setProfile('balanced')">BAL</button>
+                <button class="btn col" onclick="OMEGA.setProfile('high')">MAX</button>
+            </div>
+        </div>
+
+        <div style="margin-top:10px;">
+            <label>CALIBRATION (DEPTH)</label>
+            <div class="row">
+                <input type="number" id="cal-height" value="1.7" step="0.1" style="width:50px; background:#000; color:var(--hud-primary); border:1px solid var(--hud-primary);"> m (Ref Height)
+                <button class="btn col" onclick="OMEGA.calibrateDepth()">SET REF</button>
+            </div>
+            <div class="hud-sub" style="margin-top:5px;">Align target top/bottom to green box then click SET.</div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+            <button class="btn col" onclick="OMEGA.memory.export()">💾 EXPORT LOG</button>
+            <button class="btn col btn-danger" onclick="OMEGA.memory.clear()">🗑 CLEAR MEM</button>
+        </div>
+
+        <button class="btn" style="margin-top:10px;" onclick="OMEGA.ui.toggleControlPanel()">CLOSE MENU</button>
+    </div>
+
+    <div id="boot-screen">
+        <div style="font-size:32px; letter-spacing:8px; font-weight:900; color:var(--hud-primary);">OMEGA</div>
+        <div style="font-size:12px; color:var(--hud-secondary); margin-bottom:30px;">ADVANCED HUMANOID VISION</div>
+        <button id="btn-init" class="btn" style="padding:15px 40px; font-size:14px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);">INITIALIZE SYSTEM</button>
     </div>
 
 <script>
 /**
- * OMEGA: ADVANCED HUMANOID VISION SYSTEM
- * Aerospace-Grade Architecture
- * World-Class Clean Code Standards
- * 
- * Architecture: Modular, Event-Driven, Extensible
+ * OMEGA: ADVANCED HUMANOID VISION SYSTEM v2.0
+ * Architecture: Event-Driven, Component-Based, Fail-Soft
+ * Standards: Aerospace/Robotics Engineering Best Practices
  */
 
 // ============================================================================
-// CONFIGURATION MODULE
+// 1. CONFIGURATION & STATE
 // ============================================================================
-
-/**
- * Global system configuration and constants
- * @namespace
- */
 const CONFIG = {
-    // AI Model Configuration
-    AI: {
-        MODEL_TYPE: 'lite_mobilenet_v2',
-        CONFIDENCE_THRESHOLD: 0.55,
-        MAX_DETECTIONS: 20,
-        INFERENCE_RATE: 10, // FPS for AI processing (not render FPS)
-        SMOOTHING_FACTOR: 0.7
+    PROFILES: {
+        low: { aiFps: 5, maxDetections: 5, resolution: 0.5 },
+        balanced: { aiFps: 15, maxDetections: 10, resolution: 0.75 },
+        high: { aiFps: 30, maxDetections: 20, resolution: 1.0 }
     },
-    
-    // Tracking Configuration
-    TRACKING: {
-        MAX_AGE: 30, // frames before considering an object lost
-        MIN_IOU: 0.3, // minimum IoU for association
-        MAX_DISTANCE: 0.4, // normalized screen distance for association
-        VELOCITY_SMOOTHING: 0.8
-    },
-    
-    // Physics & Sensor Configuration
     PHYSICS: {
-        HORIZONTAL_FOV: 70, // degrees
-        VERTICAL_FOV: 50, // degrees
-        MAX_RANGE: 50, // meters
-        PERSON_HEIGHT: 1.7, // meters (average human height)
-        VEHICLE_HEIGHT: 1.5, // meters (approximate)
-        MOTION_THRESHOLD: 0.01, // normalized speed threshold
-        APPROACH_THRESHOLD: 0.02, // normalized radial speed for approaching
-        RECEDE_THRESHOLD: -0.01 // normalized radial speed for receding
+        FOV_DEFAULT: 60, // Degrees (Horizontal)
+        REF_HEIGHT_PERSON: 1.7, // Meters
+        REF_HEIGHT_CAR: 1.5,
+        MAX_DIST_DISPLAY: 50 // Meters
     },
-    
-    // Radar Configuration
-    RADAR: {
-        RANGE: 50, // meters
-        BLOB_SIZE_MIN: 4,
-        BLOB_SIZE_MAX: 10,
-        SCAN_SPEED: 2 // seconds per rotation
+    TRACKING: {
+        IOU_THRESHOLD: 0.3,
+        MAX_LOST_FRAMES: 30,
+        GATING_DIST: 0.2 // Screen space normalized
     },
-    
-    // Memory Configuration
     MEMORY: {
-        MAX_EVENTS: 1000,
-        PERSIST_INTERVAL: 30000, // ms
-        MAX_HISTORY_MINUTES: 60
-    },
-    
-    // UI Configuration
-    UI: {
-        UPDATE_RATE: 30, // FPS for UI updates
-        STATUS_BLINK_RATE: 1000 // ms
-    },
-    
-    // Colors
-    COLORS: {
-        PRIMARY: '#00ff41',
-        SECONDARY: '#008f11',
-        ALERT: '#ff0000',
-        WARN: '#ffcc00',
-        INFO: '#0080ff',
-        PERSON: '#ff0000',
-        VEHICLE: '#ffcc00',
-        OTHER: '#00ff41'
+        AUTOSAVE_MS: 30000,
+        MAX_LOGS: 1000
     }
 };
 
 // ============================================================================
-// UTILITIES MODULE
+// 2. MATH & PHYSICS UTILITIES (Hard Science)
 // ============================================================================
+const MathUtils = {
+    // Pinhole Camera Model: Z = (f * H_real) / h_pixel
+    estimateDepth: (bboxHeightPx, realHeightM, focalLengthPx) => {
+        if (!focalLengthPx || bboxHeightPx <= 0) return null;
+        return (focalLengthPx * realHeightM) / bboxHeightPx;
+    },
 
-/**
- * Math and utility functions
- * @namespace
- */
-const Utils = {
-    /**
-     * Clamp a value between min and max
-     * @param {number} num - Value to clamp
-     * @param {number} min - Minimum value
-     * @param {number} max - Maximum value
-     * @returns {number} Clamped value
-     */
-    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
-    
-    /**
-     * Map a value from one range to another
-     * @param {number} value - Input value
-     * @param {number} x1 - Input range start
-     * @param {number} y1 - Input range end
-     * @param {number} x2 - Output range start
-     * @param {number} y2 - Output range end
-     * @returns {number} Mapped value
-     */
-    map: (value, x1, y1, x2, y2) => (value - x1) * (y2 - x2) / (y1 - x1) + x2,
-    
-    /**
-     * Calculate Euclidean distance between two points
-     * @param {number} x1 - First point x
-     * @param {number} y1 - First point y
-     * @param {number} x2 - Second point x
-     * @param {number} y2 - Second point y
-     * @returns {number} Distance
-     */
-    distance: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
-    
-    /**
-     * Calculate intersection over union of two rectangles
-     * @param {Object} rect1 - First rectangle {x, y, width, height}
-     * @param {Object} rect2 - Second rectangle {x, y, width, height}
-     * @returns {number} IoU value
-     */
-    iou: (rect1, rect2) => {
-        const x1 = Math.max(rect1.x, rect2.x);
-        const y1 = Math.max(rect1.y, rect2.y);
-        const x2 = Math.min(rect1.x + rect1.width, rect2.x + rect2.width);
-        const y2 = Math.min(rect1.y + rect1.height, rect2.y + rect2.height);
+    // Bearing calculation from center
+    calculateBearing: (x_center_px, img_width_px, fov_deg) => {
+        const x_norm = (x_center_px - (img_width_px / 2)) / (img_width_px / 2);
+        const fov_rad = fov_deg * (Math.PI / 180);
+        // Approximation: angle = x_norm * (fov/2)
+        // Precise: angle = atan(x_px / f)
+        return x_norm * (fov_deg / 2);
+    },
+
+    // 1D Kalman Filter (Lite version for JS)
+    KalmanFilter: class {
+        constructor(R = 1, Q = 1, A = 1, B = 0, C = 1) {
+            this.R = R; // Noise covariance
+            this.Q = Q; // Process covariance
+            this.A = A; // State vector
+            this.B = B; // Control vector
+            this.C = C; // Measurement vector
+            this.cov = NaN;
+            this.x = NaN; // Value
+        }
+        filter(z, u = 0) {
+            if (isNaN(this.x)) {
+                this.x = (1 / this.C) * z;
+                this.cov = (1 / this.C) * this.Q * (1 / this.C);
+            } else {
+                const predX = (this.A * this.x) + (this.B * u);
+                const predCov = ((this.A * this.cov) * this.A) + this.Q;
+                const K = predCov * this.C * (1 / ((this.C * predCov * this.C) + this.R));
+                this.x = predX + K * (z - (this.C * predX));
+                this.cov = predCov - (K * this.C * predCov);
+            }
+            return this.x;
+        }
+    },
+
+    mapVideoToScreen: (box, vidW, vidH, screenW, screenH) => {
+        // Handle object-fit: cover math
+        const screenRatio = screenW / screenH;
+        const vidRatio = vidW / vidH;
         
-        const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-        const area1 = rect1.width * rect1.height;
-        const area2 = rect2.width * rect2.height;
-        const union = area1 + area2 - intersection;
+        let renderW, renderH, offsetX, offsetY;
         
-        return union > 0 ? intersection / union : 0;
-    },
-    
-    /**
-     * Exponential moving average filter
-     * @param {number} current - Current value
-     * @param {number} previous - Previous value
-     * @param {number} factor - Smoothing factor (0-1)
-     * @returns {number} Smoothed value
-     */
-    ema: (current, previous, factor) => {
-        return previous * factor + current * (1 - factor);
-    },
-    
-    /**
-     * Convert degrees to radians
-     * @param {number} degrees - Angle in degrees
-     * @returns {number} Angle in radians
-     */
-    toRadians: (degrees) => degrees * Math.PI / 180,
-    
-    /**
-     * Convert radians to degrees
-     * @param {number} radians - Angle in radians
-     * @returns {number} Angle in degrees
-     */
-    toDegrees: (radians) => radians * 180 / Math.PI,
-    
-    /**
-     * Generate a unique ID
-     * @returns {string} Unique ID
-     */
-    generateId: () => {
-        return 'id_' + Math.random().toString(36).substr(2, 9);
-    },
-    
-    /**
-     * Format a number with fixed decimal places
-     * @param {number} value - Number to format
-     * @param {number} decimals - Decimal places
-     * @returns {string} Formatted number
-     */
-    formatNumber: (value, decimals = 1) => {
-        return value.toFixed(decimals);
+        if (screenRatio > vidRatio) {
+            // Screen is wider: Video cropped top/bottom
+            renderW = screenW;
+            renderH = screenW / vidRatio;
+            offsetX = 0;
+            offsetY = (screenH - renderH) / 2;
+        } else {
+            // Screen is taller: Video cropped left/right
+            renderH = screenH;
+            renderW = screenH * vidRatio;
+            offsetX = (screenW - renderW) / 2;
+            offsetY = 0;
+        }
+
+        // Scale factors
+        const scaleX = renderW / vidW;
+        const scaleY = renderH / vidH;
+
+        return {
+            x: box.x * scaleX + offsetX,
+            y: box.y * scaleY + offsetY,
+            w: box.w * scaleX,
+            h: box.h * scaleY
+        };
     }
 };
 
 // ============================================================================
-// SENSORS / AVIONICS MODULE
+// 3. CORE MODULES
 // ============================================================================
 
 /**
- * Handles device sensors (gyroscope, accelerometer)
- * @class
+ * AVIONICS: Handles Gyroscope/Accelerometer
+ * Compliant with W3C DeviceOrientation & DeviceMotion
  */
 class Avionics {
     constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.heading = 0;
-        this.gForce = 1.0;
-        this.acceleration = { x: 0, y: 0, z: 0 };
-        this.rotationRate = { alpha: 0, beta: 0, gamma: 0 };
-        this.isAvailable = false;
-        this.isInitialized = false;
-        
-        // Smoothing factors
-        this.smoothing = {
-            orientation: 0.8,
-            acceleration: 0.7
-        };
+        this.data = { pitch: 0, roll: 0, heading: 0, g: 1.0 };
+        this.available = false;
+        this.callbacks = [];
     }
 
-    /**
-     * Initialize sensor systems
-     * @returns {Promise<void>}
-     */
     async init() {
-        try {
-            // Check for sensor availability
-            if (!window.DeviceOrientationEvent && !window.DeviceMotionEvent) {
-                throw new Error("Sensors not available");
-            }
-            
-            // Request permission on iOS
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const state = await DeviceOrientationEvent.requestPermission();
-                if (state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
-            }
-            
-            // Set up orientation event listener
-            window.addEventListener('deviceorientation', (e) => {
-                this._handleOrientation(e);
-            });
-            
-            // Set up motion event listener
-            window.addEventListener('devicemotion', (e) => {
-                this._handleMotion(e);
-            });
-            
-            this.isAvailable = true;
-            this.isInitialized = true;
-            
-            console.log("Avionics initialized successfully");
-            return true;
-            
-        } catch (error) {
-            console.warn("Avionics initialization failed:", error);
-            this.isAvailable = false;
-            return false;
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try {
+                const response = await DeviceOrientationEvent.requestPermission();
+                if (response === 'granted') this._bindEvents();
+                else console.warn('Gyro permission denied');
+            } catch (e) { console.error(e); }
+        } else {
+            this._bindEvents();
         }
     }
 
-    /**
-     * Handle device orientation data
-     * @param {DeviceOrientationEvent} e - Orientation event
-     * @private
-     */
-    _handleOrientation(e) {
-        // Apply smoothing to orientation data
-        this.roll = Utils.ema(e.gamma || 0, this.roll, this.smoothing.orientation);
-        this.pitch = Utils.ema(e.beta || 0, this.pitch, this.smoothing.orientation);
-        this.heading = Utils.ema(e.alpha || 0, this.heading, this.smoothing.orientation);
-        
-        // Update rotation rate
-        this.rotationRate = {
-            alpha: e.rotationRate.alpha || 0,
-            beta: e.rotationRate.beta || 0,
-            gamma: e.rotationRate.gamma || 0
-        };
-    }
+    _bindEvents() {
+        window.addEventListener('deviceorientation', (e) => {
+            this.available = true;
+            this.data.pitch = e.beta || 0;
+            this.data.roll = e.gamma || 0;
+            this.data.heading = e.alpha || 0;
+            // Webkit compass heading correction
+            if (e.webkitCompassHeading) this.data.heading = e.webkitCompassHeading;
+        });
 
-    /**
-     * Handle device motion data
-     * @param {DeviceMotionEvent} e - Motion event
-     * @private
-     */
-    _handleMotion(e) {
-        const acc = e.accelerationIncludingGravity;
-        if (acc) {
-            // Apply smoothing to acceleration data
-            this.acceleration.x = Utils.ema(acc.x || 0, this.acceleration.x, this.smoothing.acceleration);
-            this.acceleration.y = Utils.ema(acc.y || 0, this.acceleration.y, this.smoothing.acceleration);
-            this.acceleration.z = Utils.ema(acc.z || 0, this.acceleration.z, this.smoothing.acceleration);
-            
-            // Calculate G-force magnitude
-            const {x, y, z} = this.acceleration;
-            this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
-        }
-    }
-
-    /**
-     * Get current orientation data
-     * @returns {Object} Orientation data
-     */
-    getOrientation() {
-        return {
-            pitch: this.pitch,
-            roll: this.roll,
-            heading: this.heading
-        };
-    }
-
-    /**
-     * Get current motion data
-     * @returns {Object} Motion data
-     */
-    getMotion() {
-        return {
-            acceleration: { ...this.acceleration },
-            gForce: this.gForce,
-            rotationRate: { ...this.rotationRate }
-        };
+        window.addEventListener('devicemotion', (e) => {
+            const acc = e.accelerationIncludingGravity;
+            if (acc) this.data.g = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2) / 9.81;
+        });
     }
 }
 
-// ============================================================================
-// VISION ENGINE MODULE
-// ============================================================================
-
 /**
- * Handles AI model loading and inference
- * @class
+ * VISION ENGINE: Manages TF.js model and inference loop
  */
 class VisionEngine {
     constructor() {
         this.model = null;
-        this.isProcessing = false;
-        this.lastInferenceTime = 0;
-        this.inferenceCount = 0;
-        this.averageInferenceTime = 0;
-        this.isModelLoaded = false;
-        this.lastDetectionTime = 0;
+        this.video = document.getElementById('camera-feed');
+        this.isReady = false;
+        this.currentProfile = CONFIG.PROFILES.balanced;
+        this.lastTime = 0;
+        this.metrics = { fps: 0, ms: 0 };
     }
 
-    /**
-     * Initialize the vision engine and load AI model
-     * @returns {Promise<void>}
-     */
     async init() {
         try {
-            await tf.ready();
-            this.model = await cocoSsd.load({ 
-                base: CONFIG.AI.MODEL_TYPE 
-            });
-            this.isModelLoaded = true;
-            console.log("Vision engine initialized with model:", CONFIG.AI.MODEL_TYPE);
-            return true;
-        } catch (error) {
-            console.error("Vision engine initialization failed:", error);
-            this.isModelLoaded = false;
-            return false;
+            await tf.setBackend('webgl'); // Force GPU
+        } catch (e) {
+            console.warn('WebGL failed, fallback to cpu');
+            await tf.setBackend('cpu');
         }
+        
+        console.log(`Backend: ${tf.getBackend()}`);
+        this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        
+        // Warmup (FIXED: Use 3D tensor to let model add batch dim automatically)
+        const dummy = tf.zeros([224, 224, 3]);
+        await this.model.detect(dummy);
+        dummy.dispose();
+        
+        this.isReady = true;
+        return true;
     }
 
-    /**
-     * Run object detection on video frame
-     * @param {HTMLVideoElement} videoElement - Video element to analyze
-     * @returns {Promise<Array>} Detection results
-     */
-    async detect(videoElement) {
-        if (!this.model || !this.isModelLoaded || this.isProcessing || videoElement.readyState !== 4) {
-            return [];
-        }
-        
-        this.isProcessing = true;
-        const startTime = performance.now();
-        
+    async startCamera() {
         try {
-            const results = await this.model.detect(
-                videoElement, 
-                CONFIG.AI.MAX_DETECTIONS, 
-                CONFIG.AI.CONFIDENCE_THRESHOLD
-            );
-            
-            this.lastInferenceTime = performance.now() - startTime;
-            this.lastDetectionTime = Date.now();
-            
-            // Update average inference time
-            this.inferenceCount++;
-            this.averageInferenceTime = Utils.ema(
-                this.lastInferenceTime, 
-                this.averageInferenceTime, 
-                0.95
-            );
-            
-            return results;
-        } catch (error) {
-            console.error("Detection error:", error);
-            return [];
-        } finally {
-            this.isProcessing = false;
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: 1280, height: 720 },
+                audio: false
+            });
+            this.video.srcObject = stream;
+            return new Promise(resolve => this.video.onloadedmetadata = resolve);
+        } catch (e) {
+            throw new Error("CAMERA_ACCESS_DENIED");
         }
     }
 
-    /**
-     * Get engine status and metrics
-     * @returns {Object} Status information
-     */
-    getStatus() {
-        return {
-            isModelLoaded: this.isModelLoaded,
-            isProcessing: this.isProcessing,
-            lastInferenceTime: this.lastInferenceTime,
-            averageInferenceTime: this.averageInferenceTime,
-            inferenceCount: this.inferenceCount
-        };
+    setProfile(profileName) {
+        if (CONFIG.PROFILES[profileName]) {
+            this.currentProfile = CONFIG.PROFILES[profileName];
+            return true;
+        }
+        return false;
     }
 }
 
-// ============================================================================
-// OBJECT TRACKER MODULE
-// ============================================================================
-
 /**
- * Tracks objects across frames with stable IDs
- * @class
+ * TRACKER: Object association and state management
  */
-class ObjectTracker {
+class Tracker {
     constructor() {
-        this.trackedObjects = new Map();
+        this.tracks = []; // Array of active tracks
         this.nextId = 1;
-        this.frameCount = 0;
+        this.depthFilter = new Map(); // Store Kalman filters per ID
     }
 
-    /**
-     * Update tracker with new detections
-     * @param {Array} detections - New detections from vision engine
-     * @param {number} timestamp - Current timestamp
-     * @returns {Array} Updated tracked objects
-     */
     update(detections, timestamp) {
-        this.frameCount++;
+        // Simple Greedy Association based on IoU
+        const activeTracks = this.tracks.filter(t => t.state !== 'removed');
         
-        // Convert detections to tracker format
-        const currentDetections = detections.map(det => ({
-            bbox: {
-                x: det.bbox[0],
-                y: det.bbox[1],
-                width: det.bbox[2],
-                height: det.bbox[3]
-            },
-            label: det.class,
-            confidence: det.score,
-            timestamp: timestamp
-        }));
-        
-        // Update existing tracks and create new ones
-        this._updateTracks(currentDetections, timestamp);
-        
-        // Remove old tracks
-        this._removeExpiredTracks(timestamp);
-        
-        return Array.from(this.trackedObjects.values());
-    }
+        // Predict next position (Simple linear motion)
+        activeTracks.forEach(t => {
+            t.age++;
+            t.framesLost++;
+            if (t.framesLost > CONFIG.TRACKING.MAX_LOST_FRAMES) t.state = 'removed';
+        });
 
-    /**
-     * Update existing tracks with new detections
-     * @param {Array} detections - Current frame detections
-     * @param {number} timestamp - Current timestamp
-     * @private
-     */
-    _updateTracks(detections, timestamp) {
-        const usedDetections = new Set();
-        
-        // First pass: update existing tracks
-        for (const [id, track] of this.trackedObjects.entries()) {
-            if (track.status === 'lost') continue;
-            
+        detections.forEach(det => {
+            // Find best match
             let bestMatch = null;
-            let bestScore = 0;
-            
-            // Find best matching detection
-            for (let i = 0; i < detections.length; i++) {
-                if (usedDetections.has(i)) continue;
-                
-                const detection = detections[i];
-                const iou = Utils.iou(track.bbox, detection.bbox);
-                const centerDist = Utils.distance(
-                    track.bbox.x + track.bbox.width / 2,
-                    track.bbox.y + track.bbox.height / 2,
-                    detection.bbox.x + detection.bbox.width / 2,
-                    detection.bbox.y + detection.bbox.height / 2
-                ) / Math.sqrt(window.innerWidth * window.innerHeight);
-                
-                // Combined score (IoU and distance)
-                const score = iou * 0.7 + (1 - centerDist) * 0.3;
-                
-                if (score > bestScore && score > CONFIG.TRACKING.MIN_IOU) {
-                    bestScore = score;
-                    bestMatch = { index: i, detection };
+            let maxIoU = 0;
+
+            activeTracks.forEach(track => {
+                if (track.state === 'removed') return;
+                const iou = this._calculateIoU(track.box, det.box);
+                // Gate: Check label and IoU
+                if (iou > CONFIG.TRACKING.IOU_THRESHOLD && iou > maxIoU && track.label === det.class) {
+                    maxIoU = iou;
+                    bestMatch = track;
                 }
-            }
-            
+            });
+
             if (bestMatch) {
-                // Update track with matched detection
-                this._updateTrack(track, bestMatch.detection, timestamp);
-                usedDetections.add(bestMatch.index);
+                // Update Track
+                bestMatch.box = det.box; // [x, y, w, h]
+                bestMatch.score = det.score;
+                bestMatch.framesLost = 0;
+                bestMatch.state = 'active';
+                bestMatch.lastSeen = timestamp;
             } else {
-                // Mark track as lost
-                track.status = 'lost';
-                track.lastSeen = timestamp;
-            }
-        }
-        
-        // Second pass: create new tracks for unmatched detections
-        for (let i = 0; i < detections.length; i++) {
-            if (!usedDetections.has(i)) {
-                this._createTrack(detections[i], timestamp);
-            }
-        }
-    }
-
-    /**
-     * Update a single track with new detection
-     * @param {Object} track - Track to update
-     * @param {Object} detection - New detection data
-     * @param {number} timestamp - Current timestamp
-     * @private
-     */
-    _updateTrack(track, detection, timestamp) {
-        const dt = (timestamp - track.lastSeen) / 1000; // seconds
-        
-        // Smooth bounding box
-        track.rawBbox = { ...detection.bbox };
-        track.bbox.x = Utils.ema(detection.bbox.x, track.bbox.x, CONFIG.AI.SMOOTHING_FACTOR);
-        track.bbox.y = Utils.ema(detection.bbox.y, track.bbox.y, CONFIG.AI.SMOOTHING_FACTOR);
-        track.bbox.width = Utils.ema(detection.bbox.width, track.bbox.width, CONFIG.AI.SMOOTHING_FACTOR);
-        track.bbox.height = Utils.ema(detection.bbox.height, track.bbox.height, CONFIG.AI.SMOOTHING_FACTOR);
-        
-        // Update track properties
-        track.label = detection.label;
-        track.confidence = detection.confidence;
-        track.lastSeen = timestamp;
-        track.status = track.status === 'new' ? 'active' : track.status;
-        
-        // Calculate velocity if we have previous position
-        if (track.lastPosition && dt > 0) {
-            const dx = (track.bbox.x - track.lastPosition.x) / dt;
-            const dy = (track.bbox.y - track.lastPosition.y) / dt;
-            
-            track.velocity = {
-                vx: Utils.ema(dx, track.velocity?.vx || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING),
-                vy: Utils.ema(dy, track.velocity?.vy || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING)
-            };
-        }
-        
-        track.lastPosition = { x: track.bbox.x, y: track.bbox.y };
-    }
-
-    /**
-     * Create a new track from detection
-     * @param {Object} detection - Detection data
-     * @param {number} timestamp - Current timestamp
-     * @private
-     */
-    _createTrack(detection, timestamp) {
-        const id = this.nextId++;
-        
-        this.trackedObjects.set(id, {
-            id,
-            label: detection.label,
-            confidence: detection.confidence,
-            bbox: { ...detection.bbox },
-            rawBbox: { ...detection.bbox },
-            firstSeen: timestamp,
-            lastSeen: timestamp,
-            status: 'new',
-            velocity: { vx: 0, vy: 0 },
-            lastPosition: { 
-                x: detection.bbox.x, 
-                y: detection.bbox.y 
+                // New Track
+                this.tracks.push({
+                    id: this.nextId++,
+                    label: det.class,
+                    box: det.box,
+                    score: det.score,
+                    state: 'new',
+                    firstSeen: timestamp,
+                    lastSeen: timestamp,
+                    framesLost: 0,
+                    age: 0
+                });
             }
         });
+
+        // Filter dead tracks
+        this.tracks = this.tracks.filter(t => t.state !== 'removed');
+        return this.tracks;
     }
 
-    /**
-     * Remove tracks that have been lost for too long
-     * @param {number} timestamp - Current timestamp
-     * @private
-     */
-    _removeExpiredTracks(timestamp) {
-        for (const [id, track] of this.trackedObjects.entries()) {
-            if (track.status === 'lost' && 
-                timestamp - track.lastSeen > CONFIG.TRACKING.MAX_AGE * (1000 / CONFIG.AI.INFERENCE_RATE)) {
-                this.trackedObjects.delete(id);
-            }
-        }
-    }
-
-    /**
-     * Get all active tracked objects
-     * @returns {Array} Active tracked objects
-     */
-    getActiveTracks() {
-        return Array.from(this.trackedObjects.values()).filter(track => 
-            track.status !== 'lost'
-        );
-    }
-
-    /**
-     * Get tracker status
-     * @returns {Object} Tracker status information
-     */
-    getStatus() {
-        const active = this.getActiveTracks();
-        return {
-            totalTracks: this.trackedObjects.size,
-            activeTracks: active.length,
-            newTracks: active.filter(t => t.status === 'new').length,
-            frameCount: this.frameCount
-        };
+    _calculateIoU(boxA, boxB) {
+        const xA = Math.max(boxA[0], boxB[0]);
+        const yA = Math.max(boxA[1], boxB[1]);
+        const xB = Math.min(boxA[0] + boxA[2], boxB[0] + boxB[2]);
+        const yB = Math.min(boxA[1] + boxA[3], boxB[1] + boxB[3]);
+        const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+        const boxAArea = boxA[2] * boxA[3];
+        const boxBArea = boxB[2] * boxB[3];
+        return interArea / (boxAArea + boxBArea - interArea);
     }
 }
 
-// ============================================================================
-// PHYSICS / ANALYSIS MODULE
-// ============================================================================
-
 /**
- * Performs physics-based analysis on tracked objects
- * @class
- */
-class PhysicsEngine {
-    constructor() {
-        this.screenWidth = window.innerWidth;
-        this.screenHeight = window.innerHeight;
-        
-        // Update on resize
-        window.addEventListener('resize', () => {
-            this.screenWidth = window.innerWidth;
-            this.screenHeight = window.innerHeight;
-        });
-    }
-
-    /**
-     * Analyze tracked objects and compute physics properties
-     * @param {Array} tracks - Tracked objects
-     * @returns {Array} Enhanced tracks with physics data
-     */
-    analyze(tracks) {
-        return tracks.map(track => {
-            const enhanced = { ...track };
-            
-            // Compute screen position (normalized -1 to 1)
-            const centerX = track.bbox.x + track.bbox.width / 2;
-            const centerY = track.bbox.y + track.bbox.height / 2;
-            
-            enhanced.screenPosition = {
-                xNorm: Utils.map(centerX, 0, this.screenWidth, -1, 1),
-                yNorm: Utils.map(centerY, 0, this.screenHeight, -1, 1)
-            };
-            
-            // Compute bearing angle (degrees from center)
-            enhanced.bearingDeg = this._computeBearing(enhanced.screenPosition.xNorm);
-            
-            // Compute depth estimate
-            enhanced.depthEstimate = this._computeDepth(track);
-            
-            // Compute radial speed and motion state
-            enhanced.radialSpeed = this._computeRadialSpeed(track);
-            enhanced.motionState = this._classifyMotion(enhanced.radialSpeed);
-            
-            return enhanced;
-        });
-    }
-
-    /**
-     * Compute horizontal bearing angle from normalized screen position
-     * @param {number} xNorm - Normalized x position (-1 to 1)
-     * @returns {number} Bearing in degrees
-     * @private
-     */
-    _computeBearing(xNorm) {
-        return xNorm * (CONFIG.PHYSICS.HORIZONTAL_FOV / 2);
-    }
-
-    /**
-     * Compute depth estimate from bounding box size
-     * @param {Object} track - Tracked object
-     * @returns {number} Normalized depth estimate (0-1)
-     * @private
-     */
-    _computeDepth(track) {
-        // Use bounding box height as primary depth indicator
-        const bboxHeight = track.bbox.height / this.screenHeight;
-        
-        // Object type specific scaling
-        let objectHeight;
-        switch (track.label) {
-            case 'person':
-                objectHeight = CONFIG.PHYSICS.PERSON_HEIGHT;
-                break;
-            case 'car':
-            case 'truck':
-            case 'bus':
-                objectHeight = CONFIG.PHYSICS.VEHICLE_HEIGHT;
-                break;
-            default:
-                objectHeight = 1.0; // Default assumption
-        }
-        
-        // Simplified depth calculation based on apparent size
-        // Larger objects appear closer, smaller objects appear farther
-        const apparentSize = bboxHeight;
-        const depth = 1 - Math.min(apparentSize * 2, 1); // Normalized 0-1
-        
-        return Utils.clamp(depth, 0, 1);
-    }
-
-    /**
-     * Compute radial speed (approaching/receding)
-     * @param {Object} track - Tracked object
-     * @returns {number} Radial speed (normalized)
-     * @private
-     */
-    _computeRadialSpeed(track) {
-        // Simplified approach: use change in bounding box size as proxy for radial motion
-        if (!track.velocity || track.status === 'new') return 0;
-        
-        // Use vertical velocity as rough indicator (objects moving up in frame are likely receding)
-        // This is a simplification - real radial speed would require more sophisticated analysis
-        const verticalSpeed = track.velocity.vy / this.screenHeight;
-        
-        return verticalSpeed;
-    }
-
-    /**
-     * Classify motion state based on radial speed
-     * @param {number} radialSpeed - Radial speed value
-     * @returns {string} Motion state classification
-     * @private
-     */
-    _classifyMotion(radialSpeed) {
-        if (radialSpeed > CONFIG.PHYSICS.APPROACH_THRESHOLD) {
-            return 'approaching';
-        } else if (radialSpeed < CONFIG.PHYSICS.RECEDE_THRESHOLD) {
-            return 'receding';
-        } else if (Math.abs(radialSpeed) < CONFIG.PHYSICS.MOTION_THRESHOLD) {
-            return 'static';
-        } else {
-            return 'moving';
-        }
-    }
-}
-
-// ============================================================================
-// RADAR SYSTEM MODULE
-// ============================================================================
-
-/**
- * Renders radar display with object blips
- * @class
- */
-class RadarSystem {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.width = 140;
-        this.height = 140;
-        this.centerX = this.width / 2;
-        this.centerY = this.height / 2;
-        this.maxRadius = this.width / 2 - 5; // Padding from edge
-    }
-
-    /**
-     * Update radar with tracked objects
-     * @param {Array} tracks - Tracked objects with physics data
-     */
-    update(tracks) {
-        // Clear previous blips
-        this.container.innerHTML = '';
-        
-        tracks.forEach(track => {
-            const blip = this._createBlip(track);
-            if (blip) {
-                this.container.appendChild(blip);
-            }
-        });
-    }
-
-    /**
-     * Create a radar blip for a tracked object
-     * @param {Object} track - Tracked object
-     * @returns {HTMLElement|null} Radar blip element
-     * @private
-     */
-    _createBlip(track) {
-        if (!track.bearingDeg || track.depthEstimate === undefined) {
-            return null;
-        }
-        
-        // Convert bearing to radar angle (radians)
-        const angle = Utils.toRadians(track.bearingDeg);
-        
-        // Convert depth to radar radius (closer objects have smaller radius)
-        const radius = track.depthEstimate * this.maxRadius;
-        
-        // Convert polar to Cartesian coordinates
-        const x = this.centerX + radius * Math.sin(angle);
-        const y = this.centerY - radius * Math.cos(angle); // Negative because CSS Y increases downward
-        
-        // Create blip element
-        const blip = document.createElement('div');
-        blip.className = 'radar-blip';
-        
-        // Set position
-        blip.style.left = `${x}px`;
-        blip.style.top = `${y}px`;
-        
-        // Set size based on object type and motion
-        const baseSize = this._getBaseBlipSize(track.label);
-        const motionSize = this._getMotionSizeModifier(track.motionState);
-        const size = baseSize + motionSize;
-        
-        blip.style.width = `${size}px`;
-        blip.style.height = `${size}px`;
-        
-        // Set color based on object type
-        blip.style.backgroundColor = this._getBlipColor(track.label);
-        
-        // Add pulsing animation for approaching objects
-        if (track.motionState === 'approaching') {
-            blip.style.animation = 'pulse 1s infinite';
-        }
-        
-        return blip;
-    }
-
-    /**
-     * Get base blip size based on object type
-     * @param {string} label - Object label
-     * @returns {number} Base blip size
-     * @private
-     */
-    _getBaseBlipSize(label) {
-        switch (label) {
-            case 'person':
-                return CONFIG.RADAR.BLOB_SIZE_MIN;
-            case 'car':
-            case 'truck':
-            case 'bus':
-                return CONFIG.RADAR.BLOB_SIZE_MAX;
-            default:
-                return (CONFIG.RADAR.BLOB_SIZE_MIN + CONFIG.RADAR.BLOB_SIZE_MAX) / 2;
-        }
-    }
-
-    /**
-     * Get size modifier based on motion state
-     * @param {string} motionState - Motion state
-     * @returns {number} Size modifier
-     * @private
-     */
-    _getMotionSizeModifier(motionState) {
-        switch (motionState) {
-            case 'approaching':
-                return 2;
-            case 'receding':
-                return -1;
-            default:
-                return 0;
-        }
-    }
-
-    /**
-     * Get blip color based on object type
-     * @param {string} label - Object label
-     * @returns {string} CSS color value
-     * @private
-     */
-    _getBlipColor(label) {
-        switch (label) {
-            case 'person':
-                return CONFIG.COLORS.PERSON;
-            case 'car':
-            case 'truck':
-            case 'bus':
-            case 'motorcycle':
-            case 'bicycle':
-                return CONFIG.COLORS.VEHICLE;
-            default:
-                return CONFIG.COLORS.OTHER;
-        }
-    }
-}
-
-// ============================================================================
-// MEMORY / KNOWLEDGE BASE MODULE
-// ============================================================================
-
-/**
- * Stores and analyzes historical object data
- * @class
+ * MEMORY: LocalStorage persistence
  */
 class KnowledgeBase {
     constructor() {
-        this.events = [];
-        this.objectHistory = new Map();
-        this.startTime = Date.now();
-        this.stats = {
-            totalDetections: 0,
-            personDetections: 0,
-            vehicleDetections: 0,
-            uniqueObjects: 0
-        };
+        this.key = 'OMEGA_LOGS';
+        this.logs = [];
+        this.load();
     }
 
-    /**
-     * Record an event in memory
-     * @param {string} type - Event type
-     * @param {Object} data - Event data
-     * @param {number} timestamp - Event timestamp
-     */
-    recordEvent(type, data, timestamp = Date.now()) {
-        const event = {
-            type,
-            data,
-            timestamp,
-            id: Utils.generateId()
-        };
-        
-        this.events.push(event);
-        
-        // Maintain event limit
-        if (this.events.length > CONFIG.MEMORY.MAX_EVENTS) {
-            this.events.shift();
-        }
-        
-        // Update statistics
-        this._updateStats(event);
-        
-        // Update object history
-        if (data.objectId) {
-            this._updateObjectHistory(data.objectId, event);
-        }
+    log(type, details) {
+        const entry = { ts: Date.now(), type, details };
+        this.logs.push(entry);
+        if (this.logs.length > CONFIG.MEMORY.MAX_LOGS) this.logs.shift();
     }
 
-    /**
-     * Update statistics based on event
-     * @param {Object} event - Recorded event
-     * @private
-     */
-    _updateStats(event) {
-        this.stats.totalDetections++;
-        
-        if (event.type === 'object_detected' || event.type === 'object_updated') {
-            const label = event.data.label;
-            
-            if (label === 'person') {
-                this.stats.personDetections++;
-            } else if (['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(label)) {
-                this.stats.vehicleDetections++;
-            }
-        }
-        
-        if (event.type === 'object_detected') {
-            this.stats.uniqueObjects++;
-        }
-    }
-
-    /**
-     * Update history for a specific object
-     * @param {string} objectId - Object identifier
-     * @param {Object} event - Related event
-     * @private
-     */
-    _updateObjectHistory(objectId, event) {
-        if (!this.objectHistory.has(objectId)) {
-            this.objectHistory.set(objectId, []);
-        }
-        
-        const history = this.objectHistory.get(objectId);
-        history.push(event);
-        
-        // Limit history per object
-        if (history.length > 50) {
-            history.shift();
-        }
-    }
-
-    /**
-     * Get active object count
-     * @returns {number} Active object count
-     */
-    getActiveObjectCount() {
-        const recentTime = Date.now() - (5000); // 5 seconds
-        const activeObjects = new Set();
-        
-        for (const event of this.events.slice().reverse()) {
-            if (event.timestamp < recentTime) break;
-            
-            if (event.type === 'object_detected' || event.type === 'object_updated') {
-                activeObjects.add(event.data.objectId);
-            }
-        }
-        
-        return activeObjects.size;
-    }
-
-    /**
-     * Get person detections in last N minutes
-     * @param {number} minutes - Time window in minutes
-     * @returns {number} Person detection count
-     */
-    getPersonDetectionsInLast(minutes) {
-        const cutoff = Date.now() - (minutes * 60 * 1000);
-        return this.events.filter(event => 
-            event.timestamp >= cutoff && 
-            event.data.label === 'person' &&
-            (event.type === 'object_detected' || event.type === 'object_updated')
-        ).length;
-    }
-
-    /**
-     * Get closest person information
-     * @returns {Object|null} Closest person data
-     */
-    getClosestPerson() {
-        const personEvents = this.events.filter(event => 
-            event.data.label === 'person' &&
-            event.type === 'object_updated' &&
-            event.data.depthEstimate !== undefined
-        );
-        
-        if (personEvents.length === 0) return null;
-        
-        // Find event with minimum depth (closest person)
-        const closest = personEvents.reduce((prev, current) => 
-            (prev.data.depthEstimate < current.data.depthEstimate) ? prev : current
-        );
-        
-        return {
-            distance: closest.data.depthEstimate * CONFIG.PHYSICS.MAX_RANGE,
-            bearing: closest.data.bearingDeg,
-            timestamp: closest.timestamp
-        };
-    }
-
-    /**
-     * Get most common label in last N minutes
-     * @param {number} minutes - Time window in minutes
-     * @returns {string} Most common label
-     */
-    getMostCommonLabelInLast(minutes) {
-        const cutoff = Date.now() - (minutes * 60 * 1000);
-        const recentEvents = this.events.filter(event => 
-            event.timestamp >= cutoff && 
-            (event.type === 'object_detected' || event.type === 'object_updated')
-        );
-        
-        const labelCounts = {};
-        recentEvents.forEach(event => {
-            const label = event.data.label;
-            labelCounts[label] = (labelCounts[label] || 0) + 1;
-        });
-        
-        let maxCount = 0;
-        let mostCommon = 'none';
-        
-        for (const [label, count] of Object.entries(labelCounts)) {
-            if (count > maxCount) {
-                maxCount = count;
-                mostCommon = label;
-            }
-        }
-        
-        return mostCommon;
-    }
-
-    /**
-     * Get knowledge base status
-     * @returns {Object} Status information
-     */
-    getStatus() {
-        return {
-            totalEvents: this.events.length,
-            uniqueObjects: this.objectHistory.size,
-            ...this.stats
-        };
-    }
-}
-
-// ============================================================================
-// HUD RENDERER MODULE
-// ============================================================================
-
-/**
- * Renders the Heads-Up Display overlay
- * @class
- */
-class HUDRenderer {
-    constructor() {
-        this.canvas = document.getElementById('hud-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        
-        window.addEventListener('resize', () => this.resize());
-    }
-
-    /**
-     * Resize canvas to match window size
-     */
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    /**
-     * Clear the canvas
-     */
-    clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    /**
-     * Draw artificial horizon
-     * @param {number} pitch - Pitch angle in degrees
-     * @param {number} roll - Roll angle in degrees
-     */
-    drawHorizon(pitch, roll) {
-        const { width, height } = this.canvas;
-        const ctx = this.ctx;
-        
-        ctx.save();
-        ctx.translate(width / 2, height / 2);
-        ctx.rotate(Utils.toRadians(roll));
-        
-        // Sky and ground areas
-        const horizonY = pitch * 2; // Sensitivity factor
-        
-        // Ground (brown)
-        ctx.fillStyle = 'rgba(139, 69, 19, 0.3)';
-        ctx.fillRect(-width, horizonY, width * 2, height);
-        
-        // Sky (blue)
-        ctx.fillStyle = 'rgba(0, 100, 200, 0.3)';
-        ctx.fillRect(-width, -height, width * 2, height + horizonY);
-        
-        // Horizon line
-        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-width, horizonY);
-        ctx.lineTo(width, horizonY);
-        ctx.stroke();
-        
-        // Pitch ladder
-        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
-        ctx.lineWidth = 1;
-        ctx.fillStyle = CONFIG.COLORS.PRIMARY;
-        ctx.font = '12px monospace';
-        ctx.textAlign = 'center';
-        
-        for (let i = -4; i <= 4; i++) {
-            if (i === 0) continue;
-            
-            const y = horizonY + i * 30; // 30 pixels per 10 degrees
-            const isMajor = i % 2 === 0;
-            const length = isMajor ? 60 : 40;
-            const value = i * 10;
-            
-            ctx.beginPath();
-            ctx.moveTo(-length / 2, y);
-            ctx.lineTo(length / 2, y);
-            ctx.stroke();
-            
-            if (isMajor) {
-                ctx.fillText(`${Math.abs(value)}°`, length / 2 + 20, y + 4);
-            }
-        }
-        
-        ctx.restore();
-        
-        // Aircraft reference (fixed center)
-        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(width / 2 - 20, height / 2);
-        ctx.lineTo(width / 2 + 20, height / 2);
-        ctx.moveTo(width / 2, height / 2 - 10);
-        ctx.lineTo(width / 2, height / 2 + 10);
-        ctx.stroke();
-    }
-
-    /**
-     * Draw crosshair with target information
-     */
-    drawCrosshair() {
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
-        const ctx = this.ctx;
-
-        // Outer circle
-        ctx.strokeStyle = CONFIG.COLORS.PRIMARY;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 25, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Crosshair lines
-        ctx.beginPath();
-        ctx.moveTo(cx - 15, cy);
-        ctx.lineTo(cx - 40, cy);
-        ctx.moveTo(cx + 15, cy);
-        ctx.lineTo(cx + 40, cy);
-        ctx.moveTo(cx, cy - 15);
-        ctx.lineTo(cx, cy - 40);
-        ctx.moveTo(cx, cy + 15);
-        ctx.lineTo(cx, cy + 40);
-        ctx.stroke();
-        
-        // Center dot
-        ctx.fillStyle = CONFIG.COLORS.ALERT;
-        ctx.fillRect(cx - 2, cy - 2, 4, 4);
-    }
-
-    /**
-     * Draw target boxes for tracked objects
-     * @param {Array} tracks - Tracked objects
-     */
-    drawTargetBoxes(tracks) {
-        tracks.forEach(track => {
-            this._drawTargetBox(track);
-        });
-    }
-
-    /**
-     * Draw a single target box
-     * @param {Object} track - Tracked object
-     * @private
-     */
-    _drawTargetBox(track) {
-        const { x, y, width, height } = track.bbox;
-        const ctx = this.ctx;
-        
-        // Determine color based on object type
-        let color;
-        switch (track.label) {
-            case 'person':
-                color = CONFIG.COLORS.PERSON;
-                break;
-            case 'car':
-            case 'truck':
-            case 'bus':
-                color = CONFIG.COLORS.VEHICLE;
-                break;
-            default:
-                color = CONFIG.COLORS.OTHER;
-        }
-        
-        // Draw corner brackets (tactical style)
-        const bracketSize = Math.min(width, height) * 0.15;
-        
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = color;
-        
-        // Top left
-        ctx.beginPath();
-        ctx.moveTo(x, y + bracketSize);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + bracketSize, y);
-        
-        // Top right
-        ctx.moveTo(x + width - bracketSize, y);
-        ctx.lineTo(x + width, y);
-        ctx.lineTo(x + width, y + bracketSize);
-        
-        // Bottom right
-        ctx.moveTo(x + width, y + height - bracketSize);
-        ctx.lineTo(x + width, y + height);
-        ctx.lineTo(x + width - bracketSize, y + height);
-        
-        // Bottom left
-        ctx.moveTo(x + bracketSize, y + height);
-        ctx.lineTo(x, y + height);
-        ctx.lineTo(x, y + height - bracketSize);
-        
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Label with information
-        const label = `${track.label.toUpperCase()} ${Math.floor(track.confidence * 100)}%`;
-        const info = `~${Math.floor(track.depthEstimate * CONFIG.PHYSICS.MAX_RANGE)}m @ ${Utils.formatNumber(track.bearingDeg, 0)}°`;
-        
-        ctx.fillStyle = color;
-        ctx.font = 'bold 11px monospace';
-        
-        // Background for text
-        const textWidth1 = ctx.measureText(label).width;
-        const textWidth2 = ctx.measureText(info).width;
-        const maxWidth = Math.max(textWidth1, textWidth2);
-        
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - 30, maxWidth + 10, 25);
-        
-        // Text
-        ctx.fillStyle = color;
-        ctx.fillText(label, x + 5, y - 15);
-        ctx.fillText(info, x + 5, y - 5);
-    }
-
-    /**
-     * Draw system information and diagnostics
-     * @param {Object} systemInfo - System information
-     */
-    drawSystemInfo(systemInfo) {
-        // This is handled by HTML elements in the UI layer
-        // This method is reserved for future canvas-based system info
-    }
-}
-
-// ============================================================================
-// KERNEL / CORE SYSTEM
-// ============================================================================
-
-/**
- * Main system kernel that orchestrates all components
- * @class
- */
-class OmegaKernel {
-    constructor() {
-        // System components
-        this.avionics = new Avionics();
-        this.vision = new VisionEngine();
-        this.tracker = new ObjectTracker();
-        this.physics = new PhysicsEngine();
-        this.radar = new RadarSystem('radar-blips');
-        this.memory = new KnowledgeBase();
-        this.renderer = new HUDRenderer();
-        
-        // System state
-        this.isRunning = false;
-        this.isInitialized = false;
-        this.lastAITime = 0;
-        this.lastRenderTime = 0;
-        this.aiInterval = 1000 / CONFIG.AI.INFERENCE_RATE;
-        this.renderInterval = 1000 / CONFIG.UI.UPDATE_RATE;
-        
-        // Tracked objects
-        this.trackedObjects = [];
-        this.primaryTarget = null;
-        
-        // UI elements
-        this.video = document.getElementById('camera-feed');
-        
-        // Bind methods
-        this.boot = this.boot.bind(this);
-        this.cycle = this.cycle.bind(this);
-        this.aiCycle = this.aiCycle.bind(this);
-    }
-
-    /**
-     * Initialize the system
-     * @returns {Promise<void>}
-     */
-    async boot() {
+    save() {
         try {
-            this._updateStatus('SYSTEM INITIALIZING...');
-            
-            // 1. Initialize avionics (sensors)
-            this._updateBootLED('led-gyro', 'loading');
-            const avionicsReady = await this.avionics.init();
-            this._updateBootLED('led-gyro', avionicsReady ? 'active' : 'error');
-            
-            // 2. Initialize camera
-            this._updateBootLED('led-cam', 'loading');
-            const cameraReady = await this._initCamera();
-            this._updateBootLED('led-cam', cameraReady ? 'active' : 'error');
-            
-            // 3. Initialize vision AI
-            this._updateBootLED('led-ai', 'loading');
-            const visionReady = await this.vision.init();
-            this._updateBootLED('led-ai', visionReady ? 'active' : 'error');
-            
-            // 4. Initialize tracker and memory
-            this._updateBootLED('led-tracker', 'active');
-            this._updateBootLED('led-memory', 'active');
-            
-            if (!cameraReady) {
-                throw new Error("Camera initialization failed");
-            }
-            
-            if (!visionReady) {
-                console.warn("Vision AI initialized with limited functionality");
-            }
-            
-            // 5. Start system loops
-            this.isInitialized = true;
-            this.isRunning = true;
-            
-            // Hide boot screen
-            document.getElementById('boot-overlay').style.display = 'none';
-            
-            // Start AI processing loop
-            this.aiCycle();
-            
-            // Start render loop
-            this.cycle();
-            
-            this._updateStatus('SYSTEM OPERATIONAL');
-            console.log("OMEGA System booted successfully");
-            
-        } catch (error) {
-            console.error("System boot failed:", error);
-            this._updateStatus(`SYSTEM ERROR: ${error.message}`);
-            this._updateBootLED('led-cam', 'error');
-        }
-    }
-
-    /**
-     * Initialize camera feed
-     * @returns {Promise<boolean>} Success status
-     * @private
-     */
-    async _initCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'environment', 
-                    width: { ideal: 1280 }, 
-                    height: { ideal: 720 } 
-                }, 
-                audio: false 
-            });
-            
-            this.video.srcObject = stream;
-            
-            // Wait for video to be ready
-            await new Promise((resolve) => {
-                this.video.onloadedmetadata = () => {
-                    this.video.play();
-                    resolve();
-                };
-            });
-            
+            localStorage.setItem(this.key, JSON.stringify(this.logs));
             return true;
-        } catch (error) {
-            console.error("Camera initialization failed:", error);
-            return false;
-        }
+        } catch (e) { return false; }
     }
 
-    /**
-     * AI processing cycle (runs at AI_INFERENCE_RATE)
-     */
-    async aiCycle() {
-        if (!this.isRunning) return;
-        
-        const now = performance.now();
-        
-        // Throttle AI processing
-        if (now - this.lastAITime >= this.aiInterval) {
-            this.lastAITime = now;
-            
-            try {
-                // Run object detection
-                const detections = await this.vision.detect(this.video);
-                
-                // Update tracker with new detections
-                const rawTracks = this.tracker.update(detections, Date.now());
-                
-                // Apply physics analysis
-                this.trackedObjects = this.physics.analyze(rawTracks);
-                
-                // Record events in memory
-                this._updateMemory(this.trackedObjects);
-                
-                // Update primary target (closest to center)
-                this._updatePrimaryTarget();
-                
-            } catch (error) {
-                console.error("AI cycle error:", error);
-            }
-        }
-        
-        // Schedule next AI cycle
-        setTimeout(() => this.aiCycle(), this.aiInterval);
+    load() {
+        const data = localStorage.getItem(this.key);
+        if (data) this.logs = JSON.parse(data);
     }
 
-    /**
-     * Main render cycle (runs at UI_UPDATE_RATE)
-     */
-    cycle() {
-        if (!this.isRunning) return;
-        
-        const now = performance.now();
-        
-        // Throttle rendering
-        if (now - this.lastRenderTime >= this.renderInterval) {
-            this.lastRenderTime = now;
-            
-            try {
-                // Clear and redraw HUD
-                this.renderer.clear();
-                
-                // Draw horizon and crosshair
-                this.renderer.drawHorizon(this.avionics.pitch, this.avionics.roll);
-                this.renderer.drawCrosshair();
-                
-                // Draw target boxes
-                this.renderer.drawTargetBoxes(this.trackedObjects);
-                
-                // Update radar
-                this.radar.update(this.trackedObjects);
-                
-                // Update UI displays
-                this._updateUI();
-                
-            } catch (error) {
-                console.error("Render cycle error:", error);
-            }
-        }
-        
-        // Schedule next render cycle
-        requestAnimationFrame(() => this.cycle());
+    clear() {
+        this.logs = [];
+        localStorage.removeItem(this.key);
+        OMEGA.ui.toast("MEMORY CLEARED");
     }
 
-    /**
-     * Update memory with current tracked objects
-     * @param {Array} tracks - Current tracked objects
-     * @private
-     */
-    _updateMemory(tracks) {
-        tracks.forEach(track => {
-            const eventType = track.status === 'new' ? 'object_detected' : 'object_updated';
-            
-            this.memory.recordEvent(eventType, {
-                objectId: track.id,
-                label: track.label,
-                confidence: track.confidence,
-                depthEstimate: track.depthEstimate,
-                bearingDeg: track.bearingDeg,
-                motionState: track.motionState
-            }, Date.now());
-        });
-        
-        // Record lost objects
-        const lostTracks = this.tracker.trackedObjects.values().filter(t => t.status === 'lost');
-        lostTracks.forEach(track => {
-            this.memory.recordEvent('object_lost', {
-                objectId: track.id,
-                label: track.label
-            }, Date.now());
-        });
-    }
-
-    /**
-     * Update primary target information
-     * @private
-     */
-    _updatePrimaryTarget() {
-        if (this.trackedObjects.length === 0) {
-            this.primaryTarget = null;
-            return;
-        }
-        
-        // Find object closest to screen center
-        this.primaryTarget = this.trackedObjects.reduce((closest, current) => {
-            const closestDist = Math.abs(closest.screenPosition.xNorm) + Math.abs(closest.screenPosition.yNorm);
-            const currentDist = Math.abs(current.screenPosition.xNorm) + Math.abs(current.screenPosition.yNorm);
-            
-            return currentDist < closestDist ? current : closest;
-        });
-    }
-
-    /**
-     * Update all UI elements
-     * @private
-     */
-    _updateUI() {
-        // System metrics
-        const visionStatus = this.vision.getStatus();
-        document.getElementById('val-cpu').innerText = Utils.formatNumber(visionStatus.averageInferenceTime, 1);
-        document.getElementById('val-fps').innerText = Utils.formatNumber(1000 / Math.max(1, visionStatus.averageInferenceTime), 1);
-        
-        // Sensor data
-        document.getElementById('val-pitch').innerText = Utils.formatNumber(this.avionics.pitch, 1);
-        document.getElementById('val-roll').innerText = Utils.formatNumber(this.avionics.roll, 1);
-        document.getElementById('val-heading').innerText = Utils.formatNumber(this.avionics.heading, 1);
-        document.getElementById('val-g').innerText = Utils.formatNumber(this.avionics.gForce, 2);
-        
-        // Tracking info
-        const trackerStatus = this.tracker.getStatus();
-        document.getElementById('val-tracked').innerText = trackerStatus.activeTracks;
-        
-        // Analytics
-        document.getElementById('val-active').innerText = this.memory.getActiveObjectCount();
-        document.getElementById('val-persons').innerText = this.memory.getPersonDetectionsInLast(5);
-        
-        const closestPerson = this.memory.getClosestPerson();
-        document.getElementById('val-closest-person').innerText = closestPerson ? 
-            `~${Utils.formatNumber(closestPerson.distance, 1)}m @ ${Utils.formatNumber(closestPerson.bearing, 0)}°` : 
-            '--';
-        
-        document.getElementById('val-top-label').innerText = this.memory.getMostCommonLabelInLast(5);
-        
-        // Primary target info
-        if (this.primaryTarget) {
-            document.getElementById('val-target-label').innerText = this.primaryTarget.label.toUpperCase();
-            document.getElementById('val-target-dist').innerText = `~${Utils.formatNumber(this.primaryTarget.depthEstimate * CONFIG.PHYSICS.MAX_RANGE, 1)}m`;
-            document.getElementById('val-target-bearing').innerText = `${Utils.formatNumber(this.primaryTarget.bearingDeg, 1)}°`;
-            document.getElementById('val-target-state').innerText = this.primaryTarget.motionState.toUpperCase();
-        } else {
-            document.getElementById('val-target-label').innerText = '--';
-            document.getElementById('val-target-dist').innerText = '--';
-            document.getElementById('val-target-bearing').innerText = '--';
-            document.getElementById('val-target-state').innerText = '--';
-        }
-        
-        // System status indicators
-        this._updateSystemStatus();
-    }
-
-    /**
-     * Update system status indicators
-     * @private
-     */
-    _updateSystemStatus() {
-        // Camera status
-        const camStatus = this.video.srcObject && this.video.readyState === 4 ? 'status-ok' : 'status-error';
-        document.getElementById('status-cam').className = `status-indicator ${camStatus}`;
-        
-        // AI status
-        const aiStatus = this.vision.isModelLoaded ? 'status-ok' : 'status-error';
-        document.getElementById('status-ai').className = `status-indicator ${aiStatus}`;
-        
-        // Gyro status
-        const gyroStatus = this.avionics.isAvailable ? 'status-ok' : 'status-offline';
-        document.getElementById('status-gyro').className = `status-indicator ${gyroStatus}`;
-        
-        // Tracker status
-        const trackerStatus = this.tracker.getStatus().activeTracks > 0 ? 'status-ok' : 'status-warn';
-        document.getElementById('status-tracker').className = `status-indicator ${trackerStatus}`;
-        
-        // Memory status
-        const memoryStatus = this.memory.events.length > 0 ? 'status-ok' : 'status-warn';
-        document.getElementById('status-memory').className = `status-indicator ${memoryStatus}`;
-    }
-
-    /**
-     * Update boot screen LED status
-     * @param {string} ledId - LED element ID
-     * @param {string} state - LED state ('loading', 'active', 'error')
-     * @private
-     */
-    _updateBootLED(ledId, state) {
-        const led = document.getElementById(ledId);
-        led.className = 'status-led';
-        
-        if (state === 'active') {
-            led.classList.add('active');
-        } else if (state === 'error') {
-            led.classList.add('error');
-        } else if (state === 'warning') {
-            led.classList.add('warning');
-        }
-    }
-
-    /**
-     * Update system status message
-     * @param {string} message - Status message
-     * @private
-     */
-    _updateStatus(message) {
-        document.getElementById('status-message').textContent = message;
-    }
-
-    /**
-     * Shutdown the system
-     */
-    shutdown() {
-        this.isRunning = false;
-        
-        // Stop video stream
-        if (this.video.srcObject) {
-            this.video.srcObject.getTracks().forEach(track => track.stop());
-        }
-        
-        console.log("OMEGA System shutdown");
+    export() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.logs));
+        const anchor = document.createElement('a');
+        anchor.setAttribute("href", dataStr);
+        anchor.setAttribute("download", "omega_logs.json");
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
     }
 }
 
 // ============================================================================
-// SYSTEM INITIALIZATION
+// 4. MAIN KERNEL (CONTROLLER)
 // ============================================================================
+const OMEGA = {
+    // Sub-systems
+    avionics: new Avionics(),
+    vision: new VisionEngine(),
+    tracker: new Tracker(),
+    memory: new KnowledgeBase(),
+    
+    // System State
+    running: false,
+    calibration: { focalLength: null, refHeight: 1.7 },
+    
+    // UI Helpers
+    ui: {
+        canvas: document.getElementById('hud-canvas'),
+        ctx: document.getElementById('hud-canvas').getContext('2d'),
+        toast: (msg) => {
+            const el = document.createElement('div');
+            el.className = 'toast'; el.innerText = msg;
+            document.getElementById('toast-container').appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        },
+        toggleControlPanel: () => {
+            const p = document.getElementById('control-panel');
+            p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+        }
+    },
 
-// Create and initialize the kernel
-const OMEGA = new OmegaKernel();
+    // Initialization
+    async init() {
+        document.getElementById('btn-init').innerText = "SYSTEM LOADING...";
+        
+        try {
+            // 1. Avionics
+            await this.avionics.init();
+            
+            // 2. Camera
+            await this.vision.startCamera();
+            document.getElementById('st-cam').className = 'status-dot bg-ok';
+            
+            // 3. AI
+            const aiReady = await this.vision.init();
+            if (aiReady) document.getElementById('st-ai').className = 'status-dot bg-ok';
+            
+            // 4. Memory
+            document.getElementById('st-mem').className = 'status-dot bg-ok';
 
-// Set up initialization button
-document.getElementById('btn-init').addEventListener('click', () => {
-    OMEGA.boot();
-});
+            // Start Loops
+            this.running = true;
+            document.getElementById('boot-screen').style.display = 'none';
+            
+            this.loops.ai();
+            this.loops.render();
+            
+            this.ui.toast("OMEGA SYSTEM ONLINE");
+            
+        } catch (e) {
+            console.error(e);
+            document.getElementById('btn-init').innerText = "SYSTEM FAILURE: " + e.message;
+            document.getElementById('btn-init').classList.add('btn-danger');
+        }
+    },
 
-// Add CSS for pulsing animation
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes pulse {
-        0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.2); }
-        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    // Logic Loops
+    loops: {
+        ai: async () => {
+            if (!OMEGA.running) return;
+            
+            const start = performance.now();
+            const { video, model, currentProfile } = OMEGA.vision;
+
+            if (video.readyState === 4 && model) {
+                // Detect
+                const predictions = await model.detect(video, currentProfile.maxDetections, 0.5);
+                
+                // Track
+                const tracks = OMEGA.tracker.update(predictions, Date.now());
+                
+                // Physics & Analysis
+                OMEGA.processPhysics(tracks);
+                
+                // Metrics
+                const duration = performance.now() - start;
+                OMEGA.vision.metrics.ms = Math.round(duration);
+                OMEGA.vision.metrics.fps = Math.round(1000 / duration);
+            }
+
+            // Adaptive Timing
+            const delay = Math.max(10, (1000 / OMEGA.vision.currentProfile.aiFps) - (performance.now() - start));
+            setTimeout(OMEGA.loops.ai, delay);
+        },
+
+        render: () => {
+            if (!OMEGA.running) return;
+            const start = performance.now();
+            
+            OMEGA.draw();
+            
+            // UI FPS
+            const duration = performance.now() - start;
+            document.getElementById('disp-ui-fps').innerText = Math.round(1000 / Math.max(1, duration));
+            
+            requestAnimationFrame(OMEGA.loops.render);
+        }
+    },
+
+    // Physics Processor
+    processPhysics(tracks) {
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+        const vidW = OMEGA.vision.video.videoWidth;
+        const vidH = OMEGA.vision.video.videoHeight;
+        
+        let primaryTarget = null;
+        let maxScore = -1;
+
+        tracks.forEach(t => {
+            // 1. Map to Screen Coordinates
+            // box is [x, y, w, h] in video frame
+            const mapped = MathUtils.mapVideoToScreen(
+                {x:t.box[0], y:t.box[1], w:t.box[2], h:t.box[3]},
+                vidW, vidH, screenW, screenH
+            );
+            t.renderBox = mapped;
+
+            // 2. Calculate Bearing
+            // Center of box relative to screen center
+            const centerX = mapped.x + (mapped.w / 2);
+            t.bearing = MathUtils.calculateBearing(centerX, screenW, CONFIG.PHYSICS.FOV_DEFAULT);
+            
+            // 3. Calculate Depth
+            // Use filtered height for stability
+            if (!OMEGA.tracker.depthFilter.has(t.id)) {
+                OMEGA.tracker.depthFilter.set(t.id, new MathUtils.KalmanFilter(1, 1, 1, 0, 1));
+            }
+            const filteredH = OMEGA.tracker.depthFilter.get(t.id).filter(t.box[3]);
+            
+            if (OMEGA.calibration.focalLength) {
+                // Absolute Depth (Meters)
+                const refH = (t.label === 'person') ? CONFIG.PHYSICS.REF_HEIGHT_PERSON : CONFIG.PHYSICS.REF_HEIGHT_CAR;
+                t.depth = MathUtils.estimateDepth(filteredH, refH, OMEGA.calibration.focalLength);
+                t.depthStr = t.depth.toFixed(1) + 'm';
+            } else {
+                // Relative Depth (0.0 - 1.0)
+                // Normalize: closer (larger box) -> 0, far -> 1
+                t.depth = Math.min(1.0, 100 / filteredH); // Arbitrary scale factor
+                t.depthStr = 'REL ' + t.depth.toFixed(2);
+            }
+
+            // 4. Primary Target Scoring
+            // Score = Confidence(0.3) + CenterBias(0.5) + CloseRange(0.2)
+            const centerDist = Math.abs(centerX - screenW/2) / (screenW/2);
+            const score = (t.score * 0.3) + ((1 - centerDist) * 0.5);
+            
+            if (score > maxScore) {
+                maxScore = score;
+                primaryTarget = t;
+            }
+        });
+
+        OMEGA.primaryTarget = primaryTarget;
+    },
+
+    // Draw HUD
+    draw() {
+        const ctx = this.ui.ctx;
+        const W = this.ui.canvas.width = window.innerWidth;
+        const H = this.ui.canvas.height = window.innerHeight;
+        
+        ctx.clearRect(0, 0, W, H);
+
+        // 1. Artificial Horizon
+        if (this.avionics.available) {
+            const { pitch, roll } = this.avionics.data;
+            document.getElementById('disp-gyro').innerText = "ONLINE";
+            document.getElementById('disp-pitch').innerText = pitch.toFixed(0);
+            document.getElementById('disp-hdg').innerText = (360 - this.avionics.data.heading).toFixed(0);
+
+            ctx.save();
+            ctx.translate(W/2, H/2);
+            ctx.rotate(roll * Math.PI / 180);
+            ctx.translate(0, pitch * 5); // Pitch scale
+            
+            // Horizon Line
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.4)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(-W, 0); ctx.lineTo(W, 0); ctx.stroke();
+            
+            // Ladder
+            ctx.fillStyle = "rgba(0, 255, 65, 0.4)";
+            for (let i=-2; i<=2; i++) {
+                if(i===0) continue;
+                ctx.fillRect(-50, i*50, 100, 1);
+                ctx.fillText(i*10, 60, i*50 + 3);
+            }
+            ctx.restore();
+        }
+
+        // 2. Crosshair
+        ctx.strokeStyle = "rgba(0, 255, 65, 0.8)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W/2 - 20, H/2); ctx.lineTo(W/2 + 20, H/2);
+        ctx.moveTo(W/2, H/2 - 20); ctx.lineTo(W/2, H/2 + 20);
+        ctx.stroke();
+
+        // 3. Targets
+        const blipsContainer = document.getElementById('radar-blips');
+        blipsContainer.innerHTML = ''; // Clear radar
+
+        if (OMEGA.tracker.tracks) {
+            OMEGA.tracker.tracks.forEach(t => {
+                const { x, y, w, h } = t.renderBox;
+                const isPrimary = (OMEGA.primaryTarget && OMEGA.primaryTarget.id === t.id);
+                const color = isPrimary ? '#00ff41' : (t.label === 'person' ? '#ffcc00' : '#00aaff');
+
+                // Box
+                ctx.strokeStyle = color;
+                ctx.lineWidth = isPrimary ? 2 : 1;
+                ctx.shadowBlur = isPrimary ? 10 : 0;
+                ctx.shadowColor = color;
+                
+                // Tactical Corners
+                const corner = Math.min(w, h) * 0.2;
+                ctx.beginPath();
+                ctx.moveTo(x, y + corner); ctx.lineTo(x, y); ctx.lineTo(x + corner, y); // TL
+                ctx.moveTo(x + w - corner, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + corner); // TR
+                ctx.moveTo(x + w, y + h - corner); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - corner, y + h); // BR
+                ctx.moveTo(x + corner, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - corner); // BL
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Label
+                ctx.fillStyle = color;
+                ctx.font = "bold 10px monospace";
+                ctx.fillText(`${t.label.toUpperCase()} [${Math.floor(t.score*100)}%]`, x, y - 5);
+                ctx.fillText(`D:${t.depthStr}`, x, y + h + 12);
+
+                // Radar Blip
+                // Map bearing (-30 to 30 deg) to x
+                // Map depth (0 to max) to y
+                if (t.bearing !== undefined) {
+                    const radarR = 60; // radius
+                    const angleRad = t.bearing * (Math.PI/180);
+                    // Normalize dist: assume max display range 50m
+                    const distNorm = OMEGA.calibration.focalLength ? 
+                                     Math.min(t.depth, CONFIG.PHYSICS.MAX_DIST_DISPLAY) / CONFIG.PHYSICS.MAX_DIST_DISPLAY : 
+                                     t.depth; // Already 0-1
+                    
+                    const bx = 60 + (Math.sin(angleRad) * distNorm * radarR);
+                    const by = 60 - (Math.cos(angleRad) * distNorm * radarR);
+                    
+                    const blip = document.createElement('div');
+                    blip.className = 'radar-blip';
+                    blip.style.backgroundColor = color;
+                    blip.style.width = isPrimary ? '6px' : '4px';
+                    blip.style.height = isPrimary ? '6px' : '4px';
+                    blip.style.left = bx + 'px';
+                    blip.style.top = by + 'px';
+                    blipsContainer.appendChild(blip);
+                }
+            });
+        }
+
+        // 4. Update Stats DOM
+        document.getElementById('disp-ai-ms').innerText = this.vision.metrics.ms;
+        document.getElementById('disp-ai-fps').innerText = this.vision.metrics.fps;
+
+        if (this.primaryTarget) {
+            const p = document.getElementById('primary-target-panel');
+            p.style.display = 'block';
+            document.getElementById('pt-label').innerText = this.primaryTarget.label.toUpperCase();
+            document.getElementById('pt-conf').innerText = (this.primaryTarget.score * 100).toFixed(0);
+            document.getElementById('pt-dist').innerText = this.primaryTarget.depthStr;
+            document.getElementById('pt-brng').innerText = this.primaryTarget.bearing.toFixed(1);
+        } else {
+            document.getElementById('primary-target-panel').style.display = 'none';
+        }
+    },
+
+    // User Actions
+    shutdown: () => {
+        OMEGA.running = false;
+        if(OMEGA.vision.video.srcObject) {
+            OMEGA.vision.video.srcObject.getTracks().forEach(t => t.stop());
+        }
+        document.body.innerHTML = '<div style="display:flex;height:100vh;align-items:center;justify-content:center;color:#00ff41;font-family:monospace;">SYSTEM HALTED</div>';
+    },
+
+    toggleAI: () => {
+        OMEGA.running = !OMEGA.running;
+        if(OMEGA.running) {
+            OMEGA.loops.ai();
+            OMEGA.loops.render();
+            OMEGA.ui.toast("SYSTEM RESUMED");
+        } else {
+            OMEGA.ui.toast("SYSTEM PAUSED");
+        }
+    },
+
+    setProfile: (mode) => {
+        if(OMEGA.vision.setProfile(mode)) {
+            OMEGA.ui.toast(`PROFILE: ${mode.toUpperCase()}`);
+        }
+    },
+
+    calibrateDepth: () => {
+        // Assume user aligned the "Primary Target" or generic box
+        // To be safe, we create a centered box overlay for them to match
+        if (!OMEGA.calibration.isCalibrating) {
+            OMEGA.calibration.isCalibrating = true;
+            OMEGA.ui.toast("ALIGN TARGET HEIGHT & CLICK SET");
+            // Draw a calibration box guide in Draw loop?
+            // For now, assume current Primary Target is the reference
+            if (OMEGA.primaryTarget) {
+                 const h_px = OMEGA.primaryTarget.box[3]; // Raw video height
+                 const H_real = parseFloat(document.getElementById('cal-height').value);
+                 // Assume distance? No, pinhole needs D.
+                 // We will revert to: "Stand at 3 meters" logic or just generic factor
+                 // Let's use Focal Length derivation: f = (h_px * Dist) / H_real
+                 // Since we don't know Dist, we can't solve exact f without user inputting distance.
+                 // Updated Logic: User inputs HEIGHT. User assumed to be at e.g. 2m? 
+                 // Let's set a default calibration distance of 2 meters for the setup.
+                 const D_ref = 3.0; // Standard calibration distance
+                 const f = (h_px * D_ref) / H_real;
+                 
+                 OMEGA.calibration.focalLength = f;
+                 OMEGA.calibration.isCalibrating = false;
+                 OMEGA.memory.log('CALIBRATION', { f, H_real });
+                 OMEGA.ui.toast("CALIBRATION SAVED");
+            } else {
+                 OMEGA.ui.toast("NO TARGET FOUND TO CALIBRATE");
+                 OMEGA.calibration.isCalibrating = false;
+            }
+        }
     }
-`;
-document.head.appendChild(style);
+};
 
-// Handle page visibility changes
+// Event Listeners
+document.getElementById('btn-init').addEventListener('click', () => OMEGA.init());
+
+// Visibility API for Performance
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-        // Page is hidden, potentially reduce processing
-        console.log("OMEGA: Page visibility changed - background mode");
+        OMEGA.vision.setProfile('low');
     } else {
-        // Page is visible, ensure full operation
-        console.log("OMEGA: Page visibility changed - foreground mode");
+        OMEGA.vision.setProfile('balanced');
     }
 });
 
-// Handle page unload
-window.addEventListener('beforeunload', () => {
-    OMEGA.shutdown();
-});
-
-console.log("OMEGA: Advanced Humanoid Vision System loaded");
-
+console.log("OMEGA v2.0 READY. WAITING FOR INIT.");
 </script>
 </body>
 </html>
