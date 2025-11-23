@@ -3,1757 +3,367 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
+    <title>OMEGA: GEO-TACTICAL AR</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <!-- AI & 3D Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 
     <style>
-        :root {
-            --hud-primary: #00ff9d;
-            --hud-secondary: #00cc7a;
-            --hud-accent: #00a8ff;
-            --hud-alert: #ff375f;
-            --hud-warn: #ffaa00;
-            --hud-info: #00a8ff;
-            --hud-critical: #ff2e7a;
-            --bg-dark: #0a0a0f;
-            --bg-darker: #050508;
-            --glass: rgba(10, 25, 20, 0.75);
-            --glass-dark: rgba(5, 15, 12, 0.9);
-            --glass-accent: rgba(0, 168, 255, 0.15);
-            --neon-glow: 0 0 10px currentColor;
-            --neon-glow-strong: 0 0 20px currentColor;
-            --border-radius: 8px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * { 
-            box-sizing: border-box; 
-            user-select: none; 
-            -webkit-touch-callout: none; 
-            -webkit-tap-highlight-color: transparent;
-        }
+        :root { --p: #00ff9d; --s: #008f7a; --a: #ff2a6d; --bg: #000; --font: 'Courier New', monospace; }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
         
-        body {
-            margin: 0; 
-            overflow: hidden; 
-            background: var(--bg-dark);
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            color: var(--hud-primary);
-            width: 100vw; 
-            height: 100vh;
-            line-height: 1.3;
-            font-weight: 500;
-        }
-
-        #viewport { 
-            position: relative; 
-            width: 100%; 
-            height: 100%; 
-        }
+        /* FULLSCREEN LAYERS */
+        #cam-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.7; z-index: 0; }
+        #ar-world { position: absolute; inset: 0; z-index: 5; pointer-events: none; } /* REAL 3D WORLD */
+        #hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; } /* 2D OVERLAY */
         
-        #camera-feed {
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover;
-            z-index: 0; 
-            filter: contrast(1.4) brightness(0.8) hue-rotate(90deg) saturate(1.4);
-            opacity: 0.7;
-        }
+        /* UI COMPONENTS */
+        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
         
-        #hud-canvas { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            z-index: 10; 
+        .panel { 
+            background: rgba(0, 15, 10, 0.85); border: 1px solid var(--s); border-left: 3px solid var(--p);
+            padding: 10px; backdrop-filter: blur(5px); width: fit-content; pointer-events: auto;
+            margin-bottom: 5px;
         }
+        .label { font-size: 10px; color: #00a8ff; font-weight: bold; }
+        .val { font-size: 14px; color: #fff; font-weight: bold; text-shadow: 0 0 5px var(--p); }
+        .val.alert { color: var(--a); text-shadow: 0 0 5px var(--a); }
 
-        #ui-layer {
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            z-index: 20; 
-            pointer-events: none;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between;
-            padding: max(8px, env(safe-area-inset-top));
+        /* COMPASS STRIP */
+        #compass-strip {
+            position: absolute; top: 0; left: 0; width: 100%; height: 40px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+            overflow: hidden; border-bottom: 1px solid var(--p); display: flex; align-items: center; justify-content: center;
         }
+        #compass-ticks {
+            position: absolute; display: flex; transition: transform 0.1s; width: 2000px;
+            font-weight: bold; font-size: 14px;
+        }
+        .tick { width: 50px; text-align: center; border-left: 1px solid rgba(0,255,157,0.3); height: 10px; margin-top: 5px; }
+        .marker { position: absolute; top: 0; left: 50%; width: 2px; height: 40px; background: var(--a); transform: translateX(-50%); z-index: 30; }
 
-        /* Minimal HUD Panels */
-        .hud-panel {
-            background: var(--glass); 
-            border: 1px solid var(--hud-primary);
-            border-left: 3px solid var(--hud-primary);
-            padding: 6px 10px; 
-            margin: 4px; 
-            width: fit-content;
-            backdrop-filter: blur(15px) saturate(180%);
-            box-shadow: var(--neon-glow);
-            border-radius: var(--border-radius);
-            font-size: 11px;
-            transition: var(--transition);
-            max-width: 180px;
-        }
-        
-        .hud-panel-wide {
-            width: auto;
-            min-width: 200px;
-            max-width: 240px;
-        }
-        
-        .panel-title {
-            font-size: 9px;
-            font-weight: 700;
-            color: var(--hud-accent);
-            margin-bottom: 4px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        .hud-text { 
-            font-size: 10px; 
-            letter-spacing: 0.2px; 
-            margin-bottom: 3px; 
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .hud-value { 
-            font-weight: 600; 
-            color: #fff;
-            margin-left: 6px;
-            font-feature-settings: "tnum";
-        }
-
-        /* Compact Radar */
-        #radar-container {
-            position: absolute; 
-            bottom: 60px; 
-            right: 8px;
-            width: 100px; 
-            height: 100px;
-            border-radius: 50%;
-            background: var(--glass-dark);
-            border: 1px solid var(--hud-accent);
-            box-shadow: 0 0 15px rgba(0, 168, 255, 0.3);
-            overflow: hidden;
-            z-index: 30;
-        }
-        
-        #radar-container::after {
-            content: ''; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,168,255,0.4) 360deg);
-            border-radius: 50%;
-            animation: radar-scan 2s linear infinite;
-        }
-        
-        .radar-grid {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            border: 1px solid rgba(0,168,255,0.3); 
-            border-radius: 50%; 
-            pointer-events: none;
-        }
-        
-        .radar-cross {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            width: 100%; 
-            height: 1px; 
-            background: rgba(0,168,255,0.3);
-        }
-        
-        .radar-blip {
-            position: absolute; 
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: all 0.2s ease;
-            z-index: 2;
-            border: 1px solid rgba(255,255,255,0.8);
-        }
-        
-        .radar-range {
-            position: absolute;
-            bottom: 3px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 7px;
-            color: var(--hud-accent);
-            font-weight: 600;
-        }
-
-        /* Floating Control Button */
-        #floating-control {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            width: 44px;
-            height: 44px;
-            background: var(--glass);
-            border: 1px solid var(--hud-accent);
-            border-radius: 50%;
-            z-index: 35;
-            pointer-events: auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-            backdrop-filter: blur(10px);
-        }
-
-        #floating-control:hover {
-            background: var(--hud-accent);
-            transform: scale(1.1);
-        }
-
-        #floating-control::before {
-            content: '⋯';
-            color: var(--hud-primary);
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        #floating-control:hover::before {
-            color: #000;
-        }
-
-        /* Enhanced Boot Screen */
-        #boot-overlay {
-            position: fixed; 
-            inset: 0; 
-            background: var(--bg-darker); 
-            z-index: 9999;
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            color: var(--hud-primary);
-            background: radial-gradient(ellipse at center, #001a14 0%, var(--bg-darker) 70%);
-            backdrop-filter: blur(10px);
-        }
-        
-        .boot-title {
-            font-size: 48px;
-            font-weight: 800;
-            margin-bottom: 8px;
-            letter-spacing: 6px;
-            text-shadow: 0 0 20px var(--hud-primary);
-            background: linear-gradient(135deg, var(--hud-primary), var(--hud-accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .boot-subtitle {
-            opacity: 0.8; 
-            margin-bottom: 30px;
-            font-size: 12px;
-            letter-spacing: 2px;
-            font-weight: 300;
-        }
-        
-        #btn-init {
-            background: linear-gradient(135deg, var(--hud-primary), var(--hud-accent)); 
-            color: #000; 
-            border: none;
-            padding: 12px 40px; 
-            font-family: inherit; 
-            font-size: 14px; 
-            font-weight: 700;
-            letter-spacing: 2px; 
-            cursor: pointer; 
-            margin-top: 30px;
-            transition: var(--transition);
-            border-radius: 25px;
-            text-transform: uppercase;
-            pointer-events: auto;
-            box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
-        }
-        
-        #btn-init:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
-        }
-
-        /* Context Menu */
-        #context-menu {
-            position: absolute;
-            bottom: 60px;
-            right: 8px;
-            background: var(--glass-dark);
-            border: 1px solid var(--hud-accent);
-            border-radius: var(--border-radius);
-            padding: 8px;
-            z-index: 40;
-            display: none;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
-            min-width: 150px;
-        }
-
-        .context-item {
-            padding: 6px 10px;
-            font-size: 11px;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: var(--transition);
-            pointer-events: auto;
-        }
-
-        .context-item:hover {
-            background: var(--hud-accent);
-            color: #000;
-        }
-
-        .context-divider {
-            height: 1px;
-            background: var(--hud-accent);
-            margin: 4px 0;
-            opacity: 0.3;
-        }
-
-        /* Gesture Zone */
-        #gesture-zone {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 80px;
-            z-index: 5;
-            pointer-events: auto;
-        }
-
-        /* Voice Activity Indicator */
-        #voice-activity {
-            position: absolute;
-            top: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--glass);
-            border: 1px solid var(--hud-accent);
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 10px;
-            z-index: 25;
-            display: none;
-            backdrop-filter: blur(10px);
-            align-items: center;
-            gap: 6px;
-        }
-
-        .voice-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--hud-alert);
-            animation: voicePulse 1s infinite;
-        }
-
-        /* Minimal System Status */
-        #system-status {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--glass-dark);
-            border-top: 1px solid var(--hud-secondary);
-            padding: 4px 8px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 9px;
-            z-index: 25;
-            backdrop-filter: blur(10px);
-        }
-        
-        .status-section {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .status-dot {
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            position: relative;
-        }
-        
-        .status-dot::after {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            bottom: -1px;
-            border-radius: 50%;
-            box-shadow: 0 0 4px currentColor;
-        }
-        
-        .status-ok { 
-            background: var(--hud-primary); 
-        }
-        
-        .status-warn { 
-            background: var(--hud-warn); 
-        }
-        
-        .status-error { 
-            background: var(--hud-alert); 
-        }
-        
-        .status-offline { 
-            background: #666; 
-        }
-
-        /* Neural Network Visualization */
-        #neural-viz {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            pointer-events: none;
-            opacity: 0.1;
-        }
-
-        /* Quantum State Indicator */
-        #quantum-state {
-            position: absolute;
-            top: 8px;
-            right: 120px;
-            background: var(--glass);
-            border: 1px solid var(--hud-accent);
-            padding: 4px 8px;
-            border-radius: 10px;
-            font-size: 9px;
-            z-index: 25;
-            backdrop-filter: blur(10px);
-        }
-
-        /* Holographic Display Effect */
-        .hologram-effect {
-            position: relative;
-        }
-
-        .hologram-effect::before {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, transparent, var(--hud-accent), transparent);
-            border-radius: inherit;
-            z-index: -1;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .hologram-effect.active::before {
-            opacity: 0.3;
-            animation: hologramPulse 2s infinite;
-        }
-
-        /* Biometric Scanner */
-        #biometric-scanner {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--hud-primary);
-            box-shadow: 0 0 10px var(--hud-primary);
-            z-index: 15;
-            display: none;
-            animation: scan 3s linear infinite;
-        }
-
-        /* Target Reticle */
-        #target-reticle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 60px;
-            height: 60px;
-            z-index: 15;
-            pointer-events: none;
-        }
-
-        .reticle-circle {
-            position: absolute;
-            border: 2px solid var(--hud-primary);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--hud-primary);
-        }
-
-        .reticle-dot {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: var(--hud-primary);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 8px var(--hud-primary);
-        }
-
-        @keyframes scan {
-            0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
-
-        @keyframes radar-scan { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
-        }
-
-        @keyframes voicePulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.3); opacity: 0.7; }
-        }
-
-        @keyframes hologramPulse {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 0.5; }
-        }
-
-        @keyframes targetPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.05); }
-        }
-
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            .hud-panel-wide {
-                min-width: 180px;
-                max-width: 220px;
-            }
-            
-            #radar-container {
-                width: 90px;
-                height: 90px;
-                bottom: 50px;
-            }
-
-            .boot-title {
-                font-size: 36px;
-                letter-spacing: 4px;
-            }
-
-            #floating-control {
-                width: 40px;
-                height: 40px;
-                bottom: 6px;
-                right: 6px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .hud-panel {
-                padding: 4px 8px;
-                margin: 2px;
-                max-width: 160px;
-            }
-            
-            #system-status {
-                font-size: 8px;
-                padding: 3px 6px;
-            }
-
-            #radar-container {
-                width: 80px;
-                height: 80px;
-            }
-
-            .boot-title {
-                font-size: 28px;
-            }
-        }
+        /* CONTROLS */
+        #start-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        button { padding: 15px 30px; background: var(--p); border: none; font-weight: bold; font-size: 16px; margin-top: 20px; cursor: pointer; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <div id="viewport">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="hud-canvas"></canvas>
-        <canvas id="neural-viz"></canvas>
-        
-        <!-- Target Reticle -->
-        <div id="target-reticle">
-            <div class="reticle-circle" style="width: 100%; height: 100%;"></div>
-            <div class="reticle-circle" style="width: 70%; height: 70%; top: 15%; left: 15%;"></div>
-            <div class="reticle-circle" style="width: 40%; height: 40%; top: 30%; left: 30%;"></div>
-            <div class="reticle-dot"></div>
-        </div>
-        
-        <div id="ui-layer">
-            <!-- Top Row: Minimal System Info -->
-            <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel">
-                    <div class="panel-title">OMEGA CORE</div>
-                    <div class="hud-text">AI: <span id="val-ai-fps" class="hud-value">0</span> FPS</div>
-                    <div class="hud-text">OBJ: <span id="val-tracked" class="hud-value">0</span></div>
-                </div>
-                
-                <div class="hud-panel">
-                    <div class="panel-title">SENSORS</div>
-                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0°</span></div>
-                    <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0°</span></div>
-                </div>
-            </div>
-            
-            <!-- Middle: Target Info (Only when target exists) -->
-            <div id="target-panel" class="hud-panel hud-panel-wide" style="margin-left: auto; margin-right: 120px; display: none;">
-                <div class="panel-title">TARGET LOCKED</div>
-                <div class="hud-text">CLASS: <span id="val-target-label" class="hud-value">--</span></div>
-                <div class="hud-text">DIST: <span id="val-target-dist" class="hud-value">--</span></div>
-                <div class="hud-text">CONF: <span id="val-target-conf" class="hud-value">--</span></div>
-            </div>
+    <video id="cam-feed" autoplay playsinline muted></video>
+    <canvas id="ar-world"></canvas>
+    <canvas id="hud"></canvas>
 
-            <!-- Radar -->
-            <div id="radar-container">
-                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
-                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
-                <div class="radar-cross"></div>
-                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
-                <div id="radar-blips"></div>
-                <div class="radar-range">50M</div>
+    <!-- COMPASS HUD -->
+    <div id="compass-strip">
+        <div id="compass-ticks">
+            <!-- JS will fill this -->
+        </div>
+        <div class="marker"></div>
+    </div>
+
+    <div id="ui-layer">
+        <!-- GPS DATA -->
+        <div style="display:flex; justify-content:space-between;">
+            <div class="panel">
+                <div class="label">GEOLOCATION</div>
+                <div>LAT: <span id="gps-lat" class="val">--.-----</span></div>
+                <div>LON: <span id="gps-lon" class="val">--.-----</span></div>
+                <div>ACC: <span id="gps-acc" class="val">--m</span></div>
+            </div>
+            <div class="panel">
+                <div class="label">DYNAMICS</div>
+                <div>SPD: <span id="gps-spd" class="val">0 km/h</span></div>
+                <div>ALT: <span id="gps-alt" class="val">--m</span></div>
+                <div>HDG: <span id="imu-hdg" class="val alert">--°</span></div>
             </div>
         </div>
-        
-        <!-- Floating Control Button -->
-        <div id="floating-control"></div>
 
-        <!-- Context Menu -->
-        <div id="context-menu">
-            <div class="context-item" data-action="vision-mode">Vision Mode</div>
-            <div class="context-item" data-action="neural-scan">Neural Scan</div>
-            <div class="context-divider"></div>
-            <div class="context-item" data-action="quantum-lock">Quantum Lock</div>
-            <div class="context-item" data-action="biometric-scan">Biometric Scan</div>
-            <div class="context-divider"></div>
-            <div class="context-item" data-action="export-data">Export Data</div>
-            <div class="context-item" data-action="system-calibrate">Calibrate</div>
-        </div>
-
-        <!-- Gesture Zone -->
-        <div id="gesture-zone"></div>
-
-        <!-- Voice Activity Indicator -->
-        <div id="voice-activity">
-            <div class="voice-dot"></div>
-            <span>VOICE ACTIVE</span>
-        </div>
-
-        <!-- Quantum State Indicator -->
-        <div id="quantum-state">
-            QUANTUM: <span id="quantum-value">|0⟩</span>
-        </div>
-
-        <!-- Biometric Scanner -->
-        <div id="biometric-scanner"></div>
-
-        <!-- System Status Bar -->
-        <div id="system-status">
-            <div class="status-section">
-                <span class="status-dot" id="status-cam"></span>
-                <span>OPTICAL</span>
-                <span class="status-dot" id="status-ai"></span>
-                <span>NEURAL</span>
-                <span class="status-dot" id="status-quantum"></span>
-                <span>QUANTUM</span>
-            </div>
-            <div class="status-section">
-                <span id="status-message">OMEGA READY</span>
-            </div>
+        <!-- AI DATA -->
+        <div class="panel" style="align-self: flex-end;">
+            <div class="label">VISUAL SENSORS</div>
+            <div>OBJ: <span id="ai-count" class="val">0</span></div>
+            <div>FPS: <span id="sys-fps" class="val">0</span></div>
         </div>
     </div>
 
-    <!-- Enhanced Boot Screen -->
-    <div id="boot-overlay">
-        <div class="boot-title">OMEGA</div>
-        <div class="boot-subtitle">QUANTUM VISION SYSTEM</div>
-        
-        <div style="text-align: center; margin-top: 20px;">
-            <div style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">QUANTUM ENTANGLEMENT INITIALIZED</div>
-            <div style="display: inline-block; text-align: left; font-size: 10px;">
-                <div>NEURAL NETWORK: <span style="color: var(--hud-primary)">QUANTUM-COCO</span></div>
-                <div>PROCESSOR: <span style="color: var(--hud-primary)">QUANTUM TPU</span></div>
-                <div>MEMORY: <span style="color: var(--hud-primary)">HOLOGRAPHIC RAM</span></div>
-            </div>
-        </div>
-        
-        <button id="btn-init">QUANTUM BOOT</button>
+    <div id="start-screen">
+        <h1 style="color:var(--p); text-shadow: 0 0 20px var(--p); font-size: 40px;">OMEGA</h1>
+        <h3 style="color:#888;">GEO-TACTICAL SENSOR FUSION</h3>
+        <p style="color:#666; font-size: 12px; max-width: 300px;">
+            REQ: CAMERA, GPS, COMPASS (HTTPS ONLY)<br>
+            iOS Users: Must allow Motion Sensors
+        </p>
+        <button id="btn-start">CALIBRATE & ENGAGE</button>
     </div>
 
 <script>
 /**
- * OMEGA: QUANTUM VISION SYSTEM
- * Complete Edition with Target Tracking
+ * OMEGA: GEO-TACTICAL EDITION
+ * Features: GPS Fusion, IMU Compass, True 3D World Anchor
  */
 
-// ============================================================================
-// QUANTUM CONFIGURATION
-// ============================================================================
-
-const QUANTUM_CONFIG = {
-    AI: {
-        MODEL_TYPE: 'lite_mobilenet_v2',
-        CONFIDENCE_THRESHOLD: 0.7,
-        MAX_DETECTIONS: 15,
-        INFERENCE_RATE: 15
-    },
-    
-    QUANTUM: {
-        ENTANGLEMENT_RATE: 0.87,
-        SUPERPOSITION_STATES: ['|0⟩', '|1⟩', '|+⟩', '|-⟩'],
-        DECOHERENCE_TIME: 5000
-    },
-    
-    NEURAL: {
-        ACTIVATION_THRESHOLD: 0.3,
-        SYNAPSE_STRENGTH: 0.8
-    },
-
-    TARGETING: {
-        BOX_COLORS: {
-            'person': '#00ff9d',
-            'car': '#00a8ff', 
-            'truck': '#ffaa00',
-            'default': '#ff375f'
-        },
-        BOX_LINE_WIDTH: 2,
-        LABEL_FONT: '12px system-ui'
-    }
+// --- CONFIG ---
+const CFG = {
+    AI_CONF: 0.6,
+    FOV: 75,
+    GRID_SIZE: 100 // meters
 };
 
-// ============================================================================
-// TARGET RENDERER - สำหรับวาดกรอบและเส้นชี้เป้าหมาย
-// ============================================================================
-
-class TargetRenderer {
+// --- MODULE 1: SENSOR FUSION (GPS + IMU) ---
+class GeoSpatialSystem {
     constructor() {
-        this.canvas = document.getElementById('hud-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        this.targetReticle = document.getElementById('target-reticle');
-        
-        window.addEventListener('resize', () => this.resize());
+        this.lat = 0; this.lon = 0; this.alt = 0;
+        this.speed = 0; this.accuracy = 0;
+        this.heading = 0; // True North
+        this.pitch = 0;   // Tilt
+        this.roll = 0;
+        this.ready = false;
     }
 
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    renderTargets(detections, primaryTarget = null) {
-        this.clear();
-        
-        // วาดกรอบเป้าหมายทั้งหมด
-        detections.forEach(detection => {
-            this.drawTargetBox(detection);
-        });
-
-        // วาดเส้นชี้เป้าหมายหลัก
-        if (primaryTarget) {
-            this.drawTargetingLines(primaryTarget);
-            this.drawPrimaryTarget(primaryTarget);
-        }
-
-        // วาด reticle พื้นฐาน
-        this.drawReticle();
-    }
-
-    drawTargetBox(detection) {
-        const [x, y, width, height] = detection.bbox;
-        const label = detection.class;
-        const confidence = detection.score;
-
-        // สีตามประเภทวัตถุ
-        const color = QUANTUM_CONFIG.TARGETING.BOX_COLORS[label] || 
-                     QUANTUM_CONFIG.TARGETING.BOX_COLORS.default;
-
-        // วาดกรอบหลัก
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = QUANTUM_CONFIG.TARGETING.BOX_LINE_WIDTH;
-        this.ctx.shadowBlur = 10;
-        this.ctx.shadowColor = color;
-        
-        // กรอบแบบมีมุม (bracket style)
-        const bracketSize = Math.min(width, height) * 0.15;
-        
-        this.ctx.beginPath();
-        
-        // มุมบนซ้าย
-        this.ctx.moveTo(x, y + bracketSize);
-        this.ctx.lineTo(x, y);
-        this.ctx.lineTo(x + bracketSize, y);
-        
-        // มุมบนขวา
-        this.ctx.moveTo(x + width - bracketSize, y);
-        this.ctx.lineTo(x + width, y);
-        this.ctx.lineTo(x + width, y + bracketSize);
-        
-        // มุมล่างขวา
-        this.ctx.moveTo(x + width, y + height - bracketSize);
-        this.ctx.lineTo(x + width, y + height);
-        this.ctx.lineTo(x + width - bracketSize, y + height);
-        
-        // มุมล่างซ้าย
-        this.ctx.moveTo(x + bracketSize, y + height);
-        this.ctx.lineTo(x, y + height);
-        this.ctx.lineTo(x, y + height - bracketSize);
-        
-        this.ctx.stroke();
-        this.ctx.shadowBlur = 0;
-
-        // วาดป้ายข้อมูล
-        this.drawTargetLabel(x, y, width, label, confidence, color);
-    }
-
-    drawTargetLabel(x, y, width, label, confidence, color) {
-        const text = `${label.toUpperCase()} ${Math.floor(confidence * 100)}%`;
-        
-        // วัดขนาดข้อความ
-        this.ctx.font = QUANTUM_CONFIG.TARGETING.LABEL_FONT;
-        const textWidth = this.ctx.measureText(text).width;
-        const textHeight = 16;
-        
-        // พื้นหลังป้าย
-        this.ctx.fillStyle = 'rgba(0, 10, 8, 0.8)';
-        this.ctx.fillRect(x, y - textHeight - 2, textWidth + 10, textHeight);
-        
-        // กรอบป้าย
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(x, y - textHeight - 2, textWidth + 10, textHeight);
-        
-        // ข้อความ
-        this.ctx.fillStyle = color;
-        this.ctx.fillText(text, x + 5, y - 6);
-    }
-
-    drawTargetingLines(target) {
-        const [x, y, width, height] = target.bbox;
-        const centerX = x + width / 2;
-        const centerY = y + height / 2;
-        const canvasCenterX = this.canvas.width / 2;
-        const canvasCenterY = this.canvas.height / 2;
-
-        this.ctx.strokeStyle = QUANTUM_CONFIG.TARGETING.BOX_COLORS[target.class] || 
-                              QUANTUM_CONFIG.TARGETING.BOX_COLORS.default;
-        this.ctx.lineWidth = 1;
-        this.ctx.setLineDash([5, 3]);
-        
-        // เส้นจากศูนย์กลางจอไปยังเป้าหมาย
-        this.ctx.beginPath();
-        this.ctx.moveTo(canvasCenterX, canvasCenterY);
-        this.ctx.lineTo(centerX, centerY);
-        this.ctx.stroke();
-        
-        this.ctx.setLineDash([]);
-    }
-
-    drawPrimaryTarget(target) {
-        const [x, y, width, height] = target.bbox;
-        const centerX = x + width / 2;
-        const centerY = y + height / 2;
-        const color = QUANTUM_CONFIG.TARGETING.BOX_COLORS[target.class] || 
-                     QUANTUM_CONFIG.TARGETING.BOX_COLORS.default;
-
-        // วงกลมเล็งเป้าหมายหลัก
-        const radius = Math.max(width, height) / 2 + 10;
-        const pulse = Math.sin(Date.now() / 200) * 5;
-        
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 5]);
-        this.ctx.shadowBlur = 15;
-        this.ctx.shadowColor = color;
-        
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2);
-        this.ctx.stroke();
-        
-        this.ctx.setLineDash([]);
-        this.ctx.shadowBlur = 0;
-
-        // ข้อความ "LOCKED"
-        this.ctx.fillStyle = color;
-        this.ctx.font = 'bold 14px system-ui';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('LOCKED', centerX, centerY + radius + 20);
-    }
-
-    drawReticle() {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        
-        // วงกลม reticle หลัก
-        this.ctx.strokeStyle = 'var(--hud-primary)';
-        this.ctx.lineWidth = 1;
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = 'var(--hud-primary)';
-        
-        // วงกลมนอก
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, 30, 0, Math.PI * 2);
-        this.ctx.stroke();
-        
-        // วงกลมใน
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
-        this.ctx.stroke();
-        
-        // เส้นกากบาท
-        this.ctx.beginPath();
-        this.ctx.moveTo(centerX - 20, centerY);
-        this.ctx.lineTo(centerX - 40, centerY);
-        this.ctx.moveTo(centerX + 20, centerY);
-        this.ctx.lineTo(centerX + 40, centerY);
-        this.ctx.moveTo(centerX, centerY - 20);
-        this.ctx.lineTo(centerX, centerY - 40);
-        this.ctx.moveTo(centerX, centerY + 20);
-        this.ctx.lineTo(centerX, centerY + 40);
-        this.ctx.stroke();
-        
-        this.ctx.shadowBlur = 0;
-
-        // จุดศูนย์กลาง
-        this.ctx.fillStyle = 'var(--hud-primary)';
-        this.ctx.shadowBlur = 10;
-        this.ctx.shadowColor = 'var(--hud-primary)';
-        this.ctx.fillRect(centerX - 1, centerY - 1, 2, 2);
-        this.ctx.shadowBlur = 0;
-    }
-
-    updateReticleAnimation() {
-        if (this.targetReticle) {
-            const scale = 1 + Math.sin(Date.now() / 500) * 0.1;
-            this.targetReticle.style.transform = `translate(-50%, -50%) scale(${scale})`;
-        }
-    }
-}
-
-// ============================================================================
-// QUANTUM PROCESSOR SIMULATION
-// ============================================================================
-
-class QuantumProcessor {
-    constructor() {
-        this.state = '|0⟩';
-        this.entanglement = 0;
-        this.coherence = 1.0;
-        this.interval = null;
-    }
-
-    init() {
-        // Simulate quantum state fluctuations
-        this.interval = setInterval(() => {
-            this.entanglement = Math.sin(Date.now() / 1000) * 0.5 + 0.5;
-            this.coherence = 0.9 + Math.random() * 0.1;
-            
-            // Change quantum state randomly
-            if (Math.random() < 0.02) {
-                this.state = QUANTUM_CONFIG.QUANTUM.SUPERPOSITION_STATES[
-                    Math.floor(Math.random() * QUANTUM_CONFIG.QUANTUM.SUPERPOSITION_STATES.length)
-                ];
-                this.updateDisplay();
-            }
-        }, 100);
-    }
-
-    updateDisplay() {
-        const element = document.getElementById('quantum-value');
-        if (element) {
-            element.textContent = this.state;
-            element.style.opacity = this.coherence;
-        }
-    }
-
-    measure() {
-        // Simulate quantum measurement
-        const collapse = Math.random();
-        return collapse > 0.5 ? 1 : 0;
-    }
-
-    entangle() {
-        this.entanglement = QUANTUM_CONFIG.QUANTUM.ENTANGLEMENT_RATE;
-        return this.entanglement;
-    }
-}
-
-// ============================================================================
-// NEURAL NETWORK VISUALIZATION
-// ============================================================================
-
-class NeuralVisualizer {
-    constructor() {
-        this.canvas = document.getElementById('neural-viz');
-        this.ctx = this.canvas.getContext('2d');
-        this.neurons = [];
-        this.connections = [];
-        this.resize();
-        this.initNeuralNetwork();
-        
-        window.addEventListener('resize', () => this.resize());
-    }
-
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    initNeuralNetwork() {
-        // Create neural network structure
-        const layers = [8, 12, 8, 6];
-        let xSpacing = this.canvas.width / (layers.length + 1);
-        
-        for (let layer = 0; layer < layers.length; layer++) {
-            const neuronsInLayer = layers[layer];
-            const ySpacing = this.canvas.height / (neuronsInLayer + 1);
-            
-            for (let i = 0; i < neuronsInLayer; i++) {
-                this.neurons.push({
-                    x: (layer + 1) * xSpacing,
-                    y: (i + 1) * ySpacing,
-                    activation: 0,
-                    layer: layer
-                });
-            }
-        }
-
-        // Create connections
-        for (let i = 0; i < this.neurons.length; i++) {
-            for (let j = i + 1; j < this.neurons.length; j++) {
-                if (this.neurons[j].layer === this.neurons[i].layer + 1) {
-                    this.connections.push({
-                        from: i,
-                        to: j,
-                        strength: Math.random() * 0.3
-                    });
-                }
-            }
-        }
-    }
-
-    update(detections) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Update neuron activations based on detections
-        const totalActivation = detections.reduce((sum, det) => sum + det.score, 0) / Math.max(1, detections.length);
-        
-        this.neurons.forEach(neuron => {
-            neuron.activation = Math.max(0, neuron.activation - 0.05);
-            if (Math.random() < totalActivation * 0.1) {
-                neuron.activation = Math.min(1, neuron.activation + Math.random() * 0.3);
-            }
-        });
-
-        this.drawConnections();
-        this.drawNeurons();
-    }
-
-    drawConnections() {
-        this.ctx.strokeStyle = 'rgba(0, 168, 255, 0.1)';
-        this.ctx.lineWidth = 1;
-        
-        this.connections.forEach(conn => {
-            const fromNeuron = this.neurons[conn.from];
-            const toNeuron = this.neurons[conn.to];
-            
-            if (fromNeuron.activation > 0.1 || toNeuron.activation > 0.1) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(fromNeuron.x, fromNeuron.y);
-                this.ctx.lineTo(toNeuron.x, toNeuron.y);
-                this.ctx.stroke();
-            }
-        });
-    }
-
-    drawNeurons() {
-        this.neurons.forEach(neuron => {
-            if (neuron.activation > 0.05) {
-                const radius = 2 + neuron.activation * 3;
-                const alpha = neuron.activation * 0.3;
-                
-                // Glow effect
-                this.ctx.shadowBlur = 10;
-                this.ctx.shadowColor = 'rgba(0, 255, 157, 0.5)';
-                
-                this.ctx.fillStyle = `rgba(0, 255, 157, ${alpha})`;
-                this.ctx.beginPath();
-                this.ctx.arc(neuron.x, neuron.y, radius, 0, Math.PI * 2);
-                this.ctx.fill();
-                
-                this.ctx.shadowBlur = 0;
-            }
-        });
-    }
-}
-
-// ============================================================================
-// GESTURE CONTROL SYSTEM
-// ============================================================================
-
-class GestureControl {
-    constructor() {
-        this.startX = 0;
-        this.startY = 0;
-        this.currentX = 0;
-        this.currentY = 0;
-        this.isGesture = false;
-        this.gestureZone = document.getElementById('gesture-zone');
-        this.setupGestureRecognition();
-    }
-
-    setupGestureRecognition() {
-        this.gestureZone.addEventListener('touchstart', (e) => {
-            this.startX = e.touches[0].clientX;
-            this.startY = e.touches[0].clientY;
-            this.isGesture = true;
-        });
-
-        this.gestureZone.addEventListener('touchmove', (e) => {
-            if (!this.isGesture) return;
-            
-            this.currentX = e.touches[0].clientX;
-            this.currentY = e.touches[0].clientY;
-        });
-
-        this.gestureZone.addEventListener('touchend', (e) => {
-            if (!this.isGesture) return;
-            
-            const deltaX = this.currentX - this.startX;
-            const deltaY = this.currentY - this.startY;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            
-            if (distance > 50) { // Minimum gesture distance
-                this.processGesture(deltaX, deltaY, distance);
-            }
-            
-            this.isGesture = false;
-        });
-    }
-
-    processGesture(deltaX, deltaY, distance) {
-        const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
-        
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal gesture
-            if (deltaX > 0) {
-                this.onSwipeRight();
-            } else {
-                this.onSwipeLeft();
-            }
-        } else {
-            // Vertical gesture
-            if (deltaY > 0) {
-                this.onSwipeDown();
-            } else {
-                this.onSwipeUp();
-            }
-        }
-    }
-
-    onSwipeUp() {
-        OMEGA.quantumProcessor.entangle();
-        this.showGestureFeedback('QUANTUM ENTANGLED');
-    }
-
-    onSwipeDown() {
-        OMEGA.toggleBiometricScan();
-    }
-
-    onSwipeLeft() {
-        OMEGA.cycleVisionMode(-1);
-    }
-
-    onSwipeRight() {
-        OMEGA.cycleVisionMode(1);
-    }
-
-    showGestureFeedback(message) {
-        // Create temporary feedback
-        const feedback = document.createElement('div');
-        feedback.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--glass);
-            border: 1px solid var(--hud-accent);
-            padding: 8px 16px;
-            border-radius: 12px;
-            font-size: 11px;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            pointer-events: none;
-        `;
-        feedback.textContent = message;
-        document.body.appendChild(feedback);
-        
-        setTimeout(() => {
-            document.body.removeChild(feedback);
-        }, 1000);
-    }
-}
-
-// ============================================================================
-// CONTEXT MENU SYSTEM
-// ============================================================================
-
-class ContextMenu {
-    constructor() {
-        this.menu = document.getElementById('context-menu');
-        this.floatingControl = document.getElementById('floating-control');
-        this.setupContextMenu();
-    }
-
-    setupContextMenu() {
-        // Toggle menu on floating control click
-        this.floatingControl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.toggleMenu();
-        });
-
-        // Close menu when clicking outside
-        document.addEventListener('click', () => {
-            this.hideMenu();
-        });
-
-        // Handle menu items
-        this.menu.querySelectorAll('.context-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.handleMenuItem(e.target.dataset.action);
-                this.hideMenu();
-            });
-        });
-    }
-
-    toggleMenu() {
-        if (this.menu.style.display === 'block') {
-            this.hideMenu();
-        } else {
-            this.showMenu();
-        }
-    }
-
-    showMenu() {
-        this.menu.style.display = 'block';
-        this.floatingControl.style.background = 'var(--hud-accent)';
-        this.floatingControl.style.transform = 'scale(1.1)';
-    }
-
-    hideMenu() {
-        this.menu.style.display = 'none';
-        this.floatingControl.style.background = 'var(--glass)';
-        this.floatingControl.style.transform = 'scale(1)';
-    }
-
-    handleMenuItem(action) {
-        switch (action) {
-            case 'vision-mode':
-                OMEGA.cycleVisionMode(1);
-                break;
-            case 'neural-scan':
-                OMEGA.activateNeuralScan();
-                break;
-            case 'quantum-lock':
-                OMEGA.quantumLock();
-                break;
-            case 'biometric-scan':
-                OMEGA.toggleBiometricScan();
-                break;
-            case 'export-data':
-                OMEGA.exportData();
-                break;
-            case 'system-calibrate':
-                OMEGA.calibrateSystem();
-                break;
-        }
-    }
-}
-
-// ============================================================================
-// BIOMETRIC SCANNER
-// ============================================================================
-
-class BiometricScanner {
-    constructor() {
-        this.scanner = document.getElementById('biometric-scanner');
-        this.isActive = false;
-    }
-
-    activate() {
-        this.isActive = true;
-        this.scanner.style.display = 'block';
-        
-        // Simulate biometric analysis
-        setTimeout(() => {
-            this.completeScan();
-        }, 3000);
-    }
-
-    deactivate() {
-        this.isActive = false;
-        this.scanner.style.display = 'none';
-    }
-
-    completeScan() {
-        this.deactivate();
-        
-        // Show scan results
-        const targets = OMEGA.trackedObjects.filter(obj => 
-            obj.label === 'person' && obj.confidence > 0.7
-        );
-        
-        if (targets.length > 0) {
-            this.showBiometricData(targets[0]);
-        }
-    }
-
-    showBiometricData(target) {
-        const data = {
-            heartRate: Math.floor(60 + Math.random() * 40),
-            stressLevel: Math.floor(Math.random() * 100),
-            attention: Math.floor(50 + Math.random() * 50),
-            threat: Math.random() > 0.7 ? 'HIGH' : 'LOW'
-        };
-        
-        const panel = document.getElementById('target-panel');
-        if (panel) {
-            panel.innerHTML = `
-                <div class="panel-title">BIOMETRIC SCAN</div>
-                <div class="hud-text">HR: <span class="hud-value">${data.heartRate}</span> BPM</div>
-                <div class="hud-text">STRESS: <span class="hud-value">${data.stressLevel}%</span></div>
-                <div class="hud-text">THREAT: <span class="hud-value">${data.threat}</span></div>
-            `;
-            panel.style.display = 'block';
-            
-            setTimeout(() => {
-                panel.style.display = 'none';
-            }, 5000);
-        }
-    }
-}
-
-// ============================================================================
-// CORE VISION SYSTEM
-// ============================================================================
-
-class QuantumVisionSystem {
-    constructor() {
-        this.model = null;
-        this.isModelLoaded = false;
-        this.video = document.getElementById('camera-feed');
-        this.trackedObjects = [];
-        this.visionModes = ['STANDARD', 'THERMAL', 'NIGHT', 'X-RAY'];
-        this.currentVisionMode = 0;
-    }
-
-    async init() {
-        try {
-            await tf.ready();
-            this.model = await cocoSsd.load({ 
-                base: QUANTUM_CONFIG.AI.MODEL_TYPE 
-            });
-            this.isModelLoaded = true;
-            return true;
-        } catch (error) {
-            console.error("Quantum vision failed:", error);
-            return false;
-        }
-    }
-
-    async detect() {
-        if (!this.model || !this.isModelLoaded) return [];
-        
-        try {
-            const results = await this.model.detect(
-                this.video, 
-                QUANTUM_CONFIG.AI.MAX_DETECTIONS, 
-                QUANTUM_CONFIG.AI.CONFIDENCE_THRESHOLD
+    init(onReady) {
+        // 1. GPS
+        if('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(
+                pos => {
+                    this.lat = pos.coords.latitude;
+                    this.lon = pos.coords.longitude;
+                    this.alt = pos.coords.altitude || 0;
+                    this.accuracy = pos.coords.accuracy;
+                    this.speed = (pos.coords.speed || 0) * 3.6; // m/s to km/h
+                    this.ready = true;
+                    this.updateUI();
+                },
+                err => console.error("GPS Error", err),
+                { enableHighAccuracy: true, maximumAge: 0 }
             );
-            
-            return results;
-        } catch (error) {
-            console.error("Detection error:", error);
-            return [];
+        }
+
+        // 2. IMU (Compass/Gyro)
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // iOS 13+
+            DeviceOrientationEvent.requestPermission()
+                .then(state => {
+                    if (state === 'granted') this.listenIMU();
+                    else alert("Compass Permission Denied");
+                    onReady();
+                })
+                .catch(console.error);
+        } else {
+            // Android / Old iOS
+            this.listenIMU();
+            onReady();
         }
     }
 
-    cycleVisionMode(direction = 1) {
-        this.currentVisionMode = (this.currentVisionMode + direction + this.visionModes.length) % this.visionModes.length;
-        this.applyVisionMode();
-        
-        // Show mode change feedback
-        this.showVisionModeFeedback(this.visionModes[this.currentVisionMode]);
-    }
-
-    applyVisionMode() {
-        const mode = this.visionModes[this.currentVisionMode];
-        let filter = '';
-        
-        switch (mode) {
-            case 'THERMAL':
-                filter = 'contrast(1.8) brightness(1.2) hue-rotate(180deg) saturate(2.5)';
-                break;
-            case 'NIGHT':
-                filter = 'contrast(2) brightness(1.5) hue-rotate(120deg) saturate(3) grayscale(0.3)';
-                break;
-            case 'X-RAY':
-                filter = 'contrast(1.6) brightness(1.3) hue-rotate(200deg) saturate(2) invert(0.1)';
-                break;
-            default:
-                filter = 'contrast(1.4) brightness(0.8) hue-rotate(90deg) saturate(1.4)';
-        }
-        
-        this.video.style.filter = filter;
-    }
-
-    showVisionModeFeedback(mode) {
-        const feedback = document.createElement('div');
-        feedback.style.cssText = `
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--glass);
-            border: 1px solid var(--hud-accent);
-            padding: 6px 12px;
-            border-radius: 10px;
-            font-size: 10px;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            pointer-events: none;
-        `;
-        feedback.textContent = `VISION: ${mode}`;
-        document.body.appendChild(feedback);
-        
-        setTimeout(() => {
-            document.body.removeChild(feedback);
-        }, 1500);
-    }
-}
-
-// ============================================================================
-// OMEGA QUANTUM CORE
-// ============================================================================
-
-class OmegaQuantumCore {
-    constructor() {
-        this.vision = new QuantumVisionSystem();
-        this.targetRenderer = new TargetRenderer();
-        this.quantumProcessor = new QuantumProcessor();
-        this.neuralVisualizer = new NeuralVisualizer();
-        this.gestureControl = new GestureControl();
-        this.contextMenu = new ContextMenu();
-        this.biometricScanner = new BiometricScanner();
-        
-        this.isRunning = false;
-        this.trackedObjects = [];
-        this.primaryTarget = null;
-        
-        this.setupEventListeners();
-    }
-
-    setupEventListeners() {
-        // Voice activation using "Omega" wake word
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && e.ctrlKey) {
-                this.toggleVoiceControl();
-            }
-        });
-    }
-
-    async boot() {
-        try {
-            // Initialize camera
-            const cameraReady = await this.initCamera();
-            if (!cameraReady) {
-                this.showPermissionOverlay();
-                return;
-            }
+    listenIMU() {
+        window.addEventListener('deviceorientation', e => {
+            // Alpha is compass (0-360), Beta is pitch (-180 to 180)
+            // Note: Android uses absolute, iOS uses webkitCompassHeading
+            let compass = e.webkitCompassHeading || Math.abs(e.alpha - 360);
+            this.heading = compass;
+            this.pitch = e.beta;
+            this.roll = e.gamma;
             
-            // Initialize AI
-            await this.vision.init();
+            // Update Compass Strip UI
+            const strip = document.getElementById('compass-ticks');
+            // 5px per degree
+            strip.style.transform = `translateX(-${this.heading * 5}px)`;
             
-            // Initialize quantum systems
-            this.quantumProcessor.init();
-            
-            // Start systems
-            document.getElementById('boot-overlay').style.display = 'none';
-            this.isRunning = true;
-            
-            this.updateStatus('QUANTUM ONLINE');
-            this.detectionCycle();
-            this.renderCycle();
-            
-        } catch (error) {
-            console.error("Quantum boot failed:", error);
-            this.updateStatus('QUANTUM COLLAPSE');
-        }
-    }
-
-    async initCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }, 
-                audio: false 
-            });
-            
-            this.vision.video.srcObject = stream;
-            
-            await new Promise((resolve) => {
-                this.vision.video.onloadedmetadata = () => {
-                    this.vision.video.play().then(resolve);
-                };
-            });
-            
-            return true;
-        } catch (error) {
-            console.error("Camera init failed:", error);
-            return false;
-        }
-    }
-
-    async detectionCycle() {
-        if (!this.isRunning) return;
-        
-        try {
-            const detections = await this.vision.detect();
-            this.trackedObjects = detections;
-            
-            // Update neural visualization
-            this.neuralVisualizer.update(detections);
-            
-            // Update primary target
-            this.updatePrimaryTarget();
-            
-        } catch (error) {
-            console.error("Detection cycle error:", error);
-        }
-        
-        setTimeout(() => this.detectionCycle(), 1000 / QUANTUM_CONFIG.AI.INFERENCE_RATE);
-    }
-
-    renderCycle() {
-        if (!this.isRunning) return;
-        
-        // Render target boxes and lines
-        this.targetRenderer.renderTargets(this.trackedObjects, this.primaryTarget);
-        
-        // Update reticle animation
-        this.targetRenderer.updateReticleAnimation();
-        
-        // Update radar
-        this.updateRadar();
-        
-        // Update UI
-        this.updateUI();
-        
-        // Update quantum display
-        this.quantumProcessor.updateDisplay();
-        
-        requestAnimationFrame(() => this.renderCycle());
-    }
-
-    updatePrimaryTarget() {
-        if (this.trackedObjects.length === 0) {
-            this.primaryTarget = null;
-            document.getElementById('target-panel').style.display = 'none';
-            return;
-        }
-        
-        // เลือกเป้าหมายที่มีความมั่นใจสูงสุด
-        this.primaryTarget = this.trackedObjects.reduce((a, b) => 
-            (a.score > b.score) ? a : b
-        );
-        
-        // แสดงแผงข้อมูลเป้าหมาย
-        const panel = document.getElementById('target-panel');
-        panel.style.display = 'block';
-        document.getElementById('val-target-label').textContent = 
-            this.primaryTarget.class.toUpperCase();
-        document.getElementById('val-target-dist').textContent = 
-            `${Math.floor(this.primaryTarget.score * 100)}%`;
-        document.getElementById('val-target-conf').textContent = 
-            `${Math.floor(Math.random() * 20 + 80)}%`; // จำลองระยะทาง
-    }
-
-    updateRadar() {
-        const container = document.getElementById('radar-blips');
-        
-        // ลบจุดเรดาร์เก่า
-        if (container.children.length > 0) {
-            container.innerHTML = '';
-        }
-        
-        // สร้างจุดเรดาร์ใหม่
-        this.trackedObjects.slice(0, 5).forEach((obj, index) => {
-            const angle = (index / Math.max(1, this.trackedObjects.length)) * Math.PI * 2;
-            const distance = 0.3 + (obj.score * 0.4);
-            
-            const x = 50 + Math.cos(angle) * distance * 35;
-            const y = 50 + Math.sin(angle) * distance * 35;
-            
-            const blip = document.createElement('div');
-            blip.className = 'radar-blip';
-            blip.style.left = `${x}px`;
-            blip.style.top = `${y}px`;
-            blip.style.width = '6px';
-            blip.style.height = '6px';
-            blip.style.backgroundColor = obj.class === 'person' ? 
-                'var(--hud-primary)' : 'var(--hud-accent)';
-                
-            container.appendChild(blip);
-        });
+            document.getElementById('imu-hdg').innerText = Math.round(this.heading) + "°";
+        }, true);
     }
 
     updateUI() {
-        // อัพเดทเมตริกพื้นฐาน
-        document.getElementById('val-tracked').textContent = this.trackedObjects.length;
-        document.getElementById('val-ai-fps').textContent = QUANTUM_CONFIG.AI.INFERENCE_RATE;
-        
-        // จำลองข้อมูลเซนเซอร์
-        document.getElementById('val-pitch').textContent = 
-            `${Math.floor(Math.random() * 10 - 5)}°`;
-        document.getElementById('val-roll').textContent = 
-            `${Math.floor(Math.random() * 8 - 4)}°`;
-        
-        this.updateSystemStatus();
-    }
-
-    updateSystemStatus() {
-        document.getElementById('status-cam').className = 
-            `status-dot ${this.vision.video.srcObject ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-ai').className = 
-            `status-dot ${this.vision.isModelLoaded ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-quantum').className = 
-            `status-dot status-ok`;
-    }
-
-    updateStatus(message) {
-        document.getElementById('status-message').textContent = message;
-    }
-
-    // Feature Methods
-    cycleVisionMode(direction) {
-        this.vision.cycleVisionMode(direction);
-    }
-
-    toggleBiometricScan() {
-        if (this.biometricScanner.isActive) {
-            this.biometricScanner.deactivate();
-        } else {
-            this.biometricScanner.activate();
-        }
-    }
-
-    activateNeuralScan() {
-        // เพิ่มการกระตุ้น neural visualization ชั่วคราว
-        this.neuralVisualizer.neurons.forEach(neuron => {
-            neuron.activation = Math.min(1, neuron.activation + 0.5);
-        });
-    }
-
-    quantumLock() {
-        this.quantumProcessor.entangle();
-        this.updateStatus('QUANTUM LOCKED');
-        
-        setTimeout(() => {
-            this.updateStatus('OMEGA READY');
-        }, 2000);
-    }
-
-    exportData() {
-        const data = {
-            timestamp: new Date().toISOString(),
-            objects: this.trackedObjects,
-            quantumState: this.quantumProcessor.state,
-            entanglement: this.quantumProcessor.entanglement
-        };
-        
-        console.log('Data exported:', data);
-        this.updateStatus('DATA EXPORTED');
-    }
-
-    calibrateSystem() {
-        this.updateStatus('CALIBRATING...');
-        
-        setTimeout(() => {
-            this.updateStatus('CALIBRATION COMPLETE');
-        }, 1500);
-    }
-
-    toggleVoiceControl() {
-        const voiceActivity = document.getElementById('voice-activity');
-        if (voiceActivity.style.display === 'flex') {
-            voiceActivity.style.display = 'none';
-        } else {
-            voiceActivity.style.display = 'flex';
-        }
-    }
-
-    showPermissionOverlay() {
-        // Simplified permission handling
-        setTimeout(() => {
-            if (confirm('OMEGA requires camera access. Please allow camera permissions.')) {
-                this.boot();
-            }
-        }, 1000);
+        document.getElementById('gps-lat').innerText = this.lat.toFixed(5);
+        document.getElementById('gps-lon').innerText = this.lon.toFixed(5);
+        document.getElementById('gps-acc').innerText = Math.round(this.accuracy) + "m";
+        document.getElementById('gps-spd').innerText = Math.round(this.speed) + " km/h";
+        document.getElementById('gps-alt').innerText = Math.round(this.alt) + "m";
     }
 }
 
-// ============================================================================
-// QUANTUM INITIALIZATION
-// ============================================================================
+// --- MODULE 2: TRUE AR WORLD (THREE.JS) ---
+class ARWorld {
+    constructor() {
+        this.canvas = document.getElementById('ar-world');
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(CFG.FOV, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, alpha: true});
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        this.createWorld();
+    }
 
-const OMEGA = new OmegaQuantumCore();
+    createWorld() {
+        // 1. Grid Floor (Infinite Plane Illusion)
+        const grid = new THREE.GridHelper(CFG.GRID_SIZE, 20, 0x00ff9d, 0x003322);
+        grid.position.y = -2; // Below eye level
+        this.scene.add(grid);
 
-document.getElementById('btn-init').addEventListener('click', () => {
-    const btn = document.getElementById('btn-init');
-    btn.textContent = 'ENTANGLING...';
-    btn.disabled = true;
-    OMEGA.boot();
-});
+        // 2. North Marker (Red line pointing North)
+        const mat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 4 });
+        const pts = [new THREE.Vector3(0, -2, 0), new THREE.Vector3(0, -2, -50)]; // -Z is North in 3D
+        const geom = new THREE.BufferGeometry().setFromPoints(pts);
+        const northLine = new THREE.Line(geom, mat);
+        this.scene.add(northLine);
 
-// Quantum ready
-console.log("OMEGA: Quantum Vision System - Ready for Entanglement");
+        // 3. Floating POIs (Fake Targets)
+        // Add a "Target" 20 meters North
+        const geoBox = new THREE.WireframeGeometry(new THREE.BoxGeometry(2, 4, 2));
+        const matBox = new THREE.LineBasicMaterial({ color: 0xff2a6d });
+        const target = new THREE.LineSegments(geoBox, matBox);
+        target.position.set(0, 0, -20); // 20m North
+        this.scene.add(target);
+    }
+
+    updateCamera(geo) {
+        // Sync Virtual Camera with Real Phone Rotation
+        // This makes the grid stick to the real world
+        
+        // Convert deg to rad
+        const alpha = THREE.Math.degToRad(geo.heading);
+        const beta = THREE.Math.degToRad(geo.pitch);
+        const gamma = THREE.Math.degToRad(geo.roll);
+
+        // Euler Order: ZXY is common for phone sensors but varies by device. 
+        // Simplifying for stability: mainly Rotate Y (Heading) and X (Pitch)
+        
+        // Reset rotation
+        this.camera.rotation.set(0, 0, 0);
+        
+        // Apply Compass (Y-axis rotation)
+        // Note: 3D North is -Z. Compass 0 is North. 
+        // We rotate the camera opposite to phone movement to keep world static, 
+        // OR rotate the world. Here we rotate camera.
+        
+        const lookAngle = THREE.Math.degToRad(geo.heading);
+        this.camera.rotation.y = -lookAngle; // Invert for camera
+        
+        // Apply Tilt (X-axis) - simple approximation
+        const tilt = THREE.Math.degToRad(geo.pitch - 90); // Phone upright = 90
+        this.camera.rotation.x = tilt;
+
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    resize() {
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+    }
+}
+
+// --- MODULE 3: VISION AI (COCO-SSD) ---
+class VisionAI {
+    constructor() {
+        this.model = null;
+        this.canvas = document.getElementById('hud');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+    }
+    
+    async load() {
+        this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+    }
+
+    async scan(video) {
+        if(!this.model) return;
+        const detections = await this.model.detect(video, 10, CFG.AI_CONF);
+        
+        this.ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
+        const sx = this.canvas.width / video.videoWidth;
+        const sy = this.canvas.height / video.videoHeight;
+
+        detections.forEach(d => {
+            const [x,y,w,h] = d.bbox;
+            const color = d.class === 'person' ? '#ff2a6d' : '#00ff9d';
+            
+            // Draw Bracket
+            this.ctx.strokeStyle = color; this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(x*sx, y*sy, w*sx, h*sy);
+            
+            // Draw Label
+            this.ctx.fillStyle = color; this.ctx.font = "bold 12px monospace";
+            this.ctx.fillText(d.class.toUpperCase(), x*sx, y*sy - 5);
+        });
+
+        document.getElementById('ai-count').innerText = detections.length;
+    }
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+}
+
+// --- MAIN KERNEL ---
+const GEO = new GeoSpatialSystem();
+const AR = new ARWorld();
+const AI = new VisionAI();
+
+let isRunning = false;
+let video = document.getElementById('cam-feed');
+
+// Generate Compass UI
+const strip = document.getElementById('compass-ticks');
+let html = '';
+// Create 3 loops of 0-360 for smooth scrolling
+for(let i=0; i<3; i++) {
+    for(let deg=0; deg<360; deg+=10) {
+        let label = deg === 0 ? 'N' : deg === 90 ? 'E' : deg === 180 ? 'S' : deg === 270 ? 'W' : deg;
+        html += `<div class="tick">${label}</div>`;
+    }
+}
+strip.innerHTML = html;
+
+
+async function startSystem() {
+    const btn = document.getElementById('btn-start');
+    btn.innerText = "INITIALIZING SENSORS...";
+    
+    // 1. Init GPS & IMU
+    GEO.init(async () => {
+        // 2. Start Camera
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: {ideal: 1280} },
+                audio: false
+            });
+            video.srcObject = stream;
+            await new Promise(r => video.onloadedmetadata = () => { video.play(); r(); });
+            
+            // 3. Load AI
+            btn.innerText = "LOADING NEURAL NET...";
+            await AI.load();
+
+            // 4. Engage
+            document.getElementById('start-screen').style.display = 'none';
+            isRunning = true;
+            loop();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    });
+}
+
+function loop() {
+    if(!isRunning) return;
+    const now = performance.now();
+    
+    // Update AR World based on Sensors
+    AR.updateCamera(GEO);
+    
+    // Run AI Scan
+    AI.scan(video);
+    
+    requestAnimationFrame(loop);
+}
+
+window.onresize = () => { AR.resize(); AI.resize(); }
+document.getElementById('btn-start').onclick = startSystem;
+
 </script>
 </body>
 </html>
