@@ -1,755 +1,915 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>OMEGA: LOCK-ON TRACKER</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OMEGA ULTIMATE: Combat Mode</title>
+    
+    <!-- LIBRARIES -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 
-  <!-- AI Core (เดิม) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <style>
+        :root {
+            --primary: #00ff9d; --secondary: #008f7a; --alert: #ff2a6d; 
+            --warning: #ffcc00; --bg: #050505; --glass: rgba(0, 20, 10, 0.85);
+            --font: 'Segoe UI', system-ui, sans-serif;
+        }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: var(--primary); font-family: var(--font); }
+        
+        #viewport { position: relative; width: 100vw; height: 100vh; }
+        #camera-feed { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            opacity: 0.6;
+            filter: contrast(1.2) saturate(1.1);
+        }
+        #hud-canvas { position: absolute; inset: 0; z-index: 10; }
+        #layer-3d { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0.8; }
+        
+        /* UI LAYERS */
+        #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        
+        .panel {
+            background: var(--glass); border-left: 4px solid var(--primary);
+            padding: 15px; margin: 5px; backdrop-filter: blur(10px);
+            pointer-events: auto; width: fit-content; border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
+            max-width: 300px;
+        }
+        .panel-title { font-size: 10px; font-weight: bold; color: #00a8ff; letter-spacing: 2px; margin-bottom: 5px; }
+        .data-row { font-family: monospace; font-size: 12px; margin-bottom: 2px; display: flex; justify-content: space-between; min-width: 150px; }
+        .val { font-weight: bold; color: #fff; }
 
-  <!-- AI Add-on (ใหม่: Scene/Context) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+        /* COORDINATE AXIS */
+        #coordinate-axis {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            width: 120px;
+            height: 120px;
+            z-index: 25;
+            pointer-events: none;
+        }
+        .axis-line {
+            position: absolute;
+            background: var(--primary);
+            transform-origin: 0 0;
+        }
+        .axis-label {
+            position: absolute;
+            color: var(--primary);
+            font-size: 10px;
+            font-family: monospace;
+            text-shadow: 0 0 5px var(--primary);
+        }
 
-  <!-- 3D Engine (เดิม) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        /* RADAR */
+        #radar-box {
+            position: absolute; bottom: 20px; right: 20px; width: 150px; height: 150px;
+            background: rgba(0,20,10,0.9); border-radius: 50%; border: 2px solid #00a8ff;
+            overflow: hidden; pointer-events: auto; z-index: 30;
+        }
+        .blip { position: absolute; width: 6px; height: 6px; background: var(--alert); border-radius: 50%; transform: translate(-50%,-50%); box-shadow: 0 0 5px var(--alert); transition: all 0.1s; }
 
-  <style>
-    /* --- THEME: TACTICAL HUD --- */
-    :root {
-      --p: #00ff9d; --s: #008f7a; --a: #ff2a6d;
-      --bg: #000; --glass: rgba(0, 15, 10, 0.85);
-      --font: 'Segoe UI', 'Courier New', sans-serif;
-    }
+        /* BOOT SCREEN */
+        #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn { padding: 15px 40px; background: var(--primary); border: none; font-weight: bold; cursor: pointer; margin-top: 20px; border-radius: 30px; }
+        
+        /* CONTROL PANEL */
+        #controls { display: none; position: absolute; top: 60px; left: 20px; background: rgba(0,0,0,0.9); padding: 10px; pointer-events: auto; z-index: 40; border: 1px solid var(--primary); }
+        .ctrl-btn { background: #333; color: var(--primary); border: 1px solid var(--primary); padding: 5px 10px; margin: 2px; cursor: pointer; font-size: 10px; }
+        .ctrl-btn:hover { background: var(--primary); color: #000; }
+        .ctrl-btn.active { background: var(--primary); color: #000; }
 
-    body { margin: 0; overflow: hidden; background: var(--bg); color: var(--p); font-family: var(--font); }
+        /* VOICE INDICATOR */
+        #voice-ind { position: absolute; top: 20px; right: 20px; background: var(--alert); color: white; padding: 5px 10px; border-radius: 15px; font-size: 10px; display: none; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } }
 
-    #viewport { position: relative; width: 100vw; height: 100vh; touch-action: none; }
+        /* GPS STATUS */
+        .gps-active { color: #00ff9d !important; }
+        .gps-inactive { color: #ff2a6d !important; }
+        .gps-acquiring { color: #ffcc00 !important; }
 
-    /* LAYERS */
-    #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.8; z-index: 0; }
-    #layer-3d { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-    #hud-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+        /* LOADING PROGRESS */
+        #loading-progress { width: 300px; height: 4px; background: #333; margin: 10px 0; border-radius: 2px; overflow: hidden; }
+        #loading-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
 
-    /* UI OVERLAY */
-    #ui-layer { position: absolute; inset: 0; z-index: 20; padding: 20px; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
-
-    .panel {
-      background: var(--glass); border-left: 3px solid var(--p);
-      padding: 10px 15px; margin-bottom: 5px; backdrop-filter: blur(5px);
-      pointer-events: auto; width: fit-content; border-radius: 0 5px 5px 0;
-      box-shadow: 0 0 15px rgba(0,255,157,0.1);
-    }
-    .label { font-size: 10px; color: #00a8ff; font-weight: bold; letter-spacing: 2px; }
-    .val { font-size: 14px; color: #fff; font-weight: bold; font-family: monospace; }
-
-    /* COMPASS STRIP */
-    #compass-bar {
-      position: absolute; top: 0; left: 0; width: 100%; height: 40px;
-      background: linear-gradient(to bottom, #000, transparent);
-      z-index: 15; display: flex; justify-content: center; overflow: hidden;
-      border-bottom: 1px solid rgba(0,255,157,0.3);
-    }
-    #compass-ticks { display: flex; transition: transform 0.1s; width: 2000px; font-family: monospace; font-weight: bold; }
-    .tick { width: 50px; text-align: center; border-left: 1px solid var(--s); height: 10px; margin-top: 5px; color: #fff; }
-    .compass-marker { position: absolute; top: 0; left: 50%; width: 2px; height: 30px; background: var(--a); transform: translateX(-50%); }
-
-    /* RADAR */
-    #radar {
-      position: absolute; bottom: 30px; right: 20px;
-      width: 120px; height: 120px; border-radius: 50%;
-      background: rgba(0,20,10,0.9); border: 2px solid var(--s);
-      overflow: hidden; pointer-events: auto; z-index: 25;
-    }
-    .blip { position: absolute; width: 6px; height: 6px; background: var(--a); border-radius: 50%; transform: translate(-50%,-50%); box-shadow: 0 0 5px var(--a); transition: all 0.2s; }
-
-    /* BOOT SCREEN */
-    #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    #loader { width: 50px; height: 50px; border: 3px solid #333; border-top: 3px solid var(--p); border-radius: 50%; animation: spin 1s infinite; margin: 20px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    button { background: transparent; border: 1px solid var(--p); color: var(--p); padding: 10px 30px; font-weight: bold; cursor: pointer; border-radius: 20px; }
-    button:hover { background: var(--p); color: #000; }
-
-    /* (เพิ่มใหม่) ปุ่มจิ๋วในธีมเดิม ไม่เปลี่ยนดีไซน์ */
-    .mini-btn {
-      display: inline-flex; align-items:center; gap:6px;
-      padding: 4px 10px; font-size: 11px; border-radius: 12px;
-      border: 1px solid var(--s); color:#fff; background: rgba(0,0,0,0.3);
-      cursor:pointer; user-select:none;
-    }
-    .mini-btn.active { border-color: var(--a); box-shadow:0 0 8px rgba(255,42,109,0.4); }
-  </style>
+        /* CAMERA SHAKE EFFECT */
+        .camera-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) translateY(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px) translateY(-1px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px) translateY(1px); }
+        }
+    </style>
 </head>
 <body>
 
-  <div id="viewport">
-    <video id="camera-feed" autoplay playsinline muted></video>
-    <canvas id="layer-3d"></canvas>
-    <canvas id="hud-canvas"></canvas>
+    <div id="viewport">
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="layer-3d"></canvas>
+        <canvas id="hud-canvas"></canvas>
 
-    <!-- COMPASS -->
-    <div id="compass-bar">
-      <div id="compass-ticks"></div>
-      <div class="compass-marker"></div>
+        <!-- COORDINATE AXIS -->
+        <div id="coordinate-axis">
+            <div class="axis-line" id="axis-x" style="width: 60px; height: 2px; top: 60px; left: 60px; background: #ff2a6d;"></div>
+            <div class="axis-line" id="axis-y" style="width: 2px; height: 60px; top: 30px; left: 60px; background: #00ff9d;"></div>
+            <div class="axis-line" id="axis-z" style="width: 40px; height: 2px; top: 60px; left: 60px; background: #00a8ff; transform: rotate(-45deg);"></div>
+            <div class="axis-label" style="top: 55px; left: 125px;">X</div>
+            <div class="axis-label" style="top: 25px; left: 65px;">Y</div>
+            <div class="axis-label" style="top: 85px; left: 105px;">Z</div>
+        </div>
+        
+        <div id="ui-layer">
+            <div style="display: flex; gap: 10px;">
+                <div class="panel">
+                    <div class="panel-title">SYSTEM STATUS</div>
+                    <div class="data-row"><span>CPU:</span><span class="val" id="v-cpu">0ms</span></div>
+                    <div class="data-row"><span>FPS:</span><span class="val" id="v-fps">0</span></div>
+                    <div class="data-row"><span>TRACKS:</span><span class="val" id="v-tracks">0</span></div>
+                    <div class="data-row"><span>GPS:</span><span class="val" id="v-gps">OFF</span></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title">COMBAT TELEMETRY</div>
+                    <div class="data-row"><span>SPEED:</span><span class="val" id="v-spd">0 m/s</span></div>
+                    <div class="data-row"><span>HDG:</span><span class="val" id="v-hdg">0°</span></div>
+                    <div class="data-row"><span>STABILITY:</span><span class="val" id="v-stability">100%</span></div>
+                    <div class="data-row"><span>MODE:</span><span class="val" id="v-mode">COMBAT</span></div>
+                </div>
+            </div>
+
+            <!-- SENSOR DATA PANEL -->
+            <div class="panel" style="position: absolute; bottom: 180px; left: 20px;">
+                <div class="panel-title">TACTICAL SENSORS</div>
+                <div class="data-row"><span>COORDS:</span><span class="val" id="s-coords">--</span></div>
+                <div class="data-row"><span>DIST TRAVELED:</span><span class="val" id="s-distance">0 m</span></div>
+                <div class="data-row"><span>MISSION TIME:</span><span class="val" id="s-optime">00:00</span></div>
+                <div class="data-row"><span>SHAKE LEVEL:</span><span class="val" id="s-shake">0%</span></div>
+            </div>
+
+            <!-- TARGET LOCK PANEL -->
+            <div class="panel" style="position: absolute; top: 50%; right: 20px; transform: translateY(-50%);">
+                <div class="panel-title">TARGET LOCK</div>
+                <div class="data-row"><span>TYPE:</span><span class="val" id="t-type">--</span></div>
+                <div class="data-row"><span>DIST:</span><span class="val" id="t-dist">--</span></div>
+                <div class="data-row"><span>BEARING:</span><span class="val" id="t-bearing">--</span></div>
+                <div class="data-row"><span>REL SPD:</span><span class="val" id="t-relspeed">--</span></div>
+                <div class="data-row"><span>THREAT:</span><span class="val" id="t-threat" style="color:var(--primary)">LOW</span></div>
+            </div>
+
+            <!-- RADAR -->
+            <div id="radar-box">
+                <div style="position:absolute; inset:0; background: conic-gradient(transparent 270deg, #00a8ff); opacity: 0.3; animation: scan 3s linear infinite;"></div>
+            </div>
+        </div>
+
+        <div style="position: absolute; top: 20px; left: 20px; z-index: 50;">
+            <button onclick="document.getElementById('controls').style.display = 'block'" style="background:black; color:var(--primary); border:1px solid var(--primary); padding:5px;">CONTROLS</button>
+        </div>
+
+        <div id="controls">
+            <div class="panel-title">COMMAND CENTER</div>
+            <button class="ctrl-btn" onclick="OMEGA.voice.toggle()">VOICE CMD</button>
+            <button class="ctrl-btn" onclick="OMEGA.recorder.toggle()">RECORD MISSION</button>
+            <button class="ctrl-btn" onclick="OMEGA.toggleGPS()">GPS SENSOR</button>
+            <button class="ctrl-btn" onclick="OMEGA.toggleStabilization()">STABILIZATION</button>
+            <button class="ctrl-btn" onclick="OMEGA.simulateShake()">TEST SHAKE</button>
+            <button class="ctrl-btn" onclick="document.getElementById('controls').style.display='none'">CLOSE</button>
+        </div>
+
+        <div id="voice-ind">MIC ACTIVE</div>
     </div>
 
-    <div id="ui-layer">
-      <div>
-        <!-- เดิม -->
-        <div class="panel">
-          <div class="label">SYSTEM STATUS</div>
-          <div>FPS: <span id="fps" class="val">0</span> | OBJ: <span id="obj-count" class="val">0</span></div>
+    <div id="boot">
+        <h1 style="color:var(--primary); letter-spacing: 5px; text-shadow: 0 0 20px var(--primary);">OMEGA COMBAT</h1>
+        <div style="color: #666; font-family: monospace;" id="boot-status">INITIALIZING COMBAT SYSTEM...</div>
+        
+        <!-- Loading Progress Bar -->
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
         </div>
-        <div class="panel">
-          <div class="label">SENSORS</div>
-          <div>HDG: <span id="hdg" class="val" style="color:var(--a)">--°</span></div>
+        
+        <button id="btn-init" class="btn" disabled>BOOTING...</button>
+        <div style="margin-top: 10px;">
+            <button onclick="OMEGA.quickBoot()" style="background: transparent; color: #666; border: 1px solid #666; padding: 8px 20px; font-size: 12px; cursor: pointer;">
+                QUICK COMBAT START
+            </button>
         </div>
-
-        <!-- ใหม่: Primary/Lock panel (ธีมเดิม) -->
-        <div class="panel">
-          <div class="label">TARGETING</div>
-          <div>
-            PRI: <span id="pri-class" class="val">--</span>
-            | RNG: <span id="pri-dist" class="val">--</span>
-            | BRG: <span id="pri-brg" class="val">--</span>
-          </div>
-          <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
-            <div id="btn-lock" class="mini-btn">LOCK: <span id="lock-status">AUTO</span></div>
-            <div id="btn-voice" class="mini-btn">VOICE: <span id="voice-status">OFF</span></div>
-          </div>
-        </div>
-
-        <!-- ใหม่: Scene Context AI -->
-        <div class="panel">
-          <div class="label">CONTEXT AI</div>
-          <div>SCENE: <span id="scene-label" class="val">--</span> (<span id="scene-conf" class="val">--</span>)</div>
-        </div>
-      </div>
-
-      <div id="radar">
-        <div style="position:absolute; inset:0; background: conic-gradient(transparent 270deg, var(--s)); opacity: 0.3; animation: scan 3s linear infinite;"></div>
-        <style>@keyframes scan{to{transform: rotate(360deg);}}</style>
-      </div>
     </div>
-  </div>
-
-  <div id="boot">
-    <h1 style="color:var(--p); letter-spacing: 5px; text-shadow: 0 0 20px var(--p);">OMEGA</h1>
-    <div style="color:#888;">LOCK-ON SYSTEM</div>
-    <div id="loader"></div>
-    <div style="margin-top:20px;">
-      <button id="btn-start" onclick="OMEGA.start()" style="display:none;">INITIALIZE</button>
-    </div>
-  </div>
 
 <script>
 /**
- * OMEGA: LOCK-ON EDITION — SpaceX/Tesla-grade Web Single-file
- * - No design changes, no system removals.
- * - Added predictive multi-target tracking, performance governor,
- *   primary target scoring, tap-to-lock, context AI, voice agent.
+ * 🚀 OMEGA ULTIMATE: COMBAT MODE
+ * เอาเส้นพื้นโลกออก + เอา Crosshair ออก + ระบบกันสั่น
  */
-(() => {
-  "use strict";
 
-  const CFG = {
-    AI_CONF: 0.55,
-    SMOOTH_FACTOR: 0.2,     // เดิม: ค่ายิ่งน้อยยิ่งหนึบ
-    MAX_TRACKS: 15,
-    MAX_LOST: 8,
-    DETECT_INTERVAL: 120,  // ms — แยก detect loop เพื่อคุมโหลด
-    AI_INPUT_W: 640,        // downscale before detect
-    AI_MIN_W: 320,
-    AI_MAX_W: 960,
-    CONTEXT_INTERVAL: 2000, // ms — scene classify
-    PHYSICS: { FOV: 60, CAM_H: 1.5 },
-    PRIMARY_SCORE: {
-      centerW: 0.55,
-      areaW:   0.35,
-      personBoost: 0.25
-    },
-    VOICE_COOLDOWN: 1400
-  };
+const CONFIG = {
+    AI: { CONFIDENCE: 0.6, MAX_OBJ: 10 },
+    PHYSICS: { FOV: 60, FOCAL_LEN: 800, PERSON_H: 1.7 },
+    TRACKING: { MAX_LOST: 5, IOU_THRESH: 0.4 },
+    STABILIZATION: { SMOOTHING: 0.8, SHAKE_THRESHOLD: 0.1 }
+};
 
-  // ---------- Math Utils ----------
-  const MathUtils = {
+// --- COMBAT PHYSICS SYSTEM ---
+const CombatPhysics = {
     iou: (b1, b2) => {
-      const x1 = Math.max(b1[0], b2[0]), y1 = Math.max(b1[1], b2[1]);
-      const x2 = Math.min(b1[0]+b1[2], b2[0]+b2[2]), y2 = Math.min(b1[1]+b1[3], b2[1]+b2[3]);
-      const inter = Math.max(0, x2-x1) * Math.max(0, y2-y1);
-      const union = (b1[2]*b1[3]) + (b2[2]*b2[3]) - inter;
-      return union <= 0 ? 0 : inter / union;
+        const x1 = Math.max(b1[0], b2[0]), y1 = Math.max(b1[1], b2[1]);
+        const x2 = Math.min(b1[0]+b1[2], b2[0]+b2[2]), y2 = Math.min(b1[1]+b1[3], b2[1]+b2[3]);
+        const inter = Math.max(0, x2-x1) * Math.max(0, y2-y1);
+        return inter / ((b1[2]*b1[3]) + (b2[2]*b2[3]) - inter);
     },
-    lerp: (a,b,t) => (1-t)*a + t*b,
-    lerpBox: (o, n, t) => [
-      MathUtils.lerp(o[0], n[0], t),
-      MathUtils.lerp(o[1], n[1], t),
-      MathUtils.lerp(o[2], n[2], t),
-      MathUtils.lerp(o[3], n[3], t)
-    ],
-    clamp: (v,min,max)=>Math.max(min,Math.min(max,v))
-  };
-
-  // ---------- Track Object ----------
-  class Track {
-    constructor(det, id, now) {
-      this.id = id;
-      this.class = det.class;
-      this.bbox = det.bbox.slice();  // smoothed box
-      this.rawBox = det.bbox.slice();// raw det for IOU next time
-      this.center = [det.bbox[0]+det.bbox[2]/2, det.bbox[1]+det.bbox[3]/2];
-      this.dist = (1.7 * 800) / det.bbox[3];
-      this.lost = 0;
-      this.lastSeen = now;
-
-      this.vx = 0; this.vy = 0; this.vw = 0; this.vh = 0; // velocity terms
+    getDist: (h) => (CONFIG.PHYSICS.PERSON_H * CONFIG.PHYSICS.FOCAL_LEN) / h,
+    project3D: (x, y, d, w, h) => {
+        const nx = (x - w/2) / (w/2), ny = -(y - h/2) / (h/2);
+        const tan = Math.tan((CONFIG.PHYSICS.FOV/2) * Math.PI/180);
+        return { x: nx * d * tan * (w/h), y: ny * d * tan, z: -d };
+    },
+    calculateDistance: (lat1, lon1, lat2, lon2) => {
+        if (!lat1 || !lat2) return 0;
+        const R = 6371e3;
+        const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    },
+    calculateBearing: (targetWorld, sensorData) => {
+        if (!targetWorld || !sensorData.heading) return 0;
+        const targetAngle = Math.atan2(targetWorld.x, -targetWorld.z) * 180 / Math.PI;
+        return (targetAngle - sensorData.heading + 360) % 360;
     }
+};
 
-    predict(dt) {
-      if (!dt || dt > 0.2) return; // dt too large, skip prediction
-      this.bbox[0] += this.vx * dt;
-      this.bbox[1] += this.vy * dt;
-      this.bbox[2] += this.vw * dt;
-      this.bbox[3] += this.vh * dt;
-    }
-
-    updateFromDet(det, dt, smoothBase) {
-      const old = this.bbox.slice();
-      const newBox = det.bbox;
-
-      // adaptive smoothing: if IOU high -> less smoothing; jitter low -> more smoothing
-      const iou = MathUtils.iou(this.rawBox, newBox);
-      const t = MathUtils.clamp(smoothBase * (1.2 - iou), 0.08, 0.6);
-
-      this.bbox = MathUtils.lerpBox(old, newBox, t);
-      this.rawBox = newBox.slice();
-      this.class = det.class;
-      this.lost = 0;
-
-      // velocity update (constant velocity model)
-      if (dt && dt > 0) {
-        this.vx = (this.bbox[0]-old[0]) / dt;
-        this.vy = (this.bbox[1]-old[1]) / dt;
-        this.vw = (this.bbox[2]-old[2]) / dt;
-        this.vh = (this.bbox[3]-old[3]) / dt;
-      }
-
-      this.center = [this.bbox[0]+this.bbox[2]/2, this.bbox[1]+this.bbox[3]/2];
-      this.dist = (1.7 * 800) / this.bbox[3];
-      this.lastSeen = performance.now();
-    }
-  }
-
-  // ---------- Sticky Tracker V2 (เดิม + predictive) ----------
-  class StickyTracker {
+// --- CAMERA STABILIZATION SYSTEM ---
+class CameraStabilizer {
     constructor() {
-      this.tracks = [];
-      this.nextId = 1;
+        this.isStabilizing = true;
+        this.motionHistory = [];
+        this.shakeLevel = 0;
+        this.smoothPosition = { x: 0, y: 0, z: 0 };
+        this.lastPosition = null;
     }
 
-    update(detections, dtSec) {
-      const now = performance.now();
-      const tracks = this.tracks;
+    stabilize(position, timestamp) {
+        if (!this.isStabilizing) return position;
 
-      // predict step
-      tracks.forEach(t => t.predict(dtSec));
-
-      const assignedTracks = new Set();
-      const newTracks = [];
-
-      // greedy IOU matching (fast & stable for small N)
-      detections.forEach(det => {
-        let best = null;
-        let bestIOU = 0;
-
-        for (const t of tracks) {
-          if (assignedTracks.has(t.id)) continue;
-          const iou = MathUtils.iou(det.bbox, t.rawBox || t.bbox);
-          if (iou > bestIOU) { bestIOU = iou; best = t; }
+        // Add to motion history
+        this.motionHistory.push({ ...position, timestamp });
+        if (this.motionHistory.length > 10) {
+            this.motionHistory.shift();
         }
 
-        if (best && bestIOU > 0.28) {
-          best.updateFromDet(det, dtSec, CFG.SMOOTH_FACTOR);
-          assignedTracks.add(best.id);
-          newTracks.push(best);
+        // Calculate shake level
+        this.calculateShakeLevel();
+
+        // Apply smoothing
+        if (this.lastPosition) {
+            const smoothFactor = CONFIG.STABILIZATION.SMOOTHING + (this.shakeLevel * 0.3);
+            this.smoothPosition.x = this.smoothPosition.x * smoothFactor + position.x * (1 - smoothFactor);
+            this.smoothPosition.y = this.smoothPosition.y * smoothFactor + position.y * (1 - smoothFactor);
+            this.smoothPosition.z = this.smoothPosition.z * smoothFactor + position.z * (1 - smoothFactor);
         } else {
-          // new target
-          newTracks.push(new Track(det, this.nextId++, now));
+            this.smoothPosition = { ...position };
         }
-      });
 
-      // ghost tracking for a few frames
-      tracks.forEach(t => {
-        if (assignedTracks.has(t.id)) return;
-        t.lost++;
-        if (t.lost <= CFG.MAX_LOST) newTracks.push(t);
-      });
-
-      // cap tracks
-      newTracks.sort((a,b)=>a.lost-b.lost);
-      this.tracks = newTracks.slice(0, CFG.MAX_TRACKS);
-
-      return this.tracks;
+        this.lastPosition = { ...position };
+        return { ...this.smoothPosition };
     }
-  }
 
-  // ---------- HUD Renderer (เดิม + primary/lock highlight) ----------
-  class HUD {
+    calculateShakeLevel() {
+        if (this.motionHistory.length < 2) {
+            this.shakeLevel = 0;
+            return;
+        }
+
+        let totalMovement = 0;
+        for (let i = 1; i < this.motionHistory.length; i++) {
+            const prev = this.motionHistory[i-1];
+            const curr = this.motionHistory[i];
+            const movement = Math.sqrt(
+                Math.pow(curr.x - prev.x, 2) +
+                Math.pow(curr.y - prev.y, 2) +
+                Math.pow(curr.z - prev.z, 2)
+            );
+            totalMovement += movement;
+        }
+
+        this.shakeLevel = Math.min(1, totalMovement / this.motionHistory.length * 10);
+    }
+
+    getStability() {
+        return Math.max(0, 100 - (this.shakeLevel * 100));
+    }
+
+    simulateShake() {
+        this.shakeLevel = 0.8;
+        // Add camera shake effect
+        document.getElementById('camera-feed').classList.add('camera-shake');
+        setTimeout(() => {
+            document.getElementById('camera-feed').classList.remove('camera-shake');
+        }, 500);
+    }
+
+    toggleStabilization() {
+        this.isStabilizing = !this.isStabilizing;
+        return this.isStabilizing;
+    }
+}
+
+// --- COMBAT SENSOR SYSTEM ---
+class CombatSensorSystem {
+    constructor(stabilizer) {
+        this.watchId = null;
+        this.currentPos = null;
+        this.previousPos = null;
+        this.isActive = false;
+        this.operationStart = null;
+        this.totalDistance = 0;
+        this.isCalibrated = false;
+        this.stabilizer = stabilizer;
+    }
+
+    startTracking() {
+        if (!navigator.geolocation) {
+            this.setGPSStatus('NOT_SUPPORTED');
+            return false;
+        }
+
+        this.isActive = true;
+        this.operationStart = Date.now();
+        this.setGPSStatus('ACQUIRING');
+
+        this.watchId = navigator.geolocation.watchPosition(
+            (position) => this.handlePositionUpdate(position),
+            (error) => this.handleGPSError(error),
+            {
+                enableHighAccuracy: true,
+                timeout: 3000,
+                maximumAge: 2000
+            }
+        );
+        return true;
+    }
+
+    handlePositionUpdate(position) {
+        this.previousPos = this.currentPos;
+        
+        const rawPosition = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            speed: position.coords.speed || 0,
+            heading: position.coords.heading || 0,
+            altitude: position.coords.altitude || 0,
+            timestamp: Date.now()
+        };
+
+        // Apply stabilization to position data
+        this.currentPos = this.stabilizer.stabilize(rawPosition, Date.now());
+
+        if (this.previousPos && this.isCalibrated) {
+            const distance = CombatPhysics.calculateDistance(
+                this.previousPos.lat, this.previousPos.lng,
+                this.currentPos.lat, this.currentPos.lng
+            );
+            this.totalDistance += distance;
+        }
+
+        this.setGPSStatus('ACTIVE');
+        this.updateSensorDisplay();
+    }
+
+    handleGPSError(error) {
+        console.warn("GPS Warning:", error.message);
+        this.setGPSStatus('SEARCHING');
+    }
+
+    calibrate() {
+        this.isCalibrated = true;
+        this.setGPSStatus('ACTIVE');
+        return true;
+    }
+
+    setGPSStatus(status) {
+        const gpsElement = document.getElementById('v-gps');
+        const statusText = {
+            'ACTIVE': 'ACTIVE',
+            'ACQUIRING': 'ACQUIRING',
+            'SEARCHING': 'SEARCHING',
+            'NOT_SUPPORTED': 'NO GPS',
+            'OFF': 'OFF'
+        }[status] || status;
+
+        gpsElement.textContent = statusText;
+        gpsElement.className = 'val ' + (
+            status === 'ACTIVE' ? 'gps-active' : 
+            status === 'ACQUIRING' || status === 'SEARCHING' ? 'gps-acquiring' : 'gps-inactive'
+        );
+    }
+
+    updateSensorDisplay() {
+        if (!this.currentPos) return;
+
+        document.getElementById('s-coords').textContent = 
+            `${this.currentPos.lat.toFixed(4)}, ${this.currentPos.lng.toFixed(4)}`;
+        document.getElementById('s-distance').textContent = 
+            `${this.totalDistance.toFixed(1)}m`;
+        document.getElementById('s-shake').textContent = 
+            `${Math.round(this.stabilizer.shakeLevel * 100)}%`;
+        
+        if (this.operationStart) {
+            const opTime = Date.now() - this.operationStart;
+            const minutes = Math.floor(opTime / 60000);
+            const seconds = Math.floor((opTime % 60000) / 1000);
+            document.getElementById('s-optime').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    stopTracking() {
+        if (this.watchId) {
+            navigator.geolocation.clearWatch(this.watchId);
+        }
+        this.isActive = false;
+        this.setGPSStatus('OFF');
+    }
+
+    getSensorData() {
+        return {
+            speed: this.currentPos?.speed || 0,
+            heading: this.currentPos?.heading || 0,
+            accuracy: this.currentPos?.accuracy || 0,
+            position: this.currentPos,
+            distanceTraveled: this.totalDistance,
+            operationTime: this.operationStart ? Date.now() - this.operationStart : 0,
+            stability: this.stabilizer.getStability()
+        };
+    }
+}
+
+// --- COMBAT TRACKER ---
+class CombatTracker {
+    constructor(sensorSystem) {
+        this.tracks = [];
+        this.nextId = 1;
+        this.sensorSystem = sensorSystem;
+    }
+
+    update(detections, w, h) {
+        let newTracks = [];
+        
+        detections.forEach(det => {
+            if (det.score < CONFIG.AI.CONFIDENCE) return;
+
+            let best = null, maxIOU = 0;
+            
+            this.tracks.forEach(t => {
+                if (t.lost > 2) return;
+                const val = CombatPhysics.iou(det.bbox, t.bbox);
+                if(val > maxIOU && val > CONFIG.TRACKING.IOU_THRESH) { 
+                    maxIOU = val; best = t; 
+                }
+            });
+
+            const dist = CombatPhysics.getDist(det.bbox[3]);
+            const cx = det.bbox[0] + det.bbox[2]/2;
+            const cy = det.bbox[1] + det.bbox[3]/2;
+            const world = CombatPhysics.project3D(cx, cy, dist, w, h);
+
+            if(best) {
+                best.bbox = det.bbox; 
+                best.score = det.score; 
+                best.lost = 0;
+                best.dist = dist; 
+                best.world = world;
+                best.vel = { 
+                    x: world.x - (best.prev?.x || world.x), 
+                    z: world.z - (best.prev?.z || world.z)
+                };
+                best.prev = world;
+                newTracks.push(best);
+            } else {
+                const sensorData = this.sensorSystem.getSensorData();
+                newTracks.push({
+                    id: this.nextId++, 
+                    bbox: det.bbox, 
+                    class: det.class, 
+                    score: det.score,
+                    lost: 0, 
+                    dist: dist, 
+                    world: world, 
+                    vel: {x:0, z:0}, 
+                    prev: world,
+                    firstSeen: Date.now()
+                });
+            }
+        });
+
+        this.tracks.forEach(t => {
+            if(t.lost < CONFIG.TRACKING.MAX_LOST && !newTracks.find(nt => nt.id === t.id)) {
+                t.lost++;
+                newTracks.push(t);
+            }
+        });
+        
+        this.tracks = newTracks.slice(0, CONFIG.AI.MAX_OBJ);
+        return this.tracks;
+    }
+
+    assessThreat(target, sensorData) {
+        let threatLevel = 'LOW';
+        let score = 0;
+
+        if (target.dist < 3) score += 2;
+        if (target.dist < 1.5) score += 3;
+
+        const speed = Math.sqrt(target.vel.x ** 2 + target.vel.z ** 2);
+        if (speed > 0.5) score += 1;
+        if (speed > 1.0) score += 2;
+
+        if (target.class === 'person') score += 2;
+
+        // Add stability factor to threat assessment
+        if (sensorData.stability < 70) score += 1;
+        if (sensorData.stability < 50) score += 2;
+
+        if (score >= 5) threatLevel = 'CRITICAL';
+        else if (score >= 3) threatLevel = 'HIGH';
+        else if (score >= 2) threatLevel = 'MEDIUM';
+
+        return threatLevel;
+    }
+
+    getTargetBearing(target, sensorData) {
+        return CombatPhysics.calculateBearing(target.world, sensorData);
+    }
+}
+
+// --- COMBAT 3D SCENE (NO GROUND GRID) ---
+class CombatScene3D {
     constructor() {
-      this.canvas = document.getElementById('hud-canvas');
-      this.ctx = this.canvas.getContext('2d');
-      this.radar = document.getElementById('radar');
-      this.resize();
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.renderer = new THREE.WebGLRenderer({
+            canvas: document.getElementById('layer-3d'), 
+            alpha: true,
+            antialias: false
+        });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // NO GROUND GRID - Clean combat view
+        // เพิ่ม coordinate system แทน
+        this.createCoordinateSystem();
+        
+        this.meshes = new Map();
+    }
 
-      this.lastScale = { sx:1, sy:1, vw:1, vh:1 };
+    createCoordinateSystem() {
+        // Create coordinate axes (แทนเส้นพื้น)
+        const axesHelper = new THREE.AxesHelper(5);
+        this.scene.add(axesHelper);
 
-      // 3D Scene (เดิม)
-      this.scene = new THREE.Scene();
-      this.camera = new THREE.PerspectiveCamera(
-        CFG.PHYSICS.FOV,
-        window.innerWidth/window.innerHeight,
-        0.1, 1000
-      );
-      this.renderer3D = new THREE.WebGLRenderer({
-        canvas: document.getElementById('layer-3d'), alpha:true
-      });
-      this.renderer3D.setSize(window.innerWidth, window.innerHeight);
+        // Add some reference points in space
+        const points = [];
+        for (let i = -20; i <= 20; i += 5) {
+            for (let j = -20; j <= 20; j += 5) {
+                if (i === 0 && j === 0) continue;
+                points.push(i, 0, j);
+            }
+        }
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+        const material = new THREE.PointsMaterial({ 
+            color: 0x00ff9d, 
+            size: 0.5,
+            transparent: true,
+            opacity: 0.3
+        });
+        const pointsCloud = new THREE.Points(geometry, material);
+        this.scene.add(pointsCloud);
+    }
+
+    update(tracks) {
+        const ids = tracks.map(t => t.id);
+        
+        for(let [id, mesh] of this.meshes) {
+            if(!ids.includes(id)) {
+                this.scene.remove(mesh);
+                this.meshes.delete(id);
+            }
+        }
+
+        tracks.forEach(t => {
+            if(!this.meshes.has(t.id)) {
+                const geometry = new THREE.BoxGeometry(0.8, 2, 0.8);
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: 0x00ff9d, 
+                    wireframe: true
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                this.scene.add(mesh);
+                this.meshes.set(t.id, mesh);
+            }
+            
+            const mesh = this.meshes.get(t.id);
+            if(t.world) {
+                mesh.position.set(t.world.x, -1, t.world.z);
+                
+                // Add subtle rotation based on movement
+                if (Math.abs(t.vel.x) > 0.1 || Math.abs(t.vel.z) > 0.1) {
+                    mesh.rotation.y += 0.1;
+                }
+            }
+        });
+
+        this.renderer.render(this.scene, this.camera);
+    }
+}
+
+// --- COMBAT KERNEL ---
+class CombatKernel {
+    constructor() {
+        this.video = document.getElementById('camera-feed');
+        this.canvas = document.getElementById('hud-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        this.stabilizer = new CameraStabilizer();
+        this.sensorSystem = new CombatSensorSystem(this.stabilizer);
+        this.tracker = new CombatTracker(this.sensorSystem);
+        this.scene3D = new CombatScene3D();
+        this.voice = new VoiceSystem();
+        this.recorder = new MissionRecorder();
+        
+        this.isRunning = false;
+        this.bootTime = null;
+
+        this.resize();
+        window.onresize = () => this.resize();
     }
 
     resize() {
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-      if(this.renderer3D) {
-        this.renderer3D.setSize(window.innerWidth, window.innerHeight);
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-      }
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.scene3D.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.scene3D.camera.aspect = window.innerWidth / window.innerHeight;
+        this.scene3D.camera.updateProjectionMatrix();
     }
 
-    render(video, tracks, heading, primaryId, lockedId) {
-      const ctx = this.ctx;
-      ctx.clearRect(0,0, this.canvas.width, this.canvas.height);
+    async quickBoot() {
+        this.updateBootStatus("Starting combat systems...", 30);
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: 'environment', 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
+                audio: false
+            });
+            
+            this.updateBootStatus("Loading combat AI...", 60);
+            this.video.srcObject = stream;
+            
+            await new Promise((resolve, reject) => {
+                this.video.onloadedmetadata = () => {
+                    this.video.play().then(resolve).catch(reject);
+                };
+                setTimeout(resolve, 1000);
+            });
 
-      // Scale factors
-      const sx = this.canvas.width / video.videoWidth;
-      const sy = this.canvas.height / video.videoHeight;
-      this.lastScale = { sx, sy, vw: video.videoWidth, vh: video.videoHeight };
-
-      const cx = this.canvas.width / 2;
-      const cy = this.canvas.height / 2;
-
-      // Crosshair (เดิม)
-      ctx.strokeStyle = 'rgba(0, 255, 157, 0.5)';
-      ctx.beginPath();
-      ctx.moveTo(cx-10, cy); ctx.lineTo(cx+10, cy);
-      ctx.moveTo(cx, cy-10); ctx.lineTo(cx, cy+10);
-      ctx.stroke();
-
-      tracks.forEach(t => {
-        if (t.lost > 0) return;
-
-        const [x,y,w,h] = t.bbox;
-        const scrX = x*sx, scrY = y*sy, scrW = w*sx, scrH = h*sy;
-        const centerX = scrX + scrW/2;
-        const centerY = scrY + scrH/2;
-
-        const isPrimary = t.id === primaryId;
-        const isLocked = t.id === lockedId;
-
-        const color = t.class === 'person' ? '#ff2a6d' : '#00ff9d';
-
-        // Lock-on line (เดิม)
-        ctx.strokeStyle = color;
-        ctx.lineWidth = isPrimary ? 1.8 : 1;
-        ctx.setLineDash([2, 4]);
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(centerX, centerY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Sticky corner box (เดิม)
-        ctx.lineWidth = isPrimary ? 3 : 2;
-        ctx.beginPath();
-        const L = scrW * 0.2;
-        // TL
-        ctx.moveTo(scrX, scrY+L); ctx.lineTo(scrX, scrY); ctx.lineTo(scrX+L, scrY);
-        // TR
-        ctx.moveTo(scrX+scrW-L, scrY); ctx.lineTo(scrX+scrW, scrY); ctx.lineTo(scrX+scrW, scrY+L);
-        // BR
-        ctx.moveTo(scrX+scrW, scrY+scrH-L); ctx.lineTo(scrX+scrW, scrY+scrH); ctx.lineTo(scrX+scrW-L, scrY+scrH);
-        // BL
-        ctx.moveTo(scrX+L, scrY+scrH); ctx.lineTo(scrX, scrY+scrH); ctx.lineTo(scrX, scrY+scrH-L);
-        ctx.stroke();
-
-        // subtle lock reticle (ใหม่ แต่โทนเดิม)
-        if (isLocked) {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          const r = Math.min(scrW, scrH) * 0.12;
-          ctx.arc(centerX, centerY, r, 0, Math.PI*2);
-          ctx.stroke();
+            this.updateBootStatus("Initializing sensors...", 80);
+            this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            
+            this.updateBootStatus("Combat ready!", 100);
+            
+            setTimeout(() => {
+                document.getElementById('boot').style.display = 'none';
+                this.isRunning = true;
+                this.bootTime = Date.now();
+                this.loop();
+            }, 500);
+            
+        } catch(e) {
+            this.updateBootStatus("Combat init failed: " + e.message, 0);
+            alert("Combat boot failed: " + e.message);
         }
-
-        // Info label (เดิม)
-        ctx.fillStyle = color;
-        ctx.font = "bold 11px monospace";
-        ctx.fillText(`${t.class.toUpperCase()} [${t.dist.toFixed(1)}m]`, scrX, scrY - 10);
-      });
-
-      this.updateRadar(tracks, video.videoWidth);
-
-      this.camera.rotation.y = THREE.Math.degToRad(-heading);
-      this.renderer3D.render(this.scene, this.camera);
     }
 
-    updateRadar(tracks, vw) {
-      const old = this.radar.getElementsByClassName('blip');
-      while(old[0]) old[0].remove();
-
-      tracks.forEach(t => {
-        if(t.lost > 0) return;
-
-        const blip = document.createElement('div');
-        blip.className = 'blip';
-
-        const centerObjX = t.bbox[0] + t.bbox[2]/2;
-        const angleRatio = (centerObjX / vw) - 0.5;
-        const angle = angleRatio * (CFG.PHYSICS.FOV * Math.PI/180);
-
-        const r = Math.min(t.dist * 2, 55);
-
-        const rx = 60 + Math.sin(angle) * r;
-        const ry = 60 - Math.cos(angle) * r;
-
-        blip.style.left = rx + 'px';
-        blip.style.top = ry + 'px';
-        if(t.class !== 'person') blip.style.background = '#00ff9d';
-
-        this.radar.appendChild(blip);
-      });
-    }
-
-    // convert track center to screen for tap-lock
-    trackCenterScreen(t) {
-      const {sx, sy} = this.lastScale;
-      return [t.center[0]*sx, t.center[1]*sy];
-    }
-  }
-
-  // ---------- Voice Agent (ใหม่) ----------
-  class VoiceAgent {
-    constructor() {
-      this.enabled = false;
-      this.lastSpeak = 0;
-      this.synth = window.speechSynthesis || null;
-    }
-    toggle() { this.enabled = !this.enabled; return this.enabled; }
-    speak(text) {
-      if(!this.enabled || !this.synth) return;
-      const now = performance.now();
-      if(now - this.lastSpeak < CFG.VOICE_COOLDOWN) return;
-      this.lastSpeak = now;
-
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "en-US";
-      u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
-      this.synth.cancel();
-      this.synth.speak(u);
-    }
-  }
-
-  // ---------- Main System ----------
-  class OmegaSystem {
-    constructor() {
-      this.video = document.getElementById('camera-feed');
-      this.tracker = new StickyTracker();
-      this.hud = new HUD();
-      this.model = null;
-      this.contextModel = null;
-      this.heading = 0;
-      this.tracks = [];
-      this.primaryId = null;
-      this.lockedId = null;
-      this.voice = new VoiceAgent();
-
-      this.aiCanvas = document.createElement('canvas');
-      this.aiCtx = this.aiCanvas.getContext('2d');
-
-      // Compass strip gen (เดิม)
-      const strip = document.getElementById('compass-ticks');
-      let h = '';
-      for(let i=0;i<3;i++){
-        for(let d=0; d<360; d+=10){
-          let l = d===0?'N':d===90?'E':d===180?'S':d===270?'W':d;
-          h += `<div class="tick">${l}</div>`;
+    updateBootStatus(message, progress) {
+        document.getElementById('boot-status').textContent = message;
+        document.getElementById('loading-bar').style.width = progress + '%';
+        
+        const btn = document.getElementById('btn-init');
+        if (progress >= 80) {
+            btn.disabled = false;
+            btn.innerText = "COMBAT READY";
         }
-      }
-      strip.innerHTML = h;
+    }
 
-      window.onresize = () => this.hud.resize();
-
-      // Sensors (เดิม)
-      window.addEventListener('deviceorientation', e => {
-        this.heading = e.webkitCompassHeading || Math.abs(e.alpha - 360);
-        document.getElementById('hdg').innerText = Math.round(this.heading) + '°';
-        strip.style.transform = `translateX(-${this.heading * 5}px)`;
-      }, true);
-
-      // Tap-to-lock (ใหม่)
-      const viewport = document.getElementById('viewport');
-      viewport.addEventListener('pointerdown', (ev) => {
-        const x = ev.clientX, y = ev.clientY;
-        const t = this.pickTrackAt(x,y);
-        if (t) {
-          this.lockedId = (this.lockedId === t.id) ? null : t.id;
-          this.updateLockUI();
-          if (this.lockedId) this.voice.speak(`Locked on ${t.class}, ${t.dist.toFixed(1)} meters.`);
+    toggleGPS() {
+        if (this.sensorSystem.isActive) {
+            this.sensorSystem.stopTracking();
         } else {
-          this.lockedId = null;
-          this.updateLockUI();
+            this.sensorSystem.startTracking();
         }
-      });
-
-      // UI buttons
-      document.getElementById('btn-lock').onclick = () => {
-        this.lockedId = null;
-        this.updateLockUI();
-      };
-      document.getElementById('btn-voice').onclick = () => {
-        const on = this.voice.toggle();
-        document.getElementById('voice-status').innerText = on ? "ON" : "OFF";
-        document.getElementById('btn-voice').classList.toggle('active', on);
-        if(on) this.voice.speak("Voice online.");
-      };
-
-      this.updateLockUI();
     }
 
-    updateLockUI() {
-      const lockStatus = document.getElementById('lock-status');
-      const btnLock = document.getElementById('btn-lock');
-      if(this.lockedId) {
-        lockStatus.innerText = `ID-${this.lockedId}`;
-        btnLock.classList.add('active');
-      } else {
-        lockStatus.innerText = "AUTO";
-        btnLock.classList.remove('active');
-      }
+    toggleStabilization() {
+        const isOn = this.stabilizer.toggleStabilization();
+        alert(`Camera stabilization ${isOn ? 'ENABLED' : 'DISABLED'}`);
     }
 
-    async start() {
-      const btn = document.getElementById('btn-start');
-      btn.innerText = "LOADING CORE...";
+    simulateShake() {
+        this.stabilizer.simulateShake();
+        alert("Testing camera shake simulation!");
+    }
 
-      try {
-        // Request sensors
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          await DeviceOrientationEvent.requestPermission();
-        }
+    calibrateSensors() {
+        this.sensorSystem.calibrate();
+    }
 
-        // Camera
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: {ideal: 1280} },
-          audio: false
-        });
-        this.video.srcObject = stream;
-        await new Promise(r => this.video.onloadedmetadata = () => { this.video.play(); r(); });
+    async loop() {
+        if (!this.isRunning) return;
+        const start = performance.now();
 
-        // AI detect model (เดิม)
-        this.model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
-
-        // Context model (ใหม่) — fail-safe
         try {
-          this.contextModel = await mobilenet.load();
-        } catch(_err) {
-          this.contextModel = null;
+            const detections = await this.model.detect(this.video);
+            const tracks = this.tracker.update(detections, this.video.videoWidth, this.video.videoHeight);
+            this.scene3D.update(tracks);
+            this.drawCombatHUD(tracks);
+            this.updateUI(tracks, start);
+            
+            this.recorder.push({
+                tracks: tracks,
+                sensors: this.sensorSystem.getSensorData(),
+                timestamp: Date.now()
+            });
+
+        } catch (e) {
+            console.warn("Combat frame error:", e);
         }
 
-        document.getElementById('boot').style.display = 'none';
-
-        // start loops
-        this.lastDetectTime = performance.now();
-        this.startDetectLoop();
-        this.startContextLoop();
-        this.renderLoop();
-
-      } catch(e) {
-        alert("Error: " + e.message);
-      }
+        requestAnimationFrame(() => this.loop());
     }
 
-    // ---- Performance Governor: downscale input dynamically ----
-    drawAIInput() {
-      const v = this.video;
-      if(!v.videoWidth) return false;
+    drawCombatHUD(tracks) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const sx = this.canvas.width / this.video.videoWidth;
+        const sy = this.canvas.height / this.video.videoHeight;
 
-      const targetW = CFG.AI_INPUT_W;
-      const scale = targetW / v.videoWidth;
-      const targetH = Math.round(v.videoHeight * scale);
-
-      this.aiCanvas.width = targetW;
-      this.aiCanvas.height = targetH;
-      this.aiCtx.drawImage(v, 0,0, targetW, targetH);
-      return true;
-    }
-
-    async startDetectLoop() {
-      const detectOnce = async () => {
-        if(!this.model || !this.video.videoWidth) return;
-
-        const now = performance.now();
-        const dtSec = (now - this.lastDetectTime) / 1000;
-        this.lastDetectTime = now;
-
-        // input
-        if(!this.drawAIInput()) return;
-
-        // detect
-        const detections = await this.model.detect(this.aiCanvas, 20, CFG.AI_CONF);
-
-        // scale boxes back to video coords
-        const scaleBack = this.video.videoWidth / this.aiCanvas.width;
-        detections.forEach(d => {
-          d.bbox[0] *= scaleBack;
-          d.bbox[1] *= scaleBack;
-          d.bbox[2] *= scaleBack;
-          d.bbox[3] *= scaleBack;
+        // Draw targets (NO CROSSHAIR, NO GUIDE LINES)
+        tracks.forEach(t => {
+            if (t.lost > 1) return;
+            
+            const x = t.bbox[0] * sx, y = t.bbox[1] * sy;
+            const w = t.bbox[2] * sx, h = t.bbox[3] * sy;
+            
+            const color = t.class === 'person' ? '#ff2a6d' : '#00ff9d';
+            
+            // Clean bounding box (no dashes)
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(x, y, w, h);
+            
+            // Target info
+            this.ctx.fillStyle = color;
+            this.ctx.font = "bold 12px monospace";
+            this.ctx.fillText(`TGT-${t.id} [${t.class.toUpperCase()}]`, x, y - 40);
+            this.ctx.fillText(`DIST: ${t.dist.toFixed(1)}m`, x, y - 25);
+            
+            const sensorData = this.sensorSystem.getSensorData();
+            const bearing = this.tracker.getTargetBearing(t, sensorData);
+            this.ctx.fillText(`BRG: ${bearing.toFixed(0)}°`, x, y - 10);
+            
+            const threat = this.tracker.assessThreat(t, sensorData);
+            this.ctx.fillStyle = threat === 'CRITICAL' ? 'red' : 
+                                threat === 'HIGH' ? 'orange' : 
+                                threat === 'MEDIUM' ? 'yellow' : color;
+            this.ctx.fillText(`THREAT: ${threat}`, x, y + h + 15);
         });
 
-        // tracking
-        this.tracks = this.tracker.update(detections, dtSec);
+        // Draw sensor status
+        if (this.sensorSystem.isActive) {
+            this.ctx.fillStyle = '#00ff9d';
+            this.ctx.font = "10px monospace";
+            this.ctx.fillText(`GPS: ${this.sensorSystem.currentPos?.accuracy.toFixed(1)}m`, 10, 20);
+            this.ctx.fillText(`STAB: ${this.stabilizer.getStability().toFixed(0)}%`, 10, 35);
+        }
+    }
 
-        // select primary target
-        const oldPrimary = this.primaryId;
-        this.primaryId = this.selectPrimary(this.tracks);
-        if(oldPrimary !== this.primaryId && this.primaryId != null) {
-          const t = this.tracks.find(x=>x.id===this.primaryId);
-          if(t) this.voice.speak(`Primary target ${t.class}, ${t.dist.toFixed(1)} meters.`);
+    updateUI(tracks, start) {
+        const ms = performance.now() - start;
+        document.getElementById('v-cpu').innerText = ms.toFixed(1) + 'ms';
+        document.getElementById('v-fps').innerText = Math.round(1000 / Math.max(ms, 1));
+        document.getElementById('v-tracks').innerText = tracks.length;
+        document.getElementById('v-stability').innerText = this.stabilizer.getStability().toFixed(0) + '%';
+
+        if (this.sensorSystem.isActive && this.sensorSystem.currentPos) {
+            document.getElementById('v-spd').innerText = this.sensorSystem.currentPos.speed.toFixed(1) + ' m/s';
+            document.getElementById('v-hdg').innerText = (this.sensorSystem.currentPos.heading || 0).toFixed(0) + '°';
         }
 
-        // update stats panel
-        document.getElementById('obj-count').innerText = this.tracks.length;
+        if (tracks.length > 0) {
+            const t = tracks[0];
+            const sensorData = this.sensorSystem.getSensorData();
+            const threat = this.tracker.assessThreat(t, sensorData);
+            const bearing = this.tracker.getTargetBearing(t, sensorData);
+            
+            document.getElementById('t-type').innerText = t.class.toUpperCase();
+            document.getElementById('t-dist').innerText = t.dist.toFixed(1) + 'm';
+            document.getElementById('t-bearing').innerText = bearing.toFixed(0) + '°';
+            
+            const relSpeed = (Math.sqrt(t.vel.x ** 2 + t.vel.z ** 2) - sensorData.speed).toFixed(1);
+            document.getElementById('t-relspeed').innerText = relSpeed + ' m/s';
+            
+            const threatEl = document.getElementById('t-threat');
+            threatEl.innerText = threat;
+            threatEl.style.color = threat === 'CRITICAL' ? 'red' : 
+                                  threat === 'HIGH' ? 'orange' : 
+                                  threat === 'MEDIUM' ? 'yellow' : '#00ff9d';
+        }
 
-        // adaptive AI input based on FPS (simple governor)
-        const fps = this.lastFPS || 30;
-        if(fps < 18) CFG.AI_INPUT_W = MathUtils.clamp(CFG.AI_INPUT_W - 80, CFG.AI_MIN_W, CFG.AI_MAX_W);
-        if(fps > 35) CFG.AI_INPUT_W = MathUtils.clamp(CFG.AI_INPUT_W + 40, CFG.AI_MIN_W, CFG.AI_MAX_W);
-      };
-
-      const loop = async () => {
-        await detectOnce();
-        setTimeout(loop, CFG.DETECT_INTERVAL);
-      };
-      loop();
+        this.updateRadar(tracks);
     }
 
-    async startContextLoop() {
-      if(!this.contextModel) return;
-      const loop = async () => {
-        try {
-          if(!this.drawAIInput()) return;
-          const preds = await this.contextModel.classify(this.aiCanvas);
-          if(preds && preds[0]) {
-            document.getElementById('scene-label').innerText = preds[0].className.split(',')[0];
-            document.getElementById('scene-conf').innerText = (preds[0].probability*100).toFixed(0) + "%";
-          }
-        } catch(_e){}
-        setTimeout(loop, CFG.CONTEXT_INTERVAL);
-      };
-      loop();
+    updateRadar(tracks) {
+        const radar = document.getElementById('radar-box');
+        radar.innerHTML = '<div style="position:absolute; inset:0; background: conic-gradient(transparent 270deg, #00a8ff); opacity: 0.3; animation: scan 3s linear infinite;"></div>';
+        
+        tracks.forEach(t => {
+            if (t.lost > 1) return;
+            
+            const blip = document.createElement('div');
+            blip.className = 'blip';
+            
+            const rx = 75 + (t.world.x * 3);
+            const ry = 75 + (-t.world.z * 3);
+            
+            if (rx >= 0 && rx <= 150 && ry >= 0 && ry <= 150) {
+                const sensorData = this.sensorSystem.getSensorData();
+                const threat = this.tracker.assessThreat(t, sensorData);
+                blip.style.background = threat === 'CRITICAL' ? 'red' : 
+                                      threat === 'HIGH' ? 'orange' : 
+                                      threat === 'MEDIUM' ? 'yellow' : '#ff2a6d';
+                
+                // Add shake effect to radar blips based on stability
+                if (sensorData.stability < 70) {
+                    const shakeX = (Math.random() - 0.5) * (100 - sensorData.stability) / 10;
+                    const shakeY = (Math.random() - 0.5) * (100 - sensorData.stability) / 10;
+                    blip.style.transform = `translate(-50%, -50%) translate(${shakeX}px, ${shakeY}px)`;
+                }
+                
+                blip.style.left = rx + 'px';
+                blip.style.top = ry + 'px';
+                radar.appendChild(blip);
+            }
+        });
     }
+}
 
-    renderLoop() {
-      const start = performance.now();
-
-      // render HUD continuously with latest tracks
-      if(this.video.videoWidth) {
-        this.hud.render(this.video, this.tracks, this.heading, this.primaryId, this.lockedId);
-      }
-
-      const dt = performance.now()-start;
-      const fps = Math.round(1000/dt);
-      this.lastFPS = fps;
-      document.getElementById('fps').innerText = fps;
-
-      // update target panel
-      this.updateTargetPanel();
-
-      requestAnimationFrame(()=>this.renderLoop());
+// Keep other classes
+class VoiceSystem {
+    constructor() { this.active = false; this.rec = null; }
+    toggle() {
+        this.active = !this.active;
+        const ind = document.getElementById('voice-ind');
+        ind.style.display = this.active ? 'block' : 'none';
+        alert(`Voice ${this.active ? 'ON - Say COMMANDS' : 'OFF'}`);
     }
+}
 
-    updateTargetPanel() {
-      const t = this.getPrimaryTrack();
-      if(!t) {
-        document.getElementById('pri-class').innerText = "--";
-        document.getElementById('pri-dist').innerText = "--";
-        document.getElementById('pri-brg').innerText = "--";
-        return;
-      }
-      const brg = this.computeBearingDeg(t);
-      document.getElementById('pri-class').innerText = t.class.toUpperCase() + `#${t.id}`;
-      document.getElementById('pri-dist').innerText = t.dist.toFixed(1) + "m";
-      document.getElementById('pri-brg').innerText = (brg>=0?"+":"") + brg.toFixed(0) + "°";
+class MissionRecorder {
+    constructor() { this.rec = false; this.data = []; }
+    toggle() {
+        this.rec = !this.rec;
+        alert(this.rec ? "Recording combat data..." : "Recording stopped");
+        if(!this.rec && this.data.length > 0) {
+            console.log("Combat Data:", this.data);
+        }
     }
+    push(data) { if(this.rec) this.data.push(data); }
+}
 
-    getPrimaryTrack() {
-      if(this.lockedId) return this.tracks.find(x=>x.id===this.lockedId) || null;
-      return this.tracks.find(x=>x.id===this.primaryId) || null;
-    }
+// Initialize COMBAT system
+const OMEGA = new CombatKernel();
 
-    // primary scoring (ใกล้กลางจอ, ใหญ่, คนได้โบนัส)
-    selectPrimary(tracks) {
-      if(this.lockedId) return this.lockedId;
-      if(!tracks || tracks.length===0) return null;
+const btn = document.getElementById('btn-init');
+btn.disabled = false;
+btn.innerText = "COMBAT START";
+btn.onclick = () => OMEGA.quickBoot();
 
-      const vw = this.video.videoWidth;
-      const vh = this.video.videoHeight;
-      const cx = vw/2, cy = vh/2;
-
-      let bestId = null, bestScore = -Infinity;
-      for(const t of tracks) {
-        if(t.lost>0) continue;
-        const dx = (t.center[0]-cx)/vw;
-        const dy = (t.center[1]-cy)/vh;
-        const centerScore = 1 - Math.sqrt(dx*dx+dy*dy); // 0..1
-        const areaScore = MathUtils.clamp((t.bbox[2]*t.bbox[3])/(vw*vh)*6, 0, 1);
-
-        let score = centerScore*CFG.PRIMARY_SCORE.centerW + areaScore*CFG.PRIMARY_SCORE.areaW;
-        if(t.class==='person') score += CFG.PRIMARY_SCORE.personBoost;
-
-        if(score>bestScore){ bestScore=score; bestId=t.id; }
-      }
-      return bestId;
-    }
-
-    computeBearingDeg(t) {
-      // bearing relative to screen center using FOV
-      const vw = this.video.videoWidth;
-      const ratio = (t.center[0]/vw)-0.5; // -0.5..0.5
-      return ratio * CFG.PHYSICS.FOV;
-    }
-
-    // pick nearest track on tap
-    pickTrackAt(screenX, screenY) {
-      let best=null, bestDist=1e9;
-      for(const t of this.tracks) {
-        if(t.lost>0) continue;
-        const [sx, sy] = this.hud.trackCenterScreen(t);
-        const d = Math.hypot(sx-screenX, sy-screenY);
-        if(d<bestDist && d<90){ bestDist=d; best=t; }
-      }
-      return best;
-    }
-  }
-
-  window.OMEGA = new OmegaSystem();
-  document.getElementById('btn-start').style.display = 'block';
-
-})();
+OMEGA.quickBoot = OMEGA.quickBoot.bind(OMEGA);
 </script>
 </body>
 </html>
