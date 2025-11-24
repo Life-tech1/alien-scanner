@@ -433,16 +433,23 @@
 
             async init() {
                 this.app.log("Loading Vision Model...");
-                await tf.setBackend('webgl');
+                await tf.ready();
+                try {
+                    await tf.setBackend('webgl');
+                } catch (e) {
+                    this.app.log("WebGL unavailable, using WASM", "warn");
+                    await tf.setBackend('wasm');
+                }
+
                 this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
 
                 // Warmup
                 this.app.log("Warming up Neural Engine...");
-                const dummy = tf.zeros([1, 300, 300, 3]);
+                const dummy = tf.zeros([300, 300, 3]); // FIXED: 3D Tensor
                 await this.model.detect(dummy);
                 dummy.dispose();
 
-                this.setupCamera();
+                await this.setupCamera(); // FIXED: Await camera
             }
 
             async setupCamera() {
@@ -658,11 +665,17 @@
             }
 
             async init() {
-                await this.memory.init();
-                this.loadRecentMemories();
+                try {
+                    await this.memory.init();
+                    this.loadRecentMemories();
+                } catch (e) {
+                    this.app.log("Memory DB unavailable (file://). Running volatile.", "warn");
+                    this.memory = null;
+                }
             }
 
             async loadRecentMemories() {
+                if (!this.memory) return;
                 const recent = await this.memory.getRecent(3);
                 recent.reverse().forEach(m => this.app.log(m.text, 'memory'));
             }
@@ -691,7 +704,9 @@
 
             async addMemory(text, type = 'info', snapshot = null) {
                 this.app.log(text, type);
-                await this.memory.add({ text, type, timestamp: Date.now(), snapshot });
+                if (this.memory) {
+                    await this.memory.add({ text, type, timestamp: Date.now(), snapshot });
+                }
             }
         }
 
