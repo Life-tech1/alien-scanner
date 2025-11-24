@@ -432,7 +432,7 @@
 
 <script>
 /**
- * WIND ROSE (WR) | MK-III + AI SCANNER + WIKI GEO
+ * WIND ROSE (WR) | MK-III + ANCIENT WONDERS TRACKER
  */
 
 /* --- 0. GESTURE CONTROL --- */
@@ -443,7 +443,7 @@ document.addEventListener('touchend', e => {
 }, {passive: false});
 document.body.addEventListener('touchmove', e => { if(e.scale !== 1) e.preventDefault(); }, {passive: false});
 
-/* --- 1. I18N DICTIONARY (PATCHED FOR AI THEME) --- */
+/* --- 1. I18N DICTIONARY --- */
 const DICT = {
     en: {
         gps_wait:"GPS WAIT", gps_lock:"GPS LOCK",
@@ -459,14 +459,13 @@ const DICT = {
         read_btn:"Tap to Read Legend",
         tap_start: "Tap to Start",
         ob_title: "Wind Rose — AI Compass",
-        ob_body: "AI-Powered Compass.\nScans for nearby historical sites using Geo-Data.\nAlso tracks Stars & Magnetic North.",
+        ob_body: "AI-Powered Compass.\nTracks the Seven Ancient Wonders.\nAlso tracks Stars & Magnetic North.",
         ob_note: "Move gently. Requires GPS.",
         ob_btn: "Initialize",
         hint_myth: "Tap 'STARS' to track constellations",
         btn_read_lore: "📜 READ LORE",
         btn_close: "CLOSE",
         wiki_offline_lbl: "Offline Database",
-        // AI SPECIFIC
         ai_scan: "AI SYSTEM: ANALYZING GEODATA...",
         ai_conn_lost: "CONNECTION LOST. SWITCHING TO OFFLINE DB.",
         ai_fetch: "AI: SCANNING SECTOR..."
@@ -485,21 +484,19 @@ const DICT = {
         read_btn:"อ่านตำนาน",
         tap_start: "แตะเพื่อเริ่ม",
         ob_title: "Wind Rose — เข็มทิศ AI",
-        ob_body: "เข็มทิศอัจฉริยะ\nสแกนหาสถานที่สำคัญรอบตัวคุณด้วยข้อมูลภูมิศาสตร์\nพร้อมโหมดดูดาวและแม่เหล็กโลก",
+        ob_body: "เข็มทิศอัจฉริยะ\nติดตาม 7 สิ่งมหัศจรรย์ยุคโบราณ\nพร้อมโหมดดูดาวและแม่เหล็กโลก",
         ob_note: "เคลื่อนไหวช้าๆ ต้องใช้ GPS",
         ob_btn: "เริ่มระบบ",
         hint_myth: "แตะ 'ดวงดาว' เพื่อดูตำแหน่งดาว",
         btn_read_lore: "📜 อ่านเรื่องเล่า",
         btn_close: "ปิด",
         wiki_offline_lbl: "ฐานข้อมูลออฟไลน์",
-        // AI SPECIFIC
         ai_scan: "ระบบ AI: กำลังวิเคราะห์ภูมิศาสตร์...",
         ai_conn_lost: "สัญญาณขาดหาย ใช้งานฐานข้อมูลสำรอง",
         ai_fetch: "AI: กำลังสแกนพื้นที่..."
     }
 };
 
-/* ✅ FIX: เพิ่มคลาส I18n ให้ของเดิมทำงานได้ */
 class I18n {
     constructor() {
         this.lang = localStorage.getItem('WR_LANG') || 'en';
@@ -508,16 +505,13 @@ class I18n {
         return (DICT[this.lang] && DICT[this.lang][key]) || key;
     }
     apply() {
-        // อัปเดต element ที่มี data-t
         document.querySelectorAll('[data-t]').forEach(el => {
             const k = el.getAttribute('data-t');
             const val = this.t(k);
             if (val) el.innerText = val;
         });
-        // badge ภาษา
         const lbl = document.getElementById('lbl-lang');
         if (lbl) lbl.innerText = this.lang.toUpperCase();
-        // GPS badge เริ่มต้น
         const gps = document.getElementById('gps-badge');
         if (gps) gps.innerText = this.t('gps_wait');
     }
@@ -527,19 +521,25 @@ class I18n {
     }
 }
 
-/* --- 2. DATA (OFFLINE FALLBACK & STARS) --- */
+/* --- 2. DATA (ANCIENT WONDERS & STARS) --- */
 const OFFLINE_WONDERS = [
-    {n:"Great Pyramid", lat:29.9792, lon:31.1342, desc:"Ancient Wonder. Built 2560 BC."},
-    {n:"Stonehenge", lat:51.1789, lon:-1.8262, desc:"Prehistoric monument. Solar aligned."},
-    {n:"Great Wall", lat:40.4319, lon:116.5704, desc:"Longest fortification. Ancient defense."},
-    {n:"Taj Mahal", lat:27.1751, lon:78.0421, desc:"Ivory-white marble mausoleum."}
+    {n:"Great Pyramid of Giza", lat:29.9792, lon:31.1342, desc:"The oldest of the Ancient Wonders, built as a tomb for Pharaoh Khufu."},
+    {n:"Hanging Gardens of Babylon", lat:32.5355, lon:44.4275, desc:"A tiered garden engineering marvel, likely built by Nebuchadnezzar II."},
+    {n:"Temple of Artemis at Ephesus", lat:37.9496, lon:27.3639, desc:"A grand Greek temple dedicated to the goddess Artemis, destroyed by arson."},
+    {n:"Statue of Zeus at Olympia", lat:37.6378, lon:21.6300, desc:"A giant seated figure made of ivory and gold by the sculptor Phidias."},
+    {n:"Mausoleum at Halicarnassus", lat:37.0379, lon:27.4241, desc:"A tomb built for Mausolus, blending Greek, Egyptian, and Lycian styles."},
+    {n:"Colossus of Rhodes", lat:36.4510, lon:28.2258, desc:"A massive bronze statue of the sun god Helios standing over the harbor."},
+    {n:"Lighthouse of Alexandria", lat:31.2139, lon:29.8856, desc:"A towering lighthouse on the island of Pharos, estimating over 100m tall."}
 ];
 
 const WIKI_SLUGS = {
-    "Great Pyramid": { en: "Great_Pyramid_of_Giza", th: "มหาพีระมิดแห่งกิซ่า" },
-    "Stonehenge": { en: "Stonehenge", th: "สโตนเฮนจ์" },
-    "Great Wall": { en: "Great_Wall_of_China", th: "กำแพงเมืองจีน" },
-    "Taj Mahal": { en: "Taj_Mahal", th: "ทัชมาฮาล" }
+    "Great Pyramid of Giza": { en: "Great_Pyramid_of_Giza", th: "มหาพีระมิดแห่งกิซ่า" },
+    "Hanging Gardens of Babylon": { en: "Hanging_Gardens_of_Babylon", th: "สวนลอยบาบิโลน" },
+    "Temple of Artemis at Ephesus": { en: "Temple_of_Artemis", th: "วิหารอาร์ทิมิส" },
+    "Statue of Zeus at Olympia": { en: "Statue_of_Zeus_at_Olympia", th: "เทวรูปซูสที่โอลิมเปีย" },
+    "Mausoleum at Halicarnassus": { en: "Mausoleum_at_Halicarnassus", th: "สุสานมอสโซลัส" },
+    "Colossus of Rhodes": { en: "Colossus_of_Rhodes", th: "เทวรูปโคโลสซัส" },
+    "Lighthouse of Alexandria": { en: "Lighthouse_of_Alexandria", th: "ประภาคารฟาโรสแห่งอะเล็กซานเดรีย" }
 };
 
 const STARS_DB = [
@@ -594,13 +594,11 @@ class Sensor {
     constructor() { this.head=0; this.raw=0; this.gps=null; this.tiltBad=false; this.cbs={}; }
     init() {
         return new Promise((resolve, reject) => {
-            // Force resolve after 2s timeout to prevent hanging on permission dialogs
             const timeout = setTimeout(() => {
                 console.warn("Sensor init timed out, forcing start.");
                 resolve();
             }, 2000);
 
-            // 1. GPS
             if(navigator.geolocation) {
                 navigator.geolocation.watchPosition(
                     p => { this.gps=p.coords; this.emit('gps'); }, 
@@ -609,9 +607,7 @@ class Sensor {
                 );
             }
 
-            // 2. Orientation
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                // iOS 13+
                 DeviceOrientationEvent.requestPermission()
                     .then(response => {
                         if (response === 'granted') {
@@ -622,7 +618,6 @@ class Sensor {
                     })
                     .catch(console.error);
             } else {
-                // Android / Non-iOS
                 try {
                     const h = e => this.droid(e, e.absolute);
                     if ('ondeviceorientationabsolute' in window) {
@@ -661,12 +656,8 @@ class App {
 
     async start() {
         try {
-            // Immediate visual feedback
             document.getElementById('tap-hint').style.opacity = 0;
-            
-            // Wait for sensors but don't block forever (Sensor class handles timeout)
             await this.sensor.init();
-            
             this.transitionToHUD();
             this.sensor.on('gps', () => {
                 document.getElementById('gps-badge').innerText = this.i18n.t('gps_lock');
@@ -677,7 +668,7 @@ class App {
         } catch(e) { 
             console.error(e);
             alert("Sensors blocked, but starting anyway.");
-            this.transitionToHUD(); // Force start
+            this.transitionToHUD(); 
         }
     }
 
@@ -732,71 +723,32 @@ class App {
         }
     }
 
-    /* --- AI SCANNER LOGIC --- */
-    async fetchGeo() {
-        if(!this.sensor.gps) return;
-        this.renderStatus(this.i18n.t('ai_fetch'), true);
-        
-        const lang = this.i18n.lang;
+    fetchGeo() {
+        // Switch to Seven Wonders static list (Always "offline" mode logic)
+        this.state.wondersList = OFFLINE_WONDERS;
+        this.state.useOffline = true;
+
+        if(!this.sensor.gps) {
+            this.state.idx = 0;
+            this.updCard();
+            return;
+        }
+
         const lat = this.sensor.gps.latitude;
         const lon = this.sensor.gps.longitude;
-        // Wikipedia GeoSearch
-        const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=20&format=json&origin=*`;
+        let min = Infinity;
+        let bestIdx = 0;
 
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            if(data.query && data.query.geosearch && data.query.geosearch.length > 0) {
-                this.state.wondersList = data.query.geosearch.map(p => ({
-                    n: p.title,
-                    lat: p.lat,
-                    lon: p.lon,
-                    id: p.pageid,
-                    desc: null 
-                }));
-                // Sort by distance
-                this.state.wondersList.sort((a,b) => MathU.dist(lat,lon,a.lat,a.lon) - MathU.dist(lat,lon,b.lat,b.lon));
-                this.state.useOffline = false;
-                this.state.idx = 0;
-                this.findNearest(); 
-            } else {
-                // If TH returned no results (e.g. abroad), try EN or fallback
-                if(lang === 'th') {
-                     // logic could go here to try EN, but for now fallback
-                     throw new Error("No TH results");
-                }
-                throw new Error("No results");
+        // Find nearest Wonder
+        this.state.wondersList.forEach((w, i) => {
+            const d = MathU.dist(lat, lon, w.lat, w.lon);
+            if(d < min) {
+                min = d;
+                bestIdx = i;
             }
-        } catch (e) {
-            console.log("AI Scan failed, engaging offline protocol", e);
-            this.state.useOffline = true;
-            this.state.wondersList = OFFLINE_WONDERS;
-            this.state.idx = 0;
-            this.findNearest();
-        }
-    }
+        });
 
-    async fetchDetail(item) {
-        if(item.desc || this.state.useOffline) return;
-        
-        // Show scanning text
-        document.getElementById('c-body').innerHTML = `<span class="ai-blink">${this.i18n.t('lore_load')}</span>`;
-
-        const url = `https://${this.i18n.lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&pageids=${item.id}&format=json&origin=*`;
-        try {
-             const res = await fetch(url);
-             const data = await res.json();
-             const page = data.query.pages[item.id];
-             item.desc = page.extract ? (page.extract.substring(0, 250) + "...") : "No decrypted data.";
-             if(this.state.wondersList[this.state.idx] === item) this.updCard();
-        } catch(e) { 
-            item.desc = "Decryption failed."; 
-            if(this.state.wondersList[this.state.idx] === item) this.updCard();
-        }
-    }
-
-    findNearest() {
-        // Just triggers update, actual find is done via fetchGeo sorting
+        this.state.idx = bestIdx;
         this.updCard();
     }
     
@@ -805,23 +757,11 @@ class App {
         const w = this.state.wondersList[this.state.idx];
         
         document.getElementById('c-title').innerText = w.n;
+        document.getElementById('c-body').innerText = w.desc;
+        document.getElementById('c-quote').innerText = this.i18n.t('ai_scan'); 
         
-        if(this.state.useOffline) {
-            document.getElementById('c-body').innerText = w.desc;
-            document.getElementById('c-quote').innerText = this.i18n.t('ai_conn_lost');
-            document.getElementById('c-facts').innerHTML = "";
-            document.getElementById('c-title').classList.remove('ai-blink');
-        } else {
-            // Online Mode
-            if(!w.desc) {
-                this.fetchDetail(w);
-            } else {
-                document.getElementById('c-body').innerText = w.desc;
-            }
-            document.getElementById('c-quote').innerText = "AI GEOSPATIAL ANALYSIS ACTIVE";
-            document.getElementById('c-facts').innerHTML = `<li>LAT: ${w.lat.toFixed(4)}</li><li>LON: ${w.lon.toFixed(4)}</li>`;
-            document.getElementById('c-title').classList.remove('ai-blink');
-        }
+        document.getElementById('c-facts').innerHTML = `<li>LAT: ${w.lat.toFixed(4)}</li><li>LON: ${w.lon.toFixed(4)}</li>`;
+        document.getElementById('c-title').classList.remove('ai-blink');
 
         this.els.btnLore.style.display = this.state.mode === 'disc' ? 'block' : 'none';
 
@@ -838,7 +778,6 @@ class App {
         document.getElementById('c-body').innerText = msg;
     }
 
-    // STARS UTILS
     updateStarUI() {
         const star = STARS_DB[this.state.starIdx];
         document.getElementById('s-title').innerText = this.i18n.lang === 'th' ? star.th : star.en;
@@ -872,7 +811,7 @@ class App {
     toggleLang() { 
         this.i18n.toggle(); 
         this.i18n.apply(); 
-        if(this.state.mode === 'disc') this.fetchGeo(); // Refetch to get localized names
+        if(this.state.mode === 'disc') this.fetchGeo(); 
         if(this.state.mode === 'whis') this.updateStarUI();
     }
 
@@ -894,9 +833,7 @@ class App {
             this.els.starsPanel.style.display = 'none';
             this.els.radar.style.display = 'none';
             if(m=='disc') {
-                 // ใช้ของเดิม: ถ้าอยากให้ re-fetch logic ลึกกว่านี้ค่อยปรับต่อ
-                 if(this.state.wondersList === OFFLINE_WONDERS && !this.state.useOffline) this.fetchGeo();
-                 else this.updCard();
+                 this.updCard();
             } else { 
                 document.getElementById('c-title').innerText="GEOMAG"; 
                 document.getElementById('c-body').innerText=this.i18n.t('sun_track'); 
@@ -922,7 +859,6 @@ class App {
         window.open(`https://maps.google.com/?q=${w.lat},${w.lon}`); 
     }
 
-    /* --- WIKI FETCH --- */
     openLore() { this.openWiki(false); }
     openStarLore() { this.openWiki(true); }
     
@@ -941,31 +877,13 @@ class App {
             title = lang === 'th' ? star.th : star.en;
             fallback = "Offline star data unavailable.";
         } else {
-            // Geo Wiki
+            // Wonders logic (Always treated as 'offline' / static list)
             const w = this.state.wondersList[this.state.idx];
-            if(this.state.useOffline) {
-                // Map offline wonder to slug
-                slug = WIKI_SLUGS[w.n] ? WIKI_SLUGS[w.n][lang] : null;
-                title = w.n;
-                fallback = w.desc;
-            } else {
-                // Online dynamic item
-                slug = null; // We use pageid for dynamic items generally, but here let's rely on stored desc
-                title = w.n;
-                fallback = w.desc;
-                // ✅ FIX: กันกรณี w.desc ยัง null ไม่ให้ modal แสดง "null"
-                if(w.id) {
-                    this.renderWiki({
-                        title: w.n,
-                        extract: w.desc || '',
-                        content_urls: { desktop: { page: `https://${lang}.wikipedia.org/?curid=${w.id}` }}
-                    }, false);
-                    return; 
-                }
-            }
+            slug = WIKI_SLUGS[w.n] ? WIKI_SLUGS[w.n][lang] : null;
+            title = w.n;
+            fallback = w.desc;
         }
         
-        // If we have a slug (Stars or Offline Wonders), fetch standard way
         if(slug) {
             const cacheKey = `WR_WIKI_${lang}_${slug}`;
             this.renderWiki(null, true); 
@@ -978,7 +896,6 @@ class App {
                 if(!success) this.renderFallback(title, fallback);
             }
         } else {
-            // Dynamic fallback
             this.renderFallback(title, fallback);
         }
     }
