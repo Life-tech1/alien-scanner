@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <meta name="description" content="Wind Rose: The Treasure Seeker’s Compass">
+    <meta name="description" content="Wind Rose: The Treasure Seeker's Compass">
 
     <style>
         /* ------------------------------------------------------------------
@@ -288,6 +288,75 @@
         @keyframes ai-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .ai-text { font-family: var(--font-mono); font-size: 0.75rem; color: var(--wr-p); text-transform: uppercase; margin-bottom: 6px; }
 
+        /* --- ปุ่มย้อนกลับในโหมดดวงดาว --- */
+        .star-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+        }
+        
+        .star-prev-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            border-radius: 16px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .star-prev-btn:active {
+            background: rgba(255,255,255,0.2);
+            transform: scale(0.98);
+        }
+        
+        .star-next-btn {
+            background: rgba(96,165,250,0.1);
+            border: 1px solid rgba(96,165,250,0.3);
+            color: var(--wr-b);
+            border-radius: 16px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .star-next-btn:active {
+            background: rgba(96,165,250,0.2);
+            transform: scale(0.98);
+        }
+        
+        /* --- ปุ่มย้อนกลับไปโหมดแรก --- */
+        .back-to-discovery {
+            background: rgba(217, 70, 239, 0.1);
+            border: 1px solid rgba(217, 70, 239, 0.3);
+            color: var(--wr-p);
+            border-radius: 16px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 700;
+            width: 100%;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .back-to-discovery:active {
+            background: rgba(217, 70, 239, 0.2);
+            transform: scale(0.98);
+        }
+
     </style>
 </head>
 <body>
@@ -383,9 +452,14 @@
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div class="star-badge" id="s-vis">VISIBLE</div>
-                    <button class="btn" style="padding:6px 12px; font-size:0.7rem;" onclick="app.nextStar()">NEXT &rarr;</button>
+                    <div class="star-nav">
+                        <button class="star-prev-btn" onclick="app.prevStar()">← PREV</button>
+                        <button class="star-next-btn" onclick="app.nextStar()">NEXT →</button>
+                    </div>
                 </div>
                 <button id="btn-star-lore" style="margin-top:12px; width:100%; background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.3); color:var(--wr-b); border-radius:16px; padding:10px; cursor:pointer;" onclick="app.openStarLore()">✨ STAR LORE</button>
+                <!-- ปุ่มย้อนกลับไปโหมดแรก -->
+                <button class="back-to-discovery" onclick="app.backToDiscovery()">← BACK TO DISCOVERY</button>
             </div>
 
             <div class="btn-row" id="ctrls">
@@ -468,7 +542,8 @@ const DICT = {
         wiki_offline_lbl: "Offline Database",
         ai_scan: "AI SYSTEM: ANALYZING GEODATA...",
         ai_conn_lost: "CONNECTION LOST. SWITCHING TO OFFLINE DB.",
-        ai_fetch: "AI: SCANNING SECTOR..."
+        ai_fetch: "AI: SCANNING SECTOR...",
+        back_to_disc: "← BACK TO DISCOVERY"
     },
     th: {
         gps_wait:"รอ GPS...", gps_lock:"GPS พร้อม",
@@ -493,7 +568,8 @@ const DICT = {
         wiki_offline_lbl: "ฐานข้อมูลออฟไลน์",
         ai_scan: "ระบบ AI: กำลังวิเคราะห์ภูมิศาสตร์...",
         ai_conn_lost: "สัญญาณขาดหาย ใช้งานฐานข้อมูลสำรอง",
-        ai_fetch: "AI: กำลังสแกนพื้นที่..."
+        ai_fetch: "AI: กำลังสแกนพื้นที่...",
+        back_to_disc: "← กลับไปโหมดค้นพบ"
     }
 };
 
@@ -806,6 +882,15 @@ class App {
     nextStar() {
         this.state.starIdx = (this.state.starIdx+1) % STARS_DB.length;
         this.updateStarUI();
+    }
+    
+    prevStar() {
+        this.state.starIdx = (this.state.starIdx - 1 + STARS_DB.length) % STARS_DB.length;
+        this.updateStarUI();
+    }
+    
+    backToDiscovery() {
+        this.setMode('disc');
     }
 
     toggleLang() { 
