@@ -209,73 +209,7 @@
             pointer-events: none;
         }
 
-        /* TESLA CROSSHAIR */
-        #crosshair {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            pointer-events: none;
-            z-index: 50;
-        }
-
-        .sight-ring {
-            position: absolute;
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            border-radius: 0;
-            width: 100%;
-            height: 100%;
-            border-left: none;
-            border-right: none;
-            border-top: none;
-            border-bottom: none;
-        }
-
-        .sight-ring::before,
-        .sight-ring::after {
-            content: '';
-            position: absolute;
-            background: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Horizontal line */
-        .sight-ring::before {
-            top: 50%;
-            left: -20px;
-            right: -20px;
-            height: 1px;
-            transform: translateY(-50%);
-        }
-
-        /* Vertical line */
-        .sight-ring::after {
-            left: 50%;
-            top: -20px;
-            bottom: -20px;
-            width: 1px;
-            transform: translateX(-50%);
-        }
-
-        .targeting-dot {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 4px;
-            height: 4px;
-            background: var(--accent);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent);
-        }
-
-        .range-marking {
-            position: absolute;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 10px;
-            font-weight: 500;
-        }
+        /* CROSSHAIR REMOVED */
 
         /* ENHANCED GLASS UI */
         .glass-panel {
@@ -796,25 +730,6 @@
             font-size: 18px;
         }
 
-        /* LANGUAGE SELECTOR */
-        .language-selector {
-            position: fixed;
-            top: 20px;
-            left: 80px;
-            z-index: 100;
-        }
-
-        .lang-btn {
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 10px 14px;
-            color: white;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
         /* SCREEN LOCK INDICATOR */
         .lock-indicator {
             position: fixed;
@@ -1119,9 +1034,98 @@
             </div>
         </div>
 
-        <!-- REMAINING TAB CONTENT (SAME AS BEFORE BUT WITH ENHANCED STYLING) -->
-        <!-- Audio, Share, Reports, Backup, Help, Settings tabs remain with enhanced glass styling -->
+        <!-- AUDIO TAB -->
+        <div class="tab-content" id="audio-tab">
+            <div class="glass-panel" style="padding: 24px; text-align: center;">
+                <div class="status-label" style="margin-bottom: 20px;">AUDIO ANALYTICS</div>
+                <div style="font-size: 48px; margin-bottom: 10px;">Waiting...</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5);">Audio visualization coming soon</div>
+            </div>
+        </div>
 
+        <!-- SHARE TAB -->
+        <div class="tab-content" id="share-tab">
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="status-label" style="margin-bottom: 20px;">SHARE DATA</div>
+                <div class="share-options">
+                    <div class="share-btn">Export CSV</div>
+                    <div class="share-btn">Export JSON</div>
+                    <div class="share-btn">Cloud Sync</div>
+                    <div class="share-btn">Live Stream</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPORTS TAB -->
+        <div class="tab-content" id="reports-tab">
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="status-label" style="margin-bottom: 20px;">INCIDENT REPORTS</div>
+                <div style="font-size: 13px; color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">
+                    No incidents recorded in current session.
+                </div>
+            </div>
+        </div>
+
+        <!-- BACKUP TAB -->
+        <div class="tab-content" id="backup-tab">
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="status-label" style="margin-bottom: 20px;">SYSTEM BACKUP</div>
+                <div class="control-btn" style="width: 100%; margin-bottom: 10px;">Create Local Backup</div>
+                <div class="control-btn" style="width: 100%;">Restore from File</div>
+            </div>
+        </div>
+
+        <!-- HELP TAB -->
+        <div class="tab-content" id="help-tab">
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="status-label" style="margin-bottom: 20px;">SYSTEM GUIDE</div>
+                <div class="help-section">
+                    <div class="help-title">Pro Mode Controls</div>
+                    <div class="help-content">
+                        Use the sliders to adjust ISO, Shutter Speed, and Focus. These features require compatible
+                        hardware.
+                    </div>
+                </div>
+                <div class="help-section">
+                    <div class="help-title">AI Detection</div>
+                    <div class="help-content">
+                        The system automatically detects people and vehicles. Threat levels are calculated based on
+                        proximity.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div class="tab-content" id="settings-tab">
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="status-label" style="margin-bottom: 20px;">SYSTEM PREFERENCES</div>
+
+                <div class="setting-item">
+                    <span class="setting-label">Language</span>
+                    <select class="setting-control" id="language-select">
+                        <option value="en">English</option>
+                        <option value="th">Thai</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ja">Japanese</option>
+                    </select>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">Confidence Threshold</span>
+                    <input type="range" class="setting-control" min="0.1" max="0.9" step="0.1" value="0.5"
+                        id="conf-slider">
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">Haptic Feedback</span>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="control-btn" style="flex:1" onclick="app.toggleHaptic(true)">ON</button>
+                        <button class="control-btn" style="flex:1" onclick="app.toggleHaptic(false)">OFF</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ALERT NOTIFICATION -->
@@ -1170,6 +1174,7 @@
                 this.audioChunks = [];
                 this.audioRecordings = [];
                 this.recordStartTime = 0;
+                this.activeStream = null;
 
                 // Analytics
                 this.analytics = {
@@ -1303,18 +1308,25 @@
                 // Zoom Controls
                 document.querySelectorAll('.zoom-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
-                        const zoomLevel = parseInt(e.target.dataset.zoom);
-                        this.setZoom(zoomLevel);
-                        this.triggerHaptic();
+                        const target = e.target.closest('.zoom-btn');
+                        if (target) {
+                            const zoomLevel = parseInt(target.dataset.zoom);
+                            this.setZoom(zoomLevel, target);
+                            this.triggerHaptic();
+                        }
                     });
                 });
 
                 // Filter Controls
                 document.querySelectorAll('.filter-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
-                        const filter = e.target.dataset.filter;
-                        this.setFilter(filter);
-                        this.triggerHaptic();
+                        // Ensure we get the button element even if child SVG is clicked
+                        const target = e.target.closest('.filter-btn');
+                        if (target) {
+                            const filter = target.dataset.filter;
+                            this.setFilter(filter, target);
+                            this.triggerHaptic();
+                        }
                     });
                 });
             }
@@ -1448,6 +1460,11 @@
                     this.isActive = true;
 
                     this.showAlert("Geye Pro System Activated", false);
+
+                    // Initial canvas setup
+                    this.handleResize();
+                    window.addEventListener('resize', () => this.handleResize());
+
                     this.startMainLoop();
                     this.startSystemMonitoring();
 
@@ -1492,7 +1509,7 @@
                 }, 2000);
             }
 
-            setZoom(level) {
+            setZoom(level, targetBtn) {
                 this.zoomLevel = level;
                 this.video.style.transform = `scale(${level})`;
                 this.video.style.transformOrigin = 'center center';
@@ -1501,10 +1518,10 @@
                 document.querySelectorAll('.zoom-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                event.target.classList.add('active');
+                if (targetBtn) targetBtn.classList.add('active');
             }
 
-            setFilter(filter) {
+            setFilter(filter, targetBtn) {
                 this.currentFilter = filter;
                 this.video.className = `filter-${filter}`;
 
@@ -1512,7 +1529,7 @@
                 document.querySelectorAll('.filter-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                event.target.classList.add('active');
+                if (targetBtn) targetBtn.classList.add('active');
 
                 this.showAlert(`Filter: ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
             }
@@ -1608,15 +1625,36 @@
 
             initializeMediaRecorders(stream) {
                 try {
-                    // Video Recorder
-                    this.mediaRecorder = new MediaRecorder(stream);
+                    // Video Recorder - Try supported MIME types
+                    const videoTypes = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4'];
+                    let videoOptions = {};
+                    for (const type of videoTypes) {
+                        if (MediaRecorder.isTypeSupported(type)) {
+                            videoOptions = { mimeType: type };
+                            break;
+                        }
+                    }
+
+                    this.mediaRecorder = new MediaRecorder(stream, videoOptions);
                     this.setupMediaRecorder();
 
-                    // Audio Recorder (using same stream)
-                    this.audioRecorder = new MediaRecorder(stream);
+                    // Audio Recorder - Use same stream, try supported audio types
+                    const audioTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', 'audio/mp4'];
+                    let audioOptions = {};
+                    for (const type of audioTypes) {
+                        if (MediaRecorder.isTypeSupported(type)) {
+                            audioOptions = { mimeType: type };
+                            break;
+                        }
+                    }
+
+                    // Create a separate audio-only stream if needed, or just use the main stream
+                    // Using main stream is fine for MediaRecorder as it will pick up the audio track
+                    this.audioRecorder = new MediaRecorder(stream, audioOptions);
                     this.setupAudioRecorder();
                 } catch (e) {
                     console.warn("MediaRecorder init failed:", e);
+                    this.showAlert("Media Recording Unavailable", true);
                 }
             }
 
@@ -1678,17 +1716,25 @@
             // ... (keep all existing AI vision functionality from previous versions)
 
             switchTab(tabName) {
+                // Guard against invalid tabs
+                const targetTab = document.getElementById(`${tabName}-tab`);
+                if (!targetTab) {
+                    console.warn(`Tab ${tabName} not found`);
+                    return;
+                }
+
                 // Update tab buttons
                 document.querySelectorAll('.tab-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+                const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+                if (activeBtn) activeBtn.classList.add('active');
 
                 // Update tab content
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
-                document.getElementById(`${tabName}-tab`).classList.add('active');
+                targetTab.classList.add('active');
             }
 
             toggleUI() {
@@ -1697,7 +1743,12 @@
 
                 this.isUIVisible = !this.isUIVisible;
                 mainUI.classList.toggle('active', this.isUIVisible);
-                toggleBtn.textContent = this.isUIVisible ? '✕' : '⚙️';
+                // Update icon based on state
+                if (this.isUIVisible) {
+                    toggleBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                } else {
+                    toggleBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
+                }
                 this.triggerHaptic();
             }
 
@@ -1774,37 +1825,86 @@
             }
 
             // AI Vision Core Functionality (Maintained from previous versions)
-            async startMainLoop() {
-                if (!this.isActive) return;
+            handleResize() {
+                this.initializeCanvas();
+                this.videoRect = this.calculateVideoRect();
+            }
 
-                const startTime = performance.now();
+            calculateVideoRect() {
+                if (!this.video || this.video.videoWidth === 0) return null;
 
-                try {
-                    // Run AI Detection
-                    const objects = await this.objectDetector.detect(this.video, 20, this.settings.confidence);
+                const videoRatio = this.video.videoWidth / this.video.videoHeight;
+                const screenRatio = window.innerWidth / window.innerHeight;
 
-                    // Run Pose Detection if people detected
-                    let poses = [];
-                    if (objects.some(obj => obj.class === 'person')) {
-                        poses = await this.poseDetector.estimatePoses(this.video);
-                    }
+                let drawWidth, drawHeight, startX, startY;
 
-                    // Update Analytics
-                    this.updateAnalytics(objects);
-
-                    // Render Results
-                    this.renderDetections(objects, poses);
-                    this.updateUI(objects);
-
-                } catch (error) {
-                    console.warn('AI Processing Error:', error);
+                if (screenRatio > videoRatio) {
+                    // Screen is wider than video (crop top/bottom)
+                    drawWidth = window.innerWidth;
+                    drawHeight = drawWidth / videoRatio;
+                    startX = 0;
+                    startY = (window.innerHeight - drawHeight) / 2;
+                } else {
+                    // Screen is taller than video (crop sides)
+                    drawHeight = window.innerHeight;
+                    drawWidth = drawHeight * videoRatio;
+                    startX = (window.innerWidth - drawWidth) / 2;
+                    startY = 0;
                 }
 
-                // Update Performance Metrics
-                this.updatePerformanceMetrics(performance.now() - startTime);
+                return { x: startX, y: startY, w: drawWidth, h: drawHeight, scale: drawWidth / this.video.videoWidth };
+            }
 
-                // Continue Loop
-                requestAnimationFrame(() => this.startMainLoop());
+            async startMainLoop() {
+                const loop = async () => {
+                    if (!this.isActive) return;
+
+                    // Guard: Video not ready
+                    if (this.video.readyState < 2 || this.video.videoWidth === 0) {
+                        requestAnimationFrame(loop);
+                        return;
+                    }
+
+                    // Update video rect if needed
+                    if (!this.videoRect) this.videoRect = this.calculateVideoRect();
+
+                    this.frameCount++;
+                    const now = Date.now();
+                    if (now - this.lastFpsUpdate >= 1000) {
+                        this.fps = this.frameCount;
+                        this.frameCount = 0;
+                        this.lastFpsUpdate = now;
+                        document.getElementById('fps-counter').textContent = this.fps;
+                    }
+
+                    // Clear canvas
+                    this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+
+                    // AI Detection Logic
+                    if (this.objectDetector && this.settings.confidence > 0) {
+                        try {
+                            const predictions = await this.objectDetector.detect(this.video);
+                            this.drawDetections(predictions);
+                            this.updateAnalytics(predictions);
+                        } catch (e) {
+                            // Silent fail for single frame error
+                        }
+                    }
+
+                    if (this.poseDetector) {
+                        try {
+                            const poses = await this.poseDetector.estimatePoses(this.video);
+                            if (poses.length > 0) {
+                                this.drawPose(poses[0]);
+                            }
+                        } catch (e) {
+                            // Silent fail
+                        }
+                    }
+
+                    requestAnimationFrame(loop);
+                };
+                loop();
             }
 
             updateAnalytics(objects) {
@@ -1825,47 +1925,9 @@
                         this.analytics.nearestDistance = distance;
                     }
                 });
-            }
 
-            renderDetections(objects, poses) {
-                // Clear canvas
-                this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-
-                const scaleX = this.overlayCanvas.width / this.video.videoWidth;
-                const scaleY = this.overlayCanvas.height / this.video.videoHeight;
-
-                // Render object bounding boxes
-                objects.forEach(obj => {
-                    const [x, y, width, height] = obj.bbox;
-                    const screenX = x * scaleX;
-                    const screenY = y * scaleY;
-                    const screenWidth = width * scaleX;
-                    const screenHeight = height * scaleY;
-
-                    const color = this.getClassColor(obj.class);
-
-                    // Enhanced bounding box with glow effect
-                    this.overlayCtx.shadowColor = color;
-                    this.overlayCtx.shadowBlur = 15;
-                    this.overlayCtx.strokeStyle = color;
-                    this.overlayCtx.lineWidth = 2;
-                    this.overlayCtx.strokeRect(screenX, screenY, screenWidth, screenHeight);
-                    this.overlayCtx.shadowBlur = 0;
-
-                    // Enhanced label
-                    this.overlayCtx.fillStyle = color;
-                    this.overlayCtx.font = '600 13px -apple-system, BlinkMacSystemFont';
-                    this.overlayCtx.fillText(
-                        `${obj.class.toUpperCase()} ${Math.round(obj.score * 100)}%`,
-                        screenX,
-                        screenY - 10
-                    );
-                });
-
-                // Render pose skeletons
-                if (poses.length > 0) {
-                    this.renderSkeletons(poses, scaleX, scaleY);
-                }
+                // Update UI
+                this.updateUI(objects);
             }
 
             updateUI(objects) {
@@ -1883,20 +1945,32 @@
                     distanceEl.textContent = '--';
                     distanceEl.style.color = 'white';
                 }
+
+                // Update Threat Level
+                const threatEl = document.getElementById('threat-level');
+                if (this.analytics.peopleCount > 3 || this.analytics.nearestDistance < 2) {
+                    threatEl.textContent = 'HIGH';
+                    threatEl.style.color = '#FF2D55';
+                } else if (this.analytics.peopleCount > 0) {
+                    threatEl.textContent = 'MODERATE';
+                    threatEl.style.color = '#FF9500';
+                } else {
+                    threatEl.textContent = 'LOW';
+                    threatEl.style.color = '#34C759';
+                }
+
+                // Update Confidence
+                const confEl = document.getElementById('confidence-val');
+                if (objects.length > 0) {
+                    const avgConf = objects.reduce((acc, obj) => acc + obj.score, 0) / objects.length;
+                    confEl.textContent = Math.round(avgConf * 100) + '%';
+                } else {
+                    confEl.textContent = '--%';
+                }
             }
 
             updatePerformanceMetrics(processingTime) {
-                this.frameCount++;
-                const currentTime = performance.now();
-
-                // Update FPS every second
-                if (currentTime - this.lastFpsUpdate >= 1000) {
-                    this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdate));
-                    this.frameCount = 0;
-                    this.lastFpsUpdate = currentTime;
-
-                    document.getElementById('fps-counter').textContent = this.fps;
-                }
+                // Deprecated in favor of integrated loop FPS
             }
 
             getClassColor(className) {
@@ -1912,53 +1986,83 @@
                 return colors[className] || '#34C759';
             }
 
-            renderSkeletons(poses, scaleX, scaleY) {
-                const connections = [
-                    ['left_shoulder', 'right_shoulder'],
-                    ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
-                    ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
-                    ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
-                    ['left_hip', 'right_hip'],
-                    ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
-                    ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
-                ];
+            drawDetections(predictions) {
+                if (!this.videoRect) return;
+                const { x: offX, y: offY, scale } = this.videoRect;
 
-                poses.forEach(pose => {
-                    // Draw connections with glow
-                    this.overlayCtx.shadowColor = '#007AFF';
-                    this.overlayCtx.shadowBlur = 10;
-                    this.overlayCtx.strokeStyle = '#007AFF';
-                    this.overlayCtx.lineWidth = 3;
+                predictions.forEach(prediction => {
+                    if (prediction.score < this.settings.confidence) return;
+
+                    // Map coordinates
+                    const [x, y, width, height] = prediction.bbox;
+                    const drawX = offX + (x * scale);
+                    const drawY = offY + (y * scale);
+                    const drawW = width * scale;
+                    const drawH = height * scale;
+
+                    // Draw Box
+                    this.overlayCtx.strokeStyle = this.getClassColor(prediction.class);
+                    this.overlayCtx.lineWidth = 2;
+                    this.overlayCtx.strokeRect(drawX, drawY, drawW, drawH);
+
+                    // Draw Label
+                    this.overlayCtx.fillStyle = this.getClassColor(prediction.class);
+                    this.overlayCtx.globalAlpha = 0.8;
+                    this.overlayCtx.fillRect(drawX, drawY - 24, drawW, 24);
+                    this.overlayCtx.globalAlpha = 1.0;
+
+                    this.overlayCtx.fillStyle = '#fff';
+                    this.overlayCtx.font = 'bold 12px "Montserrat", sans-serif';
+                    this.overlayCtx.fillText(
+                        `${prediction.class.toUpperCase()} ${Math.round(prediction.score * 100)}%`,
+                        drawX + 6,
+                        drawY - 7
+                    );
+                });
+            }
+
+            drawPose(pose) {
+                if (!this.videoRect) return;
+                const { x: offX, y: offY, scale } = this.videoRect;
+
+                if (pose.keypoints) {
+                    const connections = [
+                        ['left_shoulder', 'right_shoulder'],
+                        ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+                        ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+                        ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+                        ['left_hip', 'right_hip'],
+                        ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
+                        ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
+                    ];
+
+                    this.overlayCtx.strokeStyle = '#00ff00';
+                    this.overlayCtx.lineWidth = 2;
 
                     connections.forEach(([jointA, jointB]) => {
                         const pointA = pose.keypoints.find(kp => kp.name === jointA);
                         const pointB = pose.keypoints.find(kp => kp.name === jointB);
 
-                        if (pointA && pointB && pointA.score > 0.3 && pointB.score > 0.3) {
+                        if (pointA && pointB && pointA.score > this.settings.confidence && pointB.score > this.settings.confidence) {
                             this.overlayCtx.beginPath();
-                            this.overlayCtx.moveTo(pointA.x * scaleX, pointA.y * scaleY);
-                            this.overlayCtx.lineTo(pointB.x * scaleX, pointB.y * scaleY);
+                            this.overlayCtx.moveTo(offX + pointA.x * scale, offY + pointA.y * scale);
+                            this.overlayCtx.lineTo(offX + pointB.x * scale, offY + pointB.y * scale);
                             this.overlayCtx.stroke();
                         }
                     });
 
-                    this.overlayCtx.shadowBlur = 0;
-
-                    // Draw joints
                     this.overlayCtx.fillStyle = '#FF2D55';
-                    this.overlayCtx.shadowColor = '#FF2D55';
-                    this.overlayCtx.shadowBlur = 8;
+                    pose.keypoints.forEach(keypoint => {
+                        if (keypoint.score > this.settings.confidence) {
+                            const kx = offX + (keypoint.x * scale);
+                            const ky = offY + (keypoint.y * scale);
 
-                    pose.keypoints.forEach(kp => {
-                        if (kp.score > 0.3) {
                             this.overlayCtx.beginPath();
-                            this.overlayCtx.arc(kp.x * scaleX, kp.y * scaleY, 4, 0, Math.PI * 2);
+                            this.overlayCtx.arc(kx, ky, 4, 0, 2 * Math.PI);
                             this.overlayCtx.fill();
                         }
                     });
-
-                    this.overlayCtx.shadowBlur = 0;
-                });
+                }
             }
         }
 
