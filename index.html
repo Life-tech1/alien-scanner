@@ -1,990 +1,785 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUANTUM SENSOR | ระบบตรวจจับสนามแม่เหล็กและพลังงานขั้นสูง</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MAGIC WONDER COMPASS | PROD-BUILD</title>
+    <meta name="description" content="High-precision Sci-Fi Compass with Sensor Fusion">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <style>
+        /* ------------------------------------------------------------------
+           CSS: SCI-FI HUD / RESPONSIVE DESIGN
+           ------------------------------------------------------------------ */
         :root {
-            --primary: #0a0a12;
-            --secondary: #151522;
-            --accent: #1a1a2e;
-            --gold: #d4af37;
-            --gold-light: #f4e4a6;
-            --platinum: #e5e4e2;
-            --text: #f8f9fa;
-            --text-secondary: #adb5bd;
-            --success: #28a745;
-            --warning: #ffc107;
-            --danger: #dc3545;
-            --card-bg: rgba(30, 30, 46, 0.6);
-            --glass: rgba(255, 255, 255, 0.05);
-            --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-            --gradient: linear-gradient(135deg, #0a0a12 0%, #1a1a2e 50%, #151522 100%);
+            --c-bg: #050505;
+            --c-primary: #00f0ff; /* Cyan */
+            --c-accent: #ff003c;  /* Red/Pink */
+            --c-warn: #ffcc00;    /* Amber */
+            --c-ghost: #b829ff;   /* Purple for Anomaly */
+            --c-dim: #444;
+            --c-glass: rgba(0, 20, 30, 0.8);
+            --font-hud: 'Courier New', Courier, monospace;
+            --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Kanit', 'Segoe UI', sans-serif;
-        }
-
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
         body {
-            background: var(--gradient);
-            color: var(--text);
-            min-height: 100vh;
-            overflow-x: hidden;
-            position: relative;
+            margin: 0; padding: 0;
+            background-color: var(--c-bg);
+            color: var(--c-primary);
+            font-family: var(--font-hud);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(212, 175, 55, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(212, 175, 55, 0.03) 0%, transparent 50%);
+        /* UTILS */
+        .hidden { display: none !important; }
+        .blink { animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.3; } }
+        
+        /* SCANLINES */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
             pointer-events: none;
-            z-index: -1;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 30px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 25px 0;
-            border-bottom: 1px solid var(--glass);
-            margin-bottom: 40px;
-            position: relative;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .logo-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--gold), var(--gold-light));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
-        }
-
-        .logo-icon i {
-            font-size: 1.8em;
-            color: var(--primary);
-        }
-
-        .logo-text h1 {
-            font-size: 2.2em;
-            font-weight: 500;
-            letter-spacing: 2px;
-            background: linear-gradient(135deg, var(--platinum), var(--gold-light));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
-        }
-
-        .logo-text p {
-            color: var(--text-secondary);
-            font-size: 0.9em;
-            letter-spacing: 1px;
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .system-status {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: var(--card-bg);
-            padding: 12px 20px;
-            border-radius: 30px;
-            border: 1px solid var(--glass);
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--success);
-            position: relative;
-        }
-
-        .status-dot.recording::after {
-            content: '';
-            position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            border-radius: 50%;
-            border: 1px solid var(--success);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-
-        .main-dashboard {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-
-        @media (max-width: 1200px) {
-            .main-dashboard {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--glass);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--gold), transparent);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--glass);
-        }
-
-        .card-title {
-            font-size: 1.4em;
-            font-weight: 500;
-            color: var(--platinum);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .card-title i {
-            color: var(--gold);
-        }
-
-        .compass-section {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 40px;
-            align-items: center;
-        }
-
-        .compass-container {
-            position: relative;
-            width: 300px;
-            height: 300px;
-            margin: 0 auto;
-        }
-
-        .compass {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: var(--accent);
-            position: relative;
-            border: 2px solid var(--glass);
-            box-shadow: 
-                inset 0 0 30px rgba(0, 0, 0, 0.5),
-                0 0 30px rgba(212, 175, 55, 0.1);
-        }
-
-        .compass-needle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform-origin: left center;
-            width: 45%;
-            height: 3px;
-            background: linear-gradient(90deg, var(--danger), var(--gold));
-            border-radius: 2px;
-            transition: transform 0.3s ease;
             z-index: 10;
-            filter: drop-shadow(0 0 5px rgba(220, 53, 69, 0.5));
+            opacity: 0.3;
         }
 
-        .compass-needle::after {
-            content: '';
-            position: absolute;
-            right: -12px;
-            top: -6px;
-            width: 0;
-            height: 0;
-            border-left: 12px solid var(--gold);
-            border-top: 8px solid transparent;
-            border-bottom: 8px solid transparent;
-        }
-
-        .compass-markings {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .compass-direction {
-            position: absolute;
-            font-size: 1.3em;
-            font-weight: 500;
-            color: var(--platinum);
-        }
-
-        .north { top: 15px; left: 50%; transform: translateX(-50%); }
-        .east { top: 50%; right: 15px; transform: translateY(-50%); }
-        .south { bottom: 15px; left: 50%; transform: translateX(-50%); }
-        .west { top: 50%; left: 15px; transform: translateY(-50%); }
-
-        .sensor-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-
-        .sensor-card {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 15px;
+        /* INITIAL PERMISSION OVERLAY */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
             padding: 20px;
-            border: 1px solid var(--glass);
-            transition: all 0.3s ease;
+        }
+        
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; letter-spacing: 2px; color: var(--c-primary); text-shadow: 0 0 10px var(--c-primary); }
+        p { font-size: 0.9rem; color: #aaa; max-width: 400px; line-height: 1.4; }
+
+        button.btn-sci-fi {
+            background: transparent;
+            border: 1px solid var(--c-primary);
+            color: var(--c-primary);
+            padding: 15px 30px;
+            font-family: var(--font-hud);
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+            transition: all 0.2s;
+        }
+        button.btn-sci-fi:active { background: var(--c-primary); color: #000; }
+
+        /* MAIN HUD */
+        #hud-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             position: relative;
+            padding: 10px;
         }
 
-        .sensor-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--gold);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-        }
-
-        .sensor-value {
-            font-size: 2.2em;
-            font-weight: 500;
-            margin: 15px 0;
-            color: var(--gold-light);
-            text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
-        }
-
-        .sensor-label {
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            letter-spacing: 1px;
-        }
-
-        .sensor-unit {
-            font-size: 0.8em;
-            color: var(--gold);
-            margin-left: 5px;
-        }
-
-        .anomaly-detector {
-            margin-top: 30px;
-        }
-
-        .energy-level-container {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 15px;
-            padding: 25px;
-            margin: 20px 0;
-            border: 1px solid var(--glass);
-        }
-
-        .energy-level {
-            height: 25px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            margin: 15px 0;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .energy-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
-            border-radius: 12px;
-            width: 25%;
-            transition: width 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
-            position: relative;
-        }
-
-        .energy-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .energy-markers {
+        /* TOP BAR: GPS & STATUS */
+        .status-bar {
             display: flex;
             justify-content: space-between;
-            margin-top: 10px;
-            font-size: 0.8em;
-            color: var(--text-secondary);
+            font-size: 0.7rem;
+            border-bottom: 1px solid var(--c-dim);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
         }
+        .gps-box { color: var(--c-warn); }
+        .accuracy-box { color: #aaa; }
 
-        .anomaly-log {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 15px;
-            padding: 20px;
-            margin-top: 25px;
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid var(--glass);
-        }
-
-        .log-entry {
-            padding: 15px;
-            border-bottom: 1px solid var(--glass);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            transition: background 0.3s ease;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-entry:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .log-time {
-            font-size: 0.8em;
-            color: var(--gold);
-            min-width: 80px;
-            font-feature-settings: "tnum";
-        }
-
-        .log-message {
+        /* COMPASS AREA */
+        .compass-stage {
             flex: 1;
-            font-size: 0.95em;
-        }
-
-        .log-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8em;
+            perspective: 1000px;
         }
 
-        .log-icon.normal { background: var(--success); }
-        .log-icon.warning { background: var(--warning); color: #000; }
-        .log-icon.danger { background: var(--danger); }
-        .log-icon.info { background: var(--text-secondary); }
+        .compass-ring {
+            width: 80vw; height: 80vw;
+            max-width: 400px; max-height: 400px;
+            border: 2px solid var(--c-dim);
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+            transition: transform 0.1s var(--ease-out);
+        }
 
+        .cardinal {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .n { top: 10px; left: 50%; transform: translateX(-50%); color: var(--c-accent); }
+        .s { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .e { right: 15px; top: 50%; transform: translateY(-50%); }
+        .w { left: 15px; top: 50%; transform: translateY(-50%); }
+
+        /* NEEDLES */
+        .needle-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        
+        .needle {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 4px; height: 45%;
+            transform-origin: bottom center;
+            /* Transform will be applied by JS */
+            transition: transform 0.3s var(--ease-out);
+            box-shadow: 0 0 5px currentColor;
+            z-index: 2;
+        }
+
+        /* MODE STYLES */
+        /* Wonder Mode */
+        .needle.wonder { background: var(--c-primary); height: 40%; margin-top: -40%; margin-left: -2px; border-radius: 2px; }
+        .needle.wonder::after { content: ''; position: absolute; top: -10px; left: -6px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 15px solid var(--c-primary); }
+
+        /* Magnetic Mode */
+        .needle.north { background: var(--c-accent); height: 42%; margin-top: -42%; margin-left: -2px; display: none; }
+        .needle.mag { background: var(--c-dim); width: 2px; height: 35%; margin-top: -35%; margin-left: -1px; display: none; }
+
+        /* Anomaly Mode */
+        .needle.anomaly { background: var(--c-ghost); height: 38%; margin-top: -38%; margin-left: -2px; display: none; }
+        
+        /* CENTER HUD DATA */
+        .center-data {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 5px;
+            border: 1px solid var(--c-dim);
+            border-radius: 4px;
+            z-index: 5;
+        }
+        .heading-val { font-size: 2rem; font-weight: bold; display: block; }
+        .heading-label { font-size: 0.6rem; color: #888; letter-spacing: 1px; }
+
+        /* BOTTOM PANELS */
+        .info-panel {
+            min-height: 120px;
+            background: var(--c-glass);
+            border: 1px solid var(--c-dim);
+            margin-top: 10px;
+            padding: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+        
+        .target-name { color: var(--c-primary); font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; border-bottom: 1px dashed var(--c-dim); padding-bottom: 5px;}
+        .metric-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .metric-val { font-weight: bold; }
+
+        /* CONTROLS */
         .controls {
             display: flex;
-            gap: 15px;
-            margin-top: 30px;
+            gap: 5px;
+            margin-top: 10px;
+            overflow-x: auto;
+            padding-bottom: 5px;
         }
-
-        .btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1em;
-            letter-spacing: 0.5px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--gold), var(--gold-light));
-            color: var(--primary);
-            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4);
-        }
-
-        .btn-secondary {
-            background: var(--glass);
-            color: var(--text);
-            border: 1px solid var(--glass);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: var(--gold);
-        }
-
-        .mode-selector {
-            display: flex;
-            background: var(--glass);
-            border-radius: 15px;
-            padding: 8px;
-            margin-bottom: 30px;
-            border: 1px solid var(--glass);
-        }
-
         .mode-btn {
             flex: 1;
-            padding: 15px 25px;
-            text-align: center;
-            border-radius: 12px;
+            background: #111;
+            border: 1px solid var(--c-dim);
+            color: #888;
+            padding: 10px 5px;
+            font-size: 0.7rem;
+            font-family: var(--font-hud);
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
+        .mode-btn.active { border-color: var(--c-primary); color: var(--c-primary); background: rgba(0, 240, 255, 0.1); }
+        
+        .settings-btn { width: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
 
-        .mode-btn.active {
-            background: linear-gradient(135deg, var(--gold), var(--gold-light));
-            color: var(--primary);
-            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
-        }
-
-        .anomaly-alert {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            background: linear-gradient(135deg, var(--danger), #c82333);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 15px;
-            box-shadow: var(--shadow);
+        /* ANOMALY GLITCH FX */
+        .glitch-mode .compass-ring { border-color: var(--c-ghost); box-shadow: 0 0 15px var(--c-ghost); }
+        .glitch-mode .heading-val { text-shadow: 2px 0 var(--c-ghost), -2px 0 var(--c-warn); }
+        
+        /* MODAL */
+        .modal {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 200;
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 15px;
-            transform: translateX(150%);
-            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            z-index: 1000;
-            border-left: 4px solid var(--gold);
         }
+        .modal-content {
+            width: 85%; max-width: 400px;
+            background: #111; border: 1px solid var(--c-primary);
+            padding: 20px;
+        }
+        .modal input, .modal select {
+            width: 100%; padding: 10px; background: #222; border: 1px solid #444; color: #fff;
+            margin-bottom: 10px; font-family: var(--font-hud);
+        }
+        .modal h2 { margin-top: 0; color: var(--c-primary); border-bottom: 1px solid var(--c-dim); padding-bottom: 10px;}
+        .close-modal { float: right; cursor: pointer; color: var(--c-warn); }
 
-        .anomaly-alert.show {
-            transform: translateX(0);
-        }
-
-        .alert-icon {
-            font-size: 1.5em;
-            animation: shake 0.5s ease-in-out;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: rotate(0deg); }
-            25% { transform: rotate(-10deg); }
-            75% { transform: rotate(10deg); }
-        }
-
-        footer {
-            text-align: center;
-            padding: 40px 0;
-            margin-top: 50px;
-            border-top: 1px solid var(--glass);
-            color: var(--text-secondary);
-            font-size: 0.9em;
-            letter-spacing: 0.5px;
-        }
-
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--secondary);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--gold);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--gold-light);
-        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-atom"></i>
-                </div>
-                <div class="logo-text">
-                    <h1>QUANTUM SENSOR</h1>
-                    <p>ADVANCED MAGNETIC FIELD & ENERGY DETECTION SYSTEM</p>
-                </div>
-            </div>
-            <div class="header-controls">
-                <div class="system-status">
-                    <div class="status-dot recording"></div>
-                    <span>SYSTEM ACTIVE</span>
-                </div>
-                <div class="system-time" id="systemTime">--:--:--</div>
-            </div>
-        </header>
 
-        <div class="mode-selector">
-            <div class="mode-btn active" data-mode="magnetic">โหมดตรวจจับสนามแม่เหล็ก</div>
-            <div class="mode-btn" data-mode="energy">โหมดวิเคราะห์พลังงาน</div>
-            <div class="mode-btn" data-mode="spectral">โหมดวิเคราะห์สเปกตรัม</div>
-        </div>
+    <!-- SCANLINE OVERLAY -->
+    <div class="scanlines"></div>
 
-        <div class="main-dashboard">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <i class="fas fa-satellite"></i>
-                        ระบบนำทางและตรวจจับ
-                    </h2>
-                    <div class="sensitivity">
-                        <span>ความไว: <strong>สูง</strong></span>
-                    </div>
-                </div>
-                
-                <div class="compass-section">
-                    <div class="compass-container">
-                        <div class="compass">
-                            <div class="compass-markings">
-                                <div class="compass-direction north">N</div>
-                                <div class="compass-direction east">E</div>
-                                <div class="compass-direction south">S</div>
-                                <div class="compass-direction west">W</div>
-                            </div>
-                            <div class="compass-needle" id="compassNeedle"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="sensor-grid">
-                        <div class="sensor-card">
-                            <div class="sensor-label">ทิศทางแม่เหล็ก</div>
-                            <div class="sensor-value" id="direction">-</div>
-                            <div class="sensor-label">องศา<span class="sensor-unit">°</span></div>
-                        </div>
-                        <div class="sensor-card">
-                            <div class="sensor-label">ความแรงสนามรวม</div>
-                            <div class="sensor-value" id="fieldStrength">-</div>
-                            <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
-                        </div>
-                        <div class="sensor-card">
-                            <div class="sensor-label">ความเข้มพลังงาน</div>
-                            <div class="sensor-value" id="energyIntensity">-</div>
-                            <div class="sensor-label">หน่วยควอนตัม<span class="sensor-unit">QU</span></div>
-                        </div>
-                        <div class="sensor-card">
-                            <div class="sensor-label">อุณหภูมิแวดล้อม</div>
-                            <div class="sensor-value" id="temperature">-</div>
-                            <div class="sensor-label">เซลเซียส<span class="sensor-unit">°C</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <i class="fas fa-wave-square"></i>
-                        ข้อมูลเซ็นเซอร์
-                    </h2>
-                    <div class="data-quality">
-                        <span>คุณภาพข้อมูล: <strong>98%</strong></span>
-                    </div>
-                </div>
-                
-                <div class="sensor-grid">
-                    <div class="sensor-card">
-                        <div class="sensor-label">สนามแม่เหล็ก X</div>
-                        <div class="sensor-value" id="magX">-</div>
-                        <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
-                    </div>
-                    <div class="sensor-card">
-                        <div class="sensor-label">สนามแม่เหล็ก Y</div>
-                        <div class="sensor-value" id="magY">-</div>
-                        <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
-                    </div>
-                    <div class="sensor-card">
-                        <div class="sensor-label">สนามแม่เหล็ก Z</div>
-                        <div class="sensor-value" id="magZ">-</div>
-                        <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
-                    </div>
-                    <div class="sensor-card">
-                        <div class="sensor-label">ความเร่ง</div>
-                        <div class="sensor-value" id="acceleration">-</div>
-                        <div class="sensor-label">เมตร/วินาที²<span class="sensor-unit">m/s²</span></div>
-                    </div>
-                </div>
-                
-                <div class="anomaly-detector">
-                    <h3 class="card-title">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        การวิเคราะห์พลังงานผิดปกติ
-                    </h3>
-                    
-                    <div class="energy-level-container">
-                        <div class="energy-level">
-                            <div class="energy-fill" id="energyFill"></div>
-                        </div>
-                        <div class="energy-markers">
-                            <span>ปกติ</span>
-                            <span>ต่ำ</span>
-                            <span>ปานกลาง</span>
-                            <span>สูง</span>
-                            <span>อันตราย</span>
-                        </div>
-                    </div>
-                    
-                    <div class="anomaly-log" id="anomalyLog">
-                        <div class="log-entry">
-                            <div class="log-time" id="currentTime">14:23:05</div>
-                            <div class="log-icon normal"><i class="fas fa-check"></i></div>
-                            <div class="log-message">ระบบพร้อมทำงานและตรวจจับข้อมูล</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- PERMISSION & STARTUP -->
+    <div id="overlay">
+        <h1>MAGIC WONDER COMPASS</h1>
+        <p>SYSTEM: READY</p>
+        <p>MODULES: GPS | GYRO | MAGNETOMETER</p>
+        <p style="color: var(--c-warn); margin-top:20px; font-size: 0.8rem;">
+            REQUIRES SENSOR PERMISSIONS<br>WORKS BEST OUTDOORS
+        </p>
+        <button id="btn-start" class="btn-sci-fi">INITIALIZE SYSTEM</button>
+    </div>
+
+    <!-- MAIN UI -->
+    <div id="hud-container" class="hidden">
         
+        <!-- STATUS BAR -->
+        <div class="status-bar">
+            <span id="gps-status" class="gps-box blink">ACQUIRING GPS...</span>
+            <span id="gps-coords">--.---, --.---</span>
+            <span id="gps-acc" class="accuracy-box">±--m</span>
+        </div>
+
+        <!-- COMPASS -->
+        <div class="compass-stage" id="compass-stage">
+            <div class="compass-ring" id="compass-ring">
+                <div class="cardinal n">N</div>
+                <div class="cardinal e">E</div>
+                <div class="cardinal s">S</div>
+                <div class="cardinal w">W</div>
+                
+                <!-- Needles -->
+                <div class="needle-container">
+                    <div id="needle-wonder" class="needle wonder"></div>
+                    <div id="needle-north" class="needle north"></div> <!-- True North -->
+                    <div id="needle-mag" class="needle mag"></div> <!-- Mag North -->
+                    <div id="needle-anomaly" class="needle anomaly"></div>
+                </div>
+
+                <!-- Center Data -->
+                <div class="center-data">
+                    <span class="heading-val" id="disp-heading">000°</span>
+                    <span class="heading-label">HEADING</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- INFO PANEL -->
+        <div class="info-panel" id="info-panel">
+            <div class="target-name" id="disp-target">SELECT TARGET</div>
+            <div class="metric-row">
+                <span>BEARING</span>
+                <span class="metric-val" id="disp-bearing">---°</span>
+            </div>
+            <div class="metric-row">
+                <span>DISTANCE</span>
+                <span class="metric-val" id="disp-dist">--- km</span>
+            </div>
+            <div class="metric-row" id="extra-metric-row">
+                <span id="extra-label">STATUS</span>
+                <span class="metric-val" id="extra-val">STANDBY</span>
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
         <div class="controls">
-            <button class="btn btn-primary" id="startBtn">
-                <i class="fas fa-play-circle"></i>
-                เริ่มตรวจจับ
-            </button>
-            <button class="btn btn-secondary" id="stopBtn">
-                <i class="fas fa-stop-circle"></i>
-                หยุดตรวจจับ
-            </button>
-            <button class="btn btn-secondary" id="calibrateBtn">
-                <i class="fas fa-sliders-h"></i>
-                ตั้งค่าใหม่
-            </button>
-            <button class="btn btn-secondary" id="exportBtn">
-                <i class="fas fa-download"></i>
-                ส่งออกข้อมูล
-            </button>
+            <button class="mode-btn active" onclick="app.setMode('wonder')">WONDER</button>
+            <button class="mode-btn" onclick="app.setMode('magnetic')">EARTH MAG</button>
+            <button class="mode-btn" onclick="app.setMode('anomaly')">ANOMALY</button>
+            <button class="mode-btn settings-btn" onclick="app.toggleSettings()">⚙</button>
         </div>
     </div>
-    
-    <div class="anomaly-alert" id="anomalyAlert">
-        <div class="alert-icon">
-            <i class="fas fa-radiation-alt"></i>
-        </div>
-        <div>
-            <strong>ตรวจพบพลังงานผิดปกติ!</strong>
-            <div>ระดับ: <span id="alertLevel">สูง</span> - โปรดตรวจสอบพื้นที่</div>
+
+    <!-- SETTINGS / TARGET MODAL -->
+    <div id="modal-settings" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="app.toggleSettings()">[X]</span>
+            <h2>CONFIGURATION</h2>
+            
+            <!-- WONDER MODE SETTINGS -->
+            <div id="opt-wonder">
+                <label>TARGET DESTINATION</label>
+                <select id="sel-target" onchange="app.changeTarget(this.value)"></select>
+                
+                <div style="margin-top:15px; border-top: 1px solid #333; padding-top:10px;">
+                    <label style="color:#888; font-size:0.8rem;">ADD CUSTOM TARGET</label>
+                    <input type="text" id="inp-name" placeholder="Name (e.g. Base)">
+                    <input type="number" id="inp-lat" placeholder="Latitude">
+                    <input type="number" id="inp-lon" placeholder="Longitude">
+                    <button class="btn-sci-fi" style="width:100%; padding:10px; margin-top:5px; font-size:0.8rem;" onclick="app.addCustomTarget()">SAVE TARGET</button>
+                </div>
+            </div>
+
+            <!-- MAGNETIC MODE SETTINGS -->
+            <div id="opt-magnetic" class="hidden">
+                <label>MAGNETIC DECLINATION (°)</label>
+                <input type="number" id="inp-declination" value="0" onchange="app.updateDeclination(this.value)">
+                <p style="font-size:0.7rem; color:#666;">Positive for East, Negative for West. Check NOAA or local maps.</p>
+            </div>
+
+            <!-- ANOMALY MODE SETTINGS -->
+            <div id="opt-anomaly" class="hidden">
+                <label>SENSITIVITY</label>
+                <input type="range" min="1" max="10" value="5" style="width:100%">
+                <p style="font-size:0.7rem; color:var(--c-ghost);">"Myths are just unmeasured science."</p>
+            </div>
         </div>
     </div>
+
+<script>
+/**
+ * MAGIC WONDER COMPASS - SINGLE FILE PRODUCTION BUILD
+ * Architect: Senior Mobile Engineer
+ * Stack: Vanilla JS (ES6+), no deps.
+ */
+
+// --- DATA: WONDERS OF THE WORLD ---
+const DEFAULT_WONDERS = [
+    { name: "Great Pyramid of Giza", lat: 29.9792, lon: 31.1342, tag: "Ancient" },
+    { name: "Great Wall of China", lat: 40.4319, lon: 116.5704, tag: "New7" },
+    { name: "Petra", lat: 30.3285, lon: 35.4444, tag: "New7" },
+    { name: "Colosseum", lat: 41.8902, lon: 12.4922, tag: "New7" },
+    { name: "Chichen Itza", lat: 20.6843, lon: -88.5678, tag: "New7" },
+    { name: "Machu Picchu", lat: -13.1631, lon: -72.5450, tag: "New7" },
+    { name: "Taj Mahal", lat: 27.1751, lon: 78.0421, tag: "New7" },
+    { name: "Christ the Redeemer", lat: -22.9519, lon: -43.2105, tag: "New7" }
+];
+
+// --- MODULE: MATH UTILS ---
+const MathUtils = {
+    toRad: (deg) => deg * Math.PI / 180,
+    toDeg: (rad) => rad * 180 / Math.PI,
     
-    <footer>
-        <p>QUANTUM SENSOR SYSTEM &copy; 2023 - ADVANCED QUANTUM FIELD DETECTION TECHNOLOGY</p>
-        <p>ระบบนี้พัฒนาขึ้นสำหรับการตรวจจับสนามแม่เหล็กและพลังงานผิดปกติในสภาพแวดล้อมต่างๆ</p>
-    </footer>
+    // Haversine Distance (km)
+    getDistance: (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // Radius of earth in km
+        const dLat = MathUtils.toRad(lat2 - lat1);
+        const dLon = MathUtils.toRad(lon2 - lon1);
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(MathUtils.toRad(lat1)) * Math.cos(MathUtils.toRad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    },
 
-    <script>
-        class QuantumSensorSystem {
-            constructor() {
-                this.isDetecting = false;
-                this.mode = 'magnetic';
-                this.baseMagneticField = 45.0;
-                this.anomalyCount = 0;
-                this.logEntries = [];
-                
-                this.initializeEventListeners();
-                this.updateSystemTime();
-                this.addLogEntry('ระบบ Quantum Sensor พร้อมทำงาน', 'normal');
-                
-                // อัพเดทเวลาตลอดเวลา
-                setInterval(() => this.updateSystemTime(), 1000);
-            }
+    // Initial Bearing (Degrees 0-360)
+    getBearing: (lat1, lon1, lat2, lon2) => {
+        const y = Math.sin(MathUtils.toRad(lon2 - lon1)) * Math.cos(MathUtils.toRad(lat2));
+        const x = Math.cos(MathUtils.toRad(lat1)) * Math.sin(MathUtils.toRad(lat2)) -
+                Math.sin(MathUtils.toRad(lat1)) * Math.cos(MathUtils.toRad(lat2)) * Math.cos(MathUtils.toRad(lon2 - lon1));
+        const brng = MathUtils.toDeg(Math.atan2(y, x));
+        return (brng + 360) % 360;
+    },
 
-            initializeEventListeners() {
-                document.getElementById('startBtn').addEventListener('click', () => this.startDetection());
-                document.getElementById('stopBtn').addEventListener('click', () => this.stopDetection());
-                document.getElementById('calibrateBtn').addEventListener('click', () => this.calibrate());
-                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
-                
-                // โหมดการทำงาน
-                document.querySelectorAll('.mode-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-                        e.target.classList.add('active');
-                        this.mode = e.target.dataset.mode;
-                        this.addLogEntry(`เปลี่ยนเป็นโหมด: ${this.getModeName(this.mode)}`, 'info');
-                    });
-                });
-            }
+    // Smooth angle interpolation (handles 359->1 wrap)
+    lerpAngle: (current, target, factor) => {
+        let delta = target - current;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        return current + delta * factor;
+    },
 
-            getModeName(mode) {
-                const modes = {
-                    'magnetic': 'ตรวจจับสนามแม่เหล็ก',
-                    'energy': 'วิเคราะห์พลังงาน',
-                    'spectral': 'วิเคราะห์สเปกตรัม'
-                };
-                return modes[mode] || mode;
-            }
+    // Format numbers nicely
+    formatDist: (km) => {
+        if (km < 1) return (km * 1000).toFixed(0) + " m";
+        return km.toFixed(1) + " km";
+    }
+};
 
-            updateSystemTime() {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('th-TH');
-                document.getElementById('systemTime').textContent = timeString;
-                document.getElementById('currentTime').textContent = timeString;
-            }
+// --- MODULE: SENSOR ENGINE ---
+class SensorEngine {
+    constructor() {
+        this.heading = 0; // 0 = True North (approx)
+        this.gps = { lat: null, lon: null, acc: null };
+        this.magField = null; // Microteslas if available
+        this.hasMagSensor = false;
+        this.listeners = [];
+    }
 
-            async startDetection() {
-                if (this.isDetecting) return;
-                
-                try {
-                    // ขออนุญาตใช้เซ็นเซอร์ (สำหรับอุปกรณ์ iOS)
-                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                        const permission = await DeviceOrientationEvent.requestPermission();
-                        if (permission !== 'granted') {
-                            this.addLogEntry('การอนุญาตใช้เซ็นเซอร์ถูกปฏิเสธ', 'warning');
-                            return;
-                        }
-                    }
-                    
-                    this.isDetecting = true;
-                    this.addLogEntry('เริ่มตรวจจับข้อมูลเชิงควอนตัม', 'info');
-                    
-                    // เริ่มตรวจจับการหมุน
-                    window.addEventListener('deviceorientation', (e) => this.handleDeviceOrientation(e));
-                    
-                    // เริ่มจำลองข้อมูลเซ็นเซอร์
-                    this.sensorInterval = setInterval(() => this.updateSensorData(), 500);
-                    
-                } catch (error) {
-                    console.error('Error starting detection:', error);
-                    this.addLogEntry('เกิดข้อผิดพลาดในการเริ่มตรวจจับ', 'error');
+    async init() {
+        // 1. GPS
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    this.gps.lat = pos.coords.latitude;
+                    this.gps.lon = pos.coords.longitude;
+                    this.gps.acc = pos.coords.accuracy;
+                    this.emit('gps', this.gps);
+                },
+                (err) => console.warn("GPS Error", err),
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+        }
+
+        // 2. Orientation (The messy part)
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // iOS 13+
+            try {
+                const response = await DeviceOrientationEvent.requestPermission();
+                if (response === 'granted') {
+                    window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
                 }
+            } catch (e) {
+                alert("Permission needed for compass.");
             }
-
-            stopDetection() {
-                this.isDetecting = false;
-                if (this.sensorInterval) {
-                    clearInterval(this.sensorInterval);
-                }
-                window.removeEventListener('deviceorientation', this.handleDeviceOrientation);
-                this.addLogEntry('หยุดการตรวจจับ', 'info');
-            }
-
-            calibrate() {
-                this.baseMagneticField = 45.0;
-                this.anomalyCount = 0;
-                this.addLogEntry('ปรับเทียบเซ็นเซอร์ใหม่เรียบร้อย', 'info');
-            }
-
-            exportData() {
-                this.addLogEntry('ส่งออกข้อมูลการตรวจจับ', 'info');
-                // ในเวอร์ชันจริงจะมีการส่งออกข้อมูลจริง
-            }
-
-            handleDeviceOrientation(event) {
-                if (!this.isDetecting) return;
-                
-                const alpha = event.alpha; // 0-360 degrees
-                
-                // อัพเดทเข็มทิศ
-                if (alpha !== null) {
-                    const compassNeedle = document.getElementById('compassNeedle');
-                    compassNeedle.style.transform = `translate(-50%, -50%) rotate(${alpha}deg)`;
-                    
-                    // แสดงทิศทาง
-                    const direction = this.getDirectionFromDegree(alpha);
-                    document.getElementById('direction').textContent = `${Math.round(alpha)}° ${direction}`;
-                }
-            }
-
-            getDirectionFromDegree(degree) {
-                const directions = ['เหนือ', 'ตะวันออกเฉียงเหนือ', 'ตะวันออก', 'ตะวันออกเฉียงใต้', 
-                                   'ใต้', 'ตะวันตกเฉียงใต้', 'ตะวันตก', 'ตะวันตกเฉียงเหนือ'];
-                const index = Math.round(degree / 45) % 8;
-                return directions[index];
-            }
-
-            updateSensorData() {
-                if (!this.isDetecting) return;
-                
-                // จำลองข้อมูลเซ็นเซอร์
-                const baseX = (Math.random() * 15 - 7.5);
-                const baseY = (Math.random() * 15 - 7.5);
-                const baseZ = (Math.random() * 15 - 7.5);
-                
-                // สุ่มความผิดปกติ
-                let anomalyFactor = 0;
-                if (Math.random() < 0.18) {
-                    anomalyFactor = (Math.random() * 4) + 1;
-                    this.detectAnomaly(anomalyFactor);
-                }
-                
-                const magX = (baseX + (Math.random() * anomalyFactor * 15)).toFixed(2);
-                const magY = (baseY + (Math.random() * anomalyFactor * 15)).toFixed(2);
-                const magZ = (baseZ + (Math.random() * anomalyFactor * 15)).toFixed(2);
-                
-                const total = Math.sqrt(magX * magX + magY * magY + magZ * magZ).toFixed(2);
-                const energy = (25 + (Math.random() * 75) + (anomalyFactor * 20)).toFixed(1);
-                const temp = (26.5 + (Math.random() * 3 - 1.5) + (anomalyFactor * 1.5)).toFixed(1);
-                const accel = (Math.random() * 0.5 + 9.8).toFixed(2);
-                
-                // อัพเดท UI
-                document.getElementById('magX').textContent = magX;
-                document.getElementById('magY').textContent = magY;
-                document.getElementById('magZ').textContent = magZ;
-                document.getElementById('fieldStrength').textContent = total;
-                document.getElementById('energyIntensity').textContent = energy;
-                document.getElementById('temperature').textContent = temp;
-                document.getElementById('acceleration').textContent = accel;
-                
-                // อัพเดทระดับพลังงาน
-                this.updateEnergyLevel(total, energy, anomalyFactor);
-            }
-
-            updateEnergyLevel(fieldStrength, energy, anomalyFactor) {
-                const energyFill = document.getElementById('energyFill');
-                let energyLevel = (parseFloat(energy) / 150);
-                
-                if (anomalyFactor > 0) {
-                    energyLevel = Math.min(energyLevel + (anomalyFactor * 0.15), 1);
-                }
-                
-                energyFill.style.width = `${energyLevel * 100}%`;
-                
-                // เปลี่ยนสีตามระดับ
-                if (energyLevel > 0.8) {
-                    energyFill.style.background = 'linear-gradient(90deg, #28a745, #ffc107, #dc3545)';
-                } else if (energyLevel > 0.5) {
-                    energyFill.style.background = 'linear-gradient(90deg, #28a745, #ffc107)';
-                } else {
-                    energyFill.style.background = '#28a745';
-                }
-            }
-
-            detectAnomaly(anomalyFactor) {
-                this.anomalyCount++;
-                
-                let level, message;
-                if (anomalyFactor > 3) {
-                    level = 'danger';
-                    message = 'ตรวจพบพลังงานผิดปกติระดับอันตราย! แนะนำให้อพยพพื้นที่';
-                    this.showAnomalyAlert('อันตราย');
-                } else if (anomalyFactor > 2) {
-                    level = 'warning';
-                    message = 'ตรวจพบพลังงานผิดปกติระดับสูง โปรดตรวจสอบสภาพแวดล้อม';
-                    this.showAnomalyAlert('สูง');
-                } else {
-                    level = 'info';
-                    message = 'ตรวจพบพลังงานผิดปกติระดับต่ำ';
-                }
-                
-                this.addLogEntry(message, level);
-            }
-
-            showAnomalyAlert(level) {
-                const alert = document.getElementById('anomalyAlert');
-                document.getElementById('alertLevel').textContent = level;
-                
-                alert.classList.add('show');
-                
-                setTimeout(() => {
-                    alert.classList.remove('show');
-                }, 6000);
-            }
-
-            addLogEntry(message, type = 'normal') {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('th-TH');
-                
-                const logEntry = document.createElement('div');
-                logEntry.className = 'log-entry';
-                
-                let iconClass = 'normal';
-                let icon = 'check';
-                
-                if (type === 'warning') {
-                    iconClass = 'warning';
-                    icon = 'exclamation-triangle';
-                } else if (type === 'danger') {
-                    iconClass = 'danger';
-                    icon = 'radiation-alt';
-                } else if (type === 'error') {
-                    iconClass = 'danger';
-                    icon = 'times-circle';
-                } else if (type === 'info') {
-                    iconClass = 'info';
-                    icon = 'info-circle';
-                }
-                
-                logEntry.innerHTML = `
-                    <div class="log-time">${timeString}</div>
-                    <div class="log-icon ${iconClass}"><i class="fas fa-${icon}"></i></div>
-                    <div class="log-message">${message}</div>
-                `;
-                
-                const logContainer = document.getElementById('anomalyLog');
-                logContainer.prepend(logEntry);
-                
-                // จำกัดจำนวน log
-                if (logContainer.children.length > 8) {
-                    logContainer.removeChild(logContainer.lastChild);
-                }
+        } else {
+            // Android / Old iOS
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', (e) => this.handleOrientation(e));
+            } else {
+                window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
             }
         }
 
-        // เริ่มต้นแอปพลิเคชันเมื่อโหลดหน้าเว็บ
-        document.addEventListener('DOMContentLoaded', () => {
-            new QuantumSensorSystem();
+        // 3. Magnetometer (Generic Sensor API - Android mainly)
+        try {
+            // @ts-ignore
+            if (typeof Magnetometer !== "undefined") {
+                // @ts-ignore
+                const mag = new Magnetometer({ frequency: 10 });
+                mag.addEventListener("reading", () => {
+                    this.hasMagSensor = true;
+                    // Calculate total field strength
+                    this.magField = Math.sqrt(mag.x**2 + mag.y**2 + mag.z**2);
+                    this.emit('magnetometer', { field: this.magField, x: mag.x, y: mag.y, z: mag.z });
+                });
+                mag.start();
+            }
+        } catch (e) {
+            console.log("Magnetometer API not supported or denied.");
+        }
+    }
+
+    handleOrientation(e) {
+        let heading = 0;
+        
+        if (e.webkitCompassHeading) {
+            // iOS
+            heading = e.webkitCompassHeading;
+        } else if (e.alpha !== null) {
+            // Android absolute or relative
+            // Note: For true 'absolute' north on Android, alpha needs specific calculation if deviceorientationabsolute is used.
+            // Simply: alpha counts 0 as North usually in absolute mode.
+            // But usually, we need to correct for phone rotation (beta/gamma).
+            // For simplicity in this single-file MVP, we assume standard alpha usage but invert it for CSS rotation logic.
+            heading = 360 - e.alpha; 
+        }
+
+        // Simple Low Pass Filter applied in Renderer, here just store raw
+        this.heading = heading; 
+    }
+
+    on(event, callback) {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(callback);
+    }
+
+    emit(event, data) {
+        if (this.listeners[event]) this.listeners[event].forEach(cb => cb(data));
+    }
+}
+
+// --- MODULE: APPLICATION STATE & LOGIC ---
+class MagicCompassApp {
+    constructor() {
+        this.sensor = new SensorEngine();
+        this.mode = 'wonder'; // wonder, magnetic, anomaly
+        
+        // State
+        this.currentHeading = 0; // Smoothed
+        this.target = DEFAULT_WONDERS[0];
+        this.customTargets = JSON.parse(localStorage.getItem('custom_targets') || '[]');
+        this.declination = parseFloat(localStorage.getItem('declination') || '0');
+        
+        // Anomaly Simulation
+        this.anomalyBearing = 0;
+        this.anomalySeeds = { t: 0, val: 0 };
+
+        // DOM Elements
+        this.els = {
+            ring: document.getElementById('compass-ring'),
+            needles: {
+                wonder: document.getElementById('needle-wonder'),
+                north: document.getElementById('needle-north'),
+                mag: document.getElementById('needle-mag'),
+                anomaly: document.getElementById('needle-anomaly')
+            },
+            text: {
+                heading: document.getElementById('disp-heading'),
+                target: document.getElementById('disp-target'),
+                bearing: document.getElementById('disp-bearing'),
+                dist: document.getElementById('disp-dist'),
+                gpsStatus: document.getElementById('gps-status'),
+                gpsCoords: document.getElementById('gps-coords'),
+                gpsAcc: document.getElementById('gps-acc'),
+                extraLabel: document.getElementById('extra-label'),
+                extraVal: document.getElementById('extra-val')
+            },
+            opts: {
+                wonder: document.getElementById('opt-wonder'),
+                mag: document.getElementById('opt-magnetic'),
+                anom: document.getElementById('opt-anomaly')
+            }
+        };
+
+        this.loadTargets();
+    }
+
+    async start() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('hud-container').classList.remove('hidden');
+        await this.sensor.init();
+        
+        // Animation Loop
+        const loop = () => {
+            this.update();
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    }
+
+    loadTargets() {
+        const sel = document.getElementById('sel-target');
+        sel.innerHTML = '';
+        const all = [...DEFAULT_WONDERS, ...this.customTargets];
+        all.forEach((t, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.text = t.name;
+            sel.appendChild(opt);
         });
-    </script>
+        this.target = all[0];
+    }
+
+    addCustomTarget() {
+        const name = document.getElementById('inp-name').value;
+        const lat = parseFloat(document.getElementById('inp-lat').value);
+        const lon = parseFloat(document.getElementById('inp-lon').value);
+        
+        if (name && !isNaN(lat) && !isNaN(lon)) {
+            this.customTargets.push({ name, lat, lon, tag: 'Custom' });
+            localStorage.setItem('custom_targets', JSON.stringify(this.customTargets));
+            this.loadTargets();
+            alert('Target saved!');
+            // Select the new one
+            const sel = document.getElementById('sel-target');
+            sel.value = sel.options.length - 1;
+            this.changeTarget(sel.value);
+            this.toggleSettings();
+        } else {
+            alert('Invalid Input');
+        }
+    }
+
+    changeTarget(index) {
+        const all = [...DEFAULT_WONDERS, ...this.customTargets];
+        this.target = all[index];
+        this.els.text.target.innerText = this.target.name.toUpperCase();
+    }
+
+    setMode(m) {
+        this.mode = m;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        // Find button by simple text matching or onclick logic (simplified here)
+        const buttons = document.querySelectorAll('.mode-btn');
+        if(m === 'wonder') buttons[0].classList.add('active');
+        if(m === 'magnetic') buttons[1].classList.add('active');
+        if(m === 'anomaly') buttons[2].classList.add('active');
+
+        // Hide all needles first
+        Object.values(this.els.needles).forEach(n => n.style.display = 'none');
+
+        // Toggle settings view
+        this.els.opts.wonder.classList.add('hidden');
+        this.els.opts.mag.classList.add('hidden');
+        this.els.opts.anom.classList.add('hidden');
+        document.body.classList.remove('glitch-mode');
+
+        if (m === 'wonder') {
+            this.els.needles.wonder.style.display = 'block';
+            this.els.opts.wonder.classList.remove('hidden');
+            this.els.text.extraLabel.innerText = "TYPE";
+            this.els.text.extraVal.innerText = this.target.tag || "WONDER";
+        } else if (m === 'magnetic') {
+            this.els.needles.north.style.display = 'block';
+            this.els.needles.mag.style.display = 'block';
+            this.els.opts.mag.classList.remove('hidden');
+            this.els.text.target.innerText = "MAGNETIC ANALYSIS";
+            this.els.text.extraLabel.innerText = "FIELD";
+        } else if (m === 'anomaly') {
+            this.els.needles.anomaly.style.display = 'block';
+            this.els.opts.anom.classList.remove('hidden');
+            this.els.text.target.innerText = "ANOMALY SCANNER";
+            this.els.text.extraLabel.innerText = "VOLATILITY";
+            document.body.classList.add('glitch-mode');
+        }
+    }
+
+    updateDeclination(val) {
+        this.declination = parseFloat(val);
+        localStorage.setItem('declination', val);
+    }
+
+    toggleSettings() {
+        const m = document.getElementById('modal-settings');
+        m.classList.toggle('hidden');
+    }
+
+    // --- CORE RENDER LOOP ---
+    update() {
+        // 1. Process GPS
+        const { lat, lon, acc } = this.sensor.gps;
+        if (lat) {
+            this.els.text.gpsStatus.innerText = "GPS LOCKED";
+            this.els.text.gpsStatus.classList.remove('blink');
+            this.els.text.gpsStatus.style.color = "var(--c-primary)";
+            this.els.text.gpsCoords.innerText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+            this.els.text.gpsAcc.innerText = `±${Math.round(acc)}m`;
+        }
+
+        // 2. Process Heading (Smoothing)
+        // Note: In real HUDs, usually the RING rotates and needle is fixed up, OR Ring fixed and needle rotates.
+        // Req: "Needle points to target".
+        // Implementation: The Compass Ring stays fixed to Phone (N is up). Needles rotate.
+        // Actually, standard is: Compass Card rotates so 'N' matches North. Needles point to target relative to Card.
+        // Let's do: Phone Top is 12 o'clock.
+        // Ring Rotates so 'N' points to Magnetic North.
+        // Target Needle points to Target Bearing.
+        
+        let rawHeading = this.sensor.heading; 
+        // If rawHeading is 0, it means Top of phone is pointing North.
+        // We need to rotate the Ring by -heading to make 'N' align with North?
+        // Yes. If I face East (90deg), 'N' should be at my left (-90deg).
+        
+        this.currentHeading = MathUtils.lerpAngle(this.currentHeading, rawHeading, 0.1);
+        this.els.text.heading.innerText = Math.round(this.currentHeading).toString().padStart(3, '0') + "°";
+
+        const ringRot = -this.currentHeading;
+        this.els.ring.style.transform = `rotate(${ringRot}deg)`;
+
+        // 3. Mode Logic
+        if (this.mode === 'wonder' && lat) {
+            const bearing = MathUtils.getBearing(lat, lon, this.target.lat, this.target.lon);
+            const dist = MathUtils.getDistance(lat, lon, this.target.lat, this.target.lon);
+            
+            this.els.text.bearing.innerText = Math.round(bearing) + "°";
+            this.els.text.dist.innerText = MathUtils.formatDist(dist);
+
+            // Needle rotation:
+            // The ring is already rotated by -heading (so N is North).
+            // We just need to rotate the needle to the Bearing relative to the Ring (which represents World Frame).
+            // So simply rotate needle to 'bearing'.
+            this.els.needles.wonder.style.transform = `translateX(-50%) rotate(${bearing}deg)`;
+
+        } else if (this.mode === 'magnetic') {
+            // True North Needle (Green/Red)
+            // Since Ring 'N' is based on sensor (Magnetic North usually), 
+            // True North is Offset by -Declination.
+            // Wait, if sensor gives Magnetic North, then Ring N is Mag North. 
+            // True North is at: -Declination (if Declination is East positive).
+            // Example: Declination 10deg East. Mag North is 0. True North is -10.
+            
+            // Mag Needle (Ghostly) -> Points to 0 (The 'N' on the ring)
+            this.els.needles.mag.style.transform = `translateX(-50%) rotate(0deg)`;
+
+            // True North Needle
+            // If Declination is +deg (East), True North is "Left" of Mag North? 
+            // No. Mag North is West of True North. So True North is +offset?
+            // Let's simplify: Input declination corrects Mag to True. 
+            // If user inputs declination, we offset the 'True North' needle relative to the 'N' mark.
+            // If Declination is +10 (East), it means MN is 10 deg East of TN. So TN is -10 deg from MN.
+            const trueNorthAngle = -this.declination; 
+            this.els.needles.north.style.transform = `translateX(-50%) rotate(${trueNorthAngle}deg)`;
+
+            this.els.text.dist.innerText = "---";
+            this.els.text.bearing.innerText = `MAG: 0° / TRUE: ${-trueNorthAngle}°`;
+            
+            if (this.sensor.hasMagSensor) {
+                this.els.text.extraVal.innerText = this.sensor.magField.toFixed(1) + " µT";
+            } else {
+                this.els.text.extraVal.innerText = "UNAVAILABLE";
+            }
+
+        } else if (this.mode === 'anomaly') {
+            // Procedural Anomaly Logic
+            const time = Date.now() / 1000;
+            
+            // Calculate "Anomaly Level"
+            let noise = 0;
+            if (this.sensor.hasMagSensor) {
+                // Use real fluctuation
+                // A simple high-pass filter effect
+                noise = (Math.sin(time * 5) * 0.5 + 0.5) * (this.sensor.magField % 10); 
+            } else {
+                // Fake based on Lat/Lon + Time
+                const locHash = lat ? (lat+lon) : 0;
+                noise = Math.sin(time * 2 + locHash * 100) * Math.cos(time * 3);
+            }
+
+            // Generate a wandering target
+            // Determine a pseudo-random bearing based on perlin-ish noise
+            this.anomalySeeds.t += 0.01;
+            const randomAngle = (Math.sin(this.anomalySeeds.t) * 180) + (Math.cos(this.anomalySeeds.t * 0.3) * 90);
+            this.anomalyBearing = MathUtils.lerpAngle(this.anomalyBearing, randomAngle, 0.02);
+
+            this.els.needles.anomaly.style.transform = `translateX(-50%) rotate(${this.anomalyBearing}deg)`;
+            
+            // Update UI Text
+            const volatility = Math.abs(noise * 10).toFixed(0) + "%";
+            this.els.text.extraVal.innerText = volatility;
+            this.els.text.bearing.innerText = "ERR: " + Math.round(randomAngle) + "°";
+            
+            // Glitch effect on distance
+            if (Math.random() > 0.9) {
+                this.els.text.dist.innerText = "👻 DETECTED";
+            } else {
+                this.els.text.dist.innerText = "SCANNING...";
+            }
+        }
+    }
+}
+
+// --- INITIALIZATION ---
+const app = new MagicCompassApp();
+
+document.getElementById('btn-start').addEventListener('click', () => {
+    app.start();
+});
+
+</script>
 </body>
 </html>
