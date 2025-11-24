@@ -31,6 +31,10 @@
 
             --safe-top: env(safe-area-inset-top, 20px);
             --safe-bot: env(safe-area-inset-bottom, 20px);
+
+            /* ✅ FIX: ตัวแปรที่ถูกอ้างถึงแต่ไม่มีในฉบับเดิม */
+            --text-2: #9ca3af;
+            --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -43,26 +47,6 @@
             touch-action: none; overscroll-behavior: none;
             user-select: none; -webkit-user-select: none;
             display: flex; flex-direction: column;
-        }
-
-        /* --- [FIXED] ADDED ORB STYLES --- */
-        .bg-orb {
-            position: absolute; border-radius: 50%; 
-            filter: blur(80px); opacity: 0.6; z-index: 1;
-            pointer-events: none;
-            animation: floatOrb 10s infinite ease-in-out;
-        }
-        .orb-1 {
-            width: 300px; height: 300px; background: var(--wr-p);
-            top: -10%; left: -10%; animation-delay: 0s;
-        }
-        .orb-2 {
-            width: 400px; height: 400px; background: var(--wr-b);
-            bottom: -10%; right: -10%; animation-delay: -5s;
-        }
-        @keyframes floatOrb {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(30px, 50px); }
         }
 
         /* ------------------------------------------------------------------
@@ -151,7 +135,7 @@
 
         .ob-icon { font-size: 2.5rem; margin-bottom: 16px; display: block; text-shadow: 0 0 20px var(--wr-p); }
         .ob-title { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 12px; line-height: 1.3; }
-        .ob-body { font-size: 0.95rem; color: #ccc; line-height: 1.6; margin-bottom: 24px; white-space: pre-line; }
+        .ob-body { font-size: 0.95rem; color: var(--text-2); line-height: 1.6; margin-bottom: 24px; white-space: pre-line; }
         .ob-note { font-size: 0.75rem; color: #666; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-bottom: 24px; }
         
         .btn-action {
@@ -312,6 +296,7 @@
     <div class="bg-orb orb-2"></div>
     <div class="scanlines"></div>
 
+    <!-- A) MINIMAL STARTUP OVERLAY -->
     <div id="overlay">
         <div class="brand-core">
             <div class="loader-ring"></div>
@@ -329,6 +314,7 @@
         <button id="btn-init"></button>
     </div>
 
+    <!-- B) ONBOARDING MODAL -->
     <div id="modal-onboard" class="modal-wrap">
         <div class="glass-modal">
             <span class="ob-icon">🧭</span>
@@ -339,6 +325,7 @@
         </div>
     </div>
 
+    <!-- MAIN HUD -->
     <div id="app">
         <div class="header">
             <div class="brand" id="sys-brand">WR // AI-SCANNER</div>
@@ -371,6 +358,7 @@
         </div>
 
         <div class="deck">
+            <!-- WONDER/GEO CARD -->
             <div class="glass-panel info-card" id="main-card">
                 <div class="ic-head">
                     <div class="ic-title" id="c-title">SYSTEM READY</div>
@@ -384,6 +372,7 @@
                 </div>
             </div>
 
+            <!-- STARS CARD -->
             <div class="glass-panel info-card" id="stars-panel">
                 <div class="ic-head">
                     <div class="ic-title" id="s-title">Orion</div>
@@ -394,7 +383,7 @@
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div class="star-badge" id="s-vis">VISIBLE</div>
-                    <button class="btn" style="padding:6px 12px; font-size:0.7rem;" onclick="app.nextStar()">NEXT →</button>
+                    <button class="btn" style="padding:6px 12px; font-size:0.7rem;" onclick="app.nextStar()">NEXT &rarr;</button>
                 </div>
                 <button id="btn-star-lore" style="margin-top:12px; width:100%; background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.3); color:var(--wr-b); border-radius:16px; padding:10px; cursor:pointer;" onclick="app.openStarLore()">✨ STAR LORE</button>
             </div>
@@ -413,6 +402,7 @@
         </div>
     </div>
 
+    <!-- OTHER MODALS -->
     <div id="modal-set" class="modal-wrap">
         <div class="glass-panel modal-box">
             <div class="m-title">SETTINGS</div>
@@ -421,6 +411,7 @@
         </div>
     </div>
 
+    <!-- WIKI LORE MODAL -->
     <div id="modal-lore" class="modal-wrap">
         <div class="glass-panel modal-box" style="max-width:450px;">
             <div class="wiki-loader" id="l-spin"><div class="wl-spin"></div></div>
@@ -434,13 +425,14 @@
         </div>
     </div>
 
+    <!-- HINT TOAST -->
     <div class="hint-toast" id="hint-toast">
         <span>👻</span> <span data-t="hint_myth">Tap Myth for legends</span>
     </div>
 
 <script>
 /**
- * WIND ROSE (WR) | MK-III + AI SCANNER + WIKI GEO + BUGFIXED
+ * WIND ROSE (WR) | MK-III + AI SCANNER + WIKI GEO
  */
 
 /* --- 0. GESTURE CONTROL --- */
@@ -451,7 +443,7 @@ document.addEventListener('touchend', e => {
 }, {passive: false});
 document.body.addEventListener('touchmove', e => { if(e.scale !== 1) e.preventDefault(); }, {passive: false});
 
-/* --- 1. I18N DICTIONARY --- */
+/* --- 1. I18N DICTIONARY (PATCHED FOR AI THEME) --- */
 const DICT = {
     en: {
         gps_wait:"GPS WAIT", gps_lock:"GPS LOCK",
@@ -507,32 +499,31 @@ const DICT = {
     }
 };
 
-/* --- [FIXED] I18N HELPER CLASS --- */
+/* ✅ FIX: เพิ่มคลาส I18n ให้ของเดิมทำงานได้ */
 class I18n {
     constructor() {
-        this.lang = 'en';
+        this.lang = localStorage.getItem('WR_LANG') || 'en';
+    }
+    t(key) {
+        return (DICT[this.lang] && DICT[this.lang][key]) || key;
+    }
+    apply() {
+        // อัปเดต element ที่มี data-t
+        document.querySelectorAll('[data-t]').forEach(el => {
+            const k = el.getAttribute('data-t');
+            const val = this.t(k);
+            if (val) el.innerText = val;
+        });
+        // badge ภาษา
+        const lbl = document.getElementById('lbl-lang');
+        if (lbl) lbl.innerText = this.lang.toUpperCase();
+        // GPS badge เริ่มต้น
+        const gps = document.getElementById('gps-badge');
+        if (gps) gps.innerText = this.t('gps_wait');
     }
     toggle() {
         this.lang = this.lang === 'en' ? 'th' : 'en';
-        document.getElementById('lbl-lang').innerText = this.lang.toUpperCase();
-    }
-    t(key) {
-        return DICT[this.lang][key] || key;
-    }
-    apply() {
-        document.querySelectorAll('[data-t]').forEach(el => {
-            const key = el.getAttribute('data-t');
-            if(DICT[this.lang][key]) {
-                el.innerText = DICT[this.lang][key];
-            }
-        });
-        // Manually update text inside buttons that might have icons
-        const btnAuto = document.getElementById('txt-auto');
-        if(btnAuto) btnAuto.innerText = this.t('t_auto');
-        const btnNext = document.getElementById('txt-next');
-        if(btnNext) btnNext.innerText = this.t('t_next');
-        const btnMap = document.getElementById('txt-map');
-        if(btnMap) btnMap.innerText = this.t('t_map');
+        localStorage.setItem('WR_LANG', this.lang);
     }
 }
 
@@ -769,9 +760,10 @@ class App {
                 this.state.idx = 0;
                 this.findNearest(); 
             } else {
+                // If TH returned no results (e.g. abroad), try EN or fallback
                 if(lang === 'th') {
-                      // Fallback logic
-                      throw new Error("No TH results");
+                     // logic could go here to try EN, but for now fallback
+                     throw new Error("No TH results");
                 }
                 throw new Error("No results");
             }
@@ -902,7 +894,7 @@ class App {
             this.els.starsPanel.style.display = 'none';
             this.els.radar.style.display = 'none';
             if(m=='disc') {
-                 // Check if we need to scan
+                 // ใช้ของเดิม: ถ้าอยากให้ re-fetch logic ลึกกว่านี้ค่อยปรับต่อ
                  if(this.state.wondersList === OFFLINE_WONDERS && !this.state.useOffline) this.fetchGeo();
                  else this.updCard();
             } else { 
@@ -927,8 +919,7 @@ class App {
     
     openMap() { 
         const w = this.state.wondersList[this.state.idx]; 
-        // [FIXED] Correct Google Maps URL
-        window.open(`https://www.google.com/maps/search/?api=1&query=${w.lat},${w.lon}`); 
+        window.open(`https://maps.google.com/?q=${w.lat},${w.lon}`); 
     }
 
     /* --- WIKI FETCH --- */
@@ -962,9 +953,13 @@ class App {
                 slug = null; // We use pageid for dynamic items generally, but here let's rely on stored desc
                 title = w.n;
                 fallback = w.desc;
-                // If we want full wiki for dynamic item, we need to fetch by pageId again or title
+                // ✅ FIX: กันกรณี w.desc ยัง null ไม่ให้ modal แสดง "null"
                 if(w.id) {
-                    this.renderWiki({title: w.n, extract: w.desc, content_urls: { desktop: { page: `https://${lang}.wikipedia.org/?curid=${w.id}` }}}, false);
+                    this.renderWiki({
+                        title: w.n,
+                        extract: w.desc || '',
+                        content_urls: { desktop: { page: `https://${lang}.wikipedia.org/?curid=${w.id}` }}
+                    }, false);
                     return; 
                 }
             }
@@ -1032,7 +1027,7 @@ class App {
         document.getElementById('l-content').style.display = 'block';
         document.getElementById('l-thumb').classList.remove('active');
         document.getElementById('l-title').innerText = title;
-        document.getElementById('l-text').innerText = text;
+        document.getElementById('l-text').innerText = text || '';
         document.getElementById('l-src').innerHTML = `<i>${this.i18n.t('wiki_offline_lbl')}</i>`;
         document.getElementById('l-src').href = "#";
     }
