@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Geye Pro: Ultimate AI Vision</title>
-    
+
     <!-- AI CORE -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
@@ -12,24 +14,27 @@
 
     <style>
         :root {
-            --primary: #007AFF;
-            --primary-glow: rgba(0, 122, 255, 0.4);
-            --secondary: #5856D6;
-            --accent: #FF2D55;
+            --primary: #E82127;
+            /* Tesla Red */
+            --primary-glow: rgba(232, 33, 39, 0.4);
+            --secondary: #171a20;
+            /* Tesla Dark Grey */
+            --accent: #E82127;
             --success: #34C759;
             --warning: #FF9500;
-            --glass: rgba(255, 255, 255, 0.08);
-            --glass-dark: rgba(0, 0, 0, 0.4);
-            --blur: blur(30px);
-            --font-sf: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            --glass: rgba(23, 26, 32, 0.85);
+            /* High opacity dark background */
+            --glass-dark: rgba(0, 0, 0, 0.9);
+            --blur: blur(20px);
+            --font-sf: 'Montserrat', 'Gotham', -apple-system, BlinkMacSystemFont, sans-serif;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             margin: 0;
             overflow: hidden;
@@ -41,12 +46,12 @@
             width: 100vw;
             -webkit-tap-highlight-color: transparent;
         }
-        
-        /* APPLE TESLA BOOT SCREEN */
+
+        /* TESLA BOOT SCREEN */
         #boot-screen {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+            background: #000000;
             z-index: 10000;
             display: flex;
             flex-direction: column;
@@ -54,14 +59,14 @@
             justify-content: center;
             font-family: var(--font-sf);
         }
-        
+
         .boot-animation {
             position: relative;
             width: 120px;
             height: 120px;
             margin-bottom: 40px;
         }
-        
+
         .boot-logo {
             position: absolute;
             inset: 0;
@@ -70,101 +75,117 @@
             justify-content: center;
             font-size: 48px;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--primary);
             opacity: 0;
             animation: logoReveal 2s ease-out 0.5s forwards;
+            text-transform: uppercase;
+            letter-spacing: 4px;
         }
-        
+
         .boot-ring {
             position: absolute;
             inset: 0;
-            border: 3px solid transparent;
-            border-top: 3px solid var(--primary);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top: 2px solid var(--primary);
             border-radius: 50%;
-            animation: spin 2s linear infinite;
+            animation: spin 1.5s linear infinite;
             opacity: 0;
             animation: ringReveal 1s ease-out 0.2s forwards;
         }
-        
+
         .boot-subtitle {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 18px;
-            font-weight: 300;
-            letter-spacing: 3px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 4px;
             margin-bottom: 60px;
             text-align: center;
             opacity: 0;
+            text-transform: uppercase;
             animation: subtitleReveal 1.5s ease-out 1s forwards;
         }
-        
+
         .boot-progress {
             width: 200px;
             height: 2px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 1px;
+            border-radius: 0;
             overflow: hidden;
             position: relative;
         }
-        
+
         .boot-progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            background: var(--primary);
             width: 0%;
             transition: width 0.3s ease;
-            border-radius: 1px;
+            border-radius: 0;
         }
-        
+
         .boot-status {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 14px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
             font-weight: 400;
             margin-top: 20px;
             text-align: center;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
-        
+
         .activate-btn {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border: none;
+            background: transparent;
+            border: 1px solid #fff;
             color: white;
-            padding: 16px 48px;
-            font-weight: 600;
-            font-size: 17px;
+            padding: 14px 40px;
+            font-weight: 500;
+            font-size: 14px;
             cursor: pointer;
-            border-radius: 30px;
+            border-radius: 4px;
             margin-top: 40px;
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            box-shadow: 0 8px 32px rgba(0, 122, 255, 0.3);
-            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            letter-spacing: 2px;
+            text-transform: uppercase;
             opacity: 0;
             animation: buttonReveal 1s ease-out 2s forwards;
         }
-        
+
         .activate-btn:hover {
-            transform: scale(1.05) translateY(-2px);
-            box-shadow: 0 12px 40px rgba(0, 122, 255, 0.5);
+            background: #fff;
+            color: #000;
+            transform: translateY(-2px);
         }
-        
+
         @keyframes logoReveal {
-            to { opacity: 1; transform: scale(1); }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
-        
+
         @keyframes ringReveal {
-            to { opacity: 1; }
+            to {
+                opacity: 1;
+            }
         }
-        
+
         @keyframes subtitleReveal {
-            to { opacity: 1; transform: translateY(0); }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
+
         @keyframes buttonReveal {
-            to { opacity: 1; transform: translateY(0); }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
+
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* MAIN CAMERA VIEW */
@@ -174,52 +195,81 @@
             background: #000;
             transition: all 0.3s ease;
         }
-        
+
         #camera-feed {
             width: 100%;
             height: 100%;
             object-fit: cover;
             transition: transform 0.3s ease;
         }
-        
+
         #overlay-canvas {
             position: absolute;
             inset: 0;
             pointer-events: none;
         }
-        
-        /* SNIPER CROSSHAIR */
+
+        /* TESLA CROSSHAIR */
         #crosshair {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 280px;
-            height: 280px;
+            width: 40px;
+            height: 40px;
             pointer-events: none;
             z-index: 50;
         }
-        
+
         .sight-ring {
             position: absolute;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 0;
             width: 100%;
             height: 100%;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            border-bottom: none;
         }
-        
+
+        .sight-ring::before,
+        .sight-ring::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Horizontal line */
+        .sight-ring::before {
+            top: 50%;
+            left: -20px;
+            right: -20px;
+            height: 1px;
+            transform: translateY(-50%);
+        }
+
+        /* Vertical line */
+        .sight-ring::after {
+            left: 50%;
+            top: -20px;
+            bottom: -20px;
+            width: 1px;
+            transform: translateX(-50%);
+        }
+
         .targeting-dot {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 6px;
-            height: 6px;
+            width: 4px;
+            height: 4px;
             background: var(--accent);
             border-radius: 50%;
-            box-shadow: 0 0 20px var(--accent);
+            box-shadow: 0 0 10px var(--accent);
         }
-        
+
         .range-marking {
             position: absolute;
             color: rgba(255, 255, 255, 0.5);
@@ -231,35 +281,34 @@
         .glass-panel {
             background: var(--glass);
             backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 24px;
-            box-shadow: 
-                0 16px 48px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
         }
-        
+
+        /* FLOATING CONTROL BUTTON */
         /* FLOATING CONTROL BUTTON */
         #toggle-ui {
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 52px;
-            height: 52px;
+            width: 48px;
+            height: 48px;
             background: var(--glass);
             backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 26px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 22px;
+            font-size: 20px;
             cursor: pointer;
             z-index: 1000;
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
-        
+
         #toggle-ui:hover {
             background: rgba(255, 255, 255, 0.15);
             transform: scale(1.1) rotate(90deg);
@@ -274,14 +323,14 @@
             gap: 10px;
             z-index: 1000;
         }
-        
+
         .screen-btn {
             width: 44px;
             height: 44px;
             background: var(--glass);
             backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
             color: white;
             display: flex;
             align-items: center;
@@ -289,17 +338,18 @@
             font-size: 18px;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
-        
+
         .screen-btn:hover {
             background: rgba(255, 255, 255, 0.15);
-            transform: scale(1.1);
+            transform: translateY(-2px);
         }
-        
+
         .screen-btn.active {
             background: var(--primary);
-            box-shadow: 0 0 20px var(--primary-glow);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
         }
 
         /* MAIN UI CONTAINER */
@@ -316,19 +366,19 @@
             z-index: 999;
             overflow-y: auto;
         }
-        
+
         #main-ui.active {
             opacity: 1;
             transform: translateX(0);
             pointer-events: all;
         }
-        
+
         /* TAB NAVIGATION */
         .tab-navigation {
             display: flex;
             gap: 4px;
             margin-bottom: 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             padding-bottom: 12px;
             flex-wrap: wrap;
         }
@@ -337,7 +387,7 @@
             padding: 10px 16px;
             background: transparent;
             border: none;
-            color: rgba(255,255,255,0.6);
+            color: rgba(255, 255, 255, 0.6);
             font-size: 12px;
             font-weight: 600;
             border-radius: 12px;
@@ -369,30 +419,40 @@
             padding: 10px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
-        
+
         .status-label {
             font-size: 13px;
             color: rgba(255, 255, 255, 0.7);
             font-weight: 500;
         }
-        
+
         .status-value {
             font-size: 14px;
             font-weight: 600;
             color: white;
         }
-        
+
         .status-indicator {
             width: 8px;
             height: 8px;
             border-radius: 4px;
             margin-right: 10px;
         }
-        
-        .indicator-online { background: var(--success); box-shadow: 0 0 10px var(--success); }
-        .indicator-warning { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
-        .indicator-offline { background: #666; }
-        
+
+        .indicator-online {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .indicator-warning {
+            background: var(--warning);
+            box-shadow: 0 0 10px var(--warning);
+        }
+
+        .indicator-offline {
+            background: #666;
+        }
+
         /* ANALYTICS PANEL */
         .metric-grid {
             display: grid;
@@ -400,7 +460,7 @@
             gap: 12px;
             margin-top: 12px;
         }
-        
+
         .metric-card {
             background: var(--glass-dark);
             border-radius: 18px;
@@ -408,7 +468,7 @@
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .metric-value {
             font-size: 26px;
             font-weight: 700;
@@ -416,14 +476,14 @@
             line-height: 1;
             margin-bottom: 6px;
         }
-        
+
         .metric-label {
             font-size: 11px;
             color: rgba(255, 255, 255, 0.6);
             font-weight: 500;
             letter-spacing: 0.5px;
         }
-        
+
         /* CONTROLS PANEL */
         .control-grid {
             display: grid;
@@ -431,7 +491,7 @@
             gap: 10px;
             margin-top: 12px;
         }
-        
+
         .control-btn {
             background: var(--glass-dark);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -444,13 +504,13 @@
             transition: all 0.3s ease;
             text-align: center;
         }
-        
+
         .control-btn:hover {
             background: rgba(255, 255, 255, 0.1);
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
         }
-        
+
         .control-btn:active {
             transform: translateY(0);
         }
@@ -471,35 +531,36 @@
             padding: 16px;
             box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
         }
-        
+
         .media-btn {
-            width: 60px;
-            height: 60px;
+            width: 56px;
+            height: 56px;
             background: var(--glass-dark);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 30px;
+            border-radius: 8px;
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         .media-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
         }
-        
+
         .media-btn.recording {
             background: var(--accent);
             animation: pulse 1.5s infinite;
+            border-radius: 50%;
         }
-        
+
         .media-btn.capturing {
             background: var(--success);
-            transform: scale(0.9);
+            transform: scale(0.95);
         }
 
         /* ZOOM CONTROLS */
@@ -512,35 +573,35 @@
             gap: 10px;
             z-index: 100;
         }
-        
+
         .zoom-btn {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             background: var(--glass);
             backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         .zoom-btn.active {
             background: var(--primary);
-            box-shadow: 0 0 25px var(--primary-glow);
-            transform: scale(1.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
         }
-        
+
         .zoom-btn:hover:not(.active) {
             background: rgba(255, 255, 255, 0.15);
-            transform: scale(1.05);
+            transform: translateX(-2px);
         }
-        
+
         /* FILTER CONTROLS */
         #filter-controls {
             position: fixed;
@@ -551,14 +612,14 @@
             gap: 10px;
             z-index: 100;
         }
-        
+
         .filter-btn {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             background: var(--glass);
             backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
             color: white;
             display: flex;
             align-items: center;
@@ -567,13 +628,24 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
+        .filter-btn.active {
+            background: var(--secondary);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(232, 33, 39, 0.4);
+        }
+
+        .filter-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(2px);
+        }
+
         .filter-btn.active {
             background: var(--secondary);
             box-shadow: 0 0 25px rgba(88, 86, 214, 0.4);
             transform: scale(1.1);
         }
-        
+
         .filter-btn:hover:not(.active) {
             background: rgba(255, 255, 255, 0.15);
             transform: scale(1.05);
@@ -599,12 +671,12 @@
             text-align: center;
             max-width: 80%;
         }
-        
+
         /* SETTINGS PANEL */
         .setting-item {
             margin: 16px 0;
         }
-        
+
         .setting-label {
             font-size: 13px;
             color: rgba(255, 255, 255, 0.8);
@@ -612,7 +684,7 @@
             display: block;
             font-weight: 500;
         }
-        
+
         .setting-control {
             width: 100%;
             padding: 12px;
@@ -622,7 +694,7 @@
             color: white;
             font-size: 14px;
         }
-        
+
         /* HELP SYSTEM */
         .help-section {
             margin: 16px 0;
@@ -631,20 +703,20 @@
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .help-title {
             font-size: 14px;
             font-weight: 600;
             margin-bottom: 10px;
             color: var(--primary);
         }
-        
+
         .help-content {
             font-size: 13px;
             color: rgba(255, 255, 255, 0.7);
             line-height: 1.5;
         }
-        
+
         /* SHARING PANEL */
         .share-options {
             display: grid;
@@ -652,7 +724,7 @@
             gap: 10px;
             margin: 12px 0;
         }
-        
+
         .share-btn {
             background: var(--glass-dark);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -665,7 +737,7 @@
             transition: all 0.3s ease;
             text-align: center;
         }
-        
+
         .share-btn:hover {
             background: rgba(255, 255, 255, 0.1);
             transform: translateY(-1px);
@@ -673,6 +745,7 @@
 
         /* VIBRATION FEEDBACK */
         @media (hover: none) and (pointer: coarse) {
+
             .control-btn:active,
             .media-btn:active,
             .zoom-btn:active,
@@ -688,23 +761,23 @@
                 right: 20px;
                 left: 20px;
             }
-            
+
             .tab-navigation {
                 gap: 3px;
             }
-            
+
             .tab-btn {
                 font-size: 11px;
                 padding: 8px 12px;
                 min-width: 60px;
             }
-            
+
             #media-controls {
                 bottom: 20px;
                 padding: 12px;
                 gap: 12px;
             }
-            
+
             .media-btn {
                 width: 54px;
                 height: 54px;
@@ -764,22 +837,36 @@
         .filter-thermal {
             filter: hue-rotate(180deg) saturate(2) contrast(1.5) brightness(0.8);
         }
-        
+
         .filter-night {
             filter: brightness(0.6) contrast(1.4) grayscale(0.3);
         }
-        
+
         .filter-enhanced {
             filter: contrast(1.3) saturate(1.4) brightness(1.1);
         }
 
         /* HAPTIC FEEDBACK ANIMATION */
         @keyframes hapticPulse {
-            0% { transform: scale(1); }
-            25% { transform: scale(0.98); }
-            50% { transform: scale(0.96); }
-            75% { transform: scale(0.98); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(1);
+            }
+
+            25% {
+                transform: scale(0.98);
+            }
+
+            50% {
+                transform: scale(0.96);
+            }
+
+            75% {
+                transform: scale(0.98);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
 
         .haptic-feedback {
@@ -787,12 +874,21 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
     </style>
 </head>
+
 <body>
     <!-- APPLE TESLA BOOT SCREEN -->
     <div id="boot-screen">
@@ -812,7 +908,7 @@
     <div id="camera-view">
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="overlay-canvas"></canvas>
-        
+
         <!-- SNIPER CROSSHAIR -->
         <div id="crosshair">
             <div class="sight-ring"></div>
@@ -822,13 +918,13 @@
             <div class="range-marking" style="top:80%;">100m</div>
         </div>
     </div>
-    
+
     <!-- FULLSCREEN CONTROLS -->
     <div id="fullscreen-controls">
         <button class="screen-btn" id="btn-fullscreen" title="Fullscreen">⛶</button>
         <button class="screen-btn" id="btn-lock" title="Lock Orientation">🔒</button>
     </div>
-    
+
     <!-- LANGUAGE SELECTOR -->
     <div class="language-selector">
         <select class="lang-btn" id="language-select">
@@ -838,24 +934,24 @@
             <option value="ja">日本語</option>
         </select>
     </div>
-    
+
     <!-- FLOATING UI TOGGLE -->
     <div id="toggle-ui">⚙️</div>
-    
+
     <!-- MEDIA CONTROLS -->
     <div id="media-controls">
         <button class="media-btn" id="btn-capture" title="Capture Photo">📸</button>
         <button class="media-btn" id="btn-record" title="Record Video">🎥</button>
         <button class="media-btn" id="btn-audio" title="Record Audio">🎤</button>
     </div>
-    
+
     <!-- ZOOM CONTROLS -->
     <div id="zoom-controls">
         <div class="zoom-btn active" data-zoom="1">1x</div>
         <div class="zoom-btn" data-zoom="2">2x</div>
         <div class="zoom-btn" data-zoom="4">4x</div>
     </div>
-    
+
     <!-- FILTER CONTROLS -->
     <div id="filter-controls">
         <button class="filter-btn" data-filter="normal" title="Normal View">👁️</button>
@@ -863,7 +959,7 @@
         <button class="filter-btn" data-filter="night" title="Night Vision">🌙</button>
         <button class="filter-btn" data-filter="enhanced" title="Enhanced">✨</button>
     </div>
-    
+
     <!-- MAIN UI CONTAINER -->
     <div id="main-ui">
         <!-- TAB NAVIGATION -->
@@ -882,9 +978,10 @@
             <div class="glass-panel" style="padding: 24px; margin-bottom: 12px;">
                 <div style="margin-bottom: 20px;">
                     <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">Geye Pro</div>
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); letter-spacing: 0.5px;">Professional AI Vision System</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); letter-spacing: 0.5px;">Professional AI
+                        Vision System</div>
                 </div>
-                
+
                 <div class="status-item">
                     <div style="display:flex;align-items:center;">
                         <div class="status-indicator indicator-online"></div>
@@ -931,9 +1028,9 @@
 
         <!-- REMAINING TAB CONTENT (SAME AS BEFORE BUT WITH ENHANCED STYLING) -->
         <!-- Audio, Share, Reports, Backup, Help, Settings tabs remain with enhanced glass styling -->
-        
+
     </div>
-    
+
     <!-- ALERT NOTIFICATION -->
     <div id="alert-notification"></div>
 
@@ -943,807 +1040,808 @@
     </div>
 
     <script>
-    /**
-     * 🚀 Geye Pro: Ultimate AI Vision Suite (Apple Tesla Edition)
-     * Enterprise-grade computer vision system with premium UX
-     */
+        /**
+         * 🚀 Geye Pro: Ultimate AI Vision Suite (Apple Tesla Edition)
+         * Enterprise-grade computer vision system with premium UX
+         */
 
-    class GeyeProUltimate {
-        constructor() {
-            // Core Components
-            this.video = document.getElementById('camera-feed');
-            this.overlayCanvas = document.getElementById('overlay-canvas');
-            this.overlayCtx = this.overlayCanvas.getContext('2d');
-            
-            // AI Models
-            this.objectDetector = null;
-            this.poseDetector = null;
-            
-            // System State
-            this.isActive = false;
-            this.isUIVisible = false;
-            this.zoomLevel = 1;
-            this.currentFilter = 'normal';
-            this.isFullscreen = false;
-            this.isOrientationLocked = false;
-            this.isRecording = false;
-            this.frameCount = 0;
-            this.fps = 0;
-            this.lastFpsUpdate = 0;
-            this.startTime = Date.now();
-            
-            // Media Recording
-            this.mediaRecorder = null;
-            this.recordedChunks = [];
-            this.audioRecorder = null;
-            this.audioChunks = [];
-            
-            // Analytics
-            this.analytics = {
-                peopleCount: 0,
-                vehicleCount: 0,
-                totalDetections: 0,
-                nearestDistance: 9999,
-                totalCaptures: 0,
-                totalRecordings: 0,
-                totalAudioRecordings: 0
-            };
-            
-            // Settings
-            this.settings = {
-                confidence: 0.5,
-                language: 'en',
-                accessibility: 'normal',
-                autoBackup: 'off',
-                soundDetection: 'off',
-                hapticFeedback: true,
-                thermalSimulation: true
-            };
-            
-            this.initializeSystem();
-        }
+        class GeyeProUltimate {
+            constructor() {
+                // Core Components
+                this.video = document.getElementById('camera-feed');
+                this.overlayCanvas = document.getElementById('overlay-canvas');
+                this.overlayCtx = this.overlayCanvas.getContext('2d');
 
-        async initializeSystem() {
-            try {
-                this.updateBootProgress(10, "Booting Neural Core...");
-                await this.delay(800);
-                
-                this.updateBootProgress(30, "Loading AI Models...");
-                await this.delay(600);
-                
-                // Load Object Detection
-                this.updateBootProgress(50, "Initializing Object Detection...");
-                this.objectDetector = await cocoSsd.load({
-                    base: 'lite_mobilenet_v2'
-                });
+                // AI Models
+                this.objectDetector = null;
+                this.poseDetector = null;
 
-                // Load Pose Detection
-                this.updateBootProgress(70, "Loading Pose Detection...");
-                this.poseDetector = await poseDetection.createDetector(
-                    poseDetection.SupportedModels.MoveNet,
-                    { 
-                        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER 
-                    }
-                );
+                // System State
+                this.isActive = false;
+                this.isUIVisible = false;
+                this.zoomLevel = 1;
+                this.currentFilter = 'normal';
+                this.isFullscreen = false;
+                this.isOrientationLocked = false;
+                this.isRecording = false;
+                this.frameCount = 0;
+                this.fps = 0;
+                this.lastFpsUpdate = 0;
+                this.startTime = Date.now();
 
-                this.updateBootProgress(85, "Initializing Media Systems...");
-                await this.initializeMediaSystems();
-
-                this.updateBootProgress(95, "Finalizing Systems...");
-                this.setupEventListeners();
-                this.initializeCanvas();
-                this.loadSettings();
-
-                this.updateBootProgress(100, "System Ready");
-                await this.delay(500);
-                document.getElementById('btn-activate').style.display = 'block';
-                
-            } catch (error) {
-                this.handleCriticalError(error);
-            }
-        }
-
-        async initializeMediaSystems() {
-            try {
-                // Initialize video recording
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: true,
-                    audio: true 
-                });
-                
-                this.mediaRecorder = new MediaRecorder(stream);
-                this.setupMediaRecorder();
-                
-                // Initialize audio recording
-                this.audioRecorder = new MediaRecorder(stream);
-                this.setupAudioRecorder();
-                
-            } catch (error) {
-                console.warn("Media systems not fully available:", error);
-            }
-        }
-
-        setupMediaRecorder() {
-            this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    this.recordedChunks.push(event.data);
-                }
-            };
-
-            this.mediaRecorder.onstop = () => {
-                const videoBlob = new Blob(this.recordedChunks, { type: 'video/mp4' });
-                this.saveRecording(videoBlob);
+                // Media Recording
+                this.mediaRecorder = null;
                 this.recordedChunks = [];
-            };
-        }
-
-        setupAudioRecorder() {
-            this.audioRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    this.audioChunks.push(event.data);
-                }
-            };
-
-            this.audioRecorder.onstop = () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-                this.saveAudioRecording(audioBlob);
+                this.audioRecorder = null;
                 this.audioChunks = [];
-            };
-        }
 
-        updateBootProgress(percent, message) {
-            document.getElementById('boot-progress').style.width = percent + '%';
-            document.getElementById('boot-status').textContent = message;
-        }
+                // Analytics
+                this.analytics = {
+                    peopleCount: 0,
+                    vehicleCount: 0,
+                    totalDetections: 0,
+                    nearestDistance: 9999,
+                    totalCaptures: 0,
+                    totalRecordings: 0,
+                    totalAudioRecordings: 0
+                };
 
-        delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
+                // Settings
+                this.settings = {
+                    confidence: 0.5,
+                    language: 'en',
+                    accessibility: 'normal',
+                    autoBackup: 'off',
+                    soundDetection: 'off',
+                    hapticFeedback: true,
+                    thermalSimulation: true
+                };
 
-        setupEventListeners() {
-            // Enhanced event listeners with error handling
-            this.setupUIEvents();
-            this.setupMediaEvents();
-            this.setupSystemEvents();
-            this.setupAccessibilityEvents();
-        }
+                this.initializeSystem();
+            }
 
-        setupUIEvents() {
-            // UI Toggle
-            document.getElementById('toggle-ui').addEventListener('click', () => this.toggleUI());
-            
-            // Tab Navigation
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    this.switchTab(e.target.dataset.tab);
+            async initializeSystem() {
+                try {
+                    this.updateBootProgress(10, "Booting Neural Core...");
+                    await this.delay(800);
+
+                    this.updateBootProgress(30, "Loading AI Models...");
+                    await this.delay(600);
+
+                    // Load Object Detection
+                    this.updateBootProgress(50, "Initializing Object Detection...");
+                    this.objectDetector = await cocoSsd.load({
+                        base: 'lite_mobilenet_v2'
+                    });
+
+                    // Load Pose Detection
+                    this.updateBootProgress(70, "Loading Pose Detection...");
+                    this.poseDetector = await poseDetection.createDetector(
+                        poseDetection.SupportedModels.MoveNet,
+                        {
+                            modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+                        }
+                    );
+
+                    this.updateBootProgress(85, "Initializing Media Systems...");
+                    await this.initializeMediaSystems();
+
+                    this.updateBootProgress(95, "Finalizing Systems...");
+                    this.setupEventListeners();
+                    this.initializeCanvas();
+                    this.loadSettings();
+
+                    this.updateBootProgress(100, "System Ready");
+                    await this.delay(500);
+                    document.getElementById('btn-activate').style.display = 'block';
+
+                } catch (error) {
+                    this.handleCriticalError(error);
+                }
+            }
+
+            async initializeMediaSystems() {
+                try {
+                    // Initialize video recording
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: true
+                    });
+
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.setupMediaRecorder();
+
+                    // Initialize audio recording
+                    this.audioRecorder = new MediaRecorder(stream);
+                    this.setupAudioRecorder();
+
+                } catch (error) {
+                    console.warn("Media systems not fully available:", error);
+                }
+            }
+
+            setupMediaRecorder() {
+                this.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.recordedChunks.push(event.data);
+                    }
+                };
+
+                this.mediaRecorder.onstop = () => {
+                    const videoBlob = new Blob(this.recordedChunks, { type: 'video/mp4' });
+                    this.saveRecording(videoBlob);
+                    this.recordedChunks = [];
+                };
+            }
+
+            setupAudioRecorder() {
+                this.audioRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.audioChunks.push(event.data);
+                    }
+                };
+
+                this.audioRecorder.onstop = () => {
+                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                    this.saveAudioRecording(audioBlob);
+                    this.audioChunks = [];
+                };
+            }
+
+            updateBootProgress(percent, message) {
+                document.getElementById('boot-progress').style.width = percent + '%';
+                document.getElementById('boot-status').textContent = message;
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            setupEventListeners() {
+                // Enhanced event listeners with error handling
+                this.setupUIEvents();
+                this.setupMediaEvents();
+                this.setupSystemEvents();
+                this.setupAccessibilityEvents();
+            }
+
+            setupUIEvents() {
+                // UI Toggle
+                document.getElementById('toggle-ui').addEventListener('click', () => this.toggleUI());
+
+                // Tab Navigation
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.switchTab(e.target.dataset.tab);
+                        this.triggerHaptic();
+                    });
+                });
+
+                // Fullscreen Controls
+                document.getElementById('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
+                document.getElementById('btn-lock').addEventListener('click', () => this.toggleOrientationLock());
+
+                // Zoom Controls
+                document.querySelectorAll('.zoom-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const zoomLevel = parseInt(e.target.dataset.zoom);
+                        this.setZoom(zoomLevel);
+                        this.triggerHaptic();
+                    });
+                });
+
+                // Filter Controls
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const filter = e.target.dataset.filter;
+                        this.setFilter(filter);
+                        this.triggerHaptic();
+                    });
+                });
+            }
+
+            setupMediaEvents() {
+                // Media Controls
+                document.getElementById('btn-capture').addEventListener('click', () => {
+                    this.capturePhoto();
                     this.triggerHaptic();
                 });
-            });
-            
-            // Fullscreen Controls
-            document.getElementById('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
-            document.getElementById('btn-lock').addEventListener('click', () => this.toggleOrientationLock());
-            
-            // Zoom Controls
-            document.querySelectorAll('.zoom-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const zoomLevel = parseInt(e.target.dataset.zoom);
-                    this.setZoom(zoomLevel);
+
+                document.getElementById('btn-record').addEventListener('click', () => {
+                    this.toggleVideoRecording();
                     this.triggerHaptic();
                 });
-            });
-            
-            // Filter Controls
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const filter = e.target.dataset.filter;
-                    this.setFilter(filter);
+
+                document.getElementById('btn-audio').addEventListener('click', () => {
+                    this.toggleAudioRecording();
                     this.triggerHaptic();
                 });
-            });
-        }
-
-        setupMediaEvents() {
-            // Media Controls
-            document.getElementById('btn-capture').addEventListener('click', () => {
-                this.capturePhoto();
-                this.triggerHaptic();
-            });
-            
-            document.getElementById('btn-record').addEventListener('click', () => {
-                this.toggleVideoRecording();
-                this.triggerHaptic();
-            });
-            
-            document.getElementById('btn-audio').addEventListener('click', () => {
-                this.toggleAudioRecording();
-                this.triggerHaptic();
-            });
-        }
-
-        setupSystemEvents() {
-            // System Controls
-            document.getElementById('btn-activate').addEventListener('click', () => this.activateSystem());
-            
-            // Language Selector
-            document.getElementById('language-select').addEventListener('change', (e) => {
-                this.changeLanguage(e.target.value);
-            });
-
-            // Keyboard Shortcuts
-            document.addEventListener('keydown', (e) => {
-                if (e.key === ' ') this.capturePhoto();
-                if (e.key === 'r' || e.key === 'R') this.toggleVideoRecording();
-                if (e.key === 'a' || e.key === 'A') this.toggleAudioRecording();
-                if (e.key === 'Escape') this.toggleUI();
-                if (e.key === 'f' || e.key === 'F') this.toggleFullscreen();
-                if (e.key === '1') this.setZoom(1);
-                if (e.key === '2') this.setZoom(2);
-                if (e.key === '4') this.setZoom(4);
-            });
-
-            // Handle orientation changes
-            window.addEventListener('orientationchange', () => this.handleOrientationChange());
-            
-            // Handle fullscreen changes
-            document.addEventListener('fullscreenchange', () => {
-                this.isFullscreen = !!document.fullscreenElement;
-            });
-
-            // Handle page visibility
-            document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
-                    this.pauseSystem();
-                } else {
-                    this.resumeSystem();
-                }
-            });
-        }
-
-        setupAccessibilityEvents() {
-            // Touch event handlers for better mobile experience
-            document.addEventListener('touchstart', (e) => {
-                // Prevent default to avoid browser handling
-                if (e.target.classList.contains('control-btn') || 
-                    e.target.classList.contains('media-btn')) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-        }
-
-        triggerHaptic() {
-            if (this.settings.hapticFeedback && navigator.vibrate) {
-                navigator.vibrate(50);
             }
-        }
 
-        initializeCanvas() {
-            this.overlayCanvas.width = window.innerWidth;
-            this.overlayCanvas.height = window.innerHeight;
-        }
+            setupSystemEvents() {
+                // System Controls
+                document.getElementById('btn-activate').addEventListener('click', () => this.activateSystem());
 
-        loadSettings() {
-            try {
-                const saved = localStorage.getItem('geye_pro_ultimate_settings');
-                if (saved) {
-                    this.settings = { ...this.settings, ...JSON.parse(saved) };
-                }
-            } catch (error) {
-                console.warn('Settings load failed:', error);
-            }
-        }
-
-        saveSettings() {
-            try {
-                localStorage.setItem('geye_pro_ultimate_settings', JSON.stringify(this.settings));
-            } catch (error) {
-                console.warn('Settings save failed:', error);
-            }
-        }
-
-        async activateSystem() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    },
-                    audio: false
+                // Language Selector
+                document.getElementById('language-select').addEventListener('change', (e) => {
+                    this.changeLanguage(e.target.value);
                 });
 
-                this.video.srcObject = stream;
-                
-                await new Promise((resolve, reject) => {
-                    this.video.onloadedmetadata = () => {
-                        this.video.play().then(resolve).catch(reject);
-                    };
-                    this.video.onerror = reject;
+                // Keyboard Shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === ' ') this.capturePhoto();
+                    if (e.key === 'r' || e.key === 'R') this.toggleVideoRecording();
+                    if (e.key === 'a' || e.key === 'A') this.toggleAudioRecording();
+                    if (e.key === 'Escape') this.toggleUI();
+                    if (e.key === 'f' || e.key === 'F') this.toggleFullscreen();
+                    if (e.key === '1') this.setZoom(1);
+                    if (e.key === '2') this.setZoom(2);
+                    if (e.key === '4') this.setZoom(4);
                 });
 
-                document.getElementById('boot-screen').style.display = 'none';
-                this.isActive = true;
-                
-                this.showAlert("Geye Pro System Activated", false);
-                this.startMainLoop();
-                this.startSystemMonitoring();
-                
-            } catch (error) {
-                this.handleCriticalError(error);
-            }
-        }
+                // Handle orientation changes
+                window.addEventListener('orientationchange', () => this.handleOrientationChange());
 
-        toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {
-                    this.showAlert("Fullscreen not supported", true);
+                // Handle fullscreen changes
+                document.addEventListener('fullscreenchange', () => {
+                    this.isFullscreen = !!document.fullscreenElement;
                 });
-            } else {
-                document.exitFullscreen();
-            }
-        }
 
-        toggleOrientationLock() {
-            if (screen.orientation && screen.orientation.lock) {
-                if (!this.isOrientationLocked) {
-                    screen.orientation.lock('landscape').then(() => {
-                        this.isOrientationLocked = true;
-                        document.getElementById('btn-lock').classList.add('active');
-                        this.showLockIndicator();
-                    }).catch(() => {
-                        this.showAlert("Orientation lock not supported", true);
+                // Handle page visibility
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.pauseSystem();
+                    } else {
+                        this.resumeSystem();
+                    }
+                });
+            }
+
+            setupAccessibilityEvents() {
+                // Touch event handlers for better mobile experience
+                document.addEventListener('touchstart', (e) => {
+                    // Prevent default to avoid browser handling
+                    if (e.target.classList.contains('control-btn') ||
+                        e.target.classList.contains('media-btn')) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+            }
+
+            triggerHaptic() {
+                if (this.settings.hapticFeedback && navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            }
+
+            initializeCanvas() {
+                this.overlayCanvas.width = window.innerWidth;
+                this.overlayCanvas.height = window.innerHeight;
+            }
+
+            loadSettings() {
+                try {
+                    const saved = localStorage.getItem('geye_pro_ultimate_settings');
+                    if (saved) {
+                        this.settings = { ...this.settings, ...JSON.parse(saved) };
+                    }
+                } catch (error) {
+                    console.warn('Settings load failed:', error);
+                }
+            }
+
+            saveSettings() {
+                try {
+                    localStorage.setItem('geye_pro_ultimate_settings', JSON.stringify(this.settings));
+                } catch (error) {
+                    console.warn('Settings save failed:', error);
+                }
+            }
+
+            async activateSystem() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        },
+                        audio: false
+                    });
+
+                    this.video.srcObject = stream;
+
+                    await new Promise((resolve, reject) => {
+                        this.video.onloadedmetadata = () => {
+                            this.video.play().then(resolve).catch(reject);
+                        };
+                        this.video.onerror = reject;
+                    });
+
+                    document.getElementById('boot-screen').style.display = 'none';
+                    this.isActive = true;
+
+                    this.showAlert("Geye Pro System Activated", false);
+                    this.startMainLoop();
+                    this.startSystemMonitoring();
+
+                } catch (error) {
+                    this.handleCriticalError(error);
+                }
+            }
+
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {
+                        this.showAlert("Fullscreen not supported", true);
                     });
                 } else {
-                    screen.orientation.unlock();
-                    this.isOrientationLocked = false;
-                    document.getElementById('btn-lock').classList.remove('active');
+                    document.exitFullscreen();
                 }
             }
-        }
 
-        showLockIndicator() {
-            const indicator = document.getElementById('lock-indicator');
-            indicator.style.display = 'block';
-            setTimeout(() => {
-                indicator.style.display = 'none';
-            }, 2000);
-        }
-
-        setZoom(level) {
-            this.zoomLevel = level;
-            this.video.style.transform = `scale(${level})`;
-            this.video.style.transformOrigin = 'center center';
-            
-            // Update UI
-            document.querySelectorAll('.zoom-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-        }
-
-        setFilter(filter) {
-            this.currentFilter = filter;
-            this.video.className = `filter-${filter}`;
-            
-            // Update UI
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            this.showAlert(`Filter: ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
-        }
-
-        capturePhoto() {
-            const btn = document.getElementById('btn-capture');
-            btn.classList.add('capturing');
-            
-            setTimeout(() => {
-                const canvas = document.createElement('canvas');
-                canvas.width = this.video.videoWidth;
-                canvas.height = this.video.videoHeight;
-                const ctx = canvas.getContext('2d');
-
-                // Apply current filter to capture
-                ctx.filter = this.getFilterStyle(this.currentFilter);
-                ctx.drawImage(this.video, 0, 0);
-                ctx.drawImage(this.overlayCanvas, 0, 0);
-
-                // Create download
-                const link = document.createElement('a');
-                link.download = `geye_capture_${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png', 0.95);
-                link.click();
-
-                // Update analytics
-                this.analytics.totalCaptures++;
-                this.showAlert("Photo Captured");
-
-                btn.classList.remove('capturing');
-            }, 300);
-        }
-
-        getFilterStyle(filter) {
-            const styles = {
-                normal: 'none',
-                thermal: 'hue-rotate(180deg) saturate(2) contrast(1.5) brightness(0.8)',
-                night: 'brightness(0.6) contrast(1.4) grayscale(0.3)',
-                enhanced: 'contrast(1.3) saturate(1.4) brightness(1.1)'
-            };
-            return styles[filter] || 'none';
-        }
-
-        toggleVideoRecording() {
-            if (!this.mediaRecorder) {
-                this.showAlert("Video recording not available", true);
-                return;
-            }
-
-            const btn = document.getElementById('btn-record');
-            
-            if (this.isRecording) {
-                this.mediaRecorder.stop();
-                this.isRecording = false;
-                btn.classList.remove('recording');
-                this.showAlert("Recording saved");
-            } else {
-                this.mediaRecorder.start();
-                this.isRecording = true;
-                btn.classList.add('recording');
-                this.showAlert("Recording started");
-            }
-        }
-
-        toggleAudioRecording() {
-            if (!this.audioRecorder) {
-                this.showAlert("Audio recording not available", true);
-                return;
-            }
-
-            const btn = document.getElementById('btn-audio');
-            
-            if (this.audioRecorder.state === 'recording') {
-                this.audioRecorder.stop();
-                btn.classList.remove('recording');
-                this.showAlert("Audio recording saved");
-            } else {
-                this.audioRecorder.start();
-                btn.classList.add('recording');
-                this.showAlert("Audio recording started");
-            }
-        }
-
-        saveRecording(blob) {
-            this.recordings.push({
-                blob: blob,
-                timestamp: new Date().toISOString(),
-                duration: Date.now() - this.recordStartTime
-            });
-            this.analytics.totalRecordings++;
-        }
-
-        saveAudioRecording(blob) {
-            this.audioRecordings.push({
-                blob: blob,
-                timestamp: new Date().toISOString()
-            });
-            this.analytics.totalAudioRecordings++;
-        }
-
-        // ... (keep all existing AI vision functionality from previous versions)
-
-        switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(`${tabName}-tab`).classList.add('active');
-        }
-
-        toggleUI() {
-            const mainUI = document.getElementById('main-ui');
-            const toggleBtn = document.getElementById('toggle-ui');
-            
-            this.isUIVisible = !this.isUIVisible;
-            mainUI.classList.toggle('active', this.isUIVisible);
-            toggleBtn.textContent = this.isUIVisible ? '✕' : '⚙️';
-            this.triggerHaptic();
-        }
-
-        changeLanguage(lang) {
-            // Enhanced language switching
-            const translations = {
-                en: { activate: "ACTIVATE SYSTEM", online: "ONLINE", people: "PEOPLE" },
-                th: { activate: "เปิดใช้งานระบบ", online: "ออนไลน์", people: "บุคคล" },
-                zh: { activate: "激活系统", online: "在线", people: "人员" },
-                ja: { activate: "システムを起動", online: "オンライン", people: "人物" }
-            };
-            
-            const t = translations[lang] || translations.en;
-            document.getElementById('btn-activate').textContent = t.activate;
-            document.getElementById('ai-status').textContent = t.online;
-            // Add more translations as needed
-        }
-
-        handleOrientationChange() {
-            // Handle orientation changes gracefully
-            this.initializeCanvas();
-        }
-
-        pauseSystem() {
-            this.isActive = false;
-        }
-
-        resumeSystem() {
-            if (this.video.srcObject) {
-                this.isActive = true;
-                this.startMainLoop();
-            }
-        }
-
-        startSystemMonitoring() {
-            setInterval(() => {
-                // System health monitoring
-                this.monitorSystemHealth();
-            }, 30000);
-        }
-
-        monitorSystemHealth() {
-            // Monitor memory usage
-            if (performance.memory) {
-                const used = performance.memory.usedJSHeapSize;
-                const limit = performance.memory.jsHeapSizeLimit;
-                if (used / limit > 0.8) {
-                    this.showAlert("High memory usage", true);
+            toggleOrientationLock() {
+                if (screen.orientation && screen.orientation.lock) {
+                    if (!this.isOrientationLocked) {
+                        screen.orientation.lock('landscape').then(() => {
+                            this.isOrientationLocked = true;
+                            document.getElementById('btn-lock').classList.add('active');
+                            this.showLockIndicator();
+                        }).catch(() => {
+                            this.showAlert("Orientation lock not supported", true);
+                        });
+                    } else {
+                        screen.orientation.unlock();
+                        this.isOrientationLocked = false;
+                        document.getElementById('btn-lock').classList.remove('active');
+                    }
                 }
             }
-            
-            // Monitor FPS
-            if (this.fps < 15) {
-                this.showAlert("Low performance detected", true);
-            }
-        }
 
-        showAlert(message, isError = false) {
-            const alert = document.getElementById('alert-notification');
-            alert.textContent = message;
-            alert.style.borderColor = isError ? '#FF2D55' : '#007AFF';
-            alert.style.display = 'block';
-            
-            setTimeout(() => {
-                alert.style.display = 'none';
-            }, 3000);
-        }
-
-        handleCriticalError(error) {
-            console.error('Critical system error:', error);
-            document.getElementById('boot-status').textContent = 'System Error - Please Refresh';
-            document.getElementById('boot-status').style.color = '#FF2D55';
-            this.showAlert("Critical system error occurred", true);
-        }
-
-        // AI Vision Core Functionality (Maintained from previous versions)
-        async startMainLoop() {
-            if (!this.isActive) return;
-
-            const startTime = performance.now();
-
-            try {
-                // Run AI Detection
-                const objects = await this.objectDetector.detect(this.video, 20, this.settings.confidence);
-                
-                // Run Pose Detection if people detected
-                let poses = [];
-                if (objects.some(obj => obj.class === 'person')) {
-                    poses = await this.poseDetector.estimatePoses(this.video);
-                }
-
-                // Update Analytics
-                this.updateAnalytics(objects);
-                
-                // Render Results
-                this.renderDetections(objects, poses);
-                this.updateUI(objects);
-
-            } catch (error) {
-                console.warn('AI Processing Error:', error);
+            showLockIndicator() {
+                const indicator = document.getElementById('lock-indicator');
+                indicator.style.display = 'block';
+                setTimeout(() => {
+                    indicator.style.display = 'none';
+                }, 2000);
             }
 
-            // Update Performance Metrics
-            this.updatePerformanceMetrics(performance.now() - startTime);
-            
-            // Continue Loop
-            requestAnimationFrame(() => this.startMainLoop());
-        }
+            setZoom(level) {
+                this.zoomLevel = level;
+                this.video.style.transform = `scale(${level})`;
+                this.video.style.transformOrigin = 'center center';
 
-        updateAnalytics(objects) {
-            const people = objects.filter(obj => obj.class === 'person');
-            const vehicles = objects.filter(obj => 
-                ['car', 'truck', 'bus', 'motorcycle'].includes(obj.class)
-            );
+                // Update UI
+                document.querySelectorAll('.zoom-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
 
-            this.analytics.peopleCount = people.length;
-            this.analytics.vehicleCount = vehicles.length;
-            this.analytics.totalDetections += objects.length;
-            
-            // Calculate nearest distance
-            this.analytics.nearestDistance = 9999;
-            people.forEach(person => {
-                const distance = (1.7 * 900) / person.bbox[3];
-                if (distance < this.analytics.nearestDistance) {
-                    this.analytics.nearestDistance = distance;
+            setFilter(filter) {
+                this.currentFilter = filter;
+                this.video.className = `filter-${filter}`;
+
+                // Update UI
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                this.showAlert(`Filter: ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+            }
+
+            capturePhoto() {
+                const btn = document.getElementById('btn-capture');
+                btn.classList.add('capturing');
+
+                setTimeout(() => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = this.video.videoWidth;
+                    canvas.height = this.video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+
+                    // Apply current filter to capture
+                    ctx.filter = this.getFilterStyle(this.currentFilter);
+                    ctx.drawImage(this.video, 0, 0);
+                    ctx.drawImage(this.overlayCanvas, 0, 0);
+
+                    // Create download
+                    const link = document.createElement('a');
+                    link.download = `geye_capture_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png', 0.95);
+                    link.click();
+
+                    // Update analytics
+                    this.analytics.totalCaptures++;
+                    this.showAlert("Photo Captured");
+
+                    btn.classList.remove('capturing');
+                }, 300);
+            }
+
+            getFilterStyle(filter) {
+                const styles = {
+                    normal: 'none',
+                    thermal: 'hue-rotate(180deg) saturate(2) contrast(1.5) brightness(0.8)',
+                    night: 'brightness(0.6) contrast(1.4) grayscale(0.3)',
+                    enhanced: 'contrast(1.3) saturate(1.4) brightness(1.1)'
+                };
+                return styles[filter] || 'none';
+            }
+
+            toggleVideoRecording() {
+                if (!this.mediaRecorder) {
+                    this.showAlert("Video recording not available", true);
+                    return;
                 }
-            });
-        }
 
-        renderDetections(objects, poses) {
-            // Clear canvas
-            this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-            
-            const scaleX = this.overlayCanvas.width / this.video.videoWidth;
-            const scaleY = this.overlayCanvas.height / this.video.videoHeight;
+                const btn = document.getElementById('btn-record');
 
-            // Render object bounding boxes
-            objects.forEach(obj => {
-                const [x, y, width, height] = obj.bbox;
-                const screenX = x * scaleX;
-                const screenY = y * scaleY;
-                const screenWidth = width * scaleX;
-                const screenHeight = height * scaleY;
+                if (this.isRecording) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    btn.classList.remove('recording');
+                    this.showAlert("Recording saved");
+                } else {
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+                    btn.classList.add('recording');
+                    this.showAlert("Recording started");
+                }
+            }
 
-                const color = this.getClassColor(obj.class);
-                
-                // Enhanced bounding box with glow effect
-                this.overlayCtx.shadowColor = color;
-                this.overlayCtx.shadowBlur = 15;
-                this.overlayCtx.strokeStyle = color;
-                this.overlayCtx.lineWidth = 2;
-                this.overlayCtx.strokeRect(screenX, screenY, screenWidth, screenHeight);
-                this.overlayCtx.shadowBlur = 0;
+            toggleAudioRecording() {
+                if (!this.audioRecorder) {
+                    this.showAlert("Audio recording not available", true);
+                    return;
+                }
 
-                // Enhanced label
-                this.overlayCtx.fillStyle = color;
-                this.overlayCtx.font = '600 13px -apple-system, BlinkMacSystemFont';
-                this.overlayCtx.fillText(
-                    `${obj.class.toUpperCase()} ${Math.round(obj.score * 100)}%`,
-                    screenX,
-                    screenY - 10
+                const btn = document.getElementById('btn-audio');
+
+                if (this.audioRecorder.state === 'recording') {
+                    this.audioRecorder.stop();
+                    btn.classList.remove('recording');
+                    this.showAlert("Audio recording saved");
+                } else {
+                    this.audioRecorder.start();
+                    btn.classList.add('recording');
+                    this.showAlert("Audio recording started");
+                }
+            }
+
+            saveRecording(blob) {
+                this.recordings.push({
+                    blob: blob,
+                    timestamp: new Date().toISOString(),
+                    duration: Date.now() - this.recordStartTime
+                });
+                this.analytics.totalRecordings++;
+            }
+
+            saveAudioRecording(blob) {
+                this.audioRecordings.push({
+                    blob: blob,
+                    timestamp: new Date().toISOString()
+                });
+                this.analytics.totalAudioRecordings++;
+            }
+
+            // ... (keep all existing AI vision functionality from previous versions)
+
+            switchTab(tabName) {
+                // Update tab buttons
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+            }
+
+            toggleUI() {
+                const mainUI = document.getElementById('main-ui');
+                const toggleBtn = document.getElementById('toggle-ui');
+
+                this.isUIVisible = !this.isUIVisible;
+                mainUI.classList.toggle('active', this.isUIVisible);
+                toggleBtn.textContent = this.isUIVisible ? '✕' : '⚙️';
+                this.triggerHaptic();
+            }
+
+            changeLanguage(lang) {
+                // Enhanced language switching
+                const translations = {
+                    en: { activate: "ACTIVATE SYSTEM", online: "ONLINE", people: "PEOPLE" },
+                    th: { activate: "เปิดใช้งานระบบ", online: "ออนไลน์", people: "บุคคล" },
+                    zh: { activate: "激活系统", online: "在线", people: "人员" },
+                    ja: { activate: "システムを起動", online: "オンライン", people: "人物" }
+                };
+
+                const t = translations[lang] || translations.en;
+                document.getElementById('btn-activate').textContent = t.activate;
+                document.getElementById('ai-status').textContent = t.online;
+                // Add more translations as needed
+            }
+
+            handleOrientationChange() {
+                // Handle orientation changes gracefully
+                this.initializeCanvas();
+            }
+
+            pauseSystem() {
+                this.isActive = false;
+            }
+
+            resumeSystem() {
+                if (this.video.srcObject) {
+                    this.isActive = true;
+                    this.startMainLoop();
+                }
+            }
+
+            startSystemMonitoring() {
+                setInterval(() => {
+                    // System health monitoring
+                    this.monitorSystemHealth();
+                }, 30000);
+            }
+
+            monitorSystemHealth() {
+                // Monitor memory usage
+                if (performance.memory) {
+                    const used = performance.memory.usedJSHeapSize;
+                    const limit = performance.memory.jsHeapSizeLimit;
+                    if (used / limit > 0.8) {
+                        this.showAlert("High memory usage", true);
+                    }
+                }
+
+                // Monitor FPS
+                if (this.fps < 15) {
+                    this.showAlert("Low performance detected", true);
+                }
+            }
+
+            showAlert(message, isError = false) {
+                const alert = document.getElementById('alert-notification');
+                alert.textContent = message;
+                alert.style.borderColor = isError ? '#FF2D55' : '#007AFF';
+                alert.style.display = 'block';
+
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
+
+            handleCriticalError(error) {
+                console.error('Critical system error:', error);
+                document.getElementById('boot-status').textContent = 'System Error - Please Refresh';
+                document.getElementById('boot-status').style.color = '#FF2D55';
+                this.showAlert("Critical system error occurred", true);
+            }
+
+            // AI Vision Core Functionality (Maintained from previous versions)
+            async startMainLoop() {
+                if (!this.isActive) return;
+
+                const startTime = performance.now();
+
+                try {
+                    // Run AI Detection
+                    const objects = await this.objectDetector.detect(this.video, 20, this.settings.confidence);
+
+                    // Run Pose Detection if people detected
+                    let poses = [];
+                    if (objects.some(obj => obj.class === 'person')) {
+                        poses = await this.poseDetector.estimatePoses(this.video);
+                    }
+
+                    // Update Analytics
+                    this.updateAnalytics(objects);
+
+                    // Render Results
+                    this.renderDetections(objects, poses);
+                    this.updateUI(objects);
+
+                } catch (error) {
+                    console.warn('AI Processing Error:', error);
+                }
+
+                // Update Performance Metrics
+                this.updatePerformanceMetrics(performance.now() - startTime);
+
+                // Continue Loop
+                requestAnimationFrame(() => this.startMainLoop());
+            }
+
+            updateAnalytics(objects) {
+                const people = objects.filter(obj => obj.class === 'person');
+                const vehicles = objects.filter(obj =>
+                    ['car', 'truck', 'bus', 'motorcycle'].includes(obj.class)
                 );
-            });
 
-            // Render pose skeletons
-            if (poses.length > 0) {
-                this.renderSkeletons(poses, scaleX, scaleY);
-            }
-        }
+                this.analytics.peopleCount = people.length;
+                this.analytics.vehicleCount = vehicles.length;
+                this.analytics.totalDetections += objects.length;
 
-        updateUI(objects) {
-            // Update metrics
-            document.getElementById('people-count').textContent = this.analytics.peopleCount;
-            document.getElementById('vehicle-count').textContent = this.analytics.vehicleCount;
-            document.getElementById('detection-count').textContent = this.analytics.totalDetections;
-            
-            // Update distance
-            const distanceEl = document.getElementById('distance-val');
-            if (this.analytics.nearestDistance !== 9999) {
-                distanceEl.textContent = this.analytics.nearestDistance.toFixed(1) + 'm';
-                distanceEl.style.color = this.analytics.nearestDistance < 10 ? '#FF2D55' : '#34C759';
-            } else {
-                distanceEl.textContent = '--';
-                distanceEl.style.color = 'white';
-            }
-        }
-
-        updatePerformanceMetrics(processingTime) {
-            this.frameCount++;
-            const currentTime = performance.now();
-            
-            // Update FPS every second
-            if (currentTime - this.lastFpsUpdate >= 1000) {
-                this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdate));
-                this.frameCount = 0;
-                this.lastFpsUpdate = currentTime;
-                
-                document.getElementById('fps-counter').textContent = this.fps;
-            }
-        }
-
-        getClassColor(className) {
-            const colors = {
-                'person': '#FF2D55',
-                'car': '#007AFF',
-                'truck': '#007AFF',
-                'bus': '#007AFF',
-                'motorcycle': '#007AFF',
-                'dog': '#FF9500',
-                'cat': '#FF9500'
-            };
-            return colors[className] || '#34C759';
-        }
-
-        renderSkeletons(poses, scaleX, scaleY) {
-            const connections = [
-                ['left_shoulder', 'right_shoulder'],
-                ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
-                ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
-                ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
-                ['left_hip', 'right_hip'],
-                ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
-                ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
-            ];
-
-            poses.forEach(pose => {
-                // Draw connections with glow
-                this.overlayCtx.shadowColor = '#007AFF';
-                this.overlayCtx.shadowBlur = 10;
-                this.overlayCtx.strokeStyle = '#007AFF';
-                this.overlayCtx.lineWidth = 3;
-
-                connections.forEach(([jointA, jointB]) => {
-                    const pointA = pose.keypoints.find(kp => kp.name === jointA);
-                    const pointB = pose.keypoints.find(kp => kp.name === jointB);
-                    
-                    if (pointA && pointB && pointA.score > 0.3 && pointB.score > 0.3) {
-                        this.overlayCtx.beginPath();
-                        this.overlayCtx.moveTo(pointA.x * scaleX, pointA.y * scaleY);
-                        this.overlayCtx.lineTo(pointB.x * scaleX, pointB.y * scaleY);
-                        this.overlayCtx.stroke();
+                // Calculate nearest distance
+                this.analytics.nearestDistance = 9999;
+                people.forEach(person => {
+                    const distance = (1.7 * 900) / person.bbox[3];
+                    if (distance < this.analytics.nearestDistance) {
+                        this.analytics.nearestDistance = distance;
                     }
                 });
+            }
 
-                this.overlayCtx.shadowBlur = 0;
+            renderDetections(objects, poses) {
+                // Clear canvas
+                this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
 
-                // Draw joints
-                this.overlayCtx.fillStyle = '#FF2D55';
-                this.overlayCtx.shadowColor = '#FF2D55';
-                this.overlayCtx.shadowBlur = 8;
-                
-                pose.keypoints.forEach(kp => {
-                    if (kp.score > 0.3) {
-                        this.overlayCtx.beginPath();
-                        this.overlayCtx.arc(kp.x * scaleX, kp.y * scaleY, 4, 0, Math.PI * 2);
-                        this.overlayCtx.fill();
-                    }
+                const scaleX = this.overlayCanvas.width / this.video.videoWidth;
+                const scaleY = this.overlayCanvas.height / this.video.videoHeight;
+
+                // Render object bounding boxes
+                objects.forEach(obj => {
+                    const [x, y, width, height] = obj.bbox;
+                    const screenX = x * scaleX;
+                    const screenY = y * scaleY;
+                    const screenWidth = width * scaleX;
+                    const screenHeight = height * scaleY;
+
+                    const color = this.getClassColor(obj.class);
+
+                    // Enhanced bounding box with glow effect
+                    this.overlayCtx.shadowColor = color;
+                    this.overlayCtx.shadowBlur = 15;
+                    this.overlayCtx.strokeStyle = color;
+                    this.overlayCtx.lineWidth = 2;
+                    this.overlayCtx.strokeRect(screenX, screenY, screenWidth, screenHeight);
+                    this.overlayCtx.shadowBlur = 0;
+
+                    // Enhanced label
+                    this.overlayCtx.fillStyle = color;
+                    this.overlayCtx.font = '600 13px -apple-system, BlinkMacSystemFont';
+                    this.overlayCtx.fillText(
+                        `${obj.class.toUpperCase()} ${Math.round(obj.score * 100)}%`,
+                        screenX,
+                        screenY - 10
+                    );
                 });
 
-                this.overlayCtx.shadowBlur = 0;
-            });
+                // Render pose skeletons
+                if (poses.length > 0) {
+                    this.renderSkeletons(poses, scaleX, scaleY);
+                }
+            }
+
+            updateUI(objects) {
+                // Update metrics
+                document.getElementById('people-count').textContent = this.analytics.peopleCount;
+                document.getElementById('vehicle-count').textContent = this.analytics.vehicleCount;
+                document.getElementById('detection-count').textContent = this.analytics.totalDetections;
+
+                // Update distance
+                const distanceEl = document.getElementById('distance-val');
+                if (this.analytics.nearestDistance !== 9999) {
+                    distanceEl.textContent = this.analytics.nearestDistance.toFixed(1) + 'm';
+                    distanceEl.style.color = this.analytics.nearestDistance < 10 ? '#FF2D55' : '#34C759';
+                } else {
+                    distanceEl.textContent = '--';
+                    distanceEl.style.color = 'white';
+                }
+            }
+
+            updatePerformanceMetrics(processingTime) {
+                this.frameCount++;
+                const currentTime = performance.now();
+
+                // Update FPS every second
+                if (currentTime - this.lastFpsUpdate >= 1000) {
+                    this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdate));
+                    this.frameCount = 0;
+                    this.lastFpsUpdate = currentTime;
+
+                    document.getElementById('fps-counter').textContent = this.fps;
+                }
+            }
+
+            getClassColor(className) {
+                const colors = {
+                    'person': '#FF2D55',
+                    'car': '#007AFF',
+                    'truck': '#007AFF',
+                    'bus': '#007AFF',
+                    'motorcycle': '#007AFF',
+                    'dog': '#FF9500',
+                    'cat': '#FF9500'
+                };
+                return colors[className] || '#34C759';
+            }
+
+            renderSkeletons(poses, scaleX, scaleY) {
+                const connections = [
+                    ['left_shoulder', 'right_shoulder'],
+                    ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+                    ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+                    ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+                    ['left_hip', 'right_hip'],
+                    ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
+                    ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
+                ];
+
+                poses.forEach(pose => {
+                    // Draw connections with glow
+                    this.overlayCtx.shadowColor = '#007AFF';
+                    this.overlayCtx.shadowBlur = 10;
+                    this.overlayCtx.strokeStyle = '#007AFF';
+                    this.overlayCtx.lineWidth = 3;
+
+                    connections.forEach(([jointA, jointB]) => {
+                        const pointA = pose.keypoints.find(kp => kp.name === jointA);
+                        const pointB = pose.keypoints.find(kp => kp.name === jointB);
+
+                        if (pointA && pointB && pointA.score > 0.3 && pointB.score > 0.3) {
+                            this.overlayCtx.beginPath();
+                            this.overlayCtx.moveTo(pointA.x * scaleX, pointA.y * scaleY);
+                            this.overlayCtx.lineTo(pointB.x * scaleX, pointB.y * scaleY);
+                            this.overlayCtx.stroke();
+                        }
+                    });
+
+                    this.overlayCtx.shadowBlur = 0;
+
+                    // Draw joints
+                    this.overlayCtx.fillStyle = '#FF2D55';
+                    this.overlayCtx.shadowColor = '#FF2D55';
+                    this.overlayCtx.shadowBlur = 8;
+
+                    pose.keypoints.forEach(kp => {
+                        if (kp.score > 0.3) {
+                            this.overlayCtx.beginPath();
+                            this.overlayCtx.arc(kp.x * scaleX, kp.y * scaleY, 4, 0, Math.PI * 2);
+                            this.overlayCtx.fill();
+                        }
+                    });
+
+                    this.overlayCtx.shadowBlur = 0;
+                });
+            }
         }
-    }
 
-    // Initialize Geye Pro Ultimate System
-    const GEYE_ULTIMATE = new GeyeProUltimate();
+        // Initialize Geye Pro Ultimate System
+        const GEYE_ULTIMATE = new GeyeProUltimate();
 
-    // Enhanced error handling for production
-    window.addEventListener('error', (event) => {
-        console.error('Global error:', event.error);
-        const alert = document.getElementById('alert-notification');
-        if (alert) {
-            alert.textContent = 'System error occurred';
-            alert.style.display = 'block';
-            setTimeout(() => alert.style.display = 'none', 5000);
-        }
-    });
+        // Enhanced error handling for production
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            const alert = document.getElementById('alert-notification');
+            if (alert) {
+                alert.textContent = 'System error occurred';
+                alert.style.display = 'block';
+                setTimeout(() => alert.style.display = 'none', 5000);
+            }
+        });
 
-    // Handle unhandled promise rejections
-    window.addEventListener('unhandledrejection', (event) => {
-        console.error('Unhandled promise rejection:', event.reason);
-    });
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+        });
 
-    // Prevent context menu on buttons
-    document.addEventListener('contextmenu', (event) => {
-        if (event.target.classList.contains('control-btn') || 
-            event.target.classList.contains('media-btn')) {
-            event.preventDefault();
-        }
-    });
+        // Prevent context menu on buttons
+        document.addEventListener('contextmenu', (event) => {
+            if (event.target.classList.contains('control-btn') ||
+                event.target.classList.contains('media-btn')) {
+                event.preventDefault();
+            }
+        });
 
     </script>
 </body>
+
 </html>
