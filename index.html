@@ -401,14 +401,20 @@
             position: relative;
             min-height: 0;
             width: 100%;
+            /* FIX: Ensure compass stays circular */
+            aspect-ratio: 1 / 1;
+            max-height: min(85vw, 320px);
+            max-width: min(85vw, 320px);
+            margin: 0 auto;
         }
         
         /* ------------------------------------------------------------------
            NEW FANTASY COMPASS DESIGN - IMPROVED
            ------------------------------------------------------------------ */
         .orb-ring {
-            width: min(85vw, 320px); 
-            height: min(85vw, 320px);
+            /* FIX: Ensure perfect circle on all devices */
+            width: 100%;
+            height: 100%;
             border-radius: 50%; 
             position: relative; 
             background: 
@@ -431,6 +437,8 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             will-change: transform;
             overflow: hidden;
+            /* FIX: Maintain aspect ratio */
+            aspect-ratio: 1 / 1;
         }
         
         .orb-ring::before {
@@ -1252,9 +1260,9 @@
         <div class="glass-modal">
             <span class="ob-icon">🧭</span>
             <div class="ob-title" data-t="ob_title">Wind Rose</div>
-            <div class="ob-body" data-t="ob_body">Loading...</div>
-            <div class="ob-note" data-t="ob_note">...</div>
-            <button class="btn-action" onclick="app.finishOnboarding()" data-t="ob_btn">Let's Go</button>
+            <div class="ob-body" data-t="ob_body">This compass app guides you to the Seven Ancient Wonders of the World and helps you navigate by stars.</div>
+            <div class="ob-note" data-t="ob_note">Allow location and motion access. Hold phone flat and move gently to calibrate.</div>
+            <button class="btn-action" onclick="app.finishOnboarding()" data-t="ob_btn">Get Started</button>
         </div>
     </div>
 
@@ -1368,7 +1376,7 @@
 
     <!-- HINT TOAST -->
     <div class="hint-toast" id="hint-toast">
-        <span>👻</span> <span data-t="hint_myth">Tap Myth for legends</span>
+        <span>👻</span> <span data-t="hint_myth">Tap 'STARS' to track constellations</span>
     </div>
 
 <script>
@@ -1393,7 +1401,7 @@ const DICT = {
         gps_wait:"GPS WAIT", gps_lock:"GPS LOCK",
         m_disc:"DISCOVERY", m_geo:"GEOMAG", m_stars:"STARS",
         t_auto:"Auto", t_man:"Manual", t_next:"Next", t_map:"Map",
-        lore_load:"AI: Decrypting Data...",
+        lore_load:"Loading information...",
         lbl_head:"HEADING", lbl_var:"VARIANCE",
         warn_cal:"CALIBRATE 8", warn_tilt:"HOLD FLAT",
         sun_track:"Sun Tracker Active",
@@ -1402,17 +1410,17 @@ const DICT = {
         star_vis: "VISIBLE", star_hid: "BELOW HORIZON",
         read_btn:"Tap to Read Legend",
         tap_start: "Tap to Start",
-        ob_title: "Wind Rose — AI Compass",
-        ob_body: "AI-Powered Compass.\nTracks the Seven Ancient Wonders.\nAlso tracks Stars & Magnetic North.",
-        ob_note: "Move gently. Requires GPS.",
-        ob_btn: "Initialize",
+        ob_title: "Wind Rose",
+        ob_body: "This compass app guides you to the Seven Ancient Wonders of the World and helps you navigate by stars.",
+        ob_note: "Allow location and motion access. Hold phone flat and move gently to calibrate.",
+        ob_btn: "Get Started",
         hint_myth: "Tap 'STARS' to track constellations",
         btn_read_lore: "📜 READ LORE",
         btn_close: "CLOSE",
         wiki_offline_lbl: "Offline Database",
-        ai_scan: "AI SYSTEM: ANALYZING GEODATA...",
+        ai_scan: "SYSTEM: ANALYZING GEODATA...",
         ai_conn_lost: "CONNECTION LOST. SWITCHING TO OFFLINE DB.",
-        ai_fetch: "AI: SCANNING SECTOR...",
+        ai_fetch: "SCANNING SECTOR...",
         back_to_disc: "← BACK TO DISCOVERY",
         intro_title: "Welcome to Wind Rose",
         intro_text: "Your AI-powered compass for exploring ancient wonders and celestial navigation.",
@@ -1422,7 +1430,7 @@ const DICT = {
         gps_wait:"รอ GPS...", gps_lock:"GPS พร้อม",
         m_disc:"ค้นพบ", m_geo:"แม่เหล็ก", m_stars:"ดวงดาว",
         t_auto:"ออโต้", t_man:"ทำเอง", t_next:"ถัดไป", t_map:"แผนที่",
-        lore_load:"AI: กำลังถอดรหัสข้อมูล...",
+        lore_load:"กำลังโหลดข้อมูล...",
         lbl_head:"ทิศหัวเครื่อง", lbl_var:"ความผันผวน",
         warn_cal:"หมุนเลข 8", warn_tilt:"วางเครื่องราบ",
         sun_track:"ติดตามดวงอาทิตย์",
@@ -1431,17 +1439,17 @@ const DICT = {
         star_vis: "มองเห็นได้", star_hid: "ใต้ขอบฟ้า",
         read_btn:"อ่านตำนาน",
         tap_start: "แตะเพื่อเริ่ม",
-        ob_title: "Wind Rose — เข็มทิศ AI",
-        ob_body: "เข็มทิศอัจฉริยะ\nติดตาม 7 สิ่งมหัศจรรย์ยุคโบราณ\nพร้อมโหมดดูดาวและแม่เหล็กโลก",
-        ob_note: "เคลื่อนไหวช้าๆ ต้องใช้ GPS",
-        ob_btn: "เริ่มระบบ",
+        ob_title: "Wind Rose",
+        ob_body: "แอปเข็มทิศนี้จะนำคุณไปยัง 7 สิ่งมหัศจรรย์ยุคโบราณ และช่วยนำทางด้วยดวงดาว",
+        ob_note: "อนุญาตการเข้าถึงตำแหน่งและเซ็นเซอร์การเคลื่อนไหว ถือเครื่องให้ราบและขยับเบา ๆ เพื่อปรับเทียบ",
+        ob_btn: "เริ่มใช้งาน",
         hint_myth: "แตะ 'ดวงดาว' เพื่อดูตำแหน่งดาว",
         btn_read_lore: "📜 อ่านเรื่องเล่า",
         btn_close: "ปิด",
         wiki_offline_lbl: "ฐานข้อมูลออฟไลน์",
-        ai_scan: "ระบบ AI: กำลังวิเคราะห์ภูมิศาสตร์...",
+        ai_scan: "ระบบ: กำลังวิเคราะห์ภูมิศาสตร์...",
         ai_conn_lost: "สัญญาณขาดหาย ใช้งานฐานข้อมูลสำรอง",
-        ai_fetch: "AI: กำลังสแกนพื้นที่...",
+        ai_fetch: "กำลังสแกนพื้นที่...",
         back_to_disc: "← กลับไปโหมดค้นพบ",
         intro_title: "ยินดีต้อนรับสู่ Wind Rose",
         intro_text: "เข็มทิศอัจฉริยะสำหรับการสำรวจสิ่งมหัศจรรย์โบราณและการนำทางด้วยดวงดาว",
