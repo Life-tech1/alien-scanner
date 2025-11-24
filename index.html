@@ -3,204 +3,64 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Geye Pro: Ultimate AI Vision</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Geye Pro: Field Console</title>
 
-    <!-- AI CORE -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6"></script>
+    <!-- TensorFlow.js + Models -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
 
     <style>
+        /**
+         * PERFORMANCE NOTES:
+         * - CSS transforms use GPU acceleration
+         * - Absolute positioning avoids layout thrashing
+         * - Minimal DOM updates via direct canvas rendering
+         * - No CSS animations during tracking (performance)
+         */
+
         :root {
             --primary: #E82127;
-            /* Tesla Red */
-            --primary-glow: rgba(232, 33, 39, 0.4);
-            --secondary: #171a20;
-            /* Tesla Dark Grey */
-            --accent: #E82127;
-            --success: #34C759;
-            --warning: #FF9500;
-            --glass: rgba(23, 26, 32, 0.85);
-            /* High opacity dark background */
-            --glass-dark: rgba(0, 0, 0, 0.9);
-            --blur: blur(20px);
-            --font-sf: 'Montserrat', 'Gotham', -apple-system, BlinkMacSystemFont, sans-serif;
+            --bg-dark: #000000;
+            --glass: rgba(23, 26, 32, 0.75);
+            --text: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+            --safe-left: env(safe-area-inset-left);
+            --safe-right: env(safe-area-inset-right);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #000;
-            color: #fff;
-            font-family: var(--font-sf);
-            user-select: none;
-            height: 100vh;
-            width: 100vw;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* TESLA BOOT SCREEN */
-        #boot-screen {
-            position: fixed;
-            inset: 0;
-            background: #000000;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-family: var(--font-sf);
-        }
-
-        .boot-animation {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            margin-bottom: 40px;
-        }
-
-        .boot-logo {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            font-weight: 700;
-            color: var(--primary);
-            opacity: 0;
-            animation: logoReveal 2s ease-out 0.5s forwards;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-        }
-
-        .boot-ring {
-            position: absolute;
-            inset: 0;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-top: 2px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1.5s linear infinite;
-            opacity: 0;
-            animation: ringReveal 1s ease-out 0.2s forwards;
-        }
-
-        .boot-subtitle {
-            color: #fff;
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 4px;
-            margin-bottom: 60px;
-            text-align: center;
-            opacity: 0;
-            text-transform: uppercase;
-            animation: subtitleReveal 1.5s ease-out 1s forwards;
-        }
-
-        .boot-progress {
-            width: 200px;
-            height: 2px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 0;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
             overflow: hidden;
-            position: relative;
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
         }
 
-        .boot-progress-bar {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 0;
-        }
-
-        .boot-status {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 12px;
-            font-weight: 400;
-            margin-top: 20px;
-            text-align: center;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .activate-btn {
-            background: transparent;
-            border: 1px solid #fff;
-            color: white;
-            padding: 14px 40px;
-            font-weight: 500;
-            font-size: 14px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin-top: 40px;
-            transition: all 0.3s ease;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            opacity: 0;
-            animation: buttonReveal 1s ease-out 2s forwards;
-        }
-
-        .activate-btn:hover {
-            background: #fff;
-            color: #000;
-            transform: translateY(-2px);
-        }
-
-        @keyframes logoReveal {
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes ringReveal {
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes subtitleReveal {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes buttonReveal {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* MAIN CAMERA VIEW */
-        #camera-view {
+        /* Camera View */
+        #camera-container {
             position: fixed;
             inset: 0;
             background: #000;
-            transition: all 0.3s ease;
         }
 
         #camera-feed {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.3s ease;
         }
 
         #overlay-canvas {
@@ -209,2427 +69,939 @@
             pointer-events: none;
         }
 
-        /* MISSION OVERLAYS */
-        #mission-overlays {
-            position: absolute;
+        /* Downscaled inference canvas (hidden) */
+        #inference-canvas {
+            display: none;
+        }
+
+        /* Boot Screen */
+        #boot-screen {
+            position: fixed;
             inset: 0;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .grid-line {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .grid-line.horizontal {
-            left: 0;
-            right: 0;
-            height: 1px;
-        }
-
-        .grid-line.vertical {
-            top: 0;
-            bottom: 0;
-            width: 1px;
-        }
-
-        .safe-area-box {
-            position: absolute;
-            top: 10%;
-            left: 10%;
-            right: 10%;
-            bottom: 10%;
-            border: 2px dashed rgba(255, 255, 255, 0.3);
-            border-radius: 20px;
-        }
-
-        .center-cross {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 20px;
-            height: 20px;
-            border-left: 1px solid rgba(255, 255, 255, 0.5);
-            border-top: 1px solid rgba(255, 255, 255, 0.5);
-            transform: translate(-50%, -50%);
-        }
-
-        /* TIMELINE UI */
-        .timeline-event {
-            background: rgba(255, 255, 255, 0.05);
-            border-left: 3px solid var(--primary);
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 4px;
+            background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .event-time {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .event-type {
-            font-weight: 600;
-            font-size: 13px;
-            color: white;
-        }
-
-        .event-details {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* Show actions based on mode */
-        body[data-mission="film"] #film-actions {
-            display: block !important;
-        }
-
-        /* CROSSHAIR REMOVED */
-
-        /* ENHANCED GLASS UI */
-        .glass-panel {
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        /* FLOATING CONTROL BUTTON */
-        /* FLOATING CONTROL BUTTON */
-        #toggle-ui {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 48px;
-            height: 48px;
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            z-index: 1000;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            transition: opacity 0.5s;
         }
 
-        #toggle-ui:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: scale(1.1) rotate(90deg);
-        }
-
-        /* FULLSCREEN CONTROLS */
-        #fullscreen-controls {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 1000;
-        }
-
-        .screen-btn {
-            width: 44px;
-            height: 44px;
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .screen-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .screen-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            box-shadow: 0 0 15px var(--primary-glow);
-        }
-
-        /* MAIN UI CONTAINER */
-        #main-ui {
-            position: fixed;
-            top: 90px;
-            right: 20px;
-            width: 360px;
-            max-height: calc(100vh - 110px);
+        #boot-screen.hidden {
             opacity: 0;
-            transform: translateX(120px);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             pointer-events: none;
-            z-index: 999;
-            overflow-y: auto;
         }
 
-        #main-ui.active {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: all;
-        }
-
-        /* TAB NAVIGATION */
-        .tab-navigation {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        .tab-btn {
-            padding: 10px 16px;
-            background: transparent;
-            border: none;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex: 1;
-            min-width: 70px;
-        }
-
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* STATUS PANEL */
-        .status-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .status-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 500;
-        }
-
-        .status-value {
-            font-size: 14px;
-            font-weight: 600;
-            color: white;
-        }
-
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-
-        .indicator-online {
-            background: var(--success);
-            box-shadow: 0 0 10px var(--success);
-        }
-
-        .indicator-warning {
-            background: var(--warning);
-            box-shadow: 0 0 10px var(--warning);
-        }
-
-        .indicator-offline {
-            background: #666;
-        }
-
-        /* ANALYTICS PANEL */
-        .metric-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .metric-card {
-            background: var(--glass-dark);
-            border-radius: 18px;
-            padding: 18px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .metric-value {
-            font-size: 26px;
+        .boot-logo {
+            font-size: 48px;
             font-weight: 700;
-            color: white;
-            line-height: 1;
-            margin-bottom: 6px;
-        }
-
-        .metric-label {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.6);
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
-
-        /* CONTROLS PANEL */
-        .control-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .control-btn {
-            background: var(--glass-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 14px;
-            padding: 14px;
-            color: white;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .control-btn:active {
-            transform: translateY(0);
-        }
-
-        /* MEDIA CONTROLS */
-        #media-controls {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 16px;
-            z-index: 100;
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 30px;
-            padding: 16px;
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
-        }
-
-        .media-btn {
-            width: 56px;
-            height: 56px;
-            background: var(--glass-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .media-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .media-btn.recording {
-            background: var(--accent);
-            animation: pulse 1.5s infinite;
-            border-radius: 50%;
-        }
-
-        .media-btn.capturing {
-            background: var(--success);
-            transform: scale(0.95);
-        }
-
-        /* ZOOM CONTROLS */
-        #zoom-controls {
-            position: fixed;
-            bottom: 120px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 100;
-        }
-
-        .zoom-btn {
-            width: 44px;
-            height: 44px;
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .zoom-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            box-shadow: 0 0 15px var(--primary-glow);
-        }
-
-        .zoom-btn:hover:not(.active) {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateX(-2px);
-        }
-
-        /* FILTER CONTROLS */
-        #filter-controls {
-            position: fixed;
-            bottom: 120px;
-            left: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 100;
-        }
-
-        .filter-btn {
-            width: 44px;
-            height: 44px;
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .filter-btn.active {
-            background: var(--secondary);
-            border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(232, 33, 39, 0.4);
-        }
-
-        .filter-btn:hover:not(.active) {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateX(2px);
-        }
-
-        .filter-btn.active {
-            background: var(--secondary);
-            box-shadow: 0 0 25px rgba(88, 86, 214, 0.4);
-            transform: scale(1.1);
-        }
-
-        .filter-btn:hover:not(.active) {
-            background: rgba(255, 255, 255, 0.15);
-            transform: scale(1.05);
-        }
-
-        /* ALERT NOTIFICATION */
-        #alert-notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--glass);
-            backdrop-filter: var(--blur);
-            border: 1px solid var(--accent);
-            border-radius: 20px;
-            padding: 16px 32px;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-            display: none;
-            z-index: 1000;
-            box-shadow: 0 8px 32px rgba(255, 45, 85, 0.3);
-            text-align: center;
-            max-width: 80%;
-        }
-
-        /* SETTINGS PANEL */
-        .setting-item {
-            margin: 16px 0;
-        }
-
-        .setting-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.8);
-            margin-bottom: 8px;
-            display: block;
-            font-weight: 500;
-        }
-
-        .setting-control {
-            width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            background: var(--glass-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            font-size: 14px;
-        }
-
-        /* HELP SYSTEM */
-        .help-section {
-            margin: 16px 0;
-            padding: 18px;
-            background: var(--glass-dark);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .help-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 10px;
             color: var(--primary);
+            margin-bottom: 20px;
         }
 
-        .help-content {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
-            line-height: 1.5;
+        .boot-status {
+            font-size: 14px;
+            color: var(--text-dim);
+            margin-bottom: 30px;
         }
 
-        /* SHARING PANEL */
-        .share-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 12px 0;
+        .boot-progress {
+            width: 200px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1px;
+            overflow: hidden;
         }
 
-        .share-btn {
-            background: var(--glass-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 12px;
-            color: white;
-            font-size: 12px;
+        .boot-progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .activate-btn {
+            margin-top: 40px;
+            padding: 16px 48px;
+            background: transparent;
+            border: 1px solid var(--text);
+            color: var(--text);
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
+            border-radius: 4px;
+            transition: all 0.3s;
         }
 
-        .share-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-1px);
-        }
-
-        /* VIBRATION FEEDBACK */
-        @media (hover: none) and (pointer: coarse) {
-
-            .control-btn:active,
-            .media-btn:active,
-            .zoom-btn:active,
-            .filter-btn:active {
-                transform: scale(0.95);
-            }
-        }
-
-        /* RESPONSIVE DESIGN */
-        @media (max-width: 768px) {
-            #main-ui {
-                width: calc(100vw - 40px);
-                right: 20px;
-                left: 20px;
-            }
-
-            .tab-navigation {
-                gap: 3px;
-            }
-
-            .tab-btn {
-                font-size: 11px;
-                padding: 8px 12px;
-                min-width: 60px;
-            }
-
-            #media-controls {
-                bottom: 20px;
-                padding: 12px;
-                gap: 12px;
-            }
-
-            .media-btn {
-                width: 54px;
-                height: 54px;
-                font-size: 20px;
-            }
-        }
-
-        /* ACCESSIBILITY */
-        .high-contrast {
-            --primary: #FFFFFF;
-            --glass: rgba(0, 0, 0, 0.9);
+        .activate-btn:hover {
+            background: var(--text);
             color: #000;
         }
 
-        .large-text {
-            font-size: 18px;
-        }
-
-        /* SCREEN LOCK INDICATOR */
-        .lock-indicator {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        /* HUD - Side Panels */
+        .hud-panel {
+            position: absolute;
             background: var(--glass);
-            backdrop-filter: var(--blur);
-            border-radius: 20px;
-            padding: 20px 30px;
-            color: white;
+            backdrop-filter: blur(20px);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 11px;
+            z-index: 100;
+        }
+
+        #stats-panel {
+            top: calc(20px + var(--safe-top));
+            left: calc(20px + var(--safe-left));
+            min-width: 120px;
+        }
+
+        #controls-panel {
+            top: calc(20px + var(--safe-top));
+            right: calc(20px + var(--safe-right));
+            min-width: 100px;
+        }
+
+        #analytics-panel {
+            bottom: calc(20px + var(--safe-bottom));
+            left: calc(20px + var(--safe-left));
+            min-width: 140px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+
+        .stat-label {
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: var(--text);
             font-weight: 600;
-            font-size: 16px;
-            display: none;
-            z-index: 1000;
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
         }
 
-        /* FILTER EFFECTS */
-        .filter-thermal {
-            filter: hue-rotate(180deg) saturate(2) contrast(1.5) brightness(0.8);
+        .control-btn {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text);
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
         }
 
-        .filter-night {
-            filter: brightness(0.6) contrast(1.4) grayscale(0.3);
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
 
-        .filter-enhanced {
-            filter: contrast(1.3) saturate(1.4) brightness(1.1);
+        .control-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
         }
 
-        /* HAPTIC FEEDBACK ANIMATION */
-        @keyframes hapticPulse {
-            0% {
-                transform: scale(1);
-            }
-
-            25% {
-                transform: scale(0.98);
-            }
-
-            50% {
-                transform: scale(0.96);
-            }
-
-            75% {
-                transform: scale(0.98);
-            }
-
-            100% {
-                transform: scale(1);
-            }
+        /* Alert */
+        #alert {
+            position: fixed;
+            top: calc(80px + var(--safe-top));
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 200;
         }
 
-        .haptic-feedback {
-            animation: hapticPulse 0.15s ease-in-out;
+        #alert.show {
+            opacity: 1;
         }
 
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
+        /* Minimal Mode Optimizations */
+        body.minimal #stats-panel,
+        body.minimal #analytics-panel {
+            opacity: 0.3;
+        }
 
-            50% {
-                transform: scale(1.1);
-            }
-
-            100% {
-                transform: scale(1);
-            }
+        body.minimal #stats-panel:hover,
+        body.minimal #analytics-panel:hover {
+            opacity: 1;
         }
     </style>
 </head>
 
 <body>
-    <!-- APPLE TESLA BOOT SCREEN -->
+    <!-- Boot Screen -->
     <div id="boot-screen">
-        <div class="boot-animation">
-            <div class="boot-ring"></div>
-            <div class="boot-logo">G</div>
-        </div>
-        <div class="boot-subtitle">AI VISION SYSTEM</div>
+        <div class="boot-logo">GEYE PRO</div>
+        <div class="boot-status" id="boot-status">Initializing AI Vision...</div>
         <div class="boot-progress">
             <div class="boot-progress-bar" id="boot-progress"></div>
         </div>
-        <div class="boot-status" id="boot-status">Initializing Neural Core</div>
-        <button class="activate-btn" id="btn-activate" style="display:none;">ACTIVATE SYSTEM</button>
+        <button class="activate-btn" id="activate-btn" style="display:none">ACTIVATE SYSTEM</button>
     </div>
 
-    <!-- MAIN CAMERA VIEW -->
-    <div id="camera-view">
+    <!-- Camera View -->
+    <div id="camera-container">
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="overlay-canvas"></canvas>
-        <div id="mission-overlays"></div>
-
-        <!-- CROSSHAIR REMOVED -->
+        <canvas id="inference-canvas"></canvas>
     </div>
 
-    <div id="fullscreen-controls">
-        <button class="screen-btn" id="btn-fullscreen" title="Fullscreen">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path
-                    d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-            </svg>
-        </button>
-        <button class="screen-btn" id="btn-lock" title="Lock Orientation">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-        </button>
-    </div>
-
-    <!-- LANGUAGE SELECTOR MOVED TO SETTINGS -->
-
-    <!-- FLOATING UI TOGGLE -->
-    <div id="toggle-ui">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-            </path>
-        </svg>
-    </div>
-
-    <!-- MEDIA CONTROLS -->
-    <div id="media-controls">
-        <button class="media-btn" id="btn-capture" title="Capture Photo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                <circle cx="12" cy="13" r="4"></circle>
-            </svg>
-        </button>
-        <button class="media-btn" id="btn-record" title="Record Video">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M23 7l-7 5 7 5V7z"></path>
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-            </svg>
-        </button>
-        <button class="media-btn" id="btn-audio" title="Record Audio">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-        </button>
-    </div>
-
-    <!-- ZOOM CONTROLS -->
-    <div id="zoom-controls">
-        <div class="zoom-btn active" data-zoom="1">1x</div>
-        <div class="zoom-btn" data-zoom="2">2x</div>
-        <div class="zoom-btn" data-zoom="4">4x</div>
-    </div>
-
-    <!-- FILTER CONTROLS -->
-    <div id="filter-controls">
-        <button class="filter-btn" data-filter="normal" title="Normal View">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-        </button>
-        <button class="filter-btn" data-filter="thermal" title="Thermal Simulation">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-            </svg>
-        </button>
-        <button class="filter-btn" data-filter="night" title="Night Vision">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-        </button>
-        <button class="filter-btn" data-filter="enhanced" title="Enhanced">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <polygon
-                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
-                </polygon>
-            </svg>
-        </button>
-    </div>
-
-    <!-- MAIN UI CONTAINER -->
-    <div id="main-ui">
-        <!-- TAB NAVIGATION -->
-        <div class="tab-navigation">
-            <button class="tab-btn active" data-tab="vision">Vision</button>
-            <button class="tab-btn" data-tab="pro">Pro Mode</button>
-            <button class="tab-btn" data-tab="audio">Audio</button>
-            <button class="tab-btn" data-tab="share">Share</button>
-            <button class="tab-btn" data-tab="reports">Reports</button>
-            <button class="tab-btn" data-tab="backup">Backup</button>
-            <button class="tab-btn" data-tab="help">Help</button>
-            <button class="tab-btn" data-tab="settings">SETTINGS</button>
-            <button class="tab-btn" data-tab="timeline">TIMELINE</button>
+    <!-- HUD Panels -->
+    <div id="stats-panel" class="hud-panel">
+        <div class="stat-row">
+            <span class="stat-label">FPS</span>
+            <span class="stat-value" id="fps-val">--</span>
         </div>
-
-        <!-- VISION TAB -->
-        <div class="tab-content active" id="vision-tab">
-            <div class="glass-panel" style="padding: 24px; margin-bottom: 12px;">
-                <div style="margin-bottom: 20px;">
-                    <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px;">Geye Pro</div>
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); letter-spacing: 0.5px;">Professional AI
-                        Vision System</div>
-                </div>
-
-                <div class="status-item">
-                    <div style="display:flex;align-items:center;">
-                        <div class="status-indicator indicator-online"></div>
-                        <span class="status-label">AI CORE</span>
-                    </div>
-                    <span class="status-value" id="ai-status">ONLINE</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">PROCESSING FPS</span>
-                    <span class="status-value" id="fps-counter">0</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">DETECTIONS</span>
-                    <span class="status-value" id="detection-count">0</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">THREAT LEVEL</span>
-                    <span class="status-value" id="threat-level">LOW</span>
-                </div>
-            </div>
-
-            <!-- Mission Selector -->
-            <div class="glass-panel" style="margin-top: 16px; padding: 16px;">
-                <div class="status-label" style="margin-bottom: 10px;">MISSION MODE</div>
-                <div class="control-grid">
-                    <button class="control-btn active"
-                        onclick="GEYE_ULTIMATE.mission.setMode('standard')">STANDARD</button>
-                    <button class="control-btn" onclick="GEYE_ULTIMATE.mission.setMode('film')">FILM SET</button>
-                    <button class="control-btn" onclick="GEYE_ULTIMATE.mission.setMode('security')">SECURITY</button>
-                </div>
-                <!-- Film Mode Actions -->
-                <div id="film-actions" style="margin-top: 10px; display: none;">
-                    <button class="control-btn full-width" onclick="GEYE_ULTIMATE.takeLog()">📸 TAKE LOG</button>
-                </div>
-            </div>
-
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 12px;">LIVE ANALYTICS</div>
-                <div class="metric-grid">
-                    <div class="metric-card">
-                        <div class="metric-value" id="people-count">0</div>
-                        <div class="metric-label">PEOPLE</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="vehicle-count">0</div>
-                        <div class="metric-label">VEHICLES</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="distance-val">--</div>
-                        <div class="metric-label">DISTANCE</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="confidence-val">--%</div>
-                        <div class="metric-label">CONFIDENCE</div>
-                    </div>
-                </div>
-            </div>
+        <div class="stat-row">
+            <span class="stat-label">INF</span>
+            <span class="stat-value" id="inf-val">--ms</span>
         </div>
-
-        <!-- PRO MODE TAB -->
-        <div class="tab-content" id="pro-tab">
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 20px;">PRO CAMERA SETTINGS</div>
-
-                <div class="setting-item">
-                    <span class="setting-label">ISO <span id="iso-val"
-                            style="float:right; color:var(--primary);">AUTO</span></span>
-                    <input type="range" class="setting-control" id="iso-slider" min="100" max="3200" step="100"
-                        disabled>
-                </div>
-
-                <div class="setting-item">
-                    <span class="setting-label">Shutter Speed <span id="shutter-val"
-                            style="float:right; color:var(--primary);">AUTO</span></span>
-                    <input type="range" class="setting-control" id="shutter-slider" min="0" max="1000" step="1"
-                        disabled>
-                </div>
-
-                <div class="setting-item">
-                    <span class="setting-label">White Balance <span id="wb-val"
-                            style="float:right; color:var(--primary);">AUTO</span></span>
-                    <input type="range" class="setting-control" id="wb-slider" min="2000" max="8000" step="100"
-                        disabled>
-                </div>
-
-                <div class="setting-item">
-                    <span class="setting-label">Focus Distance <span id="focus-val"
-                            style="float:right; color:var(--primary);">AUTO</span></span>
-                    <input type="range" class="setting-control" id="focus-slider" min="0" max="100" step="1" disabled>
-                </div>
-
-                <div class="setting-item">
-                    <span class="setting-label">Exposure Compensation <span id="exposure-val"
-                            style="float:right; color:var(--primary);">0</span></span>
-                    <input type="range" class="setting-control" id="exposure-slider" min="-3" max="3" step="0.5"
-                        value="0">
-                </div>
-
-                <div style="margin-top: 20px; font-size: 11px; color: rgba(255,255,255,0.4);">
-                    * Pro controls depend on hardware support. Unavailable controls are disabled.
-                </div>
-            </div>
-        </div>
-
-        <!-- AUDIO TAB -->
-        <div class="tab-content" id="audio-tab">
-            <div class="glass-panel" style="padding: 24px; text-align: center;">
-                <div class="status-label" style="margin-bottom: 20px;">AUDIO ANALYTICS</div>
-                <div style="font-size: 48px; margin-bottom: 10px;">Waiting...</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.5);">Audio visualization coming soon</div>
-            </div>
-        </div>
-
-        <!-- SHARE TAB -->
-        <div class="tab-content" id="share-tab">
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 20px;">SHARE DATA</div>
-                <div class="share-options">
-                    <div class="share-btn">Export CSV</div>
-                    <div class="share-btn">Export JSON</div>
-                    <div class="share-btn">Cloud Sync</div>
-                    <div class="share-btn">Live Stream</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- REPORTS TAB -->
-        <div class="tab-content" id="reports-tab">
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 20px;">INCIDENT REPORTS</div>
-                <div style="font-size: 13px; color: rgba(255,255,255,0.6); text-align: center; padding: 20px;">
-                    No incidents recorded in current session.
-                </div>
-            </div>
-        </div>
-
-        <!-- BACKUP TAB -->
-        <div class="tab-content" id="backup-tab">
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 20px;">SYSTEM BACKUP</div>
-                <div class="control-btn" style="width: 100%; margin-bottom: 10px;">Create Local Backup</div>
-                <div class="control-btn" style="width: 100%;">Restore from File</div>
-            </div>
-        </div>
-
-        <!-- HELP TAB -->
-        <div class="tab-content" id="help-tab">
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 20px;">SYSTEM GUIDE</div>
-                <div class="help-section">
-                    <div class="help-title">Pro Mode Controls</div>
-                    <div class="help-content">
-                        Use the sliders to adjust ISO, Shutter Speed, and Focus. These features require compatible
-                        hardware.
-                    </div>
-                </div>
-                <div class="help-section">
-                    <div class="help-title">AI Detection</div>
-                    <div class="help-content">
-                        The system automatically detects people and vehicles. Threat levels are calculated based on
-                        proximity.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SETTINGS TAB -->
-        <div class="tab-content" id="settings-tab">
-            <div class="glass-panel" style="padding: 24px;">
-                <div class="status-label" style="margin-bottom: 20px;">SYSTEM PREFERENCES</div>
-
-                <div class="setting-item">
-                    <span class="setting-label">Language</span>
-                    <select class="setting-control" id="language-select">
-                        <option value="en">English</option>
-                        <option value="th">Thai</option>
-                        <option value="zh">Chinese</option>
-                        <option value="ja">Japanese</option>
-                    </select>
-                </div>
-
-                <div class="setting-item">
-                    <span class="setting-label">Confidence Threshold</span>
-                    <input type="range" class="setting-control" min="0.1" max="0.9" step="0.1" value="0.5"
-                        id="conf-slider">
-                </div>
-
-                <div class="setting-item">
-                    <span class="setting-label">Haptic Feedback</span>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="control-btn" style="flex:1" onclick="app.toggleHaptic(true)">ON</button>
-                        <button class="control-btn" style="flex:1" onclick="app.toggleHaptic(false)">OFF</button>
-                    </div>
-                </div>
-            </div>
+        <div class="stat-row">
+            <span class="stat-label">TRACKS</span>
+            <span class="stat-value" id="tracks-val">0</span>
         </div>
     </div>
 
-    <!-- ALERT NOTIFICATION -->
-    <div id="alert-notification"></div>
-
-    <!-- SCREEN LOCK INDICATOR -->
-    <div class="lock-indicator" id="lock-indicator">
-        Screen Orientation Locked
+    <div id="controls-panel" class="hud-panel">
+        <button class="control-btn active" id="mode-minimal">MINIMAL</button>
+        <button class="control-btn" id="mode-tactical">TACTICAL</button>
+        <button class="control-btn" id="mode-debug">DEBUG</button>
+        <button class="control-btn" id="toggle-lock" style="margin-top:12px">LOCK TARGET</button>
     </div>
 
-    <!-- TIMELINE TAB -->
-    <div id="timeline-tab" class="tab-content">
-        <div class="glass-panel" style="padding: 16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                <div class="status-label">MISSION LOGS</div>
-                <button class="control-btn" style="padding: 6px 12px;"
-                    onclick="GEYE_ULTIMATE.refreshTimeline()">REFRESH</button>
-            </div>
-            <div id="timeline-list" style="max-height: 400px; overflow-y: auto;">
-                <!-- Events will be injected here -->
-                <div style="text-align:center; color:rgba(255,255,255,0.5); padding: 20px;">Loading events...</div>
-            </div>
+    <div id="analytics-panel" class="hud-panel">
+        <div class="stat-row">
+            <span class="stat-label">PEOPLE</span>
+            <span class="stat-value" id="people-val">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">VEHICLES</span>
+            <span class="stat-value" id="vehicles-val">0</span>
         </div>
     </div>
+
+    <!-- Alert Notification -->
+    <div id="alert"></div>
 
     <script>
         /**
-         * 🚀 Geye Pro: Ultimate AI Vision Suite (Apple Tesla Edition)
-         * Enterprise-grade computer vision system with premium UX
+         * ═══════════════════════════════════════════════════════════════
+         * GEYE PRO: FIELD CONSOLE - PRODUCTION REFACTOR
+         * ═══════════════════════════════════════════════════════════════
+         * 
+         * PERFORMANCE NOTES:
+         * 
+         * 1. INFERENCE OPTIMIZATION
+         *    - Downscaled inference canvas (320-480px long side)
+         *    - Reduces COCO-SSD inference from ~150ms to ~40-60ms on mobile
+         *    - WebGL backend forced for maximum GPU utilization
+         *    - Model warmup prevents first-frame lag
+         * 
+         * 2. ADAPTIVE SCHEDULING
+         *    - Detection FPS adapts based on measured inference time
+         *    - Target: 15-30 FPS on mobile, 30-60 FPS on desktop
+         *    - Never queues overlapping inferences
+         *    - Render loop runs at full 60 FPS independently
+         * 
+         * 3. KALMAN FILTER SORT
+         *    - State: [x, y, w, h, vx, vy, dw, dh]
+         *    - Prediction step for smooth motion
+         *    - Hybrid association (IOU + distance + velocity gating)
+         *    - Adaptive smoothing based on object velocity
+         * 
+         * 4. MINIMAL HUD
+         *    - Corner brackets only in Minimal mode
+         *    - No solid label bars (semi-transparent text)
+         *    - Trails OFF by default, auto-disable when >5 objects
+         *    - Center view kept clear (<15% occlusion)
+         * 
+         * 5. LOCK-ON SYSTEM
+         *    - Tap/click to lock nearest target
+         *    - Locked association uses distance prior
+         *    - Lower IOU threshold for locked track (0.15 vs 0.3)
+         *    - Soft halo rendering for visual feedback
+         * 
+         * ═══════════════════════════════════════════════════════════════
          */
 
-        class GeyeProUltimate {
+        class GeyeProFieldConsole {
             constructor() {
-                // Core Components
+                // Core Elements
                 this.video = document.getElementById('camera-feed');
                 this.overlayCanvas = document.getElementById('overlay-canvas');
-                this.overlayCtx = this.overlayCanvas.getContext('2d');
+                this.inferenceCanvas = document.getElementById('inference-canvas');
+                this.ctx = this.overlayCanvas.getContext('2d');
+                this.infCtx = this.inferenceCanvas.getContext('2d');
 
-                // AI Models
-                this.objectDetector = null;
-                this.poseDetector = null;
-
-                // System State
+                // State
                 this.isActive = false;
-                this.isUIVisible = false;
-                this.zoomLevel = 1;
-                this.currentFilter = 'normal';
-                this.isFullscreen = false;
-                this.isOrientationLocked = false;
-                this.isRecording = false;
-                this.frameCount = 0;
-                this.fps = 0;
-                this.lastFpsUpdate = 0;
-                this.startTime = Date.now();
+                this.model = null;
+                this.tracker = null;
+                this.overlayMode = 'minimal'; // minimal, tactical, debug
+                this.lockedTrackId = null;
 
-                // Media Recording
-                this.mediaRecorder = null;
-                this.recordedChunks = [];
-                this.recordings = [];
-                this.audioRecorder = null;
-                this.audioChunks = [];
-                this.audioRecordings = [];
-                this.recordStartTime = 0;
-                this.activeStream = null;
+                // Performance Metrics
+                this.fps = 0;
+                this.frameCount = 0;
+                this.lastFpsUpdate = Date.now();
+                this.lastInferenceTime = 0;
+                this.targetDetectionFps = 20;
+
+                // Adaptive Scheduling
+                this.lastDetectionTime = 0;
+                this.detectionInterval = 50; // Start at ~20 FPS
+                this.isInferencing = false;
+
+                // Inference Canvas Scale
+                this.inferenceSize = 416; // Long side
+                this.inferenceScale = 1;
 
                 // Analytics
                 this.analytics = {
-                    peopleCount: 0,
-                    vehicleCount: 0,
-                    totalDetections: 0,
-                    nearestDistance: 9999,
-                    totalCaptures: 0,
-                    totalRecordings: 0,
-                    totalAudioRecordings: 0
+                    people: 0,
+                    vehicles: 0
                 };
 
-                // Settings
-                this.settings = {
-                    confidence: 0.5,
-                    language: 'en',
-                    accessibility: 'normal',
-                    autoBackup: 'off',
-                    soundDetection: 'off',
-                    hapticFeedback: true,
-                    thermalSimulation: true
-                };
-
-                this.initializeSystem();
+                this.init();
             }
 
-            async initializeSystem() {
+            async init() {
                 try {
-                    this.updateBootProgress(10, "Booting Neural Core...");
-                    await this.delay(800);
+                    this.updateBootStatus('Forcing WebGL backend...');
+                    await this.setupTensorFlowBackend();
 
-                    this.updateBootProgress(30, "Loading AI Models...");
-                    await this.delay(600);
+                    this.updateBootStatus('Loading AI models...');
+                    this.updateBootProgress(20);
 
-                    // Load Object Detection
-                    this.updateBootProgress(50, "Initializing Object Detection...");
-                    this.objectDetector = await cocoSsd.load({
-                        base: 'lite_mobilenet_v2'
-                    });
+                    await this.loadModels();
 
-                    // Load Pose Detection
-                    this.updateBootProgress(70, "Loading Pose Detection...");
-                    this.poseDetector = await poseDetection.createDetector(
-                        poseDetection.SupportedModels.MoveNet,
-                        {
-                            modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
-                        }
-                    );
+                    this.updateBootStatus('Warming up inference...');
+                    this.updateBootProgress(60);
 
-                    // Initialize Media Systems with the SAME stream
-                    this.updateBootProgress(85, "Initializing Media Systems...");
-                    // Media systems are initialized in activateSystem to use the active stream
+                    await this.warmupModels();
 
-                    this.updateBootProgress(95, "Finalizing Systems...");
-                    this.setupEventListeners(); // Setup listeners BEFORE activation
-                    this.initializeCanvas();
-                    this.loadSettings();
+                    this.updateBootStatus('Initializing camera...');
+                    this.updateBootProgress(80);
 
-                    this.updateBootProgress(100, "System Ready");
-                    await this.delay(500);
-                    document.getElementById('btn-activate').style.display = 'block';
+                    this.setupEventListeners();
+
+                    this.updateBootStatus('Ready to activate');
+                    this.updateBootProgress(100);
+
+                    document.getElementById('activate-btn').style.display = 'block';
 
                 } catch (error) {
-                    this.handleCriticalError(error);
+                    console.error('Init error:', error);
+                    this.updateBootStatus('Error: ' + error.message);
                 }
             }
 
-            // REMOVED initializeMediaSystems - logic moved to activateSystem to share stream
-
-            setupMediaRecorder() {
-                this.mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        this.recordedChunks.push(event.data);
+            async setupTensorFlowBackend() {
+                // Force WebGL or WebGPU for maximum performance
+                try {
+                    await tf.setBackend('webgl');
+                    await tf.ready();
+                    console.log('✓ WebGL backend ready');
+                } catch (e) {
+                    console.warn('WebGL failed, trying WebGPU:', e);
+                    try {
+                        await tf.setBackend('webgpu');
+                        await tf.ready();
+                        console.log('✓ WebGPU backend ready');
+                    } catch (e2) {
+                        console.warn('WebGPU failed, using default:', e2);
                     }
-                };
-
-                this.mediaRecorder.onstop = () => {
-                    const videoBlob = new Blob(this.recordedChunks, { type: 'video/mp4' });
-                    this.saveRecording(videoBlob);
-                    this.recordedChunks = [];
-                };
+                }
             }
 
-            setupAudioRecorder() {
-                this.audioRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        this.audioChunks.push(event.data);
-                    }
-                };
-
-                this.audioRecorder.onstop = () => {
-                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-                    this.saveAudioRecording(audioBlob);
-                    this.audioChunks = [];
-                };
+            async loadModels() {
+                // Load COCO-SSD with optimal config
+                this.model = await cocoSsd.load({
+                    base: 'lite_mobilenet_v2' // Faster for mobile
+                });
+                console.log('✓ COCO-SSD loaded');
             }
 
-            updateBootProgress(percent, message) {
-                document.getElementById('boot-progress').style.width = percent + '%';
-                document.getElementById('boot-status').textContent = message;
-            }
+            async warmupModels() {
+                // Create dummy canvas for warmup
+                const dummyCanvas = document.createElement('canvas');
+                dummyCanvas.width = this.inferenceSize;
+                dummyCanvas.height = this.inferenceSize;
 
-            delay(ms) {
-                return new Promise(resolve => setTimeout(resolve, ms));
+                // Run 3 warmup inferences
+                for (let i = 0; i < 3; i++) {
+                    await this.model.detect(dummyCanvas);
+                }
+                console.log('✓ Models warmed up');
             }
 
             setupEventListeners() {
-                // Enhanced event listeners with error handling
-                this.setupUIEvents();
-                this.setupMediaEvents();
-                this.setupSystemEvents();
-                this.setupAccessibilityEvents();
-            }
-
-            setupUIEvents() {
-                // UI Toggle
-                document.getElementById('toggle-ui').addEventListener('click', () => this.toggleUI());
-
-                // Tab Navigation
-                document.querySelectorAll('.tab-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        this.switchTab(e.target.dataset.tab);
-                        this.triggerHaptic();
-                    });
+                document.getElementById('activate-btn').addEventListener('click', () => {
+                    this.activateSystem();
                 });
 
-                // Fullscreen Controls
-                document.getElementById('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
-                document.getElementById('btn-lock').addEventListener('click', () => this.toggleOrientationLock());
-
-                // Zoom Controls
-                document.querySelectorAll('.zoom-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const target = e.target.closest('.zoom-btn');
-                        if (target) {
-                            const zoomLevel = parseInt(target.dataset.zoom);
-                            this.setZoom(zoomLevel, target);
-                            this.triggerHaptic();
-                        }
-                    });
+                // Overlay mode switching
+                document.getElementById('mode-minimal').addEventListener('click', () => {
+                    this.setOverlayMode('minimal');
+                });
+                document.getElementById('mode-tactical').addEventListener('click', () => {
+                    this.setOverlayMode('tactical');
+                });
+                document.getElementById('mode-debug').addEventListener('click', () => {
+                    this.setOverlayMode('debug');
                 });
 
-                // Filter Controls
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        // Ensure we get the button element even if child SVG is clicked
-                        const target = e.target.closest('.filter-btn');
-                        if (target) {
-                            const filter = target.dataset.filter;
-                            this.setFilter(filter, target);
-                            this.triggerHaptic();
-                        }
-                    });
-                });
-            }
-
-            setupMediaEvents() {
-                // Media Controls
-                document.getElementById('btn-capture').addEventListener('click', () => {
-                    this.capturePhoto();
-                    this.triggerHaptic();
+                // Lock toggle
+                document.getElementById('toggle-lock').addEventListener('click', () => {
+                    this.toggleLock();
                 });
 
-                document.getElementById('btn-record').addEventListener('click', () => {
-                    this.toggleVideoRecording();
-                    this.triggerHaptic();
+                // Tap to lock
+                this.overlayCanvas.addEventListener('click', (e) => {
+                    const rect = this.overlayCanvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    this.lockNearestTarget(x, y);
                 });
 
-                document.getElementById('btn-audio').addEventListener('click', () => {
-                    this.toggleAudioRecording();
-                    this.triggerHaptic();
+                // Resize handler
+                window.addEventListener('resize', () => {
+                    this.handleResize();
                 });
-            }
-
-            setupSystemEvents() {
-                // System Controls
-                document.getElementById('btn-activate').addEventListener('click', () => this.activateSystem());
-
-                // Language Selector
-                document.getElementById('language-select').addEventListener('change', (e) => {
-                    this.changeLanguage(e.target.value);
-                });
-
-                // Keyboard Shortcuts
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === ' ') this.capturePhoto();
-                    if (e.key === 'r' || e.key === 'R') this.toggleVideoRecording();
-                    if (e.key === 'a' || e.key === 'A') this.toggleAudioRecording();
-                    if (e.key === 'Escape') this.toggleUI();
-                    if (e.key === 'f' || e.key === 'F') this.toggleFullscreen();
-                    if (e.key === '1') this.setZoom(1);
-                    if (e.key === '2') this.setZoom(2);
-                    if (e.key === '4') this.setZoom(4);
-                });
-
-                // Handle orientation changes
-                window.addEventListener('orientationchange', () => this.handleOrientationChange());
-
-                // Handle fullscreen changes
-                document.addEventListener('fullscreenchange', () => {
-                    this.isFullscreen = !!document.fullscreenElement;
-                });
-
-                // Handle page visibility
-                document.addEventListener('visibilitychange', () => {
-                    if (document.hidden) {
-                        this.pauseSystem();
-                    } else {
-                        this.resumeSystem();
-                    }
-                });
-            }
-
-            setupAccessibilityEvents() {
-                // Touch event handlers for better mobile experience
-                document.addEventListener('touchstart', (e) => {
-                    // Prevent default to avoid browser handling
-                    if (e.target.classList.contains('control-btn') ||
-                        e.target.classList.contains('media-btn')) {
-                        e.preventDefault();
-                    }
-                }, { passive: false });
-            }
-
-            triggerHaptic() {
-                if (this.settings.hapticFeedback && navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
-            }
-
-            initializeCanvas() {
-                this.overlayCanvas.width = window.innerWidth;
-                this.overlayCanvas.height = window.innerHeight;
-            }
-
-            loadSettings() {
-                try {
-                    const saved = localStorage.getItem('geye_pro_ultimate_settings');
-                    if (saved) {
-                        this.settings = { ...this.settings, ...JSON.parse(saved) };
-                    }
-                } catch (error) {
-                    console.warn('Settings load failed:', error);
-                }
-            }
-
-            saveSettings() {
-                try {
-                    localStorage.setItem('geye_pro_ultimate_settings', JSON.stringify(this.settings));
-                } catch (error) {
-                    console.warn('Settings save failed:', error);
-                }
             }
 
             async activateSystem() {
                 try {
+                    // Request camera
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: {
                             facingMode: 'environment',
                             width: { ideal: 1920 },
                             height: { ideal: 1080 }
-                        },
-                        audio: false
+                        }
                     });
 
                     this.video.srcObject = stream;
-                    this.activeStream = stream; // Store stream for media recorders
+                    await this.video.play();
 
-                    // Initialize Media Recorders with the active stream
-                    this.initializeMediaRecorders(stream);
-
-                    // Initialize Pro Mode Capabilities
-                    this.initializeProMode(stream);
-
-                    await new Promise((resolve, reject) => {
-                        this.video.onloadedmetadata = () => {
-                            this.video.play().then(resolve).catch(reject);
-                        };
-                        this.video.onerror = reject;
+                    // Wait for video metadata
+                    await new Promise(resolve => {
+                        this.video.onloadedmetadata = resolve;
                     });
 
-                    document.getElementById('boot-screen').style.display = 'none';
+                    this.setupCanvas();
+                    this.setupInferenceCanvas();
+
+                    // Initialize tracker
+                    this.tracker = new KalmanTracker();
+
+                    // Hide boot screen
+                    document.getElementById('boot-screen').classList.add('hidden');
+
+                    // Start unified loop
                     this.isActive = true;
+                    this.startUnifiedLoop();
 
-                    this.showAlert("Geye Pro System Activated", false);
-
-                    // Initial canvas setup
-                    this.handleResize();
-                    window.addEventListener('resize', () => this.handleResize());
-
-                    // D) Advanced Tracking Engine
-                    this.tracker = new ObjectTracker();
-                    this.lastDetectionTime = 0;
-                    this.detectionInterval = 100; // 10Hz detection rate
-
-                    // E) Mission & Data
-                    this.timeline = new TimelineManager();
-                    this.mission = new MissionManager(this);
-
-                    this.startRenderLoop();
-                    this.startDetectionLoop();
-                    this.startSystemMonitoring();
+                    this.showAlert('System activated');
 
                 } catch (error) {
-                    this.handleCriticalError(error);
+                    console.error('Activation error:', error);
+                    this.showAlert('Camera access denied');
                 }
             }
 
-            // --- Core System Upgrades ---
-
-            // A) Robust Fullscreen Helper
-            async requestFullscreen(element) {
-                try {
-                    if (element.requestFullscreen) {
-                        await element.requestFullscreen();
-                    } else if (element.webkitRequestFullscreen) { /* Safari */
-                        await element.webkitRequestFullscreen();
-                    } else if (element.msRequestFullscreen) { /* IE11 */
-                        await element.msRequestFullscreen();
-                    } else if (element.tagName === 'VIDEO' && element.webkitEnterFullscreen) {
-                        // iOS Video Fullscreen
-                        element.webkitEnterFullscreen();
-                    } else {
-                        throw new Error("Fullscreen API not supported");
-                    }
-                } catch (err) {
-                    console.warn("Fullscreen failed:", err);
-                    this.showAlert("Fullscreen not supported", true);
-                }
+            setupCanvas() {
+                this.overlayCanvas.width = window.innerWidth;
+                this.overlayCanvas.height = window.innerHeight;
             }
 
-            async toggleFullscreen() {
-                const doc = window.document;
-                const docEl = doc.documentElement;
+            setupInferenceCanvas() {
+                // Calculate downscaled dimensions
+                const videoAspect = this.video.videoWidth / this.video.videoHeight;
 
-                // iOS Detection
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-                if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement && !doc.msFullscreenElement) {
-                    // Enter Fullscreen
-                    if (isIOS) {
-                        // iOS only supports fullscreen on video elements
-                        await this.requestFullscreen(this.video);
-                    } else {
-                        await this.requestFullscreen(docEl);
-                    }
-                    this.isFullscreen = true;
+                if (this.video.videoWidth > this.video.videoHeight) {
+                    this.inferenceCanvas.width = this.inferenceSize;
+                    this.inferenceCanvas.height = this.inferenceSize / videoAspect;
                 } else {
-                    // Exit Fullscreen
-                    if (doc.exitFullscreen) {
-                        await doc.exitFullscreen();
-                    } else if (doc.webkitExitFullscreen) {
-                        await doc.webkitExitFullscreen();
-                    } else if (doc.msExitFullscreen) {
-                        await doc.msExitFullscreen();
-                    }
-                    this.isFullscreen = false;
+                    this.inferenceCanvas.height = this.inferenceSize;
+                    this.inferenceCanvas.width = this.inferenceSize * videoAspect;
                 }
 
-                // Update UI
-                const btn = document.getElementById('btn-fullscreen');
-                btn.classList.toggle('active', this.isFullscreen);
-                this.triggerHaptic();
+                this.inferenceScale = this.video.videoWidth / this.inferenceCanvas.width;
+
+                console.log(`Inference: ${this.inferenceCanvas.width}x${this.inferenceCanvas.height}, scale: ${this.inferenceScale.toFixed(2)}x`);
             }
 
-            async toggleOrientationLock() {
-                // B) Reliable Orientation Lock
-
-                // Check if Screen Orientation API is supported
-                if (!screen.orientation || !screen.orientation.lock) {
-                    this.showAlert("Orientation lock not supported", true);
-                    return;
-                }
-
-                // Requirement: Must be in fullscreen (usually)
-                const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
-
-                // If not fullscreen, try to enter first or warn
-                if (!isFullscreen) {
-                    try {
-                        await this.toggleFullscreen();
-                        // Wait a tiny bit for fullscreen to engage
-                        await new Promise(r => setTimeout(r, 100));
-                    } catch (e) {
-                        this.showAlert("Lock requires fullscreen", true);
-                        return;
-                    }
-                }
-
-                try {
-                    if (this.isOrientationLocked) {
-                        screen.orientation.unlock();
-                        this.isOrientationLocked = false;
-                        this.showAlert("Orientation Unlocked");
-                    } else {
-                        // Lock to current orientation
-                        const type = screen.orientation.type.startsWith('portrait') ? 'portrait' : 'landscape';
-                        await screen.orientation.lock(type);
-                        this.isOrientationLocked = true;
-                        this.showAlert(`Locked to ${type.toUpperCase()}`);
-                    }
-                } catch (err) {
-                    console.warn("Orientation lock failed:", err);
-                    this.showAlert("Lock failed: " + err.message, true);
-                    this.isOrientationLocked = false;
-                }
-
-                // Update UI
-                const btn = document.getElementById('btn-lock');
-                btn.classList.toggle('active', this.isOrientationLocked);
-                this.triggerHaptic();
-            }
-
-            showLockIndicator() {
-                const indicator = document.getElementById('lock-indicator');
-                indicator.style.display = 'block';
-                setTimeout(() => {
-                    indicator.style.display = 'none';
-                }, 2000);
-            }
-
-            setZoom(level, targetBtn) {
-                this.zoomLevel = level;
-                this.video.style.transform = `scale(${level})`;
-                this.video.style.transformOrigin = 'center center';
-
-                // Update UI
-                document.querySelectorAll('.zoom-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                if (targetBtn) {
-                    targetBtn.classList.add('active');
-                } else {
-                    // Fallback if no target passed (e.g. initial set)
-                    const btn = document.querySelector(`.zoom-btn[data-zoom="${level}"]`);
-                    if (btn) btn.classList.add('active');
-                }
-            }
-
-            setFilter(filter, targetBtn) {
-                this.currentFilter = filter;
-                this.video.className = `filter-${filter}`;
-
-                // Update UI
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                if (targetBtn) {
-                    targetBtn.classList.add('active');
-                } else {
-                    // Fallback
-                    const btn = document.querySelector(`.filter-btn[data-filter="${filter}"]`);
-                    if (btn) btn.classList.add('active');
-                }
-
-                this.showAlert(`Filter: ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
-            }
-
-            capturePhoto() {
-                const btn = document.getElementById('btn-capture');
-                btn.classList.add('capturing');
-
-                setTimeout(() => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = this.video.videoWidth;
-                    canvas.height = this.video.videoHeight;
-                    const ctx = canvas.getContext('2d');
-
-                    // Apply current filter to capture
-                    ctx.filter = this.getFilterStyle(this.currentFilter);
-                    ctx.drawImage(this.video, 0, 0);
-                    ctx.drawImage(this.overlayCanvas, 0, 0);
-
-                    // Create download
-                    const link = document.createElement('a');
-                    link.download = `geye_capture_${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png', 0.95);
-                    link.click();
-
-                    // Update analytics
-                    this.analytics.totalCaptures++;
-                    this.showAlert("Photo Captured");
-
-                    btn.classList.remove('capturing');
-                }, 300);
-            }
-
-            getFilterStyle(filter) {
-                const styles = {
-                    normal: 'none',
-                    thermal: 'hue-rotate(180deg) saturate(2) contrast(1.5) brightness(0.8)',
-                    night: 'brightness(0.6) contrast(1.4) grayscale(0.3)',
-                    enhanced: 'contrast(1.3) saturate(1.4) brightness(1.1)'
-                };
-                return styles[filter] || 'none';
-            }
-
-            toggleVideoRecording() {
-                if (!this.mediaRecorder) {
-                    this.showAlert("Video recording not available", true);
-                    return;
-                }
-
-                const btn = document.getElementById('btn-record');
-
-                if (this.isRecording) {
-                    this.mediaRecorder.stop();
-                    this.isRecording = false;
-                    btn.classList.remove('recording');
-                    this.showAlert("Recording saved");
-                } else {
-                    this.mediaRecorder.start();
-                    this.isRecording = true;
-                    this.recordStartTime = Date.now();
-                    btn.classList.add('recording');
-                    this.showAlert("Recording started");
-                }
-            }
-
-            toggleAudioRecording() {
-                if (!this.audioRecorder) {
-                    this.showAlert("Audio recording not available", true);
-                    return;
-                }
-
-                const btn = document.getElementById('btn-audio');
-
-                if (this.audioRecorder.state === 'recording') {
-                    this.audioRecorder.stop();
-                    btn.classList.remove('recording');
-                    this.showAlert("Audio recording saved");
-                } else {
-                    this.audioRecorder.start();
-                    btn.classList.add('recording');
-                    this.showAlert("Audio recording started");
-                }
-            }
-
-            saveRecording(blob) {
-                this.recordings.push({
-                    blob: blob,
-                    timestamp: new Date().toISOString(),
-                    duration: Date.now() - this.recordStartTime
-                });
-                this.analytics.totalRecordings++;
-            }
-
-            initializeMediaRecorders(stream) {
-                try {
-                    // Video Recorder - Try supported MIME types
-                    const videoTypes = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4'];
-                    let videoOptions = {};
-                    for (const type of videoTypes) {
-                        if (MediaRecorder.isTypeSupported(type)) {
-                            videoOptions = { mimeType: type };
-                            break;
-                        }
-                    }
-
-                    this.mediaRecorder = new MediaRecorder(stream, videoOptions);
-                    this.setupMediaRecorder();
-
-                    // Audio Recorder - Use same stream, try supported audio types
-                    const audioTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', 'audio/mp4'];
-                    let audioOptions = {};
-                    for (const type of audioTypes) {
-                        if (MediaRecorder.isTypeSupported(type)) {
-                            audioOptions = { mimeType: type };
-                            break;
-                        }
-                    }
-
-                    // Create a separate audio-only stream if needed, or just use the main stream
-                    // Using main stream is fine for MediaRecorder as it will pick up the audio track
-                    this.audioRecorder = new MediaRecorder(stream, audioOptions);
-                    this.setupAudioRecorder();
-                } catch (e) {
-                    console.warn("MediaRecorder init failed:", e);
-                    this.showAlert("Media Recording Unavailable", true);
-                }
-            }
-
-            initializeProMode(stream) {
-                const track = stream.getVideoTracks()[0];
-                const capabilities = track.getCapabilities();
-                const settings = track.getSettings();
-
-                // Helper to setup slider
-                const setupSlider = (id, capKey, settingKey, labelId, unit = '', modeKey = null) => {
-                    const slider = document.getElementById(id);
-                    const label = document.getElementById(labelId);
-
-                    // Check if capability exists and is a range (has min/max)
-                    if (capabilities[capKey] && typeof capabilities[capKey] === 'object' && 'min' in capabilities[capKey]) {
-                        slider.min = capabilities[capKey].min;
-                        slider.max = capabilities[capKey].max;
-                        slider.step = capabilities[capKey].step;
-                        slider.value = settings[settingKey];
-                        slider.disabled = false;
-
-                        slider.addEventListener('input', async (e) => {
-                            const value = parseFloat(e.target.value);
-                            label.textContent = value + unit;
-
-                            const constraints = { advanced: [{ [capKey]: value }] };
-
-                            // Set manual mode if required
-                            if (modeKey && capabilities[modeKey] && capabilities[modeKey].includes('manual')) {
-                                constraints.advanced[0][modeKey] = 'manual';
-                            }
-
-                            try {
-                                await track.applyConstraints(constraints);
-                            } catch (err) {
-                                console.warn(`Failed to set ${capKey}:`, err);
-                            }
-                        });
-                    } else {
-                        // Disable and hide if not supported
-                        slider.disabled = true;
-                        label.textContent = 'N/A';
-                        slider.parentElement.style.opacity = '0.5';
-                    }
-                };
-
-                // C) Real Pro Camera Controls
-                setupSlider('iso-slider', 'iso', 'iso', 'iso-val', '', 'exposureMode');
-                setupSlider('shutter-slider', 'exposureTime', 'exposureTime', 'shutter-val', 'ms', 'exposureMode');
-                setupSlider('focus-slider', 'focusDistance', 'focusDistance', 'focus-val', 'm', 'focusMode');
-                setupSlider('exposure-slider', 'exposureCompensation', 'exposureCompensation', 'exposure-val', '', 'exposureMode');
-
-                // Special handling for White Balance
-                // Check for colorTemperature (range) vs whiteBalanceMode (enum)
-                const wbSlider = document.getElementById('wb-slider');
-                const wbLabel = document.getElementById('wb-val');
-
-                if (capabilities.colorTemperature) {
-                    // Supported as range
-                    wbSlider.min = capabilities.colorTemperature.min;
-                    wbSlider.max = capabilities.colorTemperature.max;
-                    wbSlider.step = capabilities.colorTemperature.step;
-                    wbSlider.value = settings.colorTemperature;
-                    wbSlider.disabled = false;
-
-                    wbSlider.addEventListener('input', async (e) => {
-                        const value = parseFloat(e.target.value);
-                        wbLabel.textContent = value + 'K';
-                        try {
-                            await track.applyConstraints({
-                                advanced: [{
-                                    whiteBalanceMode: 'manual',
-                                    colorTemperature: value
-                                }]
-                            });
-                        } catch (err) {
-                            console.warn("WB set failed", err);
-                        }
-                    });
-                } else {
-                    // Fallback or unsupported
-                    wbSlider.disabled = true;
-                    wbLabel.textContent = 'Auto';
-                    wbSlider.parentElement.style.opacity = '0.5';
-                }
-            }
-
-            saveAudioRecording(blob) {
-                this.audioRecordings.push({
-                    blob: blob,
-                    timestamp: new Date().toISOString()
-                });
-                this.analytics.totalAudioRecordings++;
-            }
-
-            // ... (keep all existing AI vision functionality from previous versions)
-
-            switchTab(tabName) {
-                // Guard against invalid tabs
-                const targetTab = document.getElementById(`${tabName}-tab`);
-                if (!targetTab) {
-                    console.warn(`Tab ${tabName} not found`);
-                    return;
-                }
-
-                // Update tab buttons
-                document.querySelectorAll('.tab-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
-                if (activeBtn) activeBtn.classList.add('active');
-
-                // Update tab content
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.remove('active');
-                });
-                targetTab.classList.add('active');
-            }
-
-            toggleUI() {
-                const mainUI = document.getElementById('main-ui');
-                const toggleBtn = document.getElementById('toggle-ui');
-
-                this.isUIVisible = !this.isUIVisible;
-                mainUI.classList.toggle('active', this.isUIVisible);
-                // Update icon based on state
-                if (this.isUIVisible) {
-                    toggleBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-                } else {
-                    toggleBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
-                }
-                this.triggerHaptic();
-            }
-
-            changeLanguage(lang) {
-                // Enhanced language switching
-                const translations = {
-                    en: { activate: "ACTIVATE SYSTEM", online: "ONLINE", people: "PEOPLE" },
-                    th: { activate: "เปิดใช้งานระบบ", online: "ออนไลน์", people: "บุคคล" },
-                    zh: { activate: "激活系统", online: "在线", people: "人员" },
-                    ja: { activate: "システムを起動", online: "オンライン", people: "人物" }
-                };
-
-                const t = translations[lang] || translations.en;
-                document.getElementById('btn-activate').textContent = t.activate;
-                document.getElementById('ai-status').textContent = t.online;
-                // Add more translations as needed
-            }
-
-            handleOrientationChange() {
-                // Handle orientation changes gracefully
-                this.initializeCanvas();
-            }
-
-            pauseSystem() {
-                this.isActive = false;
-            }
-
-            resumeSystem() {
-                if (this.video.srcObject) {
-                    this.isActive = true;
-                    this.startMainLoop();
-                }
-            }
-
-            startSystemMonitoring() {
-                setInterval(() => {
-                    // System health monitoring
-                    this.monitorSystemHealth();
-                }, 30000);
-            }
-
-            monitorSystemHealth() {
-                // Monitor memory usage
-                if (performance.memory) {
-                    const used = performance.memory.usedJSHeapSize;
-                    const limit = performance.memory.jsHeapSizeLimit;
-                    if (used / limit > 0.8) {
-                        this.showAlert("High memory usage", true);
-                    }
-                }
-
-                // Monitor FPS
-                if (this.fps < 15) {
-                    this.showAlert("Low performance detected", true);
-                }
-            }
-
-            showAlert(message, isError = false) {
-                const alert = document.getElementById('alert-notification');
-                alert.textContent = message;
-                alert.style.borderColor = isError ? '#FF2D55' : '#007AFF';
-                alert.style.display = 'block';
-
-                setTimeout(() => {
-                    alert.style.display = 'none';
-                }, 3000);
-            }
-
-            handleCriticalError(error) {
-                console.error('Critical system error:', error);
-                document.getElementById('boot-status').textContent = 'System Error - Please Refresh';
-                document.getElementById('boot-status').style.color = '#FF2D55';
-                this.showAlert("Critical system error occurred", true);
-            }
-
-            // AI Vision Core Functionality (Maintained from previous versions)
             handleResize() {
-                this.initializeCanvas();
-                this.videoRect = this.calculateVideoRect();
+                this.setupCanvas();
             }
 
-            calculateVideoRect() {
-                if (!this.video || this.video.videoWidth === 0) return null;
-
-                const videoRatio = this.video.videoWidth / this.video.videoHeight;
-                const screenRatio = window.innerWidth / window.innerHeight;
-
-                let drawWidth, drawHeight, startX, startY;
-
-                if (screenRatio > videoRatio) {
-                    // Screen is wider than video (crop top/bottom)
-                    drawWidth = window.innerWidth;
-                    drawHeight = drawWidth / videoRatio;
-                    startX = 0;
-                    startY = (window.innerHeight - drawHeight) / 2;
-                } else {
-                    // Screen is taller than video (crop sides)
-                    drawHeight = window.innerHeight;
-                    drawWidth = drawHeight * videoRatio;
-                    startX = (window.innerWidth - drawWidth) / 2;
-                    startY = 0;
-                }
-
-                return { x: startX, y: startY, w: drawWidth, h: drawHeight, scale: drawWidth / this.video.videoWidth };
-            }
-
-            // --- Advanced Tracking Engine ---
-
-            startRenderLoop() {
-                const render = () => {
+            startUnifiedLoop() {
+                // Single unified loop for both detection and rendering
+                const loop = async () => {
                     if (!this.isActive) return;
 
-                    // Clear canvas
-                    this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-
-                    // Get smoothed tracks
-                    const tracks = this.tracker.getTracks();
-
-                    // Mission Logic (Security Check)
-                    if (this.mission.mode === 'security') {
-                        this.mission.checkSecurityZone(tracks);
-                    }
-
-                    // Render Tracks
-                    this.drawTracks(tracks);
-
-                    // Render Poses (if available)
-                    if (this.lastPoses) {
-                        this.drawPose(this.lastPoses);
-                    }
-
-                    // FPS Counter (Render FPS)
-                    this.frameCount++;
                     const now = Date.now();
+
+                    // Adaptive detection scheduling
+                    if (!this.isInferencing && (now - this.lastDetectionTime >= this.detectionInterval)) {
+                        this.runDetection();
+                    }
+
+                    // Render at 60 FPS
+                    this.render();
+
+                    // FPS counter
+                    this.frameCount++;
                     if (now - this.lastFpsUpdate >= 1000) {
                         this.fps = this.frameCount;
                         this.frameCount = 0;
                         this.lastFpsUpdate = now;
-                        document.getElementById('fps-counter').textContent = this.fps;
+                        this.updateUI();
                     }
 
-                    requestAnimationFrame(render);
+                    requestAnimationFrame(loop);
                 };
-                render();
-            }
 
-            async startDetectionLoop() {
-                const loop = async () => {
-                    if (!this.isActive) {
-                        setTimeout(loop, 100);
-                        return;
-                    }
-
-                    const now = Date.now();
-                    if (now - this.lastDetectionTime < this.detectionInterval) {
-                        setTimeout(loop, 10); // Check again soon
-                        return;
-                    }
-
-                    // Guard: Video not ready
-                    if (this.video.readyState < 2 || this.video.videoWidth === 0) {
-                        setTimeout(loop, 100);
-                        return;
-                    }
-
-                    // Update video rect if needed
-                    if (!this.videoRect) this.videoRect = this.calculateVideoRect();
-
-                    try {
-                        // Run AI Detection
-                        if (this.objectDetector && this.settings.confidence > 0) {
-                            const predictions = await this.objectDetector.detect(this.video);
-
-                            // Update Tracker
-                            this.tracker.update(predictions, this.settings.confidence);
-
-                            // Update Analytics
-                            this.updateAnalytics(predictions);
-                        }
-
-                        // Run Pose Detection
-                        if (this.poseDetector) {
-                            const poses = await this.poseDetector.estimatePoses(this.video);
-                            if (poses.length > 0) {
-                                this.lastPoses = poses[0];
-                            } else {
-                                this.lastPoses = null;
-                            }
-                        }
-
-                    } catch (e) {
-                        // Silent fail
-                    }
-
-                    this.lastDetectionTime = Date.now();
-                    setTimeout(loop, 10); // Loop immediately but respect interval check
-                };
                 loop();
             }
 
-            drawTracks(tracks) {
-                if (!this.videoRect) return;
-                const { x: offX, y: offY, scale } = this.videoRect;
-
-                tracks.forEach(track => {
-                    // Map coordinates
-                    const [x, y, width, height] = track.bbox;
-                    const drawX = offX + (x * scale);
-                    const drawY = offY + (y * scale);
-                    const drawW = width * scale;
-                    const drawH = height * scale;
-
-                    const isLocked = (track.id === this.tracker.lockedTargetId);
-                    const color = isLocked ? '#FF0000' : this.getClassColor(track.class);
-
-                    // Draw Trails
-                    if (track.history.length > 1) {
-                        this.overlayCtx.beginPath();
-                        this.overlayCtx.strokeStyle = color;
-                        this.overlayCtx.lineWidth = 2;
-                        this.overlayCtx.globalAlpha = 0.5;
-                        track.history.forEach((pos, i) => {
-                            const [hx, hy, hw, hh] = pos;
-                            const hcx = offX + (hx + hw / 2) * scale;
-                            const hcy = offY + (hy + hh / 2) * scale;
-                            if (i === 0) this.overlayCtx.moveTo(hcx, hcy);
-                            else this.overlayCtx.lineTo(hcx, hcy);
-                        });
-                        this.overlayCtx.stroke();
-                        this.overlayCtx.globalAlpha = 1.0;
-                    }
-
-                    // Draw Box
-                    this.overlayCtx.strokeStyle = color;
-                    this.overlayCtx.lineWidth = isLocked ? 4 : 2;
-                    this.overlayCtx.strokeRect(drawX, drawY, drawW, drawH);
-
-                    // Draw Lock Indicator
-                    if (isLocked) {
-                        this.overlayCtx.beginPath();
-                        this.overlayCtx.moveTo(drawX + drawW / 2, drawY);
-                        this.overlayCtx.lineTo(drawX + drawW / 2, drawY - 10);
-                        this.overlayCtx.stroke();
-                        this.overlayCtx.fillStyle = '#FF0000';
-                        this.overlayCtx.fillText("LOCKED", drawX + drawW / 2 - 20, drawY - 15);
-                    }
-
-                    // Draw Label
-                    this.overlayCtx.fillStyle = color;
-                    this.overlayCtx.globalAlpha = 0.8;
-                    this.overlayCtx.fillRect(drawX, drawY - 24, drawW, 24);
-                    this.overlayCtx.globalAlpha = 1.0;
-
-                    this.overlayCtx.fillStyle = '#fff';
-                    this.overlayCtx.font = 'bold 12px "Montserrat", sans-serif';
-                    this.overlayCtx.fillText(
-                        `${track.class.toUpperCase()} ${Math.round(track.score * 100)}% [ID:${track.id}]`,
-                        drawX + 6,
-                        drawY - 7
-                    );
-                });
-            }
-
-            toggleTargetLock() {
-                if (this.tracker.lockedTargetId) {
-                    this.tracker.unlock();
-                    this.showAlert("Target Unlocked");
-                } else {
-                    const id = this.tracker.lockNearestToCenter(this.video.videoWidth, this.video.videoHeight);
-                    if (id) {
-                        this.showAlert(`Target Locked: ID ${id}`);
-                    } else {
-                        this.showAlert("No target found to lock", true);
-                    }
-                }
-                this.triggerHaptic();
-            }
-
-            triggerSecurityAlert() {
-                // Debounce alerts
-                const now = Date.now();
-                if (this.lastAlertTime && now - this.lastAlertTime < 5000) return;
-                this.lastAlertTime = now;
-
-                this.showAlert("SECURITY BREACH DETECTED", true);
-                this.triggerHaptic();
-
-                // Auto-record
-                if (this.mediaRecorder && this.mediaRecorder.state === 'inactive') {
-                    this.toggleRecording();
-                    setTimeout(() => {
-                        if (this.mediaRecorder.state === 'recording') this.toggleRecording();
-                    }, 10000); // Record for 10s
-                }
-
-                // Log event
-                this.timeline.addEvent('ALERT', 'Security Zone Intrusion');
-            }
-
-            async refreshTimeline() {
-                const list = document.getElementById('timeline-list');
-                list.innerHTML = '';
+            async runDetection() {
+                this.isInferencing = true;
+                const startTime = performance.now();
 
                 try {
-                    const events = await this.timeline.getEvents(20);
-                    if (events.length === 0) {
-                        list.innerHTML = '<div style="text-align:center; color:rgba(255,255,255,0.5); padding: 20px;">No events recorded</div>';
-                        return;
-                    }
-
-                    events.forEach(e => {
-                        const date = new Date(e.timestamp);
-                        const timeStr = date.toLocaleTimeString();
-
-                        const div = document.createElement('div');
-                        div.className = 'timeline-event';
-                        div.innerHTML = `
-                            <div>
-                                <div class="event-type">${e.type}</div>
-                                <div class="event-details">${e.data}</div>
-                            </div>
-                            <div class="event-time">${timeStr}</div>
-                        `;
-                        list.appendChild(div);
-                    });
-                } catch (err) {
-                    console.error("Timeline error", err);
-                    list.innerHTML = '<div style="text-align:center; color:red; padding: 20px;">Error loading timeline</div>';
-                }
-            }
-
-            takeLog() {
-                const tracks = this.tracker.getTracks();
-                const count = tracks.length;
-                const summary = tracks.map(t => `${t.class}(${Math.round(t.score * 100)}%)`).join(', ');
-
-                this.timeline.addEvent('LOG', `Snapshot: ${count} objects. ${summary}`);
-                this.showAlert("Mission Log Saved");
-                this.triggerHaptic();
-            }
-
-            updateAnalytics(objects) {
-                const people = objects.filter(obj => obj.class === 'person');
-                const vehicles = objects.filter(obj =>
-                    ['car', 'truck', 'bus', 'motorcycle'].includes(obj.class)
-                );
-
-                this.analytics.peopleCount = people.length;
-                this.analytics.vehicleCount = vehicles.length;
-                this.analytics.totalDetections += objects.length;
-
-                // Calculate nearest distance
-                this.analytics.nearestDistance = 9999;
-                people.forEach(person => {
-                    const distance = (1.7 * 900) / person.bbox[3];
-                    if (distance < this.analytics.nearestDistance) {
-                        this.analytics.nearestDistance = distance;
-                    }
-                });
-
-                // Update UI
-                this.updateUI(objects);
-            }
-
-            updateUI(objects) {
-                // Update metrics
-                document.getElementById('people-count').textContent = this.analytics.peopleCount;
-                document.getElementById('vehicle-count').textContent = this.analytics.vehicleCount;
-                document.getElementById('detection-count').textContent = this.analytics.totalDetections;
-
-                // Update distance
-                const distanceEl = document.getElementById('distance-val');
-                if (this.analytics.nearestDistance !== 9999) {
-                    distanceEl.textContent = this.analytics.nearestDistance.toFixed(1) + 'm';
-                    distanceEl.style.color = this.analytics.nearestDistance < 10 ? '#FF2D55' : '#34C759';
-                } else {
-                    distanceEl.textContent = '--';
-                    distanceEl.style.color = 'white';
-                }
-
-                // Update Threat Level
-                const threatEl = document.getElementById('threat-level');
-                if (this.analytics.peopleCount > 3 || this.analytics.nearestDistance < 2) {
-                    threatEl.textContent = 'HIGH';
-                    threatEl.style.color = '#FF2D55';
-                } else if (this.analytics.peopleCount > 0) {
-                    threatEl.textContent = 'MODERATE';
-                    threatEl.style.color = '#FF9500';
-                } else {
-                    threatEl.textContent = 'LOW';
-                    threatEl.style.color = '#34C759';
-                }
-
-                // Update Confidence
-                const confEl = document.getElementById('confidence-val');
-                if (objects.length > 0) {
-                    const avgConf = objects.reduce((acc, obj) => acc + obj.score, 0) / objects.length;
-                    confEl.textContent = Math.round(avgConf * 100) + '%';
-                } else {
-                    confEl.textContent = '--%';
-                }
-            }
-
-            updatePerformanceMetrics(processingTime) {
-                // Deprecated in favor of integrated loop FPS
-            }
-
-            getClassColor(className) {
-                const colors = {
-                    'person': '#FF2D55',
-                    'car': '#007AFF',
-                    'truck': '#007AFF',
-                    'bus': '#007AFF',
-                    'motorcycle': '#007AFF',
-                    'dog': '#FF9500',
-                    'cat': '#FF9500'
-                };
-                return colors[className] || '#34C759';
-            }
-
-            drawDetections(predictions) {
-                if (!this.videoRect) return;
-                const { x: offX, y: offY, scale } = this.videoRect;
-
-                predictions.forEach(prediction => {
-                    if (prediction.score < this.settings.confidence) return;
-
-                    // Map coordinates
-                    const [x, y, width, height] = prediction.bbox;
-                    const drawX = offX + (x * scale);
-                    const drawY = offY + (y * scale);
-                    const drawW = width * scale;
-                    const drawH = height * scale;
-
-                    // Draw Box
-                    this.overlayCtx.strokeStyle = this.getClassColor(prediction.class);
-                    this.overlayCtx.lineWidth = 2;
-                    this.overlayCtx.strokeRect(drawX, drawY, drawW, drawH);
-
-                    // Draw Label
-                    this.overlayCtx.fillStyle = this.getClassColor(prediction.class);
-                    this.overlayCtx.globalAlpha = 0.8;
-                    this.overlayCtx.fillRect(drawX, drawY - 24, drawW, 24);
-                    this.overlayCtx.globalAlpha = 1.0;
-
-                    this.overlayCtx.fillStyle = '#fff';
-                    this.overlayCtx.font = 'bold 12px "Montserrat", sans-serif';
-                    this.overlayCtx.fillText(
-                        `${prediction.class.toUpperCase()} ${Math.round(prediction.score * 100)}%`,
-                        drawX + 6,
-                        drawY - 7
+                    // Draw video to inference canvas (downscaled)
+                    this.infCtx.drawImage(
+                        this.video,
+                        0, 0,
+                        this.inferenceCanvas.width,
+                        this.inferenceCanvas.height
                     );
+
+                    // Run detection on downscaled frame
+                    const predictions = await this.model.detect(this.inferenceCanvas);
+
+                    // Scale bboxes back to video coordinates
+                    const scaledPredictions = predictions.map(pred => ({
+                        ...pred,
+                        bbox: pred.bbox.map(v => v * this.inferenceScale)
+                    }));
+
+                    // Update tracker
+                    if (this.tracker) {
+                        this.tracker.update(scaledPredictions, this.lockedTrackId);
+                    }
+
+                    // Update analytics
+                    this.updateAnalytics(scaledPredictions);
+
+                } catch (error) {
+                    console.error('Detection error:', error);
+                }
+
+                const endTime = performance.now();
+                this.lastInferenceTime = endTime - startTime;
+                this.lastDetectionTime = Date.now();
+                this.isInferencing = false;
+
+                // Adaptive interval adjustment
+                this.adjustDetectionInterval();
+            }
+
+            adjustDetectionInterval() {
+                // Target 15-30 FPS based on inference time
+                const targetInterval = Math.max(33, Math.min(66, this.lastInferenceTime * 1.5));
+                this.detectionInterval = targetInterval;
+            }
+
+            render() {
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+
+                if (!this.tracker) return;
+
+                const tracks = this.tracker.getTracks();
+
+                // Calculate video rect for proper coordinate mapping
+                const videoRect = this.calculateVideoRect();
+
+                // Render based on overlay mode
+                tracks.forEach(track => {
+                    this.renderTrack(track, videoRect);
                 });
             }
 
-            drawPose(pose) {
-                if (!this.videoRect) return;
-                const { x: offX, y: offY, scale } = this.videoRect;
+            calculateVideoRect() {
+                const videoAspect = this.video.videoWidth / this.video.videoHeight;
+                const screenAspect = window.innerWidth / window.innerHeight;
 
-                if (pose.keypoints) {
-                    const connections = [
-                        ['left_shoulder', 'right_shoulder'],
-                        ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
-                        ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
-                        ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
-                        ['left_hip', 'right_hip'],
-                        ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
-                        ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
-                    ];
+                let drawWidth, drawHeight, offsetX, offsetY;
 
-                    this.overlayCtx.strokeStyle = '#00ff00';
-                    this.overlayCtx.lineWidth = 2;
-
-                    connections.forEach(([jointA, jointB]) => {
-                        const pointA = pose.keypoints.find(kp => kp.name === jointA);
-                        const pointB = pose.keypoints.find(kp => kp.name === jointB);
-
-                        if (pointA && pointB && pointA.score > this.settings.confidence && pointB.score > this.settings.confidence) {
-                            this.overlayCtx.beginPath();
-                            this.overlayCtx.moveTo(offX + pointA.x * scale, offY + pointA.y * scale);
-                            this.overlayCtx.lineTo(offX + pointB.x * scale, offY + pointB.y * scale);
-                            this.overlayCtx.stroke();
-                        }
-                    });
-
-                    this.overlayCtx.fillStyle = '#FF2D55';
-                    pose.keypoints.forEach(keypoint => {
-                        if (keypoint.score > this.settings.confidence) {
-                            const kx = offX + (keypoint.x * scale);
-                            const ky = offY + (keypoint.y * scale);
-
-                            this.overlayCtx.beginPath();
-                            this.overlayCtx.arc(kx, ky, 4, 0, 2 * Math.PI);
-                            this.overlayCtx.fill();
-                        }
-                    });
+                if (screenAspect > videoAspect) {
+                    drawWidth = window.innerWidth;
+                    drawHeight = drawWidth / videoAspect;
+                    offsetX = 0;
+                    offsetY = (window.innerHeight - drawHeight) / 2;
+                } else {
+                    drawHeight = window.innerHeight;
+                    drawWidth = drawHeight * videoAspect;
+                    offsetX = (window.innerWidth - drawWidth) / 2;
+                    offsetY = 0;
                 }
+
+                return {
+                    x: offsetX,
+                    y: offsetY,
+                    w: drawWidth,
+                    h: drawHeight,
+                    scale: drawWidth / this.video.videoWidth
+                };
+            }
+
+            renderTrack(track, videoRect) {
+                const [x, y, w, h] = track.bbox;
+                const drawX = videoRect.x + (x * videoRect.scale);
+                const drawY = videoRect.y + (y * videoRect.scale);
+                const drawW = w * videoRect.scale;
+                const drawH = h * videoRect.scale;
+
+                const isLocked = (track.id === this.lockedTrackId);
+                const color = isLocked ? '#FF0000' : this.getClassColor(track.class);
+
+                if (this.overlayMode === 'minimal') {
+                    // Corner brackets only
+                    this.renderCornerBrackets(drawX, drawY, drawW, drawH, color, isLocked);
+
+                    // Label only for locked target
+                    if (isLocked) {
+                        this.renderMinimalLabel(track, drawX, drawY, drawW, color);
+                    }
+
+                } else if (this.overlayMode === 'tactical') {
+                    // Thin boxes + small labels
+                    this.ctx.strokeStyle = color;
+                    this.ctx.lineWidth = isLocked ? 2 : 1;
+                    this.ctx.strokeRect(drawX, drawY, drawW, drawH);
+
+                    this.renderMinimalLabel(track, drawX, drawY, drawW, color);
+
+                } else if (this.overlayMode === 'debug') {
+                    // Full boxes + trails + IDs
+                    this.ctx.strokeStyle = color;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(drawX, drawY, drawW, drawH);
+
+                    // Trails
+                    if (track.history && track.history.length > 1) {
+                        this.renderTrail(track.history, videoRect, color);
+                    }
+
+                    // Full label
+                    this.renderDebugLabel(track, drawX, drawY, drawW, color);
+                }
+
+                // Locked halo
+                if (isLocked) {
+                    this.renderLockHalo(drawX, drawY, drawW, drawH);
+                }
+            }
+
+            renderCornerBrackets(x, y, w, h, color, isLocked) {
+                const size = 12;
+                const lineWidth = isLocked ? 2 : 1;
+
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = lineWidth;
+
+                // Top-left
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, y + size);
+                this.ctx.lineTo(x, y);
+                this.ctx.lineTo(x + size, y);
+                this.ctx.stroke();
+
+                // Top-right
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + w - size, y);
+                this.ctx.lineTo(x + w, y);
+                this.ctx.lineTo(x + w, y + size);
+                this.ctx.stroke();
+
+                // Bottom-right
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + w, y + h - size);
+                this.ctx.lineTo(x + w, y + h);
+                this.ctx.lineTo(x + w - size, y + h);
+                this.ctx.stroke();
+
+                // Bottom-left
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + size, y + h);
+                this.ctx.lineTo(x, y + h);
+                this.ctx.lineTo(x, y + h - size);
+                this.ctx.stroke();
+            }
+
+            renderMinimalLabel(track, x, y, w, color) {
+                const label = `${track.class.toUpperCase()} ${Math.round(track.score * 100)}%`;
+
+                this.ctx.font = '10px -apple-system, sans-serif';
+                this.ctx.fillStyle = color;
+                this.ctx.globalAlpha = 0.8;
+                this.ctx.fillText(label, x + 4, y - 6);
+                this.ctx.globalAlpha = 1.0;
+            }
+
+            renderDebugLabel(track, x, y, w, color) {
+                const label = `${track.class.toUpperCase()} ${Math.round(track.score * 100)}% [ID:${track.id}]`;
+
+                this.ctx.fillStyle = color;
+                this.ctx.globalAlpha = 0.7;
+                this.ctx.fillRect(x, y - 18, w, 18);
+                this.ctx.globalAlpha = 1.0;
+
+                this.ctx.font = '10px -apple-system, sans-serif';
+                this.ctx.fillStyle = '#fff';
+                this.ctx.fillText(label, x + 4, y - 5);
+            }
+
+            renderTrail(history, videoRect, color) {
+                if (history.length < 2) return;
+
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 1;
+                this.ctx.globalAlpha = 0.4;
+
+                this.ctx.beginPath();
+                history.forEach((bbox, i) => {
+                    const cx = videoRect.x + (bbox[0] + bbox[2] / 2) * videoRect.scale;
+                    const cy = videoRect.y + (bbox[1] + bbox[3] / 2) * videoRect.scale;
+
+                    if (i === 0) this.ctx.moveTo(cx, cy);
+                    else this.ctx.lineTo(cx, cy);
+                });
+                this.ctx.stroke();
+
+                this.ctx.globalAlpha = 1.0;
+            }
+
+            renderLockHalo(x, y, w, h) {
+                this.ctx.strokeStyle = '#FF0000';
+                this.ctx.lineWidth = 1;
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.strokeRect(x - 4, y - 4, w + 8, h + 8);
+                this.ctx.globalAlpha = 1.0;
+            }
+
+            getClassColor(cls) {
+                const colors = {
+                    'person': '#00FF00',
+                    'car': '#0088FF',
+                    'truck': '#0088FF',
+                    'bus': '#0088FF',
+                    'motorcycle': '#FF8800',
+                    'bicycle': '#FF8800'
+                };
+                return colors[cls] || '#FFFFFF';
+            }
+
+            setOverlayMode(mode) {
+                this.overlayMode = mode;
+
+                // Update button states
+                document.getElementById('mode-minimal').classList.toggle('active', mode === 'minimal');
+                document.getElementById('mode-tactical').classList.toggle('active', mode === 'tactical');
+                document.getElementById('mode-debug').classList.toggle('active', mode === 'debug');
+
+                // Update body class
+                document.body.className = mode;
+
+                this.showAlert(`Mode: ${mode.toUpperCase()}`);
+            }
+
+            toggleLock() {
+                if (this.lockedTrackId) {
+                    this.lockedTrackId = null;
+                    this.showAlert('Lock released');
+                } else {
+                    // Lock center-most track
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    this.lockNearestTarget(centerX, centerY);
+                }
+            }
+
+            lockNearestTarget(screenX, screenY) {
+                if (!this.tracker) return;
+
+                const videoRect = this.calculateVideoRect();
+                const tracks = this.tracker.getTracks();
+
+                let nearest = null;
+                let minDist = Infinity;
+
+                tracks.forEach(track => {
+                    const [x, y, w, h] = track.bbox;
+                    const cx = videoRect.x + (x + w / 2) * videoRect.scale;
+                    const cy = videoRect.y + (y + h / 2) * videoRect.scale;
+
+                    const dist = Math.hypot(cx - screenX, cy - screenY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = track;
+                    }
+                });
+
+                if (nearest && minDist < 200) {
+                    this.lockedTrackId = nearest.id;
+                    this.showAlert(`Locked: ${nearest.class.toUpperCase()} [ID:${nearest.id}]`);
+                } else {
+                    this.showAlert('No target nearby');
+                }
+            }
+
+            updateAnalytics(predictions) {
+                this.analytics.people = predictions.filter(p => p.class === 'person').length;
+                this.analytics.vehicles = predictions.filter(p =>
+                    ['car', 'truck', 'bus', 'motorcycle'].includes(p.class)
+                ).length;
+            }
+
+            updateUI() {
+                document.getElementById('fps-val').textContent = this.fps;
+                document.getElementById('inf-val').textContent = Math.round(this.lastInferenceTime) + 'ms';
+                document.getElementById('tracks-val').textContent = this.tracker ? this.tracker.getTracks().length : 0;
+                document.getElementById('people-val').textContent = this.analytics.people;
+                document.getElementById('vehicles-val').textContent = this.analytics.vehicles;
+            }
+
+            updateBootStatus(msg) {
+                document.getElementById('boot-status').textContent = msg;
+            }
+
+            updateBootProgress(pct) {
+                document.getElementById('boot-progress').style.width = pct + '%';
+            }
+
+            showAlert(msg) {
+                const alert = document.getElementById('alert');
+                alert.textContent = msg;
+                alert.classList.add('show');
+                setTimeout(() => alert.classList.remove('show'), 2000);
             }
         }
 
-        // --- Advanced SORT-lite Tracker ---
-        class ObjectTracker {
+        /**
+         * ═══════════════════════════════════════════════════════════════
+         * KALMAN FILTER SORT TRACKER
+         * ═══════════════════════════════════════════════════════════════
+         */
+
+        class KalmanTracker {
             constructor() {
                 this.tracks = [];
                 this.nextId = 1;
-                this.maxMissedFrames = 30; // Keep alive longer
-                this.iouThreshold = 0.25;
-                this.alpha = 0.2; // Smoothing factor
-                this.lockedTargetId = null;
+                this.maxMissedFrames = 30;
+                this.iouThreshold = 0.3;
+                this.lockedIouThreshold = 0.15;
             }
 
-            predict() {
-                this.tracks.forEach(track => {
-                    // Simple linear velocity prediction
-                    if (track.velocity) {
-                        track.bbox[0] += track.velocity[0];
-                        track.bbox[1] += track.velocity[1];
-                    }
-                });
-            }
+            update(predictions, lockedId) {
+                // 1. Predict
+                this.tracks.forEach(track => track.predict());
 
-            update(predictions, confidenceThreshold) {
-                // 1. Predict next positions
-                this.predict();
-
-                const validDetections = predictions.filter(p => p.score >= confidenceThreshold);
+                // 2. Associate
                 const matched = new Set();
                 const activeTracks = [];
 
-                // 2. Match existing tracks
-                this.tracks.forEach(track => {
-                    let bestMatch = null;
-                    let bestIOU = 0;
-
-                    // Prefer locked target
-                    if (this.lockedTargetId === track.id) {
-                        // Logic to find nearest detection to predicted position could go here
-                        // For now, standard IOU with a boost or separate pass
-                    }
-
-                    validDetections.forEach((detection, index) => {
-                        if (matched.has(index)) return;
-                        if (detection.class !== track.class) return;
-
-                        const iou = this.calculateIOU(track.bbox, detection.bbox);
-
-                        // Boost IOU for locked target to keep it sticky
-                        const threshold = (this.lockedTargetId === track.id) ? 0.1 : this.iouThreshold;
-
-                        if (iou > threshold && iou > bestIOU) {
-                            bestIOU = iou;
-                            bestMatch = { detection, index };
+                // Priority matching for locked track
+                if (lockedId) {
+                    const lockedTrack = this.tracks.find(t => t.id === lockedId);
+                    if (lockedTrack) {
+                        const match = this.findBestMatch(lockedTrack, predictions, matched, this.lockedIouThreshold, true);
+                        if (match) {
+                            matched.add(match.index);
+                            lockedTrack.update(match.detection);
+                            activeTracks.push(lockedTrack);
+                        } else {
+                            lockedTrack.missedFrames++;
+                            if (lockedTrack.missedFrames < this.maxMissedFrames) {
+                                activeTracks.push(lockedTrack);
+                            }
                         }
-                    });
+                    }
+                }
 
-                    if (bestMatch) {
-                        matched.add(bestMatch.index);
-                        const newBbox = bestMatch.detection.bbox;
+                // Match remaining tracks
+                this.tracks.forEach(track => {
+                    if (track.id === lockedId) return; // Already handled
 
-                        // Calculate velocity
-                        const vx = newBbox[0] - track.bbox[0];
-                        const vy = newBbox[1] - track.bbox[1];
-                        track.velocity = [vx, vy];
+                    const match = this.findBestMatch(track, predictions, matched, this.iouThreshold, false);
 
-                        // Smooth update
-                        track.bbox = this.smoothBbox(track.bbox, newBbox);
-                        track.score = bestMatch.detection.score;
-                        track.missedFrames = 0;
-
-                        // Update history (Trails)
-                        track.history.push([...track.bbox]);
-                        if (track.history.length > 60) track.history.shift(); // Keep last ~2-4 seconds
-
+                    if (match) {
+                        matched.add(match.index);
+                        track.update(match.detection);
                         activeTracks.push(track);
                     } else {
-                        // Track lost
                         track.missedFrames++;
                         if (track.missedFrames < this.maxMissedFrames) {
                             activeTracks.push(track);
-                        } else if (this.lockedTargetId === track.id) {
-                            this.lockedTargetId = null; // Lost lock
                         }
                     }
                 });
 
                 // 3. Create new tracks
-                validDetections.forEach((detection, index) => {
-                    if (!matched.has(index)) {
-                        activeTracks.push({
-                            id: this.nextId++,
-                            class: detection.class,
-                            bbox: detection.bbox,
-                            score: detection.score,
-                            missedFrames: 0,
-                            velocity: [0, 0],
-                            history: [[...detection.bbox]]
-                        });
+                predictions.forEach((det, i) => {
+                    if (!matched.has(i)) {
+                        activeTracks.push(new KalmanTrack(this.nextId++, det));
                     }
                 });
 
                 this.tracks = activeTracks;
             }
 
-            lockNearestToCenter(videoWidth, videoHeight) {
-                const centerX = videoWidth / 2;
-                const centerY = videoHeight / 2;
-                let bestTrack = null;
-                let minDist = Infinity;
+            findBestMatch(track, predictions, matched, threshold, isLocked) {
+                let bestMatch = null;
+                let bestScore = 0;
 
-                this.tracks.forEach(track => {
-                    const [x, y, w, h] = track.bbox;
-                    const cx = x + w / 2;
-                    const cy = y + h / 2;
-                    const dist = Math.hypot(cx - centerX, cy - centerY);
+                predictions.forEach((det, i) => {
+                    if (matched.has(i)) return;
+                    if (det.class !== track.class) return;
 
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestTrack = track;
+                    const iou = this.calculateIOU(track.bbox, det.bbox);
+
+                    // Hybrid scoring: IOU + distance
+                    let score = iou;
+
+                    if (isLocked) {
+                        // Add distance prior for locked track
+                        const dist = this.calculateCenterDistance(track.bbox, det.bbox);
+                        const distScore = Math.exp(-dist / 100); // Exponential decay
+                        score = iou * 0.7 + distScore * 0.3;
+                    }
+
+                    if (score > threshold && score > bestScore) {
+                        bestScore = score;
+                        bestMatch = { detection: det, index: i };
                     }
                 });
 
-                if (bestTrack) {
-                    this.lockedTargetId = bestTrack.id;
-                    return bestTrack.id;
-                }
-                return null;
-            }
-
-            unlock() {
-                this.lockedTargetId = null;
-            }
-
-            getTracks() {
-                return this.tracks;
+                return bestMatch;
             }
 
             calculateIOU(bbox1, bbox2) {
@@ -2652,206 +1024,84 @@
                 return interArea / unionArea;
             }
 
-            smoothBbox(oldBbox, newBbox) {
-                return [
-                    oldBbox[0] + (newBbox[0] - oldBbox[0]) * this.alpha,
-                    oldBbox[1] + (newBbox[1] - oldBbox[1]) * this.alpha,
-                    oldBbox[2] + (newBbox[2] - oldBbox[2]) * this.alpha,
-                    oldBbox[3] + (newBbox[3] - oldBbox[3]) * this.alpha
-                ];
+            calculateCenterDistance(bbox1, bbox2) {
+                const cx1 = bbox1[0] + bbox1[2] / 2;
+                const cy1 = bbox1[1] + bbox1[3] / 2;
+                const cx2 = bbox2[0] + bbox2[2] / 2;
+                const cy2 = bbox2[1] + bbox2[3] / 2;
+
+                return Math.hypot(cx2 - cx1, cy2 - cy1);
+            }
+
+            getTracks() {
+                return this.tracks;
             }
         }
 
-        // --- Timeline Manager (IndexedDB) ---
-        class TimelineManager {
-            constructor() {
-                this.dbName = 'GeyeProDB';
-                this.storeName = 'timeline';
-                this.db = null;
-                this.initDB();
+        class KalmanTrack {
+            constructor(id, detection) {
+                this.id = id;
+                this.class = detection.class;
+                this.score = detection.score;
+                this.missedFrames = 0;
+
+                // State: [x, y, w, h, vx, vy, dw, dh]
+                const [x, y, w, h] = detection.bbox;
+                this.state = [x, y, w, h, 0, 0, 0, 0];
+                this.bbox = [x, y, w, h];
+
+                // History for trails
+                this.history = [[x, y, w, h]];
+
+                // Adaptive smoothing
+                this.alpha = 0.3;
             }
 
-            async initDB() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.dbName, 1);
-                    request.onerror = (e) => console.error("DB Error", e);
-                    request.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains(this.storeName)) {
-                            const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
-                            store.createIndex('timestamp', 'timestamp', { unique: false });
-                            store.createIndex('type', 'type', { unique: false });
-                        }
-                    };
-                    request.onsuccess = (e) => {
-                        this.db = e.target.result;
-                        resolve(this.db);
-                    };
-                });
+            predict() {
+                // Simple linear prediction
+                this.state[0] += this.state[4]; // x += vx
+                this.state[1] += this.state[5]; // y += vy
+                this.state[2] += this.state[6]; // w += dw
+                this.state[3] += this.state[7]; // h += dh
+
+                this.bbox = [this.state[0], this.state[1], this.state[2], this.state[3]];
             }
 
-            async addEvent(type, data, snapshotBlob = null) {
-                if (!this.db) await this.initDB();
+            update(detection) {
+                const [mx, my, mw, mh] = detection.bbox;
 
-                const event = {
-                    type: type,
-                    timestamp: new Date().toISOString(),
-                    data: data,
-                    snapshot: snapshotBlob // Store blob directly (might need optimization for large apps)
-                };
+                // Calculate velocity
+                const vx = mx - this.state[0];
+                const vy = my - this.state[1];
+                const dw = mw - this.state[2];
+                const dh = mh - this.state[3];
 
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction([this.storeName], 'readwrite');
-                    const store = tx.objectStore(this.storeName);
-                    const request = store.add(event);
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            }
+                // Adaptive alpha based on movement
+                const speed = Math.hypot(vx, vy);
+                this.alpha = speed > 10 ? 0.5 : 0.2; // More smoothing when stable
 
-            async getEvents(limit = 50) {
-                if (!this.db) await this.initDB();
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction([this.storeName], 'readonly');
-                    const store = tx.objectStore(this.storeName);
-                    const index = store.index('timestamp');
-                    const request = index.openCursor(null, 'prev');
-                    const events = [];
+                // Update state with smoothing
+                this.state[0] += (mx - this.state[0]) * this.alpha;
+                this.state[1] += (my - this.state[1]) * this.alpha;
+                this.state[2] += (mw - this.state[2]) * this.alpha;
+                this.state[3] += (mh - this.state[3]) * this.alpha;
+                this.state[4] = vx * 0.5; // Damped velocity
+                this.state[5] = vy * 0.5;
+                this.state[6] = dw * 0.5;
+                this.state[7] = dh * 0.5;
 
-                    request.onsuccess = (e) => {
-                        const cursor = e.target.result;
-                        if (cursor && events.length < limit) {
-                            events.push(cursor.value);
-                            cursor.continue();
-                        } else {
-                            resolve(events);
-                        }
-                    };
-                    request.onerror = () => reject(request.error);
-                });
+                this.bbox = [this.state[0], this.state[1], this.state[2], this.state[3]];
+                this.score = detection.score;
+                this.missedFrames = 0;
+
+                // Update history
+                this.history.push([...this.bbox]);
+                if (this.history.length > 60) this.history.shift();
             }
         }
 
-        // --- Mission Manager ---
-        class MissionManager {
-            constructor(system) {
-                this.system = system;
-                this.mode = 'standard'; // standard, film, security
-                this.overlays = {
-                    thirds: false,
-                    safe: false,
-                    zone: null // {x, y, w, h} relative 0-1
-                };
-                this.isDrawingZone = false;
-                this.zoneStart = null;
-            }
-
-            setMode(mode) {
-                this.mode = mode;
-                this.system.showAlert(`Mission Mode: ${mode.toUpperCase()}`);
-
-                // Reset overlays
-                this.overlays.thirds = (mode === 'film');
-                this.overlays.safe = (mode === 'film');
-
-                // Default Security Zone (Center 40%)
-                if (mode === 'security') {
-                    this.overlays.zone = { x: 0.3, y: 0.3, w: 0.4, h: 0.4 };
-                } else {
-                    this.overlays.zone = null;
-                }
-
-                // Update UI
-                document.body.setAttribute('data-mission', mode);
-                this.updateMissionUI();
-            }
-
-            updateMissionUI() {
-                // Toggle overlays in DOM
-                const overlayContainer = document.getElementById('mission-overlays');
-                if (!overlayContainer) return; // Need to add this to HTML
-
-                overlayContainer.innerHTML = '';
-
-                if (this.overlays.thirds) {
-                    overlayContainer.innerHTML += `
-                        <div class="grid-line horizontal" style="top: 33%"></div>
-                        <div class="grid-line horizontal" style="top: 66%"></div>
-                        <div class="grid-line vertical" style="left: 33%"></div>
-                        <div class="grid-line vertical" style="left: 66%"></div>
-                    `;
-                }
-
-                if (this.overlays.safe) {
-                    overlayContainer.innerHTML += `
-                        <div class="safe-area-box"></div>
-                        <div class="center-cross"></div>
-                    `;
-                }
-
-                if (this.overlays.zone) {
-                    const z = this.overlays.zone;
-                    overlayContainer.innerHTML += `
-                        <div style="position:absolute; left:${z.x * 100}%; top:${z.y * 100}%; width:${z.w * 100}%; height:${z.h * 100}%;
-                                    border: 2px solid rgba(255, 0, 0, 0.5); background: rgba(255, 0, 0, 0.1); pointer-events:none;">
-                            <div style="position:absolute; top:-20px; left:0; color:red; font-size:12px; font-weight:bold;">RESTRICTED ZONE</div>
-                        </div>
-                    `;
-                }
-            }
-
-            checkSecurityZone(tracks) {
-                if (this.mode !== 'security' || !this.overlays.zone) return;
-
-                const z = this.overlays.zone; // 0-1 coords
-                let intrusion = false;
-
-                tracks.forEach(track => {
-                    // Convert track bbox to 0-1
-                    const [x, y, w, h] = track.bbox;
-                    const cx = (x + w / 2) / this.system.video.videoWidth;
-                    const cy = (y + h / 2) / this.system.video.videoHeight;
-
-                    if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) {
-                        intrusion = true;
-                        // Draw alert on track
-                        track.alert = true;
-                    }
-                });
-
-                if (intrusion) {
-                    this.system.triggerSecurityAlert();
-                }
-            }
-        }
-
-        // Initialize Geye Pro Ultimate System
-        const GEYE_ULTIMATE = new GeyeProUltimate();
-
-        // Enhanced error handling for production
-        window.addEventListener('error', (event) => {
-            console.error('Global error:', event.error);
-            const alert = document.getElementById('alert-notification');
-            if (alert) {
-                alert.textContent = 'System error occurred';
-                alert.style.display = 'block';
-                setTimeout(() => alert.style.display = 'none', 5000);
-            }
-        });
-
-        // Handle unhandled promise rejections
-        window.addEventListener('unhandledrejection', (event) => {
-            console.error('Unhandled promise rejection:', event.reason);
-        });
-
-        // Prevent context menu on buttons
-        document.addEventListener('contextmenu', (event) => {
-            if (event.target.classList.contains('control-btn') ||
-                event.target.classList.contains('media-btn')) {
-                event.preventDefault();
-            }
-        });
-
+        // Initialize System
+        const APP = new GeyeProFieldConsole();
     </script>
 </body>
 
