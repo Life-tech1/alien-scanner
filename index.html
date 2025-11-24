@@ -32,7 +32,6 @@
             --safe-top: env(safe-area-inset-top, 20px);
             --safe-bot: env(safe-area-inset-bottom, 20px);
 
-            /* ✅ FIX: ตัวแปรที่ถูกอ้างถึงแต่ไม่มีในฉบับเดิม */
             --text-2: #9ca3af;
             --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
         }
@@ -147,44 +146,19 @@
             z-index: 1000; 
             outline: none;
         }
-        /* Visual feedback when tapping */
         #btn-init:active { 
             background: rgba(255,255,255,0.05); 
         }
 
-        /* Hidden Diagnostics (Must exist for JS) */
+        /* Hidden Diagnostics */
         .sys-hidden { 
             display: none; 
         }
 
-        @keyframes spin { 
-            to { 
-                transform: rotate(360deg); 
-            } 
-        }
-        @keyframes fadeInLogo { 
-            from { 
-                opacity: 0; 
-                transform: scale(0.9); 
-            } 
-            to { 
-                opacity: 1; 
-                transform: scale(1); 
-            } 
-        }
-        @keyframes fadeIn { 
-            to { 
-                opacity: 1; 
-            } 
-        }
-        @keyframes breathe { 
-            0%, 100% { 
-                opacity: 0.5; 
-            } 
-            50% { 
-                opacity: 0.9; 
-            } 
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInLogo { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
 
         /* ------------------------------------------------------------------
            B) ONBOARDING & MODALS
@@ -232,10 +206,10 @@
             text-shadow: 0 0 20px var(--wr-p); 
         }
         .ob-title { 
-            font-size: 1.3rem; 
+            font-size: 1.4rem; 
             font-weight: 700; 
             color: #fff; 
-            margin-bottom: 12px; 
+            margin-bottom: 16px; 
             line-height: 1.3; 
         }
         .ob-body { 
@@ -246,11 +220,12 @@
             white-space: pre-line; 
         }
         .ob-note { 
-            font-size: 0.75rem; 
-            color: #666; 
+            font-size: 0.8rem; 
+            color: #888; 
             border-top: 1px solid rgba(255,255,255,0.1); 
-            padding-top: 12px; 
+            padding-top: 16px; 
             margin-bottom: 24px; 
+            line-height: 1.5;
         }
         
         .btn-action {
@@ -297,7 +272,7 @@
         }
 
         /* ------------------------------------------------------------------
-           MAIN HUD (GLASS SCI-FI) - PRESENCE
+           MAIN HUD - LAYOUT
            ------------------------------------------------------------------ */
         .scanlines {
             position: fixed; 
@@ -335,7 +310,6 @@
             opacity: 0.15; 
         }
 
-        /* Responsive Design */
         @media (max-width: 320px) {
             #app {
                 padding: var(--safe-top) 12px calc(var(--safe-bot) + 8px) 12px;
@@ -343,22 +317,6 @@
             }
         }
         
-        @media (max-height: 600px) {
-            .orb-ring {
-                width: 220px !important;
-                height: 220px !important;
-            }
-            
-            .h-deg {
-                font-size: 2rem !important;
-            }
-            
-            .info-card {
-                padding: 16px !important;
-                min-height: 100px !important;
-            }
-        }
-
         .glass-panel { 
             background: var(--glass-surf); 
             backdrop-filter: blur(var(--blur-val)); 
@@ -392,6 +350,7 @@
             border: 1px solid var(--wr-g); 
             background: rgba(52, 211, 153, 0.1); 
         }
+        
         .stage { 
             flex: 1; 
             display: flex; 
@@ -401,20 +360,16 @@
             position: relative;
             min-height: 0;
             width: 100%;
-            /* FIX: Ensure compass stays circular */
-            aspect-ratio: 1 / 1;
-            max-height: min(85vw, 320px);
-            max-width: min(85vw, 320px);
-            margin: 0 auto;
+            overflow: visible;
         }
         
         /* ------------------------------------------------------------------
-           NEW FANTASY COMPASS DESIGN - IMPROVED
+           COMPASS & HUD DESIGN (Fixed Circular Aspect)
            ------------------------------------------------------------------ */
         .orb-ring {
-            /* FIX: Ensure perfect circle on all devices */
-            width: 100%;
-            height: 100%;
+            width: min(80vw, 300px); 
+            height: auto;
+            aspect-ratio: 1 / 1;
             border-radius: 50%; 
             position: relative; 
             background: 
@@ -437,8 +392,7 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             will-change: transform;
             overflow: hidden;
-            /* FIX: Maintain aspect ratio */
-            aspect-ratio: 1 / 1;
+            flex-shrink: 0;
         }
         
         .orb-ring::before {
@@ -461,60 +415,33 @@
             position: absolute; 
             inset: 0; 
             border-radius: 50%;
-            background: 
-                repeating-conic-gradient(
-                    rgba(255,255,255,0.4) 0deg 0.5deg, 
-                    transparent 0.5deg 3deg
-                );
+            background: repeating-conic-gradient(rgba(255,255,255,0.4) 0deg 0.5deg, transparent 0.5deg 3deg);
             mask: radial-gradient(transparent 55%, black 56%);
             -webkit-mask: radial-gradient(transparent 55%, black 56%);
         }
-        
         .minor-ticks {
             position: absolute; 
             inset: 0; 
             border-radius: 50%;
-            background: 
-                repeating-conic-gradient(
-                    rgba(255,255,255,0.2) 0deg 0.5deg, 
-                    transparent 0.5deg 1deg
-                );
+            background: repeating-conic-gradient(rgba(255,255,255,0.2) 0deg 0.5deg, transparent 0.5deg 1deg);
             mask: radial-gradient(transparent 65%, black 66%);
             -webkit-mask: radial-gradient(transparent 65%, black 66%);
         }
         
-        .cardinals {
-            position: absolute; 
-            inset: 25px; 
-            pointer-events: none;
-        }
-        
+        .cardinals { position: absolute; inset: 25px; pointer-events: none; }
         .card {
-            position: absolute; 
-            font-weight: 800; 
-            font-size: 1rem; 
-            color: rgba(255,255,255,0.9);
-            text-shadow: 
-                0 0 10px currentColor,
-                0 0 20px currentColor;
+            position: absolute; font-weight: 800; font-size: 1rem; color: rgba(255,255,255,0.9);
+            text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
             transition: all 0.3s ease;
         }
-        
         .c-n { top: 0; left: 50%; transform: translateX(-50%); color: var(--wr-r); }
         .c-e { top: 50%; right: 0; transform: translateY(-50%); color: var(--wr-b); }
         .c-s { bottom: 0; left: 50%; transform: translateX(-50%); color: var(--wr-g); }
         .c-w { top: 50%; left: 0; transform: translateY(-50%); color: var(--wr-y); }
         
-        .needle-layer {
-            position: absolute; 
-            inset: 0; 
-            pointer-events: none;
-        }
-        
+        .needle-layer { position: absolute; inset: 0; pointer-events: none; }
         .ndl {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
+            position: absolute; top: 50%; left: 50%; 
             transform-origin: bottom center; 
             transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
             will-change: transform;
@@ -522,78 +449,35 @@
         }
         
         .n-main {
-            width: 3px; 
-            height: 46%; 
-            margin-left: -1.5px; 
-            margin-top: -46%; 
-            background: linear-gradient(to top, 
-                transparent 0%, 
-                var(--wr-p) 20%,
-                var(--wr-p) 80%,
-                #fff 100%);
-            border-radius: 3px 3px 0 0;
-            z-index: 3;
+            width: 3px; height: 46%; margin-left: -1.5px; margin-top: -46%; 
+            background: linear-gradient(to top, transparent 0%, var(--wr-p) 20%, var(--wr-p) 80%, #fff 100%);
+            border-radius: 3px 3px 0 0; z-index: 3;
         }
-        
         .n-main::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 14px;
-            height: 14px;
-            background: radial-gradient(circle, #fff 0%, var(--wr-p) 70%);
-            border-radius: 50%;
-            box-shadow: 0 0 15px var(--wr-p);
-            z-index: 4;
+            content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+            width: 14px; height: 14px; background: radial-gradient(circle, #fff 0%, var(--wr-p) 70%);
+            border-radius: 50%; box-shadow: 0 0 15px var(--wr-p); z-index: 4;
         }
-        
         .n-sun {
-            width: 2px; 
-            height: 42%; 
-            margin-left: -1px; 
-            margin-top: -42%; 
-            background: linear-gradient(to top, 
-                transparent 0%, 
-                var(--wr-y) 30%,
-                var(--wr-y) 100%);
-            z-index: 2;
-            opacity: 0.9;
+            width: 2px; height: 42%; margin-left: -1px; margin-top: -42%; 
+            background: linear-gradient(to top, transparent 0%, var(--wr-y) 30%, var(--wr-y) 100%);
+            z-index: 2; opacity: 0.9;
         }
-        
         .n-true {
-            width: 2px; 
-            height: 42%; 
-            background: linear-gradient(to top, 
-                transparent 0%, 
-                var(--wr-b) 30%,
-                var(--wr-b) 100%);
-            margin-left: -1px; 
-            margin-top: -42%; 
+            width: 2px; height: 42%; margin-left: -1px; margin-top: -42%; 
+            background: linear-gradient(to top, transparent 0%, var(--wr-b) 30%, var(--wr-b) 100%);
             opacity: 0.9;
         }
         
         .compass-center {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 16px;
-            height: 16px;
-            background: radial-gradient(circle, 
-                #fff 0%, 
-                rgba(255,255,255,0.9) 30%,
-                rgba(255,255,255,0.4) 70%,
-                transparent 100%);
-            border-radius: 50%;
-            box-shadow: 
-                0 0 20px rgba(255,255,255,0.8),
-                0 0 40px rgba(217, 70, 239, 0.4);
-            z-index: 5;
-            border: 1px solid rgba(255,255,255,0.3);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 16px; height: 16px;
+            background: radial-gradient(circle, #fff 0%, rgba(255,255,255,0.9) 30%, rgba(255,255,255,0.4) 70%, transparent 100%);
+            border-radius: 50%; z-index: 5; border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(217, 70, 239, 0.4);
         }
         
+        /* --- RE-DESIGNED HUD VALUE (Compact) --- */
         .hud-val {
             position: absolute; 
             top: 50%; 
@@ -601,603 +485,155 @@
             transform: translate(-50%, -50%); 
             text-align: center; 
             pointer-events: none;
-            z-index: 4;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 20px;
-            padding: 12px 24px;
-            border: 1px solid rgba(255,255,255,0.15);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            min-width: 120px;
+            z-index: 6; /* On top of center pivot */
+            /* Compact Background */
+            background: rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border-radius: 16px;
+            padding: 6px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            /* No fixed width needed anymore */
+            width: max-content;
         }
         
         .h-deg { 
-            font-size: 2.4rem; 
+            font-size: 1.8rem; /* Reduced size */
             font-weight: 800; 
-            letter-spacing: -1px; 
+            letter-spacing: -0.5px; 
             line-height: 1; 
             background: linear-gradient(135deg, #fff, var(--wr-p));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            text-shadow: 0 0 20px rgba(217, 70, 239, 0.5);
+            text-shadow: 0 0 10px rgba(217, 70, 239, 0.4);
             font-feature-settings: "tnum";
         }
         
         .h-lbl { 
-            font-size: 0.7rem; 
-            color: rgba(255,255,255,0.8); 
-            letter-spacing: 2px; 
-            margin-top: 4px; 
+            font-size: 0.55rem; /* Smaller label */
+            color: rgba(255,255,255,0.6); 
+            letter-spacing: 1px; 
+            margin-top: 2px; 
             text-transform: uppercase;
             font-weight: 600;
         }
         
-        .floating-particles {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            border-radius: 50%;
-        }
-        
+        /* Particles */
+        .floating-particles { position: absolute; inset: 0; pointer-events: none; border-radius: 50%; }
         .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: rgba(255,255,255,0.6);
-            border-radius: 50%;
-            animation: floatParticle 15s infinite linear;
+            position: absolute; width: 2px; height: 2px; background: rgba(255,255,255,0.6);
+            border-radius: 50%; animation: floatParticle 15s infinite linear;
         }
-        
-        @keyframes orbGlow {
-            0% { 
-                opacity: 0.3; 
-                transform: scale(1);
-            }
-            100% { 
-                opacity: 0.7; 
-                transform: scale(1.05);
-            }
-        }
-        
+        @keyframes orbGlow { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0.7; transform: scale(1.05); } }
         @keyframes floatParticle {
-            0% {
-                transform: translate(0, 0) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translate(var(--tx, 100px), var(--ty, 100px)) rotate(360deg);
-                opacity: 0;
-            }
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            10%, 90% { opacity: 1; }
+            100% { transform: translate(var(--tx, 100px), var(--ty, 100px)) rotate(360deg); opacity: 0; }
         }
         
-        .deck { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 10px; 
-            margin-top: auto; 
-            perspective: 1000px;
-            width: 100%;
-        }
-        .info-card { 
-            padding: 20px; 
-            min-height: 120px; 
-            position: relative; 
-            overflow: hidden; 
-            width: 100%;
-        }
-        .info-card::before { 
-            content:''; 
-            position: absolute; 
-            top:0; 
-            left:0; 
-            bottom:0; 
-            width: 3px; 
-            background: var(--wr-p); 
-        }
-        .ic-head { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: baseline; 
-            margin-bottom: 8px; 
-        }
-        .ic-title { 
-            font-size: 1.1rem; 
-            font-weight: 700; 
-            color: #fff; 
-        }
-        .ic-meta { 
-            font-size: 0.8rem; 
-            font-family: var(--font-mono); 
-            color: var(--wr-p); 
-        }
-        .ic-body { 
-            font-size: 0.85rem; 
-            color: #aaa; 
-            line-height: 1.5; 
-        }
-        .ic-quote { 
-            font-style: italic; 
-            color: #666; 
-            margin-top: 8px; 
-            font-size: 0.8rem; 
-            border-top: 1px solid rgba(255,255,255,0.1); 
-            padding-top: 6px; 
-        }
-        .radar-box { 
-            position: absolute; 
-            bottom: -20px; 
-            right: -20px; 
-            width: 140px; 
-            height: 140px; 
-            display: none; 
-        }
+        /* --- DECK & CARDS --- */
+        .deck { display: flex; flex-direction: column; gap: 10px; margin-top: auto; perspective: 1000px; width: 100%; }
+        .info-card { padding: 20px; min-height: 120px; position: relative; overflow: hidden; width: 100%; }
+        .info-card::before { content:''; position: absolute; top:0; left:0; bottom:0; width: 3px; background: var(--wr-p); }
+        .ic-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        .ic-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+        .ic-meta { font-size: 0.8rem; font-family: var(--font-mono); color: var(--wr-p); }
+        .ic-body { font-size: 0.85rem; color: #aaa; line-height: 1.5; }
+        .ic-quote { font-style: italic; color: #666; margin-top: 8px; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; }
+        
+        .radar-box { position: absolute; bottom: -20px; right: -20px; width: 140px; height: 140px; display: none; }
         .radar-sweep { 
-            width: 100%; 
-            height: 100%; 
-            border-radius: 50%; 
-            border: 1px solid rgba(255,255,255,0.1); 
+            width: 100%; height: 100%; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); 
             background: conic-gradient(from 0deg, transparent 0deg, rgba(217, 70, 239, 0.2) 60deg, transparent 60.1deg); 
             animation: sweep 3s linear infinite; 
         }
-        .blip { 
-            position: absolute; 
-            width: 5px; 
-            height: 5px; 
-            background: #fff; 
-            border-radius: 50%; 
-            box-shadow: 0 0 8px var(--wr-r); 
-            opacity: 0; 
-            animation: blip 2s ease-out; 
-        }
-        .btn-row { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr 1fr; 
-            gap: 8px; 
-            margin-top: 5px; 
-            width: 100%;
-        }
+        .blip { position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; box-shadow: 0 0 8px var(--wr-r); opacity: 0; animation: blip 2s ease-out; }
+        
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px; width: 100%; }
         .btn { 
-            background: rgba(255,255,255,0.05); 
-            border: 1px solid var(--glass-border); 
-            color: #aaa; 
-            padding: 12px; 
-            border-radius: 16px; 
-            font-size: 0.8rem; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 6px; 
-            cursor: pointer; 
-            touch-action: manipulation; 
-            min-height: 44px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #aaa; 
+            padding: 12px; border-radius: 16px; font-size: 0.8rem; display: flex; align-items: center; 
+            justify-content: center; gap: 6px; cursor: pointer; touch-action: manipulation; min-height: 44px;
         }
-        .btn:active { 
-            background: rgba(255,255,255,0.15); 
-            transform: scale(0.98); 
-        }
-        .btn.active { 
-            border-color: var(--wr-p); 
-            color: #fff; 
-            background: rgba(217, 70, 239, 0.1); 
-        }
-        .dock { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr 1fr; 
-            gap: 6px; 
-            background: rgba(0,0,0,0.6); 
-            padding: 5px; 
-            border-radius: 24px; 
-            border: 1px solid var(--glass-border); 
-            width: 100%;
-        }
+        .btn:active { background: rgba(255,255,255,0.15); transform: scale(0.98); }
+        .btn.active { border-color: var(--wr-p); color: #fff; background: rgba(217, 70, 239, 0.1); }
+        
+        .dock { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 24px; border: 1px solid var(--glass-border); width: 100%; }
         .dock-item { 
-            background: transparent; 
-            border: none; 
-            color: #666; 
-            padding: 10px; 
-            border-radius: 20px; 
-            font-size: 0.7rem; 
-            font-weight: 700; 
-            cursor: pointer; 
-            touch-action: manipulation; 
-            min-height: 44px;
+            background: transparent; border: none; color: #666; padding: 10px; border-radius: 20px; 
+            font-size: 0.7rem; font-weight: 700; cursor: pointer; touch-action: manipulation; min-height: 44px;
         }
-        .dock-item.active { 
-            background: rgba(255,255,255,0.1); 
-            color: #fff; 
-        }
-        .modal-box { 
-            width: 100%; 
-            max-width: 400px; 
-            padding: 24px; 
-            max-height: 80vh; 
-            overflow-y: auto; 
-        }
-        .m-title { 
-            font-size: 1.2rem; 
-            font-weight: 700; 
-            color: #fff; 
-            margin-bottom: 12px; 
-        }
+        .dock-item.active { background: rgba(255,255,255,0.1); color: #fff; }
+        
+        .modal-box { width: 100%; max-width: 400px; padding: 24px; max-height: 80vh; overflow-y: auto; }
+        .m-title { font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 12px; }
         .warn-toast { 
-            position: absolute; 
-            bottom: 25%; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            background: rgba(244, 63, 94, 0.2); 
-            border: 1px solid var(--wr-r); 
-            color: var(--wr-r); 
-            padding: 6px 12px; 
-            border-radius: 20px; 
-            font-size: 0.7rem; 
-            pointer-events: none; 
-            opacity: 0; 
-            transition: opacity 0.3s; 
+            position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%); 
+            background: rgba(244, 63, 94, 0.2); border: 1px solid var(--wr-r); color: var(--wr-r); 
+            padding: 6px 12px; border-radius: 20px; font-size: 0.7rem; pointer-events: none; 
+            opacity: 0; transition: opacity 0.3s; 
         }
-        .warn-toast.show { 
-            opacity: 1; 
-            animation: pulse 1s infinite; 
-        }
-        @keyframes pulse { 
-            50% { 
-                opacity: 0.5; 
-            } 
-        }
+        .warn-toast.show { opacity: 1; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.5; } }
 
-        /* --- WIKI LORE STYLES --- */
-        #btn-lore {
-            display: none;
-            margin-top: 12px; 
-            width: 100%;
-            background: rgba(217, 70, 239, 0.1); 
-            border: 1px solid rgba(217, 70, 239, 0.3);
-            color: var(--wr-p); 
-            font-size: 0.75rem; 
-            font-weight: 700;
-            padding: 10px 0; 
-            border-radius: 16px; 
-            cursor: pointer;
-            text-transform: uppercase; 
-            letter-spacing: 1px;
-            transition: 0.3s ease;
-            min-height: 44px;
+        /* --- WIKI LORE --- */
+        #btn-lore { 
+            display: none; margin-top: 12px; width: 100%; background: rgba(217, 70, 239, 0.1); 
+            border: 1px solid rgba(217, 70, 239, 0.3); color: var(--wr-p); font-size: 0.75rem; 
+            font-weight: 700; padding: 10px 0; border-radius: 16px; cursor: pointer; 
+            text-transform: uppercase; letter-spacing: 1px; transition: 0.3s ease; min-height: 44px;
         }
-        #btn-lore:active { 
-            background: var(--wr-p); 
-            color: #000; 
-        }
+        #btn-lore:active { background: var(--wr-p); color: #000; }
         
-        /* Wiki Modal */
-        .lore-container { 
-            text-align: left; 
-            padding-bottom: 20px; 
-        }
-        .lore-thumb {
-            width: 100%; 
-            height: 160px; 
-            object-fit: cover; 
-            border-radius: 12px;
-            margin-bottom: 16px; 
-            border: 1px solid rgba(255,255,255,0.1);
-            display: none;
-        }
-        .lore-thumb.active { 
-            display: block; 
-        }
-        .lore-hero { 
-            font-size: 1.3rem; 
-            font-weight: 800; 
-            color: #fff; 
-            margin-bottom: 4px; 
-            letter-spacing: -0.5px; 
-        }
-        .lore-p { 
-            color: #ccc; 
-            font-size: 0.95rem; 
-            line-height: 1.6; 
-            white-space: pre-line; 
-            margin-bottom: 16px; 
-        }
+        .lore-container { text-align: left; padding-bottom: 20px; }
+        .lore-thumb { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); display: none; }
+        .lore-thumb.active { display: block; }
+        .lore-hero { font-size: 1.3rem; font-weight: 800; color: #fff; margin-bottom: 4px; letter-spacing: -0.5px; }
+        .lore-p { color: #ccc; font-size: 0.95rem; line-height: 1.6; white-space: pre-line; margin-bottom: 16px; }
+        .wiki-src { display: block; font-size: 0.75rem; color: #666; margin-top: 10px; text-decoration: none; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+        .wiki-src span { color: var(--wr-b); text-decoration: underline; }
+        .lore-close-btn { width: 100%; padding: 14px; border-radius: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; font-weight: 600; cursor: pointer; margin-top: 12px; min-height: 44px; }
         
-        .wiki-src { 
-            display: block; 
-            font-size: 0.75rem; 
-            color: #666; 
-            margin-top: 10px; 
-            text-decoration: none; 
-            border-top: 1px solid rgba(255,255,255,0.1); 
-            padding-top: 10px;
-        }
-        .wiki-src span { 
-            color: var(--wr-b); 
-            text-decoration: underline; 
-        }
+        .wiki-loader { display: none; justify-content: center; align-items: center; padding: 40px; }
+        .wiki-loader.show { display: flex; }
+        .wl-spin { width: 24px; height: 24px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--wr-p); border-radius: 50%; animation: spin 1s linear infinite; }
+        
+        /* --- STARS --- */
+        #stars-panel { display: none; }
+        .star-monitor { width: 100%; height: 120px; background: rgba(0,0,0,0.3); border-radius: 12px; margin-bottom: 12px; position: relative; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .star-canvas { width: 100%; height: 100%; }
+        .star-badge { font-size: 0.65rem; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; color: #aaa; display: inline-block; margin-top: 6px; }
+        .star-badge.vis { color: var(--wr-g); border: 1px solid rgba(52, 211, 153, 0.3); }
+        .star-badge.invis { color: var(--wr-r); border: 1px solid rgba(244, 63, 94, 0.3); }
+        
+        .ai-blink { animation: ai-blink 1.5s infinite; color: var(--wr-b); font-weight: 700; letter-spacing: 1px; }
+        @keyframes ai-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .ai-text { font-family: var(--font-mono); font-size: 0.75rem; color: var(--wr-p); text-transform: uppercase; margin-bottom: 6px; }
 
-        .lore-close-btn {
-            width: 100%; 
-            padding: 14px; 
-            border-radius: 20px;
-            background: rgba(255,255,255,0.1); 
-            border: none; 
-            color: #fff;
-            font-weight: 600; 
-            cursor: pointer; 
-            margin-top: 12px;
-            min-height: 44px;
-        }
+        /* --- STAR NAV & BACK BTN --- */
+        .star-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; width: 100%; }
+        .star-prev-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 16px; padding: 10px 16px; cursor: pointer; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 6px; min-height: 44px; }
+        .star-prev-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.98); }
+        .star-next-btn { background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3); color: var(--wr-b); border-radius: 16px; padding: 10px 16px; cursor: pointer; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 6px; min-height: 44px; }
+        .star-next-btn:active { background: rgba(96,165,250,0.2); transform: scale(0.98); }
         
-        /* Spinner for Wiki */
-        .wiki-loader {
-            display: none; 
-            justify-content: center; 
-            align-items: center; 
-            padding: 40px;
-        }
-        .wiki-loader.show { 
-            display: flex; 
-        }
-        .wl-spin {
-            width: 24px; 
-            height: 24px; 
-            border: 2px solid rgba(255,255,255,0.1);
-            border-top-color: var(--wr-p); 
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        /* --- STARS MODE PANEL --- */
-        #stars-panel { 
-            display: none; 
-        }
-        .star-monitor {
-            width: 100%; 
-            height: 120px; 
-            background: rgba(0,0,0,0.3);
-            border-radius: 12px; 
-            margin-bottom: 12px; 
-            position: relative;
-            border: 1px solid rgba(255,255,255,0.05); 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            overflow: hidden;
-        }
-        .star-canvas { 
-            width: 100%; 
-            height: 100%; 
-        }
-        .star-badge {
-            font-size: 0.65rem; 
-            background: rgba(255,255,255,0.1); 
-            padding: 4px 8px; 
-            border-radius: 4px; 
-            color: #aaa;
-            display: inline-block; 
-            margin-top: 6px;
-        }
-        .star-badge.vis { 
-            color: var(--wr-g); 
-            border: 1px solid rgba(52, 211, 153, 0.3); 
-        }
-        .star-badge.invis { 
-            color: var(--wr-r); 
-            border: 1px solid rgba(244, 63, 94, 0.3); 
-        }
-
-        /* --- AI SCANNER UI PATCH --- */
-        .ai-blink { 
-            animation: ai-blink 1.5s infinite; 
-            color: var(--wr-b); 
-            font-weight: 700; 
-            letter-spacing: 1px; 
-        }
-        @keyframes ai-blink { 
-            0%, 100% { 
-                opacity: 1; 
-            } 
-            50% { 
-                opacity: 0.5; 
-            } 
-        }
-        .ai-text { 
-            font-family: var(--font-mono); 
-            font-size: 0.75rem; 
-            color: var(--wr-p); 
-            text-transform: uppercase; 
-            margin-bottom: 6px; 
-        }
-
-        /* --- ปุ่มย้อนกลับในโหมดดวงดาว --- */
-        .star-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 12px;
-            width: 100%;
-        }
-        
-        .star-prev-btn {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: #fff;
-            border-radius: 16px;
-            padding: 10px 16px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            min-height: 44px;
-        }
-        
-        .star-prev-btn:active {
-            background: rgba(255,255,255,0.2);
-            transform: scale(0.98);
-        }
-        
-        .star-next-btn {
-            background: rgba(96,165,250,0.1);
-            border: 1px solid rgba(96,165,250,0.3);
-            color: var(--wr-b);
-            border-radius: 16px;
-            padding: 10px 16px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            min-height: 44px;
-        }
-        
-        .star-next-btn:active {
-            background: rgba(96,165,250,0.2);
-            transform: scale(0.98);
-        }
-        
-        /* --- ปุ่มย้อนกลับไปโหมดแรก --- */
-        .back-to-discovery {
-            background: rgba(217, 70, 239, 0.1);
-            border: 1px solid rgba(217, 70, 239, 0.3);
-            color: var(--wr-p);
-            border-radius: 16px;
-            padding: 10px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 700;
-            width: 100%;
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            min-height: 44px;
-        }
-        
-        .back-to-discovery:active {
-            background: rgba(217, 70, 239, 0.2);
-            transform: scale(0.98);
-        }
+        .back-to-discovery { background: rgba(217, 70, 239, 0.1); border: 1px solid rgba(217, 70, 239, 0.3); color: var(--wr-p); border-radius: 16px; padding: 10px; cursor: pointer; font-size: 0.7rem; font-weight: 700; width: 100%; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+        .back-to-discovery:active { background: rgba(217, 70, 239, 0.2); transform: scale(0.98); }
 
         /* --- POPUP INTRODUCTION --- */
-        #intro-popup {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 300;
-            padding: 20px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease;
-        }
-        
-        #intro-popup.show {
-            opacity: 1;
-            pointer-events: all;
-        }
-        
-        .intro-content {
-            background: var(--glass-surf);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 30px 25px;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            transform: translateY(20px);
-            transition: transform 0.5s ease;
-        }
-        
-        #intro-popup.show .intro-content {
-            transform: translateY(0);
-        }
-        
-        .intro-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            display: block;
-            text-shadow: 0 0 20px var(--wr-p);
-        }
-        
-        .intro-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 15px;
-            line-height: 1.3;
-        }
-        
-        .intro-text {
-            font-size: 0.95rem;
-            color: var(--text-2);
-            line-height: 1.6;
-            margin-bottom: 25px;
-            white-space: pre-line;
-        }
-        
-        .intro-features {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 25px;
-            text-align: left;
-        }
-        
-        .intro-feature {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            color: #ccc;
-        }
-        
-        .intro-feature-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: rgba(217, 70, 239, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            flex-shrink: 0;
-        }
-        
-        .intro-close {
-            background: var(--wr-p);
-            color: #000;
-            border: none;
-            padding: 14px 32px;
-            border-radius: 30px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            transition: transform 0.2s, opacity 0.2s;
-        }
-        
-        .intro-close:active {
-            transform: scale(0.97);
-            opacity: 0.9;
-        }
+        #intro-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 300; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+        #intro-popup.show { opacity: 1; pointer-events: all; }
+        .intro-content { background: var(--glass-surf); border: 1px solid var(--glass-border); border-radius: 24px; padding: 30px 25px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); transform: translateY(20px); transition: transform 0.5s ease; }
+        #intro-popup.show .intro-content { transform: translateY(0); }
+        .intro-icon { font-size: 3rem; margin-bottom: 20px; display: block; text-shadow: 0 0 20px var(--wr-p); }
+        .intro-title { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 15px; line-height: 1.3; }
+        .intro-text { font-size: 0.95rem; color: var(--text-2); line-height: 1.6; margin-bottom: 25px; white-space: pre-line; }
+        .intro-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; text-align: left; }
+        .intro-feature { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #ccc; }
+        .intro-feature-icon { width: 24px; height: 24px; border-radius: 50%; background: rgba(217, 70, 239, 0.2); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+        .intro-close { background: var(--wr-p); color: #000; border: none; padding: 14px 32px; border-radius: 30px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; transition: transform 0.2s, opacity 0.2s; }
+        .intro-close:active { transform: scale(0.97); opacity: 0.9; }
 
     </style>
 </head>
@@ -1260,9 +696,9 @@
         <div class="glass-modal">
             <span class="ob-icon">🧭</span>
             <div class="ob-title" data-t="ob_title">Wind Rose</div>
-            <div class="ob-body" data-t="ob_body">This compass app guides you to the Seven Ancient Wonders of the World and helps you navigate by stars.</div>
-            <div class="ob-note" data-t="ob_note">Allow location and motion access. Hold phone flat and move gently to calibrate.</div>
-            <button class="btn-action" onclick="app.finishOnboarding()" data-t="ob_btn">Get Started</button>
+            <div class="ob-body" data-t="ob_body">Loading...</div>
+            <div class="ob-note" data-t="ob_note">...</div>
+            <button class="btn-action" onclick="app.finishOnboarding()" data-t="ob_btn">Let's Go</button>
         </div>
     </div>
 
@@ -1334,7 +770,7 @@
                 </div>
                 <button id="btn-star-lore" style="margin-top:12px; width:100%; background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.3); color:var(--wr-b); border-radius:16px; padding:10px; cursor:pointer;" onclick="app.openStarLore()">✨ STAR LORE</button>
                 <!-- ปุ่มย้อนกลับไปโหมดแรก -->
-                <button class="back-to-discovery" onclick="app.backToDiscovery()">← BACK TO DISCOVERY</button>
+                <button class="back-to-discovery" onclick="app.backToDiscovery()" data-t="back_to_disc">← BACK TO DISCOVERY</button>
             </div>
 
             <div class="btn-row" id="ctrls">
@@ -1376,7 +812,7 @@
 
     <!-- HINT TOAST -->
     <div class="hint-toast" id="hint-toast">
-        <span>👻</span> <span data-t="hint_myth">Tap 'STARS' to track constellations</span>
+        <span>👻</span> <span data-t="hint_myth">Tap Myth for legends</span>
     </div>
 
 <script>
@@ -1401,7 +837,7 @@ const DICT = {
         gps_wait:"GPS WAIT", gps_lock:"GPS LOCK",
         m_disc:"DISCOVERY", m_geo:"GEOMAG", m_stars:"STARS",
         t_auto:"Auto", t_man:"Manual", t_next:"Next", t_map:"Map",
-        lore_load:"Loading information...",
+        lore_load:"AI: Decrypting Data...",
         lbl_head:"HEADING", lbl_var:"VARIANCE",
         warn_cal:"CALIBRATE 8", warn_tilt:"HOLD FLAT",
         sun_track:"Sun Tracker Active",
@@ -1410,17 +846,20 @@ const DICT = {
         star_vis: "VISIBLE", star_hid: "BELOW HORIZON",
         read_btn:"Tap to Read Legend",
         tap_start: "Tap to Start",
-        ob_title: "Wind Rose",
-        ob_body: "This compass app guides you to the Seven Ancient Wonders of the World and helps you navigate by stars.",
-        ob_note: "Allow location and motion access. Hold phone flat and move gently to calibrate.",
-        ob_btn: "Get Started",
+        
+        // New Onboarding (Real App Tone)
+        ob_title: "Welcome to WIND ROSE",
+        ob_body: "This app uses your location and compass to point toward the Seven Ancient Wonders of the World.\n\nPlease allow location and motion sensor access to enable the compass.",
+        ob_note: "• Point your phone flat like a real compass.\n• Move in a figure-8 if direction seems off.\n• Also includes Star Tracking & Geomagnetic modes.",
+        ob_btn: "Allow Access & Start",
+        
         hint_myth: "Tap 'STARS' to track constellations",
         btn_read_lore: "📜 READ LORE",
         btn_close: "CLOSE",
         wiki_offline_lbl: "Offline Database",
-        ai_scan: "SYSTEM: ANALYZING GEODATA...",
+        ai_scan: "AI SYSTEM: ANALYZING GEODATA...",
         ai_conn_lost: "CONNECTION LOST. SWITCHING TO OFFLINE DB.",
-        ai_fetch: "SCANNING SECTOR...",
+        ai_fetch: "AI: SCANNING SECTOR...",
         back_to_disc: "← BACK TO DISCOVERY",
         intro_title: "Welcome to Wind Rose",
         intro_text: "Your AI-powered compass for exploring ancient wonders and celestial navigation.",
@@ -1430,7 +869,7 @@ const DICT = {
         gps_wait:"รอ GPS...", gps_lock:"GPS พร้อม",
         m_disc:"ค้นพบ", m_geo:"แม่เหล็ก", m_stars:"ดวงดาว",
         t_auto:"ออโต้", t_man:"ทำเอง", t_next:"ถัดไป", t_map:"แผนที่",
-        lore_load:"กำลังโหลดข้อมูล...",
+        lore_load:"AI: กำลังถอดรหัสข้อมูล...",
         lbl_head:"ทิศหัวเครื่อง", lbl_var:"ความผันผวน",
         warn_cal:"หมุนเลข 8", warn_tilt:"วางเครื่องราบ",
         sun_track:"ติดตามดวงอาทิตย์",
@@ -1439,17 +878,20 @@ const DICT = {
         star_vis: "มองเห็นได้", star_hid: "ใต้ขอบฟ้า",
         read_btn:"อ่านตำนาน",
         tap_start: "แตะเพื่อเริ่ม",
-        ob_title: "Wind Rose",
-        ob_body: "แอปเข็มทิศนี้จะนำคุณไปยัง 7 สิ่งมหัศจรรย์ยุคโบราณ และช่วยนำทางด้วยดวงดาว",
-        ob_note: "อนุญาตการเข้าถึงตำแหน่งและเซ็นเซอร์การเคลื่อนไหว ถือเครื่องให้ราบและขยับเบา ๆ เพื่อปรับเทียบ",
-        ob_btn: "เริ่มใช้งาน",
+        
+        // New Onboarding (Real App Tone)
+        ob_title: "ยินดีต้อนรับสู่ WIND ROSE",
+        ob_body: "แอปนี้จะใช้ GPS และเข็มทิศในเครื่อง เพื่อชี้ไปยัง 7 สิ่งมหัศจรรย์ของโลกยุคโบราณ\n\nกรุณาอนุญาตการเข้าถึงตำแหน่งและเซ็นเซอร์เพื่อใช้งาน",
+        ob_note: "• ถือมือถือให้ราบเหมือนเข็มทิศจริง\n• ขยับเป็นเลข 8 หากทิศทางดูเพี้ยน\n• มีโหมดดูดาวและโหมดแม่เหล็กโลกให้เลือกใช้",
+        ob_btn: "อนุญาตและเริ่มต้น",
+        
         hint_myth: "แตะ 'ดวงดาว' เพื่อดูตำแหน่งดาว",
         btn_read_lore: "📜 อ่านเรื่องเล่า",
         btn_close: "ปิด",
         wiki_offline_lbl: "ฐานข้อมูลออฟไลน์",
-        ai_scan: "ระบบ: กำลังวิเคราะห์ภูมิศาสตร์...",
+        ai_scan: "ระบบ AI: กำลังวิเคราะห์ภูมิศาสตร์...",
         ai_conn_lost: "สัญญาณขาดหาย ใช้งานฐานข้อมูลสำรอง",
-        ai_fetch: "กำลังสแกนพื้นที่...",
+        ai_fetch: "AI: กำลังสแกนพื้นที่...",
         back_to_disc: "← กลับไปโหมดค้นพบ",
         intro_title: "ยินดีต้อนรับสู่ Wind Rose",
         intro_text: "เข็มทิศอัจฉริยะสำหรับการสำรวจสิ่งมหัศจรรย์โบราณและการนำทางด้วยดวงดาว",
