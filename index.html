@@ -260,6 +260,23 @@
             border-top-color: var(--wr-p); border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+        
+        /* --- STARS MODE PANEL --- */
+        #stars-panel { display: none; } /* Default hidden, shown in Star mode */
+        .star-monitor {
+            width: 100%; height: 120px; background: rgba(0,0,0,0.3);
+            border-radius: 12px; margin-bottom: 12px; position: relative;
+            border: 1px solid rgba(255,255,255,0.05); display: flex; 
+            align-items: center; justify-content: center; overflow: hidden;
+        }
+        .star-canvas { width: 100%; height: 100%; }
+        .star-badge {
+            font-size: 0.65rem; background: rgba(255,255,255,0.1); 
+            padding: 4px 8px; border-radius: 4px; color: #aaa;
+            display: inline-block; margin-top: 6px;
+        }
+        .star-badge.vis { color: var(--wr-g); border: 1px solid rgba(52, 211, 153, 0.3); }
+        .star-badge.invis { color: var(--wr-r); border: 1px solid rgba(244, 63, 94, 0.3); }
 
     </style>
 </head>
@@ -334,6 +351,7 @@
         </div>
 
         <div class="deck">
+            <!-- WONDER/GEO CARD -->
             <div class="glass-panel info-card" id="main-card">
                 <div class="ic-head">
                     <div class="ic-title" id="c-title">Ready</div>
@@ -343,10 +361,24 @@
                     <div id="c-body">Select a mode to begin.</div>
                     <ul class="c-facts" id="c-facts"></ul>
                     <div class="ic-quote" id="c-quote"></div>
-                    
-                    <!-- NEW LORE BUTTON (PATCH) -->
                     <button id="btn-lore" onclick="app.openLore()" data-t="btn_read_lore">📜 READ LEGEND</button>
                 </div>
+            </div>
+
+            <!-- STARS CARD (New) -->
+            <div class="glass-panel info-card" id="stars-panel">
+                <div class="ic-head">
+                    <div class="ic-title" id="s-title">Orion</div>
+                    <div class="ic-meta" id="s-azalt">AZ 000 | ALT 00</div>
+                </div>
+                <div class="star-monitor" id="star-monitor">
+                    <canvas id="star-canvas" width="280" height="120"></canvas>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="star-badge" id="s-vis">VISIBLE</div>
+                    <button class="btn" style="padding:6px 12px; font-size:0.7rem;" onclick="app.nextStar()">NEXT &rarr;</button>
+                </div>
+                <button id="btn-star-lore" style="margin-top:12px; width:100%; background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.3); color:var(--wr-b); border-radius:16px; padding:10px; cursor:pointer;" onclick="app.openStarLore()">✨ STAR LORE</button>
             </div>
 
             <div class="btn-row" id="ctrls">
@@ -358,7 +390,8 @@
             <div class="dock">
                 <button class="dock-item active" onclick="app.setMode('disc')" id="m-disc">DISCOVERY</button>
                 <button class="dock-item" onclick="app.setMode('geo')" id="m-geo">GEOMAG</button>
-                <button class="dock-item" onclick="app.setMode('whis')" id="m-whis">WHISPERS</button>
+                <!-- Renamed Button -->
+                <button class="dock-item" onclick="app.setMode('whis')" id="m-whis" data-t="m_stars">STARS</button>
             </div>
         </div>
     </div>
@@ -372,7 +405,7 @@
         </div>
     </div>
 
-    <!-- NEW WIKI LORE MODAL (PATCH) -->
+    <!-- WIKI LORE MODAL -->
     <div id="modal-lore" class="modal-wrap">
         <div class="glass-panel modal-box" style="max-width:450px;">
             <div class="wiki-loader" id="l-spin"><div class="wl-spin"></div></div>
@@ -409,48 +442,44 @@ document.body.addEventListener('touchmove', e => { if(e.scale !== 1) e.preventDe
 const DICT = {
     en: {
         gps_wait:"GPS WAIT", gps_lock:"GPS LOCK",
-        m_disc:"DISCOVERY", m_geo:"GEOMAG", m_whis:"WHISPERS",
+        m_disc:"DISCOVERY", m_geo:"GEOMAG", m_stars:"STARS",
         t_auto:"Auto", t_man:"Manual", t_next:"Next", t_map:"Map",
-        lore_load:"Accessing Wind Rose Archives...",
+        lore_load:"Accessing Archives...",
         lbl_head:"HEADING", lbl_var:"VARIANCE",
         warn_cal:"CALIBRATE 8", warn_tilt:"HOLD FLAT",
         sun_track:"Sun Tracker Active",
         err_mag:"Mag Sensor Offline",
-        omen_q:"SIGNAL SILENT", omen_r:"ETHER RIPPLE", omen_d:"DISTORTION", omen_p:"HIGH ANOMALY",
-        flav_q:"The wind is quiet here.", flav_a:"Shadows move on their own.",
+        star_track: "STAR COMPASS", star_sub: "TRACKING CONSTELLATIONS",
+        star_vis: "VISIBLE", star_hid: "BELOW HORIZON",
         read_btn:"Tap to Read Legend",
         tap_start: "Tap to Start",
-        // Onboarding
         ob_title: "Wind Rose — The Treasure Seeker’s Compass",
-        ob_body: "A Jack-Sparrow-style compass.\nIt points toward the nearest of the 7 Wonders, right from where you stand.\nTurn slowly… and follow the needle.",
-        ob_note: "If the needle drifts, do a gentle figure-8 calibration.\nMyth mode is storytelling/ARG, not scientific proof.",
+        ob_body: "A Jack-Sparrow-style compass.\nIt points toward the nearest of the 7 Wonders.\nNow includes Star Tracking mode.",
+        ob_note: "If the needle drifts, do a gentle figure-8 calibration.",
         ob_btn: "Let's Go",
-        hint_myth: "Tap 'WHISPERS' to hear local legends",
-        // Wiki Keys
+        hint_myth: "Tap 'STARS' to track constellations",
         btn_read_lore: "📜 READ LORE",
         btn_close: "CLOSE",
         wiki_offline_lbl: "Offline Summary"
     },
     th: {
         gps_wait:"รอ GPS...", gps_lock:"GPS พร้อม",
-        m_disc:"ค้นพบ", m_geo:"แม่เหล็ก", m_whis:"เรื่องเล่า",
+        m_disc:"ค้นพบ", m_geo:"แม่เหล็ก", m_stars:"ดวงดาว",
         t_auto:"ออโต้", t_man:"ทำเอง", t_next:"ถัดไป", t_map:"แผนที่",
         lore_load:"กำลังค้นข้อมูล...",
         lbl_head:"ทิศหัวเครื่อง", lbl_var:"ความผันผวน",
         warn_cal:"หมุนเลข 8", warn_tilt:"วางเครื่องราบ",
         sun_track:"ติดตามดวงอาทิตย์",
         err_mag:"ไม่พบเซนเซอร์",
-        omen_q:"สัญญาณสงบ", omen_r:"คลื่นรบกวน", omen_d:"มิติบิดเบือน", omen_p:"อาถรรพ์รุนแรง",
-        flav_q:"ลมพัดเอื่อยๆ ไร้สิ่งผิดปกติ", flav_a:"เงาไม้ไหวเอนผิดธรรมชาติ",
+        star_track: "เข็มทิศดวงดาว", star_sub: "ติดตามหมู่ดาว",
+        star_vis: "มองเห็นได้", star_hid: "ใต้ขอบฟ้า",
         read_btn:"อ่านตำนาน",
         tap_start: "แตะเพื่อเริ่ม",
-        // Onboarding
         ob_title: "Wind Rose — เข็มทิศนักล่าขุมทรัพย์",
-        ob_body: "นี่คือเข็มทิศแบบ Jack Sparrow\nมันจะชี้ไปยังทิศของ 7 สิ่งมหัศจรรย์ของโลก ที่อยู่ใกล้คุณที่สุดในตอนนี้\nหมุนตัวช้าๆ แล้วเดินตามเข็มได้เลย",
-        ob_note: "ถ้าเข็มส่าย ลองหมุนมือถือเป็นรูปเลข 8 เพื่อจูน\nโหมดตำนานคือประสบการณ์/ARG ไม่ใช่การพิสูจน์วิทยาศาสตร์",
+        ob_body: "เข็มทิศที่จะชี้ไปยังสิ่งมหัศจรรย์ของโลก\nและตอนนี้สามารถชี้หาหมู่ดาวได้แล้ว",
+        ob_note: "ถ้าเข็มส่าย ลองหมุนมือถือเป็นรูปเลข 8",
         ob_btn: "เข้าใจแล้ว",
-        hint_myth: "แตะ 'เรื่องเล่า' เพื่อฟังตำนานใกล้ตัว",
-        // Wiki Keys
+        hint_myth: "แตะ 'ดวงดาว' เพื่อดูตำแหน่งดาว",
         btn_read_lore: "📜 อ่านเรื่องเล่า",
         btn_close: "ปิด",
         wiki_offline_lbl: "สรุปแบบออฟไลน์"
@@ -465,7 +494,6 @@ const WONDERS = [
     {n:"Taj Mahal", lat:27.1751, lon:78.0421, en:{s:"Marble Love", f:["Mausoleum", "Changes color"], m:"Black twin planned."}, th:{s:"อนุสรณ์รัก", f:["สุสานหินอ่อน", "เปลี่ยนสีได้"], m:"จะมีแฝดสีดำ"}}
 ];
 
-// Wikipedia Slugs (Title must match API)
 const WIKI_SLUGS = {
     "Great Pyramid": { en: "Great_Pyramid_of_Giza", th: "มหาพีระมิดแห่งกิซ่า" },
     "Stonehenge": { en: "Stonehenge", th: "สโตนเฮนจ์" },
@@ -473,15 +501,53 @@ const WIKI_SLUGS = {
     "Taj Mahal": { en: "Taj_Mahal", th: "ทัชมาฮาล" }
 };
 
-// Hardcoded Fallback for Offline/Fail
 const OFFLINE_LORE = {
-    "Great Pyramid": { en: "The Great Pyramid of Giza is the oldest of the Seven Wonders of the Ancient World. It was built as a tomb for the Fourth Dynasty Egyptian pharaoh Khufu.", th: "มหาพีระมิดแห่งกิซ่า เป็นสิ่งมหัศจรรย์ที่เก่าแก่ที่สุดในบรรดา 7 สิ่งมหัศจรรย์ของโลกยุคโบราณ สร้างขึ้นเพื่อเป็นสุสานของฟาโรห์คูฟูแห่งราชวงศ์ที่ 4" },
-    "Stonehenge": { en: "Stonehenge is a prehistoric monument on Salisbury Plain in Wiltshire, England. It consists of an outer ring of vertical sarsen standing stones.", th: "สโตนเฮนจ์เป็นอนุสรณ์สถานยุคก่อนประวัติศาสตร์ กลางทุ่งราบซอลส์บรีในอังกฤษ ประกอบด้วยแท่งหินขนาดมหึมาเรียงกันเป็นวงกลม" },
-    "Great Wall": { en: "The Great Wall of China is a series of fortifications that were built across the historical northern borders of ancient Chinese states and Imperial China.", th: "กำแพงเมืองจีนเป็นชุดของป้อมปราการที่สร้างขึ้นตามแนวพรมแดนทางเหนือของจีนโบราณ เพื่อป้องกันการรุกรานจากกลุ่มชนเผ่าเร่ร่อน" },
-    "Taj Mahal": { en: "The Taj Mahal is an ivory-white marble mausoleum on the right bank of the river Yamuna in Agra, India. It was commissioned in 1631 by Shah Jahan.", th: "ทัชมาฮาลเป็นสุสานหินอ่อนสีขาวงาช้าง ตั้งอยู่ริมฝั่งขวาของแม่น้ำยมุนาในเมืองอากรา อินเดีย สร้างขึ้นโดยจักรพรรดิชาห์ชะฮันเพื่อเป็นอนุสรณ์แห่งความรัก" }
+    "Great Pyramid": { en: "The Great Pyramid of Giza is the oldest of the Seven Wonders.", th: "มหาพีระมิดแห่งกิซ่า เป็นสิ่งมหัศจรรย์ที่เก่าแก่ที่สุด" },
+    "Stonehenge": { en: "Stonehenge is a prehistoric monument on Salisbury Plain.", th: "สโตนเฮนจ์เป็นอนุสรณ์สถานยุคก่อนประวัติศาสตร์" },
+    "Great Wall": { en: "The Great Wall of China is a series of fortifications.", th: "กำแพงเมืองจีนเป็นชุดของป้อมปราการที่สร้างขึ้นตามแนวพรมแดน" },
+    "Taj Mahal": { en: "The Taj Mahal is an ivory-white marble mausoleum.", th: "ทัชมาฮาลเป็นสุสานหินอ่อนสีขาวงาช้าง" }
 };
 
-/* --- 3. CORE CLASSES --- */
+/* --- NEW STARS DATA --- */
+const STARS_DB = [
+    { id: "orion", en: "Orion", th: "กลุ่มดาวนายพราน", ra: 5.58, dec: 5.0, slug_en: "Orion_(constellation)", slug_th: "กลุ่มดาวนายพราน", shape: [[0.2,0.2,0.4,0.4], [0.4,0.4,0.5,0.5], [0.5,0.5,0.6,0.6], [0.6,0.6,0.8,0.2], [0.2,0.8,0.4,0.6], [0.4,0.6,0.5,0.5], [0.5,0.5,0.6,0.4], [0.6,0.4,0.8,0.8], [0.45,0.45,0.55,0.55]] },
+    { id: "ursa_major", en: "Ursa Major", th: "กลุ่มดาวหมีใหญ่", ra: 11.0, dec: 50.0, slug_en: "Ursa_Major", slug_th: "กลุ่มดาวหมีใหญ่", shape: [[0.1,0.3,0.3,0.3], [0.3,0.3,0.4,0.5], [0.4,0.5,0.6,0.6], [0.6,0.6,0.5,0.4], [0.5,0.4,0.3,0.3], [0.6,0.6,0.8,0.5], [0.8,0.5,0.9,0.7]] },
+    { id: "cassiopeia", en: "Cassiopeia", th: "กลุ่มดาวแคสซิโอเปีย", ra: 1.0, dec: 60.0, slug_en: "Cassiopeia_(constellation)", slug_th: "กลุ่มดาวแคสซิโอเปีย", shape: [[0.1,0.2,0.3,0.8], [0.3,0.8,0.5,0.4], [0.5,0.4,0.7,0.7], [0.7,0.7,0.9,0.3]] },
+    { id: "scorpius", en: "Scorpius", th: "กลุ่มดาวแมงป่อง", ra: 16.5, dec: -26.0, slug_en: "Scorpius", slug_th: "กลุ่มดาวแมงป่อง", shape: [[0.8,0.1,0.7,0.2], [0.7,0.2,0.6,0.3], [0.6,0.3,0.5,0.5], [0.5,0.5,0.4,0.7], [0.4,0.7,0.3,0.8], [0.3,0.8,0.2,0.7], [0.2,0.7,0.3,0.6]] },
+    { id: "crux", en: "Crux", th: "กลุ่มดาวกางเขนใต้", ra: 12.5, dec: -60.0, slug_en: "Crux", slug_th: "กลุ่มดาวกางเขนใต้", shape: [[0.5,0.1,0.5,0.9], [0.2,0.4,0.8,0.5]] },
+    { id: "pleiades", en: "Pleiades", th: "กระจุกดาวลูกไก่", ra: 3.8, dec: 24.0, slug_en: "Pleiades", slug_th: "กระจุกดาวลูกไก่", shape: [[0.3,0.4,0.4,0.3], [0.4,0.3,0.5,0.4], [0.5,0.4,0.4,0.5], [0.4,0.5,0.3,0.4], [0.5,0.4,0.7,0.5], [0.7,0.5,0.8,0.4]] }
+];
+
+/* --- 3. ASTRONOMY MATH --- */
+const Astro = {
+    rad: d => d * Math.PI / 180,
+    deg: r => r * 180 / Math.PI,
+    lst: (lon) => {
+        const now = new Date();
+        const d = (now.getTime() - 946728000000) / 86400000; // Days since J2000
+        const gmst = 18.697374558 + 24.06570982441908 * d;
+        const lst = (gmst + lon/15 + 2400) % 24;
+        return lst; // Hours
+    },
+    calcPos: (lat, lon, ra, dec) => {
+        const lst = Astro.lst(lon);
+        const ha = (lst - ra) * 15; // deg
+        const latR = Astro.rad(lat);
+        const decR = Astro.rad(dec);
+        const haR = Astro.rad(ha);
+        
+        const sinAlt = Math.sin(latR)*Math.sin(decR) + Math.cos(latR)*Math.cos(decR)*Math.cos(haR);
+        const alt = Math.asin(sinAlt);
+        
+        const cosAz = (Math.sin(decR) - Math.sin(latR)*Math.sin(alt)) / (Math.cos(latR)*Math.cos(alt));
+        let az = Astro.deg(Math.acos(cosAz));
+        if (Math.sin(haR) > 0) az = 360 - az;
+        
+        return { az: az, alt: Astro.deg(alt) };
+    }
+};
+
+/* --- 4. CORE CLASSES --- */
 class I18n {
     constructor() {
         this.lang = localStorage.getItem('wr_lang') || (navigator.language.startsWith('th') ? 'th' : 'en');
@@ -528,7 +594,6 @@ class Sensor {
                     else rej();
                 } catch { rej(); }
             } else {
-                // Android auto-start
                 const h = e => this.droid(e, e.absolute);
                 if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', e=>h(e,true));
                 else window.addEventListener('deviceorientation', e=>h(e,false));
@@ -545,16 +610,18 @@ class Sensor {
 class App {
     constructor() {
         this.i18n = new I18n(); this.sensor = new Sensor();
-        this.state = { idx:0, auto:true, heading:0, mode:'disc' };
+        this.state = { idx:0, auto:true, heading:0, mode:'disc', starIdx:0 };
         this.els = {
             ring: document.getElementById('ring'), val: document.getElementById('val-head'),
             nMain: document.getElementById('n-main'), nSun: document.getElementById('n-sun'),
-            radar: document.getElementById('radar-ui'), deck: document.getElementById('main-card'),
+            radar: document.getElementById('radar-ui'), 
+            mainCard: document.getElementById('main-card'),
+            starsPanel: document.getElementById('stars-panel'),
+            starCanvas: document.getElementById('star-canvas'),
             btnLore: document.getElementById('btn-lore')
         };
         this.i18n.apply();
         
-        // Trigger Button
         const btn = document.getElementById('btn-init');
         btn.addEventListener('click', () => this.start());
     }
@@ -605,6 +672,7 @@ class App {
     loop() {
         requestAnimationFrame(() => this.loop());
         const h = this.sensor.update();
+        this.state.heading = h;
         this.els.ring.style.transform = `rotate(${-h}deg)`;
         this.els.val.innerText = Math.round(h).toString().padStart(3,'0') + "°";
         
@@ -616,9 +684,25 @@ class App {
             const now = new Date();
             const az = (now.getHours()-12)*15 + 180; 
             this.els.nSun.style.transform = `translateX(-50%) rotate(${az}deg)`;
-        } else if (this.state.mode === 'whis') {
-            const wander = Math.sin(Date.now()/500) * 15;
-            this.els.nMain.style.transform = `translateX(-50%) rotate(${h + wander}deg)`;
+        } else if (this.state.mode === 'whis' && this.sensor.gps) {
+            // STAR LOGIC
+            const star = STARS_DB[this.state.starIdx];
+            const pos = Astro.calcPos(this.sensor.gps.latitude, this.sensor.gps.longitude, star.ra, star.dec);
+            
+            // Point Compass
+            this.els.nMain.style.transform = `translateX(-50%) rotate(${pos.az}deg)`;
+            
+            // Update Panel UI (throttled slightly by logic if needed, but doing here is smooth)
+            document.getElementById('s-azalt').innerText = `AZ ${Math.round(pos.az)}° | ALT ${Math.round(pos.alt)}°`;
+            
+            const badge = document.getElementById('s-vis');
+            if(pos.alt > 0) {
+                badge.innerText = this.i18n.t('star_vis');
+                badge.className = 'star-badge vis';
+            } else {
+                badge.innerText = this.i18n.t('star_hid');
+                badge.className = 'star-badge invis';
+            }
         }
     }
 
@@ -636,8 +720,6 @@ class App {
         document.getElementById('c-title').innerText = w.n;
         document.getElementById('c-body').innerText = i.s;
         document.getElementById('c-facts').innerHTML = i.f.map(x=>`<li>${x}</li>`).join('');
-        
-        // Show/Hide Lore Button
         this.els.btnLore.style.display = this.state.mode === 'disc' ? 'block' : 'none';
 
         if(this.sensor.gps) {
@@ -646,10 +728,43 @@ class App {
         }
     }
 
+    // STARS UTILS
+    updateStarUI() {
+        const star = STARS_DB[this.state.starIdx];
+        document.getElementById('s-title').innerText = this.i18n.lang === 'th' ? star.th : star.en;
+        this.drawStarShape(star.shape);
+    }
+
+    drawStarShape(lines) {
+        const ctx = this.els.starCanvas.getContext('2d');
+        const w = this.els.starCanvas.width;
+        const h = this.els.starCanvas.height;
+        ctx.clearRect(0,0,w,h);
+        ctx.strokeStyle = '#60a5fa';
+        ctx.fillStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        lines.forEach(l => {
+            const x1 = l[0]*w, y1 = l[1]*h;
+            const x2 = l[2]*w, y2 = l[3]*h;
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+            // Draw dots at ends
+            ctx.fillRect(x1-2, y1-2, 4, 4);
+            ctx.fillRect(x2-2, y2-2, 4, 4);
+        });
+        ctx.stroke();
+    }
+    
+    nextStar() {
+        this.state.starIdx = (this.state.starIdx+1) % STARS_DB.length;
+        this.updateStarUI();
+    }
+
     toggleLang() { 
         this.i18n.toggle(); 
         this.i18n.apply(); 
         this.updCard(); 
+        if(this.state.mode === 'whis') this.updateStarUI();
     }
 
     setMode(m) {
@@ -658,18 +773,23 @@ class App {
         document.getElementById('m-'+m).classList.add('active');
         this.els.nMain.style.display = m=='geo'?'none':'block';
         this.els.nSun.style.display = m=='geo'?'block':'none';
-        this.els.radar.style.display = m=='whis'?'block':'none';
         
-        if(m=='disc') {
-            this.updCard();
+        // Hide/Show Panels
+        if(m === 'whis') {
+            this.els.mainCard.style.display = 'none';
+            this.els.starsPanel.style.display = 'block';
+            this.els.radar.style.display = 'none'; // No radar in star mode, using canvas monitor
+            document.getElementById('c-title').innerText = this.i18n.t('star_track');
+            this.updateStarUI();
         } else {
-            this.els.btnLore.style.display = 'none';
-            if(m=='geo') { 
+            this.els.mainCard.style.display = 'block';
+            this.els.starsPanel.style.display = 'none';
+            this.els.radar.style.display = 'none';
+            if(m=='disc') this.updCard();
+            else { 
                 document.getElementById('c-title').innerText="GEOMAG"; 
                 document.getElementById('c-body').innerText=this.i18n.t('sun_track'); 
-            } else { 
-                document.getElementById('c-title').innerText="WHISPERS"; 
-                document.getElementById('c-body').innerText=this.i18n.t('flav_a'); 
+                this.els.btnLore.style.display = 'none';
             }
         }
     }
@@ -680,98 +800,85 @@ class App {
     resetView() { document.body.style.zoom=1.0; window.scrollTo(0,0); this.toggleSettings(); }
     openMap() { const w=WONDERS[this.state.idx]; window.open(`https://maps.google.com/?q=${w.lat},${w.lon}`); }
 
-    /* --- WIKI FETCH & MODAL LOGIC (PATCH) --- */
-    openLore() {
-        document.getElementById('modal-lore').classList.add('show');
-        this.fetchWiki();
-    }
+    /* --- WIKI FETCH --- */
+    openLore() { this.openWiki(false); }
+    openStarLore() { this.openWiki(true); }
     
     closeLore() {
         document.getElementById('modal-lore').classList.remove('show');
     }
 
-    async fetchWiki() {
-        const wName = WONDERS[this.state.idx].n;
+    async openWiki(isStar) {
+        document.getElementById('modal-lore').classList.add('show');
         const lang = this.i18n.lang;
-        const slug = WIKI_SLUGS[wName][lang];
+        let slug, title, fallback;
+
+        if(isStar) {
+            const star = STARS_DB[this.state.starIdx];
+            slug = lang === 'th' ? star.slug_th : star.slug_en;
+            title = lang === 'th' ? star.th : star.en;
+            fallback = "Offline star data unavailable.";
+        } else {
+            const wName = WONDERS[this.state.idx].n;
+            slug = WIKI_SLUGS[wName][lang];
+            title = wName;
+            fallback = OFFLINE_LORE[wName][lang];
+        }
+        
         const cacheKey = `WR_WIKI_${lang}_${slug}`;
+        this.renderWiki(null, true); // Loading state
 
-        const uiLoader = document.getElementById('l-spin');
-        const uiContent = document.getElementById('l-content');
-        const uiTitle = document.getElementById('l-title');
-        const uiText = document.getElementById('l-text');
-        const uiThumb = document.getElementById('l-thumb');
-        const uiSrc = document.getElementById('l-src');
-
-        // Reset UI
-        uiContent.style.display = 'none';
-        uiLoader.classList.add('show');
-        uiThumb.classList.remove('active');
-
-        // 1. Try Cache
         const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            this.renderWiki(JSON.parse(cached));
-            uiLoader.classList.remove('show');
-            uiContent.style.display = 'block';
-            // Stale-while-revalidate: Fetch in background
+        if(cached) {
+            this.renderWiki(JSON.parse(cached), false);
             this.doFetch(slug, lang, cacheKey, false);
         } else {
-            // 2. Fetch Fresh
             const success = await this.doFetch(slug, lang, cacheKey, true);
-            if (!success) {
-                // 3. Fallback
-                this.renderFallback(wName, lang);
-            }
+            if(!success) this.renderFallback(title, fallback);
         }
     }
 
-    async doFetch(slug, lang, cacheKey, renderImmediately) {
+    async doFetch(slug, lang, cacheKey, render) {
         try {
             const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${slug}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error('Wiki Fail');
             const data = await res.json();
-            
-            // Save & Render
             localStorage.setItem(cacheKey, JSON.stringify(data));
-            if (renderImmediately) {
-                this.renderWiki(data);
-                document.getElementById('l-spin').classList.remove('show');
-                document.getElementById('l-content').style.display = 'block';
-            }
+            if(render) this.renderWiki(data, false);
             return true;
-        } catch (e) {
-            console.warn(e);
-            return false;
-        }
+        } catch { return false; }
     }
 
-    renderWiki(data) {
-        document.getElementById('l-title').innerText = data.title;
-        document.getElementById('l-text').innerText = data.extract;
-        
-        const uiThumb = document.getElementById('l-thumb');
-        if(data.thumbnail && data.thumbnail.source) {
-            uiThumb.src = data.thumbnail.source;
-            uiThumb.classList.add('active');
+    renderWiki(data, loading) {
+        const uiLoader = document.getElementById('l-spin');
+        const uiContent = document.getElementById('l-content');
+        if(loading) {
+            uiLoader.classList.add('show');
+            uiContent.style.display = 'none';
         } else {
-            uiThumb.classList.remove('active');
+            uiLoader.classList.remove('show');
+            uiContent.style.display = 'block';
+            document.getElementById('l-title').innerText = data.title;
+            document.getElementById('l-text').innerText = data.extract;
+            const uiThumb = document.getElementById('l-thumb');
+            if(data.thumbnail && data.thumbnail.source) {
+                uiThumb.src = data.thumbnail.source;
+                uiThumb.classList.add('active');
+            } else uiThumb.classList.remove('active');
+            
+            const uiSrc = document.getElementById('l-src');
+            uiSrc.href = data.content_urls.desktop.page;
+            uiSrc.innerHTML = `Source: Wikipedia (${this.i18n.lang.toUpperCase()})`;
         }
-
-        const uiSrc = document.getElementById('l-src');
-        uiSrc.href = data.content_urls.desktop.page;
-        uiSrc.innerHTML = `Source: Wikipedia (${this.i18n.lang.toUpperCase()})`;
     }
 
-    renderFallback(wName, lang) {
+    renderFallback(title, text) {
         document.getElementById('l-spin').classList.remove('show');
         document.getElementById('l-content').style.display = 'block';
         document.getElementById('l-thumb').classList.remove('active');
-        
-        const fb = OFFLINE_LORE[wName][lang];
-        document.getElementById('l-title').innerText = WONDERS[this.state.idx].n;
-        document.getElementById('l-text').innerText = fb;
+        document.getElementById('l-title').innerText = title;
+        document.getElementById('l-text').innerText = text;
         document.getElementById('l-src').innerHTML = `<i>${this.i18n.t('wiki_offline_lbl')}</i>`;
         document.getElementById('l-src').href = "#";
     }
