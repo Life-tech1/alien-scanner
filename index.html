@@ -1,1108 +1,642 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <title>Geye Pro: Field Console</title>
+  <meta charset="UTF-8" />
+  <title>AI Mobile Spectrometer Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #050711;
+      --panel: rgba(10, 16, 40, 0.9);
+      --accent: #39f5ff;
+      --accent2: #ff4fbf;
+      --text: #f5f7ff;
+      --muted: #7a87b8;
+    }
 
-    <!-- TensorFlow.js + Models -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
 
-    <style>
-        /**
-         * PERFORMANCE NOTES:
-         * - CSS transforms use GPU acceleration
-         * - Absolute positioning avoids layout thrashing
-         * - Minimal DOM updates via direct canvas rendering
-         * - No CSS animations during tracking (performance)
-         */
+    body {
+      background: radial-gradient(circle at top, #10152f 0%, #050711 55%, #000000 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 12px;
+    }
 
-        :root {
-            --primary: #E82127;
-            --bg-dark: #000000;
-            --glass: rgba(23, 26, 32, 0.75);
-            --text: #ffffff;
-            --text-dim: rgba(255, 255, 255, 0.6);
-            --safe-top: env(safe-area-inset-top);
-            --safe-bottom: env(safe-area-inset-bottom);
-            --safe-left: env(safe-area-inset-left);
-            --safe-right: env(safe-area-inset-right);
-        }
+    .shell {
+      width: 100%;
+      max-width: 1100px;
+      background: linear-gradient(135deg, rgba(120, 180, 255, 0.08), rgba(255, 80, 180, 0.08));
+      border-radius: 24px;
+      padding: 1px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+    }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+    .inner {
+      background: radial-gradient(circle at top left, rgba(85, 160, 255, 0.12), rgba(0, 0, 0, 0.96));
+      border-radius: 23px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 12px;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-            background: var(--bg-dark);
-            color: var(--text);
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-            position: fixed;
-        }
+    @media (max-width: 900px) {
+      .inner {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
 
-        /* Camera View */
-        #camera-container {
-            position: fixed;
-            inset: 0;
-            background: #000;
-        }
+    header {
+      grid-column: 1/-1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 12px;
+    }
 
-        #camera-feed {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+    h1 {
+      font-size: 18px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #f9fbff;
+    }
 
-        #overlay-canvas {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-        }
+    .subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
 
-        /* Downscaled inference canvas (hidden) */
-        #inference-canvas {
-            display: none;
-        }
+    .status-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 11px;
+    }
 
-        /* Boot Screen */
-        #boot-screen {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            transition: opacity 0.5s;
-        }
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(12, 228, 255, 0.08);
+      border: 1px solid rgba(112, 220, 255, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-        #boot-screen.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #39ff9f;
+      box-shadow: 0 0 8px #39ff9f;
+    }
 
-        .boot-logo {
-            font-size: 48px;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 20px;
-        }
+    .clock {
+      font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(140, 160, 220, 0.5);
+      background: radial-gradient(circle at top, rgba(112, 210, 255, 0.2), rgba(3, 7, 25, 0.9));
+    }
 
-        .boot-status {
-            font-size: 14px;
-            color: var(--text-dim);
-            margin-bottom: 30px;
-        }
+    .panel {
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 10px;
+      border: 1px solid rgba(120, 170, 255, 0.35);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset;
+      position: relative;
+      overflow: hidden;
+    }
 
-        .boot-progress {
-            width: 200px;
-            height: 2px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 1px;
-            overflow: hidden;
-        }
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at top left, rgba(80, 200, 255, 0.12), transparent 50%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
 
-        .boot-progress-bar {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            transition: width 0.3s;
-        }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      position: relative;
+      z-index: 1;
+    }
 
-        .activate-btn {
-            margin-top: 40px;
-            padding: 16px 48px;
-            background: transparent;
-            border: 1px solid var(--text);
-            color: var(--text);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.3s;
-        }
+    .panel-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.17em;
+      color: #9fb4ff;
+    }
 
-        .activate-btn:hover {
-            background: var(--text);
-            color: #000;
-        }
+    .badge {
+      font-size: 9px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(180, 205, 255, 0.55);
+      background: rgba(10, 20, 60, 0.8);
+      color: var(--muted);
+    }
 
-        /* HUD - Side Panels */
-        .hud-panel {
-            position: absolute;
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 11px;
-            z-index: 100;
-        }
+    .panel-body {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-        #stats-panel {
-            top: calc(20px + var(--safe-top));
-            left: calc(20px + var(--safe-left));
-            min-width: 120px;
-        }
+    video, canvas {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+      display: block;
+    }
 
-        #controls-panel {
-            top: calc(20px + var(--safe-top));
-            right: calc(20px + var(--safe-right));
-            min-width: 100px;
-        }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+    }
 
-        #analytics-panel {
-            bottom: calc(20px + var(--safe-bottom));
-            left: calc(20px + var(--safe-left));
-            min-width: 140px;
-        }
+    .controls-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
 
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            gap: 12px;
-        }
+    button {
+      background: radial-gradient(circle at top, #39f5ff, #2288ff);
+      border: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      color: #000;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(56, 214, 255, 0.7);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
+      white-space: nowrap;
+    }
 
-        .stat-label {
-            color: var(--text-dim);
-            font-weight: 500;
-        }
+    button.secondary {
+      background: rgba(18, 28, 68, 1);
+      color: var(--muted);
+      border: 1px solid rgba(130, 160, 240, 0.7);
+      box-shadow: none;
+    }
 
-        .stat-value {
-            color: var(--text);
-            font-weight: 600;
-        }
+    button:active {
+      transform: scale(0.96);
+      box-shadow: 0 0 6px rgba(56, 214, 255, 0.4);
+      filter: brightness(0.95);
+    }
 
-        .control-btn {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 6px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: var(--text);
-            font-size: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
+    .slider-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
 
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
+    .slider-group label {
+      font-size: 11px;
+      color: var(--muted);
+    }
 
-        .control-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
+    input[type="range"] {
+      flex: 1;
+    }
 
-        /* Alert */
-        #alert {
-            position: fixed;
-            top: calc(80px + var(--safe-top));
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 200;
-        }
+    .value-chip {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(18, 30, 70, 0.95);
+      border: 1px solid rgba(120, 160, 255, 0.7);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
 
-        #alert.show {
-            opacity: 1;
-        }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
 
-        /* Minimal Mode Optimizations */
-        body.minimal #stats-panel,
-        body.minimal #analytics-panel {
-            opacity: 0.3;
-        }
+    .stat {
+      background: rgba(7, 12, 38, 0.95);
+      border-radius: 10px;
+      padding: 6px;
+      border: 1px solid rgba(90, 130, 230, 0.65);
+      font-size: 10px;
+    }
 
-        body.minimal #stats-panel:hover,
-        body.minimal #analytics-panel:hover {
-            opacity: 1;
-        }
-    </style>
+    .stat-label {
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .stat-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      color: #e5efff;
+    }
+
+    .log {
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 4px;
+      font-size: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .log-entry {
+      margin-bottom: 4px;
+      color: #bac6ff;
+      border-left: 2px solid rgba(110, 160, 255, 0.7);
+      padding-left: 6px;
+    }
+
+    .log-entry span.time {
+      color: #7f96ff;
+      margin-right: 4px;
+    }
+
+    .spectrum-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: -4px;
+    }
+
+    .chip-inline {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(60, 20, 80, 0.9);
+      border: 1px solid rgba(255, 120, 220, 0.8);
+      color: #ffcfff;
+    }
+  </style>
 </head>
-
 <body>
-    <!-- Boot Screen -->
-    <div id="boot-screen">
-        <div class="boot-logo">GEYE PRO</div>
-        <div class="boot-status" id="boot-status">Initializing AI Vision...</div>
-        <div class="boot-progress">
-            <div class="boot-progress-bar" id="boot-progress"></div>
+  <div class="shell">
+    <div class="inner">
+      <header>
+        <div>
+          <h1>AI MOBILE SPECTROMETER</h1>
+          <div class="subtitle">Field-grade pseudo-spectral analyzer using phone camera + real-time statistics</div>
         </div>
-        <button class="activate-btn" id="activate-btn" style="display:none">ACTIVATE SYSTEM</button>
+        <div class="status-bar">
+          <div class="pill">
+            <div class="pill-dot" id="status-dot"></div>
+            <span id="status-text">IDLE</span>
+          </div>
+          <div class="clock" id="clock">--:--:--</div>
+        </div>
+      </header>
+
+      <!-- Left: Camera & Controls -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Capture & Control</div>
+          <div class="badge">CAMERA / ROI</div>
+        </div>
+        <div class="panel-body">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="roiCanvas" style="display:none;"></canvas>
+
+          <div class="controls">
+            <div class="controls-row">
+              <button id="btnStart">Start Camera</button>
+              <button id="btnSample" class="secondary">Sample Frame</button>
+            </div>
+            <div class="slider-group">
+              <label for="roiSize">ROI size</label>
+              <input type="range" id="roiSize" min="10" max="60" value="30">
+              <span class="value-chip" id="roiSizeVal">30%</span>
+            </div>
+            <div class="slider-group">
+              <label for="smoothFactor">Smoothing</label>
+              <input type="range" id="smoothFactor" min="0" max="0.9" step="0.05" value="0.5">
+              <span class="value-chip" id="smoothVal">0.50</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Middle: Spectrum Visualizer -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Pseudo-Spectrum</div>
+          <div class="badge chip-inline">R/G/B channel intensity</div>
+        </div>
+        <div class="panel-body">
+          <canvas id="spectrumCanvas" height="200"></canvas>
+          <div class="spectrum-legend">
+            <span>Left: Dark / low intensity</span>
+            <span>Right: Bright / high intensity</span>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="stat-label">Mean RGB</div>
+              <div class="stat-value" id="meanRgb">R: -, G: -, B: -</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Normalized ratios</div>
+              <div class="stat-value" id="ratios">r: -, g: -, b: -</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Last sample size</div>
+              <div class="stat-value" id="sampleSize">- pixels</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">AI model</div>
+              <div class="stat-value">not attached (placeholder)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Log & Meta -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Acquisition Log</div>
+          <div class="badge">EXPERIMENT TRACE</div>
+        </div>
+        <div class="panel-body">
+          <div class="stat" style="margin-bottom:6px;">
+            <div class="stat-label">Experiment notes</div>
+            <div class="stat-value" id="noteHint">
+              Align the sample in the center of the frame, keep lighting stable, and press <strong>Sample Frame</strong> repeatedly to build a spectral profile.
+            </div>
+          </div>
+          <div class="log" id="log"></div>
+        </div>
+      </section>
     </div>
-
-    <!-- Camera View -->
-    <div id="camera-container">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="overlay-canvas"></canvas>
-        <canvas id="inference-canvas"></canvas>
-    </div>
-
-    <!-- HUD Panels -->
-    <div id="stats-panel" class="hud-panel">
-        <div class="stat-row">
-            <span class="stat-label">FPS</span>
-            <span class="stat-value" id="fps-val">--</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">INF</span>
-            <span class="stat-value" id="inf-val">--ms</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">TRACKS</span>
-            <span class="stat-value" id="tracks-val">0</span>
-        </div>
-    </div>
-
-    <div id="controls-panel" class="hud-panel">
-        <button class="control-btn active" id="mode-minimal">MINIMAL</button>
-        <button class="control-btn" id="mode-tactical">TACTICAL</button>
-        <button class="control-btn" id="mode-debug">DEBUG</button>
-        <button class="control-btn" id="toggle-lock" style="margin-top:12px">LOCK TARGET</button>
-    </div>
-
-    <div id="analytics-panel" class="hud-panel">
-        <div class="stat-row">
-            <span class="stat-label">PEOPLE</span>
-            <span class="stat-value" id="people-val">0</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">VEHICLES</span>
-            <span class="stat-value" id="vehicles-val">0</span>
-        </div>
-    </div>
-
-    <!-- Alert Notification -->
-    <div id="alert"></div>
-
-    <script>
-        /**
-         * ═══════════════════════════════════════════════════════════════
-         * GEYE PRO: FIELD CONSOLE - PRODUCTION REFACTOR
-         * ═══════════════════════════════════════════════════════════════
-         * 
-         * PERFORMANCE NOTES:
-         * 
-         * 1. INFERENCE OPTIMIZATION
-         *    - Downscaled inference canvas (320-480px long side)
-         *    - Reduces COCO-SSD inference from ~150ms to ~40-60ms on mobile
-         *    - WebGL backend forced for maximum GPU utilization
-         *    - Model warmup prevents first-frame lag
-         * 
-         * 2. ADAPTIVE SCHEDULING
-         *    - Detection FPS adapts based on measured inference time
-         *    - Target: 15-30 FPS on mobile, 30-60 FPS on desktop
-         *    - Never queues overlapping inferences
-         *    - Render loop runs at full 60 FPS independently
-         * 
-         * 3. KALMAN FILTER SORT
-         *    - State: [x, y, w, h, vx, vy, dw, dh]
-         *    - Prediction step for smooth motion
-         *    - Hybrid association (IOU + distance + velocity gating)
-         *    - Adaptive smoothing based on object velocity
-         * 
-         * 4. MINIMAL HUD
-         *    - Corner brackets only in Minimal mode
-         *    - No solid label bars (semi-transparent text)
-         *    - Trails OFF by default, auto-disable when >5 objects
-         *    - Center view kept clear (<15% occlusion)
-         * 
-         * 5. LOCK-ON SYSTEM
-         *    - Tap/click to lock nearest target
-         *    - Locked association uses distance prior
-         *    - Lower IOU threshold for locked track (0.15 vs 0.3)
-         *    - Soft halo rendering for visual feedback
-         * 
-         * ═══════════════════════════════════════════════════════════════
-         */
-
-        class GeyeProFieldConsole {
-            constructor() {
-                // Core Elements
-                this.video = document.getElementById('camera-feed');
-                this.overlayCanvas = document.getElementById('overlay-canvas');
-                this.inferenceCanvas = document.getElementById('inference-canvas');
-                this.ctx = this.overlayCanvas.getContext('2d');
-                this.infCtx = this.inferenceCanvas.getContext('2d');
-
-                // State
-                this.isActive = false;
-                this.model = null;
-                this.tracker = null;
-                this.overlayMode = 'minimal'; // minimal, tactical, debug
-                this.lockedTrackId = null;
-
-                // Performance Metrics
-                this.fps = 0;
-                this.frameCount = 0;
-                this.lastFpsUpdate = Date.now();
-                this.lastInferenceTime = 0;
-                this.targetDetectionFps = 20;
-
-                // Adaptive Scheduling
-                this.lastDetectionTime = 0;
-                this.detectionInterval = 50; // Start at ~20 FPS
-                this.isInferencing = false;
-
-                // Inference Canvas Scale
-                this.inferenceSize = 416; // Long side
-                this.inferenceScale = 1;
-
-                // Analytics
-                this.analytics = {
-                    people: 0,
-                    vehicles: 0
-                };
-
-                this.init();
-            }
-
-            async init() {
-                try {
-                    this.updateBootStatus('Forcing WebGL backend...');
-                    await this.setupTensorFlowBackend();
-
-                    this.updateBootStatus('Loading AI models...');
-                    this.updateBootProgress(20);
-
-                    await this.loadModels();
-
-                    this.updateBootStatus('Warming up inference...');
-                    this.updateBootProgress(60);
-
-                    await this.warmupModels();
-
-                    this.updateBootStatus('Initializing camera...');
-                    this.updateBootProgress(80);
-
-                    this.setupEventListeners();
-
-                    this.updateBootStatus('Ready to activate');
-                    this.updateBootProgress(100);
-
-                    document.getElementById('activate-btn').style.display = 'block';
-
-                } catch (error) {
-                    console.error('Init error:', error);
-                    this.updateBootStatus('Error: ' + error.message);
-                }
-            }
-
-            async setupTensorFlowBackend() {
-                // Force WebGL or WebGPU for maximum performance
-                try {
-                    await tf.setBackend('webgl');
-                    await tf.ready();
-                    console.log('✓ WebGL backend ready');
-                } catch (e) {
-                    console.warn('WebGL failed, trying WebGPU:', e);
-                    try {
-                        await tf.setBackend('webgpu');
-                        await tf.ready();
-                        console.log('✓ WebGPU backend ready');
-                    } catch (e2) {
-                        console.warn('WebGPU failed, using default:', e2);
-                    }
-                }
-            }
-
-            async loadModels() {
-                // Load COCO-SSD with optimal config
-                this.model = await cocoSsd.load({
-                    base: 'lite_mobilenet_v2' // Faster for mobile
-                });
-                console.log('✓ COCO-SSD loaded');
-            }
-
-            async warmupModels() {
-                // Create dummy canvas for warmup
-                const dummyCanvas = document.createElement('canvas');
-                dummyCanvas.width = this.inferenceSize;
-                dummyCanvas.height = this.inferenceSize;
-
-                // Run 3 warmup inferences
-                for (let i = 0; i < 3; i++) {
-                    await this.model.detect(dummyCanvas);
-                }
-                console.log('✓ Models warmed up');
-            }
-
-            setupEventListeners() {
-                document.getElementById('activate-btn').addEventListener('click', () => {
-                    this.activateSystem();
-                });
-
-                // Overlay mode switching
-                document.getElementById('mode-minimal').addEventListener('click', () => {
-                    this.setOverlayMode('minimal');
-                });
-                document.getElementById('mode-tactical').addEventListener('click', () => {
-                    this.setOverlayMode('tactical');
-                });
-                document.getElementById('mode-debug').addEventListener('click', () => {
-                    this.setOverlayMode('debug');
-                });
-
-                // Lock toggle
-                document.getElementById('toggle-lock').addEventListener('click', () => {
-                    this.toggleLock();
-                });
-
-                // Tap to lock
-                this.overlayCanvas.addEventListener('click', (e) => {
-                    const rect = this.overlayCanvas.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    this.lockNearestTarget(x, y);
-                });
-
-                // Resize handler
-                window.addEventListener('resize', () => {
-                    this.handleResize();
-                });
-            }
-
-            async activateSystem() {
-                try {
-                    // Request camera
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 }
-                        }
-                    });
-
-                    this.video.srcObject = stream;
-                    await this.video.play();
-
-                    // Wait for video metadata
-                    await new Promise(resolve => {
-                        this.video.onloadedmetadata = resolve;
-                    });
-
-                    this.setupCanvas();
-                    this.setupInferenceCanvas();
-
-                    // Initialize tracker
-                    this.tracker = new KalmanTracker();
-
-                    // Hide boot screen
-                    document.getElementById('boot-screen').classList.add('hidden');
-
-                    // Start unified loop
-                    this.isActive = true;
-                    this.startUnifiedLoop();
-
-                    this.showAlert('System activated');
-
-                } catch (error) {
-                    console.error('Activation error:', error);
-                    this.showAlert('Camera access denied');
-                }
-            }
-
-            setupCanvas() {
-                this.overlayCanvas.width = window.innerWidth;
-                this.overlayCanvas.height = window.innerHeight;
-            }
-
-            setupInferenceCanvas() {
-                // Calculate downscaled dimensions
-                const videoAspect = this.video.videoWidth / this.video.videoHeight;
-
-                if (this.video.videoWidth > this.video.videoHeight) {
-                    this.inferenceCanvas.width = this.inferenceSize;
-                    this.inferenceCanvas.height = this.inferenceSize / videoAspect;
-                } else {
-                    this.inferenceCanvas.height = this.inferenceSize;
-                    this.inferenceCanvas.width = this.inferenceSize * videoAspect;
-                }
-
-                this.inferenceScale = this.video.videoWidth / this.inferenceCanvas.width;
-
-                console.log(`Inference: ${this.inferenceCanvas.width}x${this.inferenceCanvas.height}, scale: ${this.inferenceScale.toFixed(2)}x`);
-            }
-
-            handleResize() {
-                this.setupCanvas();
-            }
-
-            startUnifiedLoop() {
-                // Single unified loop for both detection and rendering
-                const loop = async () => {
-                    if (!this.isActive) return;
-
-                    const now = Date.now();
-
-                    // Adaptive detection scheduling
-                    if (!this.isInferencing && (now - this.lastDetectionTime >= this.detectionInterval)) {
-                        this.runDetection();
-                    }
-
-                    // Render at 60 FPS
-                    this.render();
-
-                    // FPS counter
-                    this.frameCount++;
-                    if (now - this.lastFpsUpdate >= 1000) {
-                        this.fps = this.frameCount;
-                        this.frameCount = 0;
-                        this.lastFpsUpdate = now;
-                        this.updateUI();
-                    }
-
-                    requestAnimationFrame(loop);
-                };
-
-                loop();
-            }
-
-            async runDetection() {
-                this.isInferencing = true;
-                const startTime = performance.now();
-
-                try {
-                    // Draw video to inference canvas (downscaled)
-                    this.infCtx.drawImage(
-                        this.video,
-                        0, 0,
-                        this.inferenceCanvas.width,
-                        this.inferenceCanvas.height
-                    );
-
-                    // Run detection on downscaled frame
-                    const predictions = await this.model.detect(this.inferenceCanvas);
-
-                    // Scale bboxes back to video coordinates
-                    const scaledPredictions = predictions.map(pred => ({
-                        ...pred,
-                        bbox: pred.bbox.map(v => v * this.inferenceScale)
-                    }));
-
-                    // Update tracker
-                    if (this.tracker) {
-                        this.tracker.update(scaledPredictions, this.lockedTrackId);
-                    }
-
-                    // Update analytics
-                    this.updateAnalytics(scaledPredictions);
-
-                } catch (error) {
-                    console.error('Detection error:', error);
-                }
-
-                const endTime = performance.now();
-                this.lastInferenceTime = endTime - startTime;
-                this.lastDetectionTime = Date.now();
-                this.isInferencing = false;
-
-                // Adaptive interval adjustment
-                this.adjustDetectionInterval();
-            }
-
-            adjustDetectionInterval() {
-                // Target 15-30 FPS based on inference time
-                const targetInterval = Math.max(33, Math.min(66, this.lastInferenceTime * 1.5));
-                this.detectionInterval = targetInterval;
-            }
-
-            render() {
-                // Clear canvas
-                this.ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-
-                if (!this.tracker) return;
-
-                const tracks = this.tracker.getTracks();
-
-                // Calculate video rect for proper coordinate mapping
-                const videoRect = this.calculateVideoRect();
-
-                // Render based on overlay mode
-                tracks.forEach(track => {
-                    this.renderTrack(track, videoRect);
-                });
-            }
-
-            calculateVideoRect() {
-                const videoAspect = this.video.videoWidth / this.video.videoHeight;
-                const screenAspect = window.innerWidth / window.innerHeight;
-
-                let drawWidth, drawHeight, offsetX, offsetY;
-
-                if (screenAspect > videoAspect) {
-                    drawWidth = window.innerWidth;
-                    drawHeight = drawWidth / videoAspect;
-                    offsetX = 0;
-                    offsetY = (window.innerHeight - drawHeight) / 2;
-                } else {
-                    drawHeight = window.innerHeight;
-                    drawWidth = drawHeight * videoAspect;
-                    offsetX = (window.innerWidth - drawWidth) / 2;
-                    offsetY = 0;
-                }
-
-                return {
-                    x: offsetX,
-                    y: offsetY,
-                    w: drawWidth,
-                    h: drawHeight,
-                    scale: drawWidth / this.video.videoWidth
-                };
-            }
-
-            renderTrack(track, videoRect) {
-                const [x, y, w, h] = track.bbox;
-                const drawX = videoRect.x + (x * videoRect.scale);
-                const drawY = videoRect.y + (y * videoRect.scale);
-                const drawW = w * videoRect.scale;
-                const drawH = h * videoRect.scale;
-
-                const isLocked = (track.id === this.lockedTrackId);
-                const color = isLocked ? '#FF0000' : this.getClassColor(track.class);
-
-                if (this.overlayMode === 'minimal') {
-                    // Corner brackets only
-                    this.renderCornerBrackets(drawX, drawY, drawW, drawH, color, isLocked);
-
-                    // Label only for locked target
-                    if (isLocked) {
-                        this.renderMinimalLabel(track, drawX, drawY, drawW, color);
-                    }
-
-                } else if (this.overlayMode === 'tactical') {
-                    // Thin boxes + small labels
-                    this.ctx.strokeStyle = color;
-                    this.ctx.lineWidth = isLocked ? 2 : 1;
-                    this.ctx.strokeRect(drawX, drawY, drawW, drawH);
-
-                    this.renderMinimalLabel(track, drawX, drawY, drawW, color);
-
-                } else if (this.overlayMode === 'debug') {
-                    // Full boxes + trails + IDs
-                    this.ctx.strokeStyle = color;
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(drawX, drawY, drawW, drawH);
-
-                    // Trails
-                    if (track.history && track.history.length > 1) {
-                        this.renderTrail(track.history, videoRect, color);
-                    }
-
-                    // Full label
-                    this.renderDebugLabel(track, drawX, drawY, drawW, color);
-                }
-
-                // Locked halo
-                if (isLocked) {
-                    this.renderLockHalo(drawX, drawY, drawW, drawH);
-                }
-            }
-
-            renderCornerBrackets(x, y, w, h, color, isLocked) {
-                const size = 12;
-                const lineWidth = isLocked ? 2 : 1;
-
-                this.ctx.strokeStyle = color;
-                this.ctx.lineWidth = lineWidth;
-
-                // Top-left
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, y + size);
-                this.ctx.lineTo(x, y);
-                this.ctx.lineTo(x + size, y);
-                this.ctx.stroke();
-
-                // Top-right
-                this.ctx.beginPath();
-                this.ctx.moveTo(x + w - size, y);
-                this.ctx.lineTo(x + w, y);
-                this.ctx.lineTo(x + w, y + size);
-                this.ctx.stroke();
-
-                // Bottom-right
-                this.ctx.beginPath();
-                this.ctx.moveTo(x + w, y + h - size);
-                this.ctx.lineTo(x + w, y + h);
-                this.ctx.lineTo(x + w - size, y + h);
-                this.ctx.stroke();
-
-                // Bottom-left
-                this.ctx.beginPath();
-                this.ctx.moveTo(x + size, y + h);
-                this.ctx.lineTo(x, y + h);
-                this.ctx.lineTo(x, y + h - size);
-                this.ctx.stroke();
-            }
-
-            renderMinimalLabel(track, x, y, w, color) {
-                const label = `${track.class.toUpperCase()} ${Math.round(track.score * 100)}%`;
-
-                this.ctx.font = '10px -apple-system, sans-serif';
-                this.ctx.fillStyle = color;
-                this.ctx.globalAlpha = 0.8;
-                this.ctx.fillText(label, x + 4, y - 6);
-                this.ctx.globalAlpha = 1.0;
-            }
-
-            renderDebugLabel(track, x, y, w, color) {
-                const label = `${track.class.toUpperCase()} ${Math.round(track.score * 100)}% [ID:${track.id}]`;
-
-                this.ctx.fillStyle = color;
-                this.ctx.globalAlpha = 0.7;
-                this.ctx.fillRect(x, y - 18, w, 18);
-                this.ctx.globalAlpha = 1.0;
-
-                this.ctx.font = '10px -apple-system, sans-serif';
-                this.ctx.fillStyle = '#fff';
-                this.ctx.fillText(label, x + 4, y - 5);
-            }
-
-            renderTrail(history, videoRect, color) {
-                if (history.length < 2) return;
-
-                this.ctx.strokeStyle = color;
-                this.ctx.lineWidth = 1;
-                this.ctx.globalAlpha = 0.4;
-
-                this.ctx.beginPath();
-                history.forEach((bbox, i) => {
-                    const cx = videoRect.x + (bbox[0] + bbox[2] / 2) * videoRect.scale;
-                    const cy = videoRect.y + (bbox[1] + bbox[3] / 2) * videoRect.scale;
-
-                    if (i === 0) this.ctx.moveTo(cx, cy);
-                    else this.ctx.lineTo(cx, cy);
-                });
-                this.ctx.stroke();
-
-                this.ctx.globalAlpha = 1.0;
-            }
-
-            renderLockHalo(x, y, w, h) {
-                this.ctx.strokeStyle = '#FF0000';
-                this.ctx.lineWidth = 1;
-                this.ctx.globalAlpha = 0.3;
-                this.ctx.strokeRect(x - 4, y - 4, w + 8, h + 8);
-                this.ctx.globalAlpha = 1.0;
-            }
-
-            getClassColor(cls) {
-                const colors = {
-                    'person': '#00FF00',
-                    'car': '#0088FF',
-                    'truck': '#0088FF',
-                    'bus': '#0088FF',
-                    'motorcycle': '#FF8800',
-                    'bicycle': '#FF8800'
-                };
-                return colors[cls] || '#FFFFFF';
-            }
-
-            setOverlayMode(mode) {
-                this.overlayMode = mode;
-
-                // Update button states
-                document.getElementById('mode-minimal').classList.toggle('active', mode === 'minimal');
-                document.getElementById('mode-tactical').classList.toggle('active', mode === 'tactical');
-                document.getElementById('mode-debug').classList.toggle('active', mode === 'debug');
-
-                // Update body class
-                document.body.className = mode;
-
-                this.showAlert(`Mode: ${mode.toUpperCase()}`);
-            }
-
-            toggleLock() {
-                if (this.lockedTrackId) {
-                    this.lockedTrackId = null;
-                    this.showAlert('Lock released');
-                } else {
-                    // Lock center-most track
-                    const centerX = window.innerWidth / 2;
-                    const centerY = window.innerHeight / 2;
-                    this.lockNearestTarget(centerX, centerY);
-                }
-            }
-
-            lockNearestTarget(screenX, screenY) {
-                if (!this.tracker) return;
-
-                const videoRect = this.calculateVideoRect();
-                const tracks = this.tracker.getTracks();
-
-                let nearest = null;
-                let minDist = Infinity;
-
-                tracks.forEach(track => {
-                    const [x, y, w, h] = track.bbox;
-                    const cx = videoRect.x + (x + w / 2) * videoRect.scale;
-                    const cy = videoRect.y + (y + h / 2) * videoRect.scale;
-
-                    const dist = Math.hypot(cx - screenX, cy - screenY);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        nearest = track;
-                    }
-                });
-
-                if (nearest && minDist < 200) {
-                    this.lockedTrackId = nearest.id;
-                    this.showAlert(`Locked: ${nearest.class.toUpperCase()} [ID:${nearest.id}]`);
-                } else {
-                    this.showAlert('No target nearby');
-                }
-            }
-
-            updateAnalytics(predictions) {
-                this.analytics.people = predictions.filter(p => p.class === 'person').length;
-                this.analytics.vehicles = predictions.filter(p =>
-                    ['car', 'truck', 'bus', 'motorcycle'].includes(p.class)
-                ).length;
-            }
-
-            updateUI() {
-                document.getElementById('fps-val').textContent = this.fps;
-                document.getElementById('inf-val').textContent = Math.round(this.lastInferenceTime) + 'ms';
-                document.getElementById('tracks-val').textContent = this.tracker ? this.tracker.getTracks().length : 0;
-                document.getElementById('people-val').textContent = this.analytics.people;
-                document.getElementById('vehicles-val').textContent = this.analytics.vehicles;
-            }
-
-            updateBootStatus(msg) {
-                document.getElementById('boot-status').textContent = msg;
-            }
-
-            updateBootProgress(pct) {
-                document.getElementById('boot-progress').style.width = pct + '%';
-            }
-
-            showAlert(msg) {
-                const alert = document.getElementById('alert');
-                alert.textContent = msg;
-                alert.classList.add('show');
-                setTimeout(() => alert.classList.remove('show'), 2000);
-            }
+  </div>
+
+  <script>
+    "use strict";
+
+    /**
+     * AI Mobile Spectrometer Prototype
+     *
+     * This prototype does:
+     * - Uses the phone camera to capture frames.
+     * - Extracts a central Region Of Interest (ROI).
+     * - Computes per-channel (R, G, B) means and a simple 1D "pseudo-spectrum"
+     *   by averaging along a strip of pixels.
+     * - Visualizes those values as line plots on a canvas.
+     *
+     * The idea is to provide a physically grounded data stream that can later be
+     * fed into a proper ML model (e.g. via TF.js or backend API) to classify
+     * materials / chemical color reactions based on the spectral-like response.
+     *
+     * It is NOT a true spectrometer (no diffraction grating, no narrow bands),
+     * but rather uses broadband camera channels and spatial averaging to be as
+     * close as possible given only the mobile sensor.
+     */
+
+    const video = document.getElementById("video");
+    const roiCanvas = document.getElementById("roiCanvas");
+    const spectrumCanvas = document.getElementById("spectrumCanvas");
+    const logEl = document.getElementById("log");
+    const statusDot = document.getElementById("status-dot");
+    const statusText = document.getElementById("status-text");
+
+    const roiSizeSlider = document.getElementById("roiSize");
+    const roiSizeVal = document.getElementById("roiSizeVal");
+    const smoothSlider = document.getElementById("smoothFactor");
+    const smoothVal = document.getElementById("smoothVal");
+
+    const meanRgbEl = document.getElementById("meanRgb");
+    const ratiosEl = document.getElementById("ratios");
+    const sampleSizeEl = document.getElementById("sampleSize");
+
+    let stream = null;
+    let lastSpectrum = null;
+
+    function setStatus(state) {
+      if (state === "IDLE") {
+        statusDot.style.background = "#39ff9f";
+        statusDot.style.boxShadow = "0 0 8px #39ff9f";
+        statusText.textContent = "IDLE";
+      } else if (state === "CAPTURING") {
+        statusDot.style.background = "#39f5ff";
+        statusDot.style.boxShadow = "0 0 8px #39f5ff";
+        statusText.textContent = "CAPTURING";
+      } else if (state === "ERROR") {
+        statusDot.style.background = "#ff4f7b";
+        statusDot.style.boxShadow = "0 0 10px #ff4f7b";
+        statusText.textContent = "ERROR";
+      }
+    }
+
+    function log(message) {
+      const now = new Date();
+      const t = now.toTimeString().slice(0, 8);
+      const div = document.createElement("div");
+      div.className = "log-entry";
+      div.innerHTML = '<span class="time">[' + t + ']</span>' + message;
+      logEl.prepend(div);
+    }
+
+    async function startCamera() {
+      try {
+        if (stream) return;
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        video.srcObject = stream;
+        setStatus("CAPTURING");
+        log("Camera started with environment-facing mode.");
+      } catch (err) {
+        console.error(err);
+        setStatus("ERROR");
+        log("ERROR: Unable to access camera. " + err.message);
+      }
+    }
+
+    function sampleFrame() {
+      if (!video.videoWidth || !video.videoHeight) {
+        log("Sampling skipped: video not ready.");
+        return;
+      }
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+
+      roiCanvas.width = vw;
+      roiCanvas.height = vh;
+      const ctx = roiCanvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, vw, vh);
+
+      const roiPercent = parseInt(roiSizeSlider.value, 10) / 100;
+      const roiW = vw * roiPercent;
+      const roiH = vh * roiPercent;
+      const roiX = (vw - roiW) / 2;
+      const roiY = (vh - roiH) / 2;
+
+      const imageData = ctx.getImageData(roiX, roiY, roiW, roiH);
+      const data = imageData.data;
+      const totalPixels = roiW * roiH;
+
+      let sumR = 0, sumG = 0, sumB = 0;
+
+      // We also build a 1D pseudo-spectrum by sampling a horizontal strip
+      // across the ROI and averaging RGB per x-position.
+      const stripY = Math.floor(roiH / 2);
+      const spectrumLength = 64;
+      const stepX = roiW / spectrumLength;
+      const pseudoSpectrum = {
+        r: new Array(spectrumLength).fill(0),
+        g: new Array(spectrumLength).fill(0),
+        b: new Array(spectrumLength).fill(0)
+      };
+      const pseudoCounts = new Array(spectrumLength).fill(0);
+
+      for (let y = 0; y < roiH; y++) {
+        for (let x = 0; x < roiW; x++) {
+          const idx = (y * roiW + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+
+          sumR += r;
+          sumG += g;
+          sumB += b;
+
+          if (y === stripY) {
+            const bin = Math.min(spectrumLength - 1, Math.floor(x / stepX));
+            pseudoSpectrum.r[bin] += r;
+            pseudoSpectrum.g[bin] += g;
+            pseudoSpectrum.b[bin] += b;
+            pseudoCounts[bin] += 1;
+          }
         }
+      }
 
-        /**
-         * ═══════════════════════════════════════════════════════════════
-         * KALMAN FILTER SORT TRACKER
-         * ═══════════════════════════════════════════════════════════════
-         */
+      for (let i = 0; i < spectrumLength; i++) {
+        const c = pseudoCounts[i] || 1;
+        pseudoSpectrum.r[i] /= c;
+        pseudoSpectrum.g[i] /= c;
+        pseudoSpectrum.b[i] /= c;
+      }
 
-        class KalmanTracker {
-            constructor() {
-                this.tracks = [];
-                this.nextId = 1;
-                this.maxMissedFrames = 30;
-                this.iouThreshold = 0.3;
-                this.lockedIouThreshold = 0.15;
-            }
+      const meanR = sumR / totalPixels;
+      const meanG = sumG / totalPixels;
+      const meanB = sumB / totalPixels;
 
-            update(predictions, lockedId) {
-                // 1. Predict
-                this.tracks.forEach(track => track.predict());
+      const total = meanR + meanG + meanB || 1;
+      const nr = meanR / total;
+      const ng = meanG / total;
+      const nb = meanB / total;
 
-                // 2. Associate
-                const matched = new Set();
-                const activeTracks = [];
+      meanRgbEl.textContent = `R: ${meanR.toFixed(1)}, G: ${meanG.toFixed(1)}, B: ${meanB.toFixed(1)}`;
+      ratiosEl.textContent = `r: ${nr.toFixed(3)}, g: ${ng.toFixed(3)}, b: ${nb.toFixed(3)}`;
+      sampleSizeEl.textContent = totalPixels + " pixels";
 
-                // Priority matching for locked track
-                if (lockedId) {
-                    const lockedTrack = this.tracks.find(t => t.id === lockedId);
-                    if (lockedTrack) {
-                        const match = this.findBestMatch(lockedTrack, predictions, matched, this.lockedIouThreshold, true);
-                        if (match) {
-                            matched.add(match.index);
-                            lockedTrack.update(match.detection);
-                            activeTracks.push(lockedTrack);
-                        } else {
-                            lockedTrack.missedFrames++;
-                            if (lockedTrack.missedFrames < this.maxMissedFrames) {
-                                activeTracks.push(lockedTrack);
-                            }
-                        }
-                    }
-                }
-
-                // Match remaining tracks
-                this.tracks.forEach(track => {
-                    if (track.id === lockedId) return; // Already handled
-
-                    const match = this.findBestMatch(track, predictions, matched, this.iouThreshold, false);
-
-                    if (match) {
-                        matched.add(match.index);
-                        track.update(match.detection);
-                        activeTracks.push(track);
-                    } else {
-                        track.missedFrames++;
-                        if (track.missedFrames < this.maxMissedFrames) {
-                            activeTracks.push(track);
-                        }
-                    }
-                });
-
-                // 3. Create new tracks
-                predictions.forEach((det, i) => {
-                    if (!matched.has(i)) {
-                        activeTracks.push(new KalmanTrack(this.nextId++, det));
-                    }
-                });
-
-                this.tracks = activeTracks;
-            }
-
-            findBestMatch(track, predictions, matched, threshold, isLocked) {
-                let bestMatch = null;
-                let bestScore = 0;
-
-                predictions.forEach((det, i) => {
-                    if (matched.has(i)) return;
-                    if (det.class !== track.class) return;
-
-                    const iou = this.calculateIOU(track.bbox, det.bbox);
-
-                    // Hybrid scoring: IOU + distance
-                    let score = iou;
-
-                    if (isLocked) {
-                        // Add distance prior for locked track
-                        const dist = this.calculateCenterDistance(track.bbox, det.bbox);
-                        const distScore = Math.exp(-dist / 100); // Exponential decay
-                        score = iou * 0.7 + distScore * 0.3;
-                    }
-
-                    if (score > threshold && score > bestScore) {
-                        bestScore = score;
-                        bestMatch = { detection: det, index: i };
-                    }
-                });
-
-                return bestMatch;
-            }
-
-            calculateIOU(bbox1, bbox2) {
-                const [x1, y1, w1, h1] = bbox1;
-                const [x2, y2, w2, h2] = bbox2;
-
-                const xi1 = Math.max(x1, x2);
-                const yi1 = Math.max(y1, y2);
-                const xi2 = Math.min(x1 + w1, x2 + w2);
-                const yi2 = Math.min(y1 + h1, y2 + h2);
-
-                const interW = Math.max(0, xi2 - xi1);
-                const interH = Math.max(0, yi2 - yi1);
-                const interArea = interW * interH;
-
-                const area1 = w1 * h1;
-                const area2 = w2 * h2;
-                const unionArea = area1 + area2 - interArea;
-
-                return interArea / unionArea;
-            }
-
-            calculateCenterDistance(bbox1, bbox2) {
-                const cx1 = bbox1[0] + bbox1[2] / 2;
-                const cy1 = bbox1[1] + bbox1[3] / 2;
-                const cx2 = bbox2[0] + bbox2[2] / 2;
-                const cy2 = bbox2[1] + bbox2[3] / 2;
-
-                return Math.hypot(cx2 - cx1, cy2 - cy1);
-            }
-
-            getTracks() {
-                return this.tracks;
-            }
+      const smoothFactor = parseFloat(smoothSlider.value);
+      if (!lastSpectrum) {
+        lastSpectrum = pseudoSpectrum;
+      } else {
+        for (let i = 0; i < spectrumLength; i++) {
+          lastSpectrum.r[i] = lastSpectrum.r[i] * smoothFactor + pseudoSpectrum.r[i] * (1 - smoothFactor);
+          lastSpectrum.g[i] = lastSpectrum.g[i] * smoothFactor + pseudoSpectrum.g[i] * (1 - smoothFactor);
+          lastSpectrum.b[i] = lastSpectrum.b[i] * smoothFactor + pseudoSpectrum.b[i] * (1 - smoothFactor);
         }
+      }
 
-        class KalmanTrack {
-            constructor(id, detection) {
-                this.id = id;
-                this.class = detection.class;
-                this.score = detection.score;
-                this.missedFrames = 0;
+      drawSpectrum(lastSpectrum);
+      log(`Sampled frame. ROI ~${(roiPercent * 100).toFixed(0)}%, mean RGB = (${meanR.toFixed(1)}, ${meanG.toFixed(1)}, ${meanB.toFixed(1)}).`);
+    }
 
-                // State: [x, y, w, h, vx, vy, dw, dh]
-                const [x, y, w, h] = detection.bbox;
-                this.state = [x, y, w, h, 0, 0, 0, 0];
-                this.bbox = [x, y, w, h];
+    function drawSpectrum(spec) {
+      const ctx = spectrumCanvas.getContext("2d");
+      const w = spectrumCanvas.width;
+      const h = spectrumCanvas.height;
+      ctx.clearRect(0, 0, w, h);
 
-                // History for trails
-                this.history = [[x, y, w, h]];
+      if (!spec) return;
+      const n = spec.r.length;
+      const maxVal = 255;
 
-                // Adaptive smoothing
-                this.alpha = 0.3;
-            }
+      ctx.save();
+      ctx.fillStyle = "rgba(3, 5, 20, 0.95)";
+      ctx.fillRect(0, 0, w, h);
 
-            predict() {
-                // Simple linear prediction
-                this.state[0] += this.state[4]; // x += vx
-                this.state[1] += this.state[5]; // y += vy
-                this.state[2] += this.state[6]; // w += dw
-                this.state[3] += this.state[7]; // h += dh
+      ctx.strokeStyle = "rgba(80, 100, 200, 0.6)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 4; i++) {
+        const y = (h / 4) * i;
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
 
-                this.bbox = [this.state[0], this.state[1], this.state[2], this.state[3]];
-            }
-
-            update(detection) {
-                const [mx, my, mw, mh] = detection.bbox;
-
-                // Calculate velocity
-                const vx = mx - this.state[0];
-                const vy = my - this.state[1];
-                const dw = mw - this.state[2];
-                const dh = mh - this.state[3];
-
-                // Adaptive alpha based on movement
-                const speed = Math.hypot(vx, vy);
-                this.alpha = speed > 10 ? 0.5 : 0.2; // More smoothing when stable
-
-                // Update state with smoothing
-                this.state[0] += (mx - this.state[0]) * this.alpha;
-                this.state[1] += (my - this.state[1]) * this.alpha;
-                this.state[2] += (mw - this.state[2]) * this.alpha;
-                this.state[3] += (mh - this.state[3]) * this.alpha;
-                this.state[4] = vx * 0.5; // Damped velocity
-                this.state[5] = vy * 0.5;
-                this.state[6] = dw * 0.5;
-                this.state[7] = dh * 0.5;
-
-                this.bbox = [this.state[0], this.state[1], this.state[2], this.state[3]];
-                this.score = detection.score;
-                this.missedFrames = 0;
-
-                // Update history
-                this.history.push([...this.bbox]);
-                if (this.history.length > 60) this.history.shift();
-            }
+      const drawLine = (values, color) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const x = (i / (n - 1)) * (w - 10) + 5;
+          const v = values[i] / maxVal;
+          const y = h - v * (h - 10) - 5;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
+        ctx.stroke();
+      };
 
-        // Initialize System
-        const APP = new GeyeProFieldConsole();
-    </script>
+      drawLine(spec.r, "rgba(255, 90, 120, 0.95)");
+      drawLine(spec.g, "rgba(120, 255, 140, 0.95)");
+      drawLine(spec.b, "rgba(90, 170, 255, 0.95)");
+
+      ctx.restore();
+    }
+
+    document.getElementById("btnStart").addEventListener("click", startCamera);
+    document.getElementById("btnSample").addEventListener("click", sampleFrame);
+
+    roiSizeSlider.addEventListener("input", () => {
+      roiSizeVal.textContent = roiSizeSlider.value + "%";
+    });
+
+    smoothSlider.addEventListener("input", () => {
+      smoothVal.textContent = parseFloat(smoothSlider.value).toFixed(2);
+    });
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toTimeString().slice(0, 8) + " UTC≈";
+      requestAnimationFrame(updateClock);
+    }
+    updateClock();
+
+    log("Ready. Press 'Start Camera' to begin acquisition.");
+  </script>
 </body>
-
 </html>
