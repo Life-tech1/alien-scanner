@@ -1,2063 +1,833 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OMEGA: ADVANCED HUMANOID VISION SYSTEM</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <title>Geye Companion: Future Console</title>
+
+    <!-- Core AI -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
 
     <style>
         :root {
-            --hud-primary: #00ff41;
-            --hud-secondary: #008f11;
-            --hud-alert: #ff0000;
-            --hud-warn: #ffcc00;
-            --hud-info: #0080ff;
-            --hud-critical: #ff0066;
-            --bg-dark: #050505;
-            --glass: rgba(0, 20, 0, 0.85);
-            --glass-dark: rgba(0, 10, 0, 0.95);
-            --neon-glow: 0 0 10px currentColor;
-            /* UI scaling (tune here) */
-            --ui-scale: 0.82;          /* overall HUD size */
-            --ui-panel-pad: 8px 10px;  /* panel padding */
-            --ui-panel-margin: 6px;    /* panel margin */
-            --ui-font-base: 11px;      /* base font */
-            --ui-font-small: 10px;     /* small font */
-            --ui-title-font: 10px;     /* title font */
-            --ui-wide-min: 220px;
-            --ui-wide-max: 260px;
-            --ui-radar-size: 120px;
-            --ui-control-min: 210px;
-        
+            --primary: #00F0FF;
+            /* Cyan Future */
+            --alert: #FF2A6D;
+            /* Cyber Red */
+            --calm: #05D9E8;
+            /* Calm Blue */
+            --warn: #FFD700;
+            /* Gold */
+            --glass: rgba(10, 15, 30, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --font-main: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'SF Mono', 'Courier New', monospace;
         }
 
-        * { 
-            box-sizing: border-box; 
-            user-select: none; 
-            -webkit-touch-callout: none; 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
-        
+
         body {
-            margin: 0; 
-            overflow: hidden; 
-            background: var(--bg-dark);
-            font-family: 'Courier New', 'Consolas', monospace;
-            color: var(--hud-primary);
-            width: 100vw; 
+            background: #000;
+            color: #fff;
+            font-family: var(--font-main);
+            overflow: hidden;
+            width: 100vw;
             height: 100vh;
-            line-height: 1.2;
+            user-select: none;
         }
 
-        #viewport { 
-            position: relative; 
-            width: 100%; 
-            height: 100%; 
+        /* LAYERS */
+        #view-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
         }
-        
-        #camera-feed {
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
+
+        #video-feed {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            z-index: 0; 
-            filter: contrast(1.4) brightness(0.7) hue-rotate(90deg) saturate(1.3);
-            opacity: 0.5;
         }
-        
-        #hud-canvas { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            z-index: 10; 
+
+        #canvas-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
         }
 
         #ui-layer {
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            z-index: 20; 
-            pointer-events: none;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between;
-            padding: max(12px, env(safe-area-inset-top));
-        }
-
-        .hud-panel {
-            background: var(--glass); 
-            border: 1px solid var(--hud-primary);
-            border-left: 3px solid var(--hud-primary);
-            padding: 8px 12px; 
-            margin: 6px; 
-            width: fit-content;
-            backdrop-filter: blur(4px);
-            box-shadow: var(--neon-glow);
-            clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
-            font-size: 11px;
-        }
-        
-        .hud-panel-wide {
-            width: auto;
-            min-width: 240px;
-            max-width: 280px;
-        }
-        
-        .panel-title {
-            font-size: 10px;
-            font-weight: bold;
-            color: var(--hud-secondary);
-            margin-bottom: 6px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        .hud-text { 
-            font-size: 10px; 
-            letter-spacing: 0.5px; 
-            margin-bottom: 3px; 
-            text-shadow: var(--neon-glow);
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .hud-value { 
-            font-weight: bold; 
-            color: #fff;
-            margin-left: 8px;
-        }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            margin-top: 6px;
-        }
-
-        #radar-container {
-            position: absolute; 
-            bottom: 15px; 
-            right: 15px;
-            width: 140px; 
-            height: 140px;
-            border-radius: 50%;
-            background: var(--glass-dark);
-            border: 2px solid var(--hud-primary);
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
-            overflow: hidden;
-            z-index: 30;
-        }
-        
-        #radar-container::after {
-            content: ''; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0,255,65,0.4) 360deg);
-            border-radius: 50%;
-            animation: radar-scan 3s linear infinite;
-        }
-        
-        .radar-grid {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            border: 1px solid rgba(0,255,65,0.3); 
-            border-radius: 50%; 
-            pointer-events: none;
-        }
-        
-        .radar-cross {
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%);
-            width: 100%; 
-            height: 1px; 
-            background: rgba(0,255,65,0.3);
-        }
-        
-        .radar-blip {
-            position: absolute; 
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: var(--neon-glow);
-            transition: all 0.2s ease-out;
-            z-index: 2;
-        }
-        
-        .radar-range {
             position: absolute;
-            bottom: 4px;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #interaction-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+        }
+
+        /* For clicks */
+
+        /* COMPANION AURA */
+        #companion-aura {
+            position: absolute;
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 8px;
-            color: var(--hud-secondary);
-        }
-        
-        @keyframes radar-scan { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
-        }
-
-        #boot-overlay {
-            position: fixed; 
-            inset: 0; 
-            background: #000; 
-            z-index: 9999;
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            color: var(--hud-primary);
-            background: radial-gradient(circle at center, #001100 0%, #000000 70%);
-        }
-        
-        .boot-title {
-            font-size: 42px;
-            font-weight: 900;
-            margin-bottom: 8px;
-            letter-spacing: 6px;
-            text-shadow: 0 0 20px var(--hud-primary);
-            background: linear-gradient(90deg, var(--hud-primary), var(--hud-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .boot-subtitle {
-            opacity: 0.7; 
-            margin-bottom: 30px;
-            font-size: 13px;
-            letter-spacing: 2px;
-        }
-        
-        #btn-init {
-            background: transparent; 
-            color: var(--hud-primary); 
-            border: 2px solid var(--hud-primary);
-            padding: 14px 50px; 
-            font-family: inherit; 
-            font-size: 15px; 
-            font-weight: bold;
-            letter-spacing: 3px; 
-            cursor: pointer; 
-            margin-top: 30px;
-            transition: all 0.3s ease;
-            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-            text-transform: uppercase;
-            position: relative;
-            overflow: hidden;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 20px var(--primary);
+            opacity: 0.8;
+            transition: all 0.5s ease;
+            z-index: 100;
             pointer-events: auto;
-        }
-        
-        #btn-init::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0,255,65,0.4), transparent);
-            transition: left 0.5s;
-        }
-        
-        #btn-init:hover::before {
-            left: 100%;
-        }
-        
-        #btn-init:hover { 
-            background: var(--hud-primary); 
-            color: #000; 
-            box-shadow: 0 0 25px var(--hud-primary);
-        }
-        
-        .status-list {
-            text-align: left; 
-            font-size: 11px; 
-            line-height: 1.6; 
-            opacity: 0.9;
-            margin-top: 25px;
-        }
-        
-        .status-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .status-led { 
-            display: inline-block; 
-            width: 8px; 
-            height: 8px; 
-            background: #333; 
-            border-radius: 50%; 
-            margin-right: 10px; 
-            position: relative;
-        }
-        
-        .status-led::after {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            bottom: -1px;
-            border-radius: 50%;
-            box-shadow: 0 0 6px currentColor;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .status-led.active { 
-            background: var(--hud-primary);
-        }
-        
-        .status-led.active::after {
-            opacity: 1;
-        }
-        
-        .status-led.error { 
-            background: var(--hud-alert);
-        }
-        
-        .status-led.error::after {
-            opacity: 1;
-        }
-        
-        .status-led.warning { 
-            background: var(--hud-warn);
-        }
-        
-        .status-led.warning::after {
-            opacity: 1;
-        }
-        
-        .status-led.loading {
-            background: var(--hud-info);
-            animation: pulse 1.5s infinite;
-        }
-
-        #system-status {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--glass-dark);
-            border-top: 1px solid var(--hud-secondary);
-            padding: 6px 12px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 9px;
-            z-index: 25;
-            backdrop-filter: blur(4px);
-        }
-        
-        .status-section {
-            display: flex;
-            align-items: center;
-        }
-        
-        .status-item-compact {
-            display: flex;
-            align-items: center;
-            margin-right: 15px;
-        }
-        
-        .status-indicator {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            margin-right: 5px;
-            position: relative;
-        }
-        
-        .status-indicator::after {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            bottom: -1px;
-            border-radius: 50%;
-            box-shadow: 0 0 4px currentColor;
-        }
-        
-        .status-ok { 
-            background: var(--hud-primary); 
-        }
-        
-        .status-warn { 
-            background: var(--hud-warn); 
-        }
-        
-        .status-error { 
-            background: var(--hud-alert); 
-        }
-        
-        .status-offline { 
-            background: #444; 
-        }
-
-        /* Control Panel */
-        #control-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: var(--glass-dark);
-            border: 1px solid var(--hud-primary);
-            padding: 8px;
-            border-radius: 4px;
-            z-index: 40;
-            pointer-events: auto;
-            backdrop-filter: blur(4px);
-            display: none;
-        }
-
-        .control-btn {
-            background: transparent;
-            border: 1px solid var(--hud-secondary);
-            color: var(--hud-primary);
-            padding: 4px 8px;
-            margin: 2px;
-            font-size: 10px;
             cursor: pointer;
-            border-radius: 2px;
         }
 
-        .control-btn:hover {
-            background: var(--hud-secondary);
+        #companion-aura.speaking {
+            animation: pulse 1s infinite;
         }
 
-        .control-btn.active {
-            background: var(--hud-primary);
-            color: black;
+        #companion-aura.alert {
+            background: var(--alert);
+            box-shadow: 0 0 30px var(--alert);
         }
 
-        #toggle-controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 35;
-            pointer-events: auto;
-            background: var(--glass);
-            border: 1px solid var(--hud-primary);
-            color: var(--hud-primary);
-            padding: 4px 8px;
-            font-size: 10px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-
-        /* Permission Overlay */
-        #permission-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 9998;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--hud-primary);
-            text-align: center;
-            padding: 20px;
-        }
-
-        .permission-content {
-            background: var(--glass-dark);
-            border: 2px solid var(--hud-primary);
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 400px;
+        #companion-aura.thinking {
+            animation: breathe 2s infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        @keyframes targetLock {
-            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.7; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-
-        .critical-alert {
-            animation: alertPulse 0.5s infinite;
-        }
-
-        @keyframes alertPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            .hud-panel-wide {
-                min-width: 220px;
-                max-width: 250px;
-            }
-            
-            #radar-container {
-                width: 100px;
-                height: 100px;
-                bottom: 10px;
-                right: 10px;
-            }
-            
-            .boot-title {
-                font-size: 32px;
-                letter-spacing: 4px;
+            0% {
+                transform: translateX(-50%) scale(1);
             }
 
-            .hud-panel {
-                padding: 6px 10px;
-                margin: 4px;
+            50% {
+                transform: translateX(-50%) scale(1.2);
+            }
+
+            100% {
+                transform: translateX(-50%) scale(1);
             }
         }
 
-        @media (max-width: 480px) {
-            .hud-panel {
-                padding: 4px 8px;
-            }
-            
-            .status-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            #system-status {
-                flex-direction: column;
-                gap: 2px;
-                font-size: 8px;
+        @keyframes breathe {
+            0% {
+                opacity: 0.5;
             }
 
-            #radar-container {
-                width: 100px;
-                height: 100px;
+            50% {
+                opacity: 0.9;
             }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        /* HUD CONTROLS */
+        .hud-panel {
+            position: absolute;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px;
+            pointer-events: auto;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        /* Top Right: System Status */
+        #status-panel {
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+
+        .stat-item {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        /* Bottom Center: Mission Control */
+        #mission-dock {
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            padding: 8px;
+            border-radius: 20px;
+        }
+
+        .mission-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mission-btn.active {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .mission-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Bottom Left: Timeline/Log */
+        #log-panel {
+            bottom: 30px;
+            left: 20px;
+            width: 200px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            display: flex;
+            flex-direction: column-reverse;
+            /* Newest at bottom */
+        }
+
+        .log-entry {
+            margin-top: 4px;
+            padding-left: 8px;
+            border-left: 2px solid var(--primary);
+            opacity: 0.8;
+        }
+
+        .log-entry.alert {
+            border-color: var(--alert);
+            color: var(--alert);
+        }
+
+        /* BOOT SCREEN */
+        #boot-screen {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+
+        .boot-circle {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* UTILS */
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* MISSION OVERLAYS */
+        .overlay-grid {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 33.3% 33.3%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .overlay-zone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40%;
+            height: 40%;
+            border: 2px dashed var(--alert);
+            background: rgba(255, 42, 109, 0.1);
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body[data-mode="film"] .overlay-grid {
+            opacity: 1;
+        }
+
+        body[data-mode="security"] .overlay-zone {
+            opacity: 1;
         }
     </style>
 </head>
+
 <body>
 
-    <div id="viewport">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="hud-canvas"></canvas>
-        
-        <div id="ui-layer">
-            <!-- Top Row: System Status -->
-            <div style="display:flex; justify-content:space-between; width:100%;">
-                <div class="hud-panel">
-                    <div class="panel-title">SYSTEM METRICS</div>
-                    <div class="hud-text">AI CPU: <span id="val-cpu" class="hud-value">0</span> ms</div>
-                    <div class="hud-text">AI FPS: <span id="val-ai-fps" class="hud-value">0</span></div>
-                    <div class="hud-text">RENDER FPS: <span id="val-render-fps" class="hud-value">0</span></div>
-                    <div class="hud-text">TRACKED: <span id="val-tracked" class="hud-value">0</span></div>
-                </div>
-                
-                <div class="hud-panel">
-                    <div class="panel-title">AVIONICS</div>
-                    <div class="hud-text">PITCH: <span id="val-pitch" class="hud-value">0.0°</span></div>
-                    <div class="hud-text">ROLL: <span id="val-roll" class="hud-value">0.0°</span></div>
-                    <div class="hud-text">HEADING: <span id="val-heading" class="hud-value">0.0°</span></div>
-                    <div class="hud-text">G-FORCE: <span id="val-g" class="hud-value">1.00</span></div>
-                </div>
-            </div>
-            
-            <!-- Middle: Analytics -->
-            <div class="hud-panel hud-panel-wide" style="margin-top: auto; margin-bottom: 160px;">
-                <div class="panel-title">TACTICAL ANALYTICS</div>
-                <div class="hud-text">ACTIVE OBJECTS: <span id="val-active" class="hud-value">0</span></div>
-                <div class="hud-text">PERSONS (5M): <span id="val-persons" class="hud-value">0</span></div>
-                <div class="hud-text">CLOSEST PERSON: <span id="val-closest-person" class="hud-value">--</span></div>
-                <div class="hud-text">DOMINANT CLASS: <span id="val-top-label" class="hud-value">--</span></div>
-            </div>
-            
-            <!-- Target Acquisition -->
-            <div class="hud-panel hud-panel-wide" style="margin-left: auto; margin-right: 160px;">
-                <div class="panel-title">PRIMARY TARGET</div>
-                <div class="hud-text">CLASS: <span id="val-target-label" class="hud-value">--</span></div>
-                <div class="hud-text">DISTANCE: <span id="val-target-dist" class="hud-value">--</span></div>
-                <div class="hud-text">BEARING: <span id="val-target-bearing" class="hud-value">--</span></div>
-                <div class="hud-text">MOTION: <span id="val-target-state" class="hud-value">--</span></div>
-                <div class="hud-text">CONFIDENCE: <span id="val-target-conf" class="hud-value">--</span></div>
-            </div>
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div class="boot-circle"></div>
+        <div style="font-size: 12px; letter-spacing: 2px; color: var(--primary);">INITIALIZING GEYE COMPANION</div>
+        <div id="boot-log" style="font-size: 10px; color: #666; margin-top: 10px;">Loading Neural Core...</div>
+        <button id="start-btn" class="mission-btn hidden" style="margin-top: 20px;">ACTIVATE</button>
+    </div>
 
-            <!-- Radar -->
-            <div id="radar-container">
-                <div class="radar-grid" style="width: 33%; height: 33%;"></div>
-                <div class="radar-grid" style="width: 66%; height: 66%;"></div>
-                <div class="radar-cross"></div>
-                <div class="radar-cross" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
-                <div id="radar-blips"></div>
-                <div class="radar-range">RANGE: 50M</div>
-            </div>
-        </div>
-        
-        <!-- System Status Bar -->
-        <div id="system-status">
-            <div class="status-section">
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-cam"></span>
-                    <span>OPTICAL</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-ai"></span>
-                    <span>AI</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-gyro"></span>
-                    <span>GYRO</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-tracker"></span>
-                    <span>TRACKER</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="status-indicator" id="status-memory"></span>
-                    <span>MEMORY</span>
-                </div>
-            </div>
-            <div class="status-section">
-                <span id="status-message">SYSTEM_STANDBY</span>
-            </div>
+    <!-- MAIN VIEW -->
+    <div id="view-layer">
+        <video id="video-feed" autoplay playsinline muted></video>
+    </div>
+
+    <canvas id="canvas-layer"></canvas>
+
+    <!-- OFFSCREEN INFERENCE CANVAS -->
+    <canvas id="inference-canvas" style="display: none;"></canvas>
+
+    <!-- UI LAYER -->
+    <div id="ui-layer">
+        <!-- Companion Avatar -->
+        <div id="companion-aura"></div>
+
+        <!-- Status -->
+        <div id="status-panel" class="hud-panel">
+            <div class="stat-item">FPS: <span id="fps-val" class="stat-value">--</span></div>
+            <div class="stat-item">LATENCY: <span id="lat-val" class="stat-value">--</span>ms</div>
+            <div class="stat-item">OBJECTS: <span id="obj-val" class="stat-value">0</span></div>
+            <div class="stat-item">MODE: <span id="mode-val" class="stat-value">IDLE</span></div>
         </div>
 
-        <!-- Control Panel Toggle -->
-        <button id="toggle-controls">CONTROLS</button>
+        <!-- Mission Overlays -->
+        <div class="overlay-grid"></div>
+        <div class="overlay-zone"><span
+                style="color:var(--alert); font-size:10px; background:#000; padding:2px 4px;">RESTRICTED</span></div>
 
-        <!-- Control Panel -->
-        <div id="control-panel">
-            <div class="panel-title">CONTROL PANEL</div>
-            <div>
-                <button class="control-btn" id="btn-quality-low">LOW</button>
-                <button class="control-btn active" id="btn-quality-balanced">BALANCED</button>
-                <button class="control-btn" id="btn-quality-high">HIGH</button>
-            </div>
-            <div style="margin-top: 8px;">
-                <button class="control-btn" id="btn-calibrate">CALIBRATE DEPTH</button>
-                <button class="control-btn" id="btn-export">EXPORT DATA</button>
-                <button class="control-btn" id="btn-clear">CLEAR MEMORY</button>
-            </div>
-            <div style="margin-top: 8px;">
-                <button class="control-btn active" id="btn-hud-on">HUD ON</button>
-                <button class="control-btn" id="btn-hud-off">HUD OFF</button>
-            </div>
+        <!-- Logs -->
+        <div id="log-panel" class="hud-panel">
+            <!-- Logs injected here -->
+        </div>
+
+        <!-- Controls -->
+        <div id="mission-dock" class="hud-panel">
+            <button class="mission-btn active" data-mode="standard">Standard</button>
+            <button class="mission-btn" data-mode="film">Film</button>
+            <button class="mission-btn" data-mode="security">Security</button>
+            <button class="mission-btn" data-mode="explorer">Explorer</button>
         </div>
     </div>
 
-    <!-- Boot Screen -->
-    <div id="boot-overlay">
-        <div class="boot-title">OMEGA</div>
-        <div class="boot-subtitle">ADVANCED HUMANOID VISION SYSTEM</div>
-        
-        <div class="status-list">
-            <div class="status-item">
-                <span class="status-led" id="led-cam"></span>
-                <span>OPTICAL SENSOR ARRAY</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-ai"></span>
-                <span>NEURAL NETWORK (COCO-SSD)</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-gyro"></span>
-                <span>INERTIAL NAVIGATION</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-tracker"></span>
-                <span>MULTI-OBJECT TRACKER</span>
-            </div>
-            <div class="status-item">
-                <span class="status-led" id="led-memory"></span>
-                <span>KNOWLEDGE BASE</span>
-            </div>
-        </div>
-        
-        <button id="btn-init">INITIALIZE SYSTEM</button>
-    </div>
+    <!-- INTERACTION LAYER -->
+    <div id="interaction-layer"></div>
 
-    <!-- Permission Overlay -->
-    <div id="permission-overlay">
-        <div class="permission-content">
-            <div style="font-size: 18px; margin-bottom: 15px;">PERMISSION REQUIRED</div>
-            <div style="margin-bottom: 20px; font-size: 14px;">
-                Camera access is required for the vision system to function. Please allow camera permissions when prompted.
-            </div>
-            <button id="btn-retry-permission" style="
-                background: transparent;
-                border: 2px solid var(--hud-primary);
-                color: var(--hud-primary);
-                padding: 10px 20px;
-                font-family: inherit;
-                cursor: pointer;
-            ">RETRY PERMISSION</button>
-        </div>
-    </div>
+    <script>
+        /**
+         * GEYE COMPANION - FUTURE FIELD CONSOLE
+         * Architecture: Modular Monolith
+         * 1. VisionCore: Perception (TFJS, Kalman)
+         * 2. ContextBrain: Understanding (Mood, Memory)
+         * 3. MissionController: Action (Modes)
+         * 4. HUDManager: UI/UX
+         */
 
-<script>
-/**
- * OMEGA: ADVANCED HUMANOID VISION SYSTEM
- * Optimized Version with Critical Fixes
- */
+        // --- UTILS ---
+        const $ = (sel) => document.querySelector(sel);
+        const $$ = (sel) => document.querySelectorAll(sel);
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// ============================================================================
-// CONFIGURATION - OPTIMIZED
-// ============================================================================
+        // --- 1. VISION CORE (THE EYE) ---
+        class VisionCore {
+            constructor(app) {
+                this.app = app;
+                this.video = $('#video-feed');
+                this.canvas = $('#canvas-layer');
+                this.ctx = this.canvas.getContext('2d');
+                this.infCanvas = $('#inference-canvas');
+                this.infCtx = this.infCanvas.getContext('2d');
 
-const CONFIG = {
-    AI: {
-        MODEL_TYPE: 'lite_mobilenet_v2',
-        CONFIDENCE_THRESHOLD: 0.65,
-        MAX_DETECTIONS: 20,
-        INFERENCE_RATE: 12,
-        QUALITY_PRESETS: {
-            LOW: { rate: 8, blur: 0 },
-            BALANCED: { rate: 12, blur: 4 },
-            HIGH: { rate: 15, blur: 8 }
-        }
-    },
-    
-    TRACKING: {
-        MAX_AGE: 30,
-        MIN_IOU: 0.4,
-        MAX_ASSOCIATION_DISTANCE: 0.3,
-        VELOCITY_SMOOTHING: 0.85,
-        MAX_TRACKS: 15
-    },
-    
-    PHYSICS: {
-        HORIZONTAL_FOV: 67.5,
-        VERTICAL_FOV: 52.5,
-        MAX_RANGE: 50,
-        MIN_RANGE: 0.5,
-        PERSON_HEIGHT: 1.75,
-        VEHICLE_HEIGHT: 1.6,
-        IS_CALIBRATED: false
-    },
-    
-    RADAR: {
-        RANGE: 50,
-        MAX_BLIPS: 10
-    },
-    
-    MEMORY: {
-        MAX_EVENTS: 1000,
-        STORAGE_KEY: 'omega_vision_data'
-    },
-    
-    UI: {
-        UPDATE_RATE: 30
-    }
-};
+                this.model = null;
+                this.isActive = false;
 
-// ============================================================================
-// CORE UTILITIES - OPTIMIZED
-// ============================================================================
+                // Adaptive Loop
+                this.lastFrameTime = 0;
+                this.inferenceInterval = 50; // Target ~20 FPS for inference
+                this.lastInferenceTime = 0;
+                this.isInferencing = false;
 
-const Utils = {
-    clamp: (num, min, max) => Math.min(Math.max(num, min), max),
-    
-    map: (value, x1, y1, x2, y2) => (value - x1) * (y2 - x2) / (y1 - x1) + x2,
-    
-    distance: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
-    
-    iou: (rect1, rect2) => {
-        const x1 = Math.max(rect1.x, rect2.x);
-        const y1 = Math.max(rect1.y, rect2.y);
-        const x2 = Math.min(rect1.x + rect1.width, rect2.x + rect2.width);
-        const y2 = Math.min(rect1.y + rect1.height, rect2.y + rect2.height);
-        
-        const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-        const area1 = rect1.width * rect1.height;
-        const area2 = rect2.width * rect2.height;
-        const union = area1 + area2 - intersection;
-        
-        return union > 0 ? intersection / union : 0;
-    },
-    
-    ema: (current, previous, factor) => {
-        return previous * factor + current * (1 - factor);
-    },
-    
-    generateId: () => 'id_' + Math.random().toString(36).substr(2, 9),
-    
-    formatNumber: (value, decimals = 1) => value.toFixed(decimals)
-};
-
-// ============================================================================
-// AVIONICS - FIXED ROTATION RATE READING
-// ============================================================================
-
-class Avionics {
-    constructor() {
-        this.pitch = 0;
-        this.roll = 0;
-        this.heading = 0;
-        this.gForce = 1.0;
-        this.rotationRate = { alpha: 0, beta: 0, gamma: 0 };
-        this.isAvailable = false;
-    }
-
-    async init() {
-        try {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const state = await DeviceOrientationEvent.requestPermission();
-                if (state !== 'granted') throw new Error("GYRO PERMISSION DENIED");
+                // Tracker
+                this.tracks = [];
+                this.nextId = 1;
+                this.lockedId = null;
             }
-            
-            // DeviceOrientation for orientation
-            window.addEventListener('deviceorientation', e => {
-                this.pitch = e.beta || 0;
-                this.roll = e.gamma || 0;
-                this.heading = e.alpha || 0;
-            });
-            
-            // DeviceMotion for rotation rate and acceleration
-            window.addEventListener('devicemotion', e => {
-                const acc = e.accelerationIncludingGravity;
-                if (acc) {
-                    const {x, y, z} = acc;
-                    this.gForce = Math.sqrt(x*x + y*y + z*z) / 9.81;
-                }
-                
-                // Fix: Read rotationRate from devicemotion, not deviceorientation
-                if (e.rotationRate) {
-                    this.rotationRate = {
-                        alpha: e.rotationRate.alpha || 0,
-                        beta: e.rotationRate.beta || 0,
-                        gamma: e.rotationRate.gamma || 0
-                    };
-                }
-            });
-            
-            this.isAvailable = true;
-            return true;
-            
-        } catch (error) {
-            console.warn("Avionics skipped:", error);
-            this.isAvailable = false;
-            return false;
-        }
-    }
 
-    getOrientation() {
-        return {
-            pitch: this.pitch,
-            roll: this.roll,
-            heading: this.heading
-        };
-    }
+            async init() {
+                this.app.log("Loading Vision Model...");
+                await tf.setBackend('webgl');
+                this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
 
-    getMotion() {
-        return {
-            gForce: this.gForce,
-            rotationRate: { ...this.rotationRate }
-        };
-    }
-}
+                // Warmup
+                this.app.log("Warming up Neural Engine...");
+                const dummy = tf.zeros([1, 300, 300, 3]);
+                await this.model.detect(dummy);
+                dummy.dispose();
 
-// ============================================================================
-// VISION ENGINE - ADAPTIVE INFERENCE RATE
-// ============================================================================
+                this.setupCamera();
+            }
 
-class VisionEngine {
-    constructor() {
-        this.model = null;
-        this.isModelLoaded = false;
-        this.inferenceStats = {
-            lastTime: 0,
-            averageTime: 0,
-            aiFps: 0,
-            renderFps: 0
-        };
-        this.qualityPreset = 'BALANCED';
-        this.lastRenderTime = 0;
-    }
-
-    async init() {
-        try {
-            await tf.ready();
-            this.model = await cocoSsd.load({ 
-                base: CONFIG.AI.MODEL_TYPE 
-            });
-            this.isModelLoaded = true;
-            return true;
-        } catch (error) {
-            console.error("Vision engine failed:", error);
-            return false;
-        }
-    }
-
-    async detect(videoEl) {
-        if (!this.model || !this.isModelLoaded) return [];
-        
-        const startTime = performance.now();
-        
-        try {
-            const results = await this.model.detect(
-                videoEl, 
-                CONFIG.AI.MAX_DETECTIONS, 
-                CONFIG.AI.CONFIDENCE_THRESHOLD
-            );
-            
-            const processingTime = performance.now() - startTime;
-            this._updateInferenceStats(processingTime);
-            
-            return results;
-        } catch (error) {
-            console.error("Detection error:", error);
-            return [];
-        }
-    }
-
-    _updateInferenceStats(processingTime) {
-        this.inferenceStats.lastTime = processingTime;
-        this.inferenceStats.averageTime = Utils.ema(
-            processingTime,
-            this.inferenceStats.averageTime,
-            0.95
-        );
-        this.inferenceStats.aiFps = 1000 / Math.max(1, this.inferenceStats.averageTime);
-    }
-
-    updateRenderFPS() {
-        const now = performance.now();
-        if (this.lastRenderTime > 0) {
-            const frameTime = now - this.lastRenderTime;
-            this.inferenceStats.renderFps = 1000 / Math.max(1, frameTime);
-        }
-        this.lastRenderTime = now;
-    }
-
-    setQualityPreset(preset) {
-        this.qualityPreset = preset;
-    }
-
-    getInferenceRate() {
-        return CONFIG.AI.QUALITY_PRESETS[this.qualityPreset].rate;
-    }
-
-    getStatus() {
-        return {
-            isModelLoaded: this.isModelLoaded,
-            ...this.inferenceStats
-        };
-    }
-}
-
-// ============================================================================
-// OBJECT TRACKER - IMPROVED DATA ASSOCIATION
-// ============================================================================
-
-class ObjectTracker {
-    constructor() {
-        this.tracks = new Map();
-        this.nextId = 1;
-        this.frameCount = 0;
-    }
-
-    update(detections, timestamp) {
-        this.frameCount++;
-        
-        const currentDetections = detections.map(det => ({
-            bbox: {
-                x: det.bbox[0],
-                y: det.bbox[1],
-                width: det.bbox[2],
-                height: det.bbox[3]
-            },
-            label: det.class,
-            confidence: det.score,
-            timestamp: timestamp
-        }));
-        
-        this._updateTracks(currentDetections, timestamp);
-        this._removeExpiredTracks(timestamp);
-        
-        // Limit number of tracks
-        if (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) {
-            this._pruneTracks();
-        }
-        
-        return Array.from(this.tracks.values());
-    }
-
-    _updateTracks(detections, timestamp) {
-        const usedDetections = new Set();
-        
-        // Update existing tracks with improved gating
-        for (const [id, track] of this.tracks.entries()) {
-            if (track.status === 'lost') continue;
-            
-            let bestMatch = null;
-            let bestScore = 0;
-            
-            for (let i = 0; i < detections.length; i++) {
-                if (usedDetections.has(i)) continue;
-                
-                const detection = detections[i];
-                
-                // Multi-factor scoring
-                const iouScore = Utils.iou(track.bbox, detection.bbox);
-                const centerDist = Utils.distance(
-                    track.bbox.x + track.bbox.width / 2,
-                    track.bbox.y + track.bbox.height / 2,
-                    detection.bbox.x + detection.bbox.width / 2,
-                    detection.bbox.y + detection.bbox.height / 2
-                ) / Math.sqrt(window.innerWidth * window.innerHeight);
-                
-                const labelScore = track.label === detection.label ? 1 : 0.5;
-                const velocityScore = this._calculateVelocityScore(track, detection, timestamp);
-                
-                const totalScore = iouScore * 0.4 + (1 - centerDist) * 0.3 + labelScore * 0.2 + velocityScore * 0.1;
-                
-                if (totalScore > bestScore && totalScore > CONFIG.TRACKING.MIN_IOU) {
-                    bestScore = totalScore;
-                    bestMatch = { index: i, detection };
+            async setupCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                        audio: false
+                    });
+                    this.video.srcObject = stream;
+                    await new Promise(r => this.video.onloadedmetadata = r);
+                    this.app.log("Camera Active");
+                    this.resize();
+                    window.addEventListener('resize', () => this.resize());
+                } catch (e) {
+                    this.app.log("Camera Error: " + e.message, 'alert');
                 }
             }
-            
-            if (bestMatch) {
-                this._updateTrack(track, bestMatch.detection, timestamp);
-                usedDetections.add(bestMatch.index);
-            } else {
-                track.status = 'lost';
-                track.lastSeen = timestamp;
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+
+                // Downscale for inference (Max 320px long side)
+                const aspect = this.video.videoWidth / this.video.videoHeight;
+                const size = 320;
+                if (aspect > 1) {
+                    this.infCanvas.width = size;
+                    this.infCanvas.height = size / aspect;
+                } else {
+                    this.infCanvas.width = size * aspect;
+                    this.infCanvas.height = size;
+                }
+                this.scaleX = this.canvas.width / this.infCanvas.width;
+                this.scaleY = this.canvas.height / this.infCanvas.height;
             }
-        }
-        
-        // Create new tracks for unmatched detections
-        for (let i = 0; i < detections.length; i++) {
-            if (!usedDetections.has(i)) {
-                this._createTrack(detections[i], timestamp);
+
+            start() {
+                this.isActive = true;
+                this.loop();
             }
-        }
-    }
 
-    _calculateVelocityScore(track, detection, timestamp) {
-        if (!track.lastPosition || track.status === 'new') return 0.5;
-        
-        const dt = (timestamp - track.lastUpdateTime) / 1000;
-        if (dt <= 0) return 0.5;
-        
-        const predX = track.bbox.x + (track.velocity?.vx || 0) * dt;
-        const predY = track.bbox.y + (track.velocity?.vy || 0) * dt;
-        
-        const dist = Utils.distance(predX, predY, detection.bbox.x, detection.bbox.y);
-        const maxDist = Math.sqrt(window.innerWidth * window.innerHeight) * 0.1;
-        
-        return Math.max(0, 1 - (dist / maxDist));
-    }
+            loop() {
+                if (!this.isActive) return;
+                requestAnimationFrame(() => this.loop());
 
-    _updateTrack(track, detection, timestamp) {
-        const dt = (timestamp - track.lastUpdateTime) / 1000;
-        
-        // Smooth bounding box with Kalman-like filtering
-        track.rawBbox = { ...detection.bbox };
-        track.bbox.x = Utils.ema(detection.bbox.x, track.bbox.x, 0.7);
-        track.bbox.y = Utils.ema(detection.bbox.y, track.bbox.y, 0.7);
-        track.bbox.width = Utils.ema(detection.bbox.width, track.bbox.width, 0.7);
-        track.bbox.height = Utils.ema(detection.bbox.height, track.bbox.height, 0.7);
-        
-        // Update velocity
-        if (track.lastPosition && dt > 0) {
-            const dx = (track.bbox.x - track.lastPosition.x) / dt;
-            const dy = (track.bbox.y - track.lastPosition.y) / dt;
-            
-            track.velocity = {
-                vx: Utils.ema(dx, track.velocity?.vx || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING),
-                vy: Utils.ema(dy, track.velocity?.vy || 0, CONFIG.TRACKING.VELOCITY_SMOOTHING)
-            };
-        }
-        
-        track.lastPosition = { x: track.bbox.x, y: track.bbox.y };
-        track.lastUpdateTime = timestamp;
-        track.status = track.status === 'new' ? 'active' : track.status;
-        track.label = detection.label;
-        track.confidence = detection.confidence;
-    }
+                const now = performance.now();
 
-    _createTrack(detection, timestamp) {
-        const id = this.nextId++;
-        
-        this.tracks.set(id, {
-            id,
-            label: detection.label,
-            confidence: detection.confidence,
-            bbox: { ...detection.bbox },
-            rawBbox: { ...detection.bbox },
-            firstSeen: timestamp,
-            lastSeen: timestamp,
-            lastUpdateTime: timestamp,
-            status: 'new',
-            velocity: { vx: 0, vy: 0 },
-            lastPosition: { 
-                x: detection.bbox.x, 
-                y: detection.bbox.y 
+                // Render Loop (60 FPS)
+                this.render();
+
+                // Inference Loop (Adaptive)
+                if (!this.isInferencing && (now - this.lastInferenceTime > this.inferenceInterval)) {
+                    this.runInference();
+                }
             }
-        });
-    }
 
-    _removeExpiredTracks(timestamp) {
-        // Fix: Convert to array before filtering
-        const tracksArray = Array.from(this.tracks.entries());
-        for (const [id, track] of tracksArray) {
-            if (track.status === 'lost' && 
-                timestamp - track.lastSeen > CONFIG.TRACKING.MAX_AGE * (1000 / 12)) {
-                this.tracks.delete(id);
+            async runInference() {
+                this.isInferencing = true;
+                const start = performance.now();
+
+                // Draw to small canvas
+                this.infCtx.drawImage(this.video, 0, 0, this.infCanvas.width, this.infCanvas.height);
+
+                // Detect
+                const predictions = await this.model.detect(this.infCanvas);
+
+                // Update Tracker
+                this.updateTracker(predictions);
+
+                const duration = performance.now() - start;
+                this.lastInferenceTime = performance.now();
+                this.isInferencing = false;
+
+                // Adaptive Scheduling
+                this.inferenceInterval = Math.max(30, duration * 1.2); // Keep some headroom
+
+                // Update Stats
+                $('#lat-val').innerText = Math.round(duration);
+                $('#obj-val').innerText = this.tracks.length;
             }
-        }
-    }
 
-    _pruneTracks() {
-        const tracksArray = Array.from(this.tracks.entries());
-        tracksArray.sort((a, b) => b[1].confidence - a[1].confidence);
-        
-        while (this.tracks.size > CONFIG.TRACKING.MAX_TRACKS) {
-            const [id] = tracksArray.pop();
-            this.tracks.delete(id);
-        }
-    }
+            updateTracker(predictions) {
+                // Kalman-lite: Predict
+                this.tracks.forEach(t => {
+                    t.x += t.vx; t.y += t.vy; // Simple velocity prediction
+                    t.missed++;
+                });
 
-    getActiveTracks() {
-        // Fix: Convert to array before filtering
-        return Array.from(this.tracks.values()).filter(track => 
-            track.status !== 'lost'
-        );
-    }
+                // Match
+                const matched = new Set();
 
-    getStats() {
-        const active = this.getActiveTracks();
-        return {
-            totalTracks: this.tracks.size,
-            activeTracks: active.length,
-            newTracks: active.filter(t => t.status === 'new').length
-        };
-    }
-}
+                // 1. Locked Target Priority
+                if (this.lockedId) {
+                    const lockedTrack = this.tracks.find(t => t.id === this.lockedId);
+                    if (lockedTrack) {
+                        const match = this.findBestMatch(lockedTrack, predictions, matched, 0.15); // Lower threshold
+                        if (match) {
+                            this.updateTrack(lockedTrack, match);
+                            matched.add(match);
+                        }
+                    }
+                }
 
-// ============================================================================
-// PHYSICS ENGINE - CORRECTED COORDINATE MAPPING
-// ============================================================================
+                // 2. Existing Tracks
+                this.tracks.forEach(t => {
+                    if (t.id === this.lockedId) return;
+                    const match = this.findBestMatch(t, predictions, matched, 0.3);
+                    if (match) {
+                        this.updateTrack(t, match);
+                        matched.add(match);
+                    }
+                });
 
-class PhysicsEngine {
-    constructor() {
-        this.videoWidth = 1280; // Default, will be updated
-        this.videoHeight = 720;
-        this.scaleX = 1;
-        this.scaleY = 1;
-        this.offsetX = 0;
-        this.offsetY = 0;
-    }
+                // 3. New Tracks
+                predictions.forEach(p => {
+                    if (!matched.has(p)) {
+                        this.createTrack(p);
+                    }
+                });
 
-    updateVideoDimensions(video) {
-        if (video.videoWidth && video.videoHeight) {
-            this.videoWidth = video.videoWidth;
-            this.videoHeight = video.videoHeight;
-            
-            // Calculate scale and offset for object-fit: cover
-            const videoAspect = this.videoWidth / this.videoHeight;
-            const screenAspect = window.innerWidth / window.innerHeight;
-            
-            if (videoAspect > screenAspect) {
-                // Video is wider than screen
-                this.scaleX = window.innerWidth / this.videoWidth;
-                this.scaleY = this.scaleX;
-                this.offsetY = (window.innerHeight - this.videoHeight * this.scaleY) / 2;
-            } else {
-                // Video is taller than screen
-                this.scaleY = window.innerHeight / this.videoHeight;
-                this.scaleX = this.scaleY;
-                this.offsetX = (window.innerWidth - this.videoWidth * this.scaleX) / 2;
+                // Prune
+                this.tracks = this.tracks.filter(t => t.missed < 20); // Keep alive for ~1 sec
+
+                // Notify Brain
+                this.app.brain.processPerception(this.tracks);
             }
-        }
-    }
 
-    analyze(tracks) {
-        return tracks.map(track => {
-            const enhanced = { ...track };
-            
-            // Correct bbox mapping from video coordinates to screen coordinates
-            const screenBbox = this._videoToScreenBbox(track.bbox);
-            enhanced.screenBbox = screenBbox;
-            
-            // Calculate screen position
-            const centerX = screenBbox.x + screenBbox.width / 2;
-            const centerY = screenBbox.y + screenBbox.height / 2;
-            
-            enhanced.screenPosition = {
-                xNorm: (centerX / window.innerWidth) * 2 - 1,
-                yNorm: (centerY / window.innerHeight) * 2 - 1
-            };
-            
-            // Calculate bearing (fixed for bearingDeg = 0)
-            enhanced.bearingDeg = this._computeBearing(enhanced.screenPosition.xNorm);
-            
-            // Calculate depth
-            enhanced.depthEstimate = this._computeDepth(track);
-            
-            // Calculate motion
-            enhanced.motionAnalysis = this._analyzeMotion(track);
-            
-            return enhanced;
-        });
-    }
+            findBestMatch(track, predictions, matchedSet, threshold) {
+                let best = null;
+                let maxIoU = 0;
 
-    _videoToScreenBbox(videoBbox) {
-        return {
-            x: videoBbox.x * this.scaleX + this.offsetX,
-            y: videoBbox.y * this.scaleY + this.offsetY,
-            width: videoBbox.width * this.scaleX,
-            height: videoBbox.height * this.scaleY
-        };
-    }
+                predictions.forEach(p => {
+                    if (matchedSet.has(p)) return;
+                    if (p.class !== track.class) return;
 
-    _computeBearing(xNorm) {
-        // Fix: Handle bearingDeg = 0 case properly
-        const bearing = xNorm * (CONFIG.PHYSICS.HORIZONTAL_FOV / 2);
-        return bearing !== null && bearing !== undefined ? bearing : 0;
-    }
+                    // Scale bbox to screen for IoU calc
+                    const pBox = this.scaleBox(p.bbox);
+                    const IoU = this.getIoU(track, pBox);
 
-    _computeDepth(track) {
-        const bboxHeight = track.bbox.height / this.videoHeight;
-        let physicalHeight;
-        
-        switch (track.label) {
-            case 'person':
-                physicalHeight = CONFIG.PHYSICS.PERSON_HEIGHT;
-                break;
-            case 'car':
-            case 'truck':
-            case 'bus':
-                physicalHeight = CONFIG.PHYSICS.VEHICLE_HEIGHT;
-                break;
-            default:
-                physicalHeight = 1.0;
-        }
-        
-        const focalLength = (this.videoHeight / 2) / Math.tan(CONFIG.PHYSICS.VERTICAL_FOV * Math.PI / 360);
-        const depth = (focalLength * physicalHeight) / (bboxHeight * this.videoHeight);
-        
-        const normalized = Utils.clamp(1 - (depth / CONFIG.PHYSICS.MAX_RANGE), 0, 1);
-        return CONFIG.PHYSICS.IS_CALIBRATED ? depth : normalized;
-    }
-
-    _analyzeMotion(track) {
-        if (!track.velocity || track.status === 'new') {
-            return {
-                motionState: 'unknown',
-                radialSpeed: 0
-            };
-        }
-        
-        // Use scale change as proxy for radial motion
-        const scaleChange = track.velocity.vy / window.innerHeight;
-        let motionState = 'static';
-        
-        if (scaleChange > 0.02) motionState = 'approaching';
-        else if (scaleChange < -0.01) motionState = 'receding';
-        else if (Math.abs(scaleChange) < 0.005) motionState = 'static';
-        else motionState = 'moving';
-        
-        return {
-            motionState,
-            radialSpeed: scaleChange
-        };
-    }
-
-    calibrateDepth(knownDistance, track) {
-        // Simple calibration based on known distance
-        const bboxHeight = track.bbox.height / this.videoHeight;
-        const measuredDepth = this._computeDepth(track);
-        const scaleFactor = knownDistance / measuredDepth;
-        
-        CONFIG.PHYSICS.IS_CALIBRATED = true;
-        return scaleFactor;
-    }
-}
-
-// ============================================================================
-// RADAR SYSTEM - FIXED BEARING HANDLING
-// ============================================================================
-
-class RadarSystem {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.width = 140;
-        this.height = 140;
-        this.centerX = this.width / 2;
-        this.centerY = this.height / 2;
-        this.maxRadius = this.width / 2 - 5;
-    }
-
-    update(tracks) {
-        // Clear previous blips efficiently
-        if (this.container.children.length > 4) { // Keep grid elements
-            const blips = this.container.querySelectorAll('.radar-blip');
-            blips.forEach(blip => blip.remove());
-        }
-        
-        // Limit number of blips
-        const displayTracks = tracks.slice(0, CONFIG.RADAR.MAX_BLIPS);
-        
-        displayTracks.forEach(track => {
-            // Fix: Check for null/undefined bearingDeg properly
-            if (track.bearingDeg == null) return;
-            
-            const blip = this._createBlip(track);
-            if (blip) {
-                this.container.appendChild(blip);
+                    if (IoU > threshold && IoU > maxIoU) {
+                        maxIoU = IoU;
+                        best = p;
+                    }
+                });
+                return best;
             }
-        });
-    }
 
-    _createBlip(track) {
-        // Fix: Handle bearingDeg = 0 case
-        const bearingDeg = track.bearingDeg !== null && track.bearingDeg !== undefined ? track.bearingDeg : 0;
-        const angle = bearingDeg * Math.PI / 180;
-        
-        // Convert depth to radar radius
-        const depth = track.depthEstimate;
-        const range = (depth / CONFIG.PHYSICS.MAX_RANGE) * this.maxRadius;
-        
-        const x = this.centerX + range * Math.sin(angle);
-        const y = this.centerY - range * Math.cos(angle);
-        
-        const blip = document.createElement('div');
-        blip.className = 'radar-blip';
-        blip.style.left = `${x}px`;
-        blip.style.top = `${y}px`;
-        
-        // Size based on object type
-        let size = 6;
-        let color = CONFIG.UI.COLOR_CODING.LOW;
-        
-        switch (track.label) {
-            case 'person':
-                size = 8;
-                color = CONFIG.UI.COLOR_CODING.HIGH;
-                break;
-            case 'car':
-            case 'truck':
-                size = 10;
-                color = CONFIG.UI.COLOR_CODING.MEDIUM;
-                break;
-        }
-        
-        // Adjust for motion
-        if (track.motionAnalysis.motionState === 'approaching') {
-            size += 2;
-            blip.style.animation = 'pulse 1s infinite';
-        }
-        
-        blip.style.width = `${size}px`;
-        blip.style.height = `${size}px`;
-        blip.style.backgroundColor = color;
-        
-        return blip;
-    }
-}
+            updateTrack(track, prediction) {
+                const box = this.scaleBox(prediction.bbox);
 
-// ============================================================================
-// KNOWLEDGE BASE - PERSISTENT STORAGE
-// ============================================================================
+                // Smooth Update (Alpha filter)
+                const alpha = 0.3;
+                const dx = box.x - track.x;
+                const dy = box.y - track.y;
 
-class KnowledgeBase {
-    constructor() {
-        this.events = [];
-        this.loadFromStorage();
-    }
+                track.x += dx * alpha;
+                track.y += dy * alpha;
+                track.w += (box.w - track.w) * alpha;
+                track.h += (box.h - track.h) * alpha;
 
-    recordEvent(type, data, timestamp = Date.now()) {
-        const event = {
-            type,
-            data,
-            timestamp,
-            id: Utils.generateId()
-        };
-        
-        this.events.push(event);
-        
-        // Maintain size limits
-        if (this.events.length > CONFIG.MEMORY.MAX_EVENTS) {
-            this.events.shift();
-        }
-        
-        // Auto-save periodically
-        if (this.events.length % 10 === 0) {
-            this.saveToStorage();
-        }
-        
-        return event.id;
-    }
+                // Update Velocity
+                track.vx = dx * 0.5;
+                track.vy = dy * 0.5;
 
-    saveToStorage() {
-        try {
-            const data = {
-                events: this.events.slice(-500), // Keep recent events
-                timestamp: Date.now()
-            };
-            localStorage.setItem(CONFIG.MEMORY.STORAGE_KEY, JSON.stringify(data));
-        } catch (error) {
-            console.warn("Failed to save to storage:", error);
-        }
-    }
-
-    loadFromStorage() {
-        try {
-            const stored = localStorage.getItem(CONFIG.MEMORY.STORAGE_KEY);
-            if (stored) {
-                const data = JSON.parse(stored);
-                this.events = data.events || [];
+                track.score = prediction.score;
+                track.missed = 0;
             }
-        } catch (error) {
-            console.warn("Failed to load from storage:", error);
-        }
-    }
 
-    clear() {
-        this.events = [];
-        localStorage.removeItem(CONFIG.MEMORY.STORAGE_KEY);
-    }
-
-    exportData() {
-        const data = {
-            events: this.events,
-            exportTime: new Date().toISOString(),
-            totalEvents: this.events.length
-        };
-        
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `omega_vision_export_${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    getActiveObjectCount() {
-        const recentTime = Date.now() - 5000;
-        const activeObjects = new Set();
-        
-        for (const event of this.events.slice().reverse()) {
-            if (event.timestamp < recentTime) break;
-            if (event.data.objectId && (event.type === 'object_detected' || event.type === 'object_updated')) {
-                activeObjects.add(event.data.objectId);
+            createTrack(prediction) {
+                const box = this.scaleBox(prediction.bbox);
+                this.tracks.push({
+                    id: this.nextId++,
+                    class: prediction.class,
+                    score: prediction.score,
+                    x: box.x, y: box.y, w: box.w, h: box.h,
+                    vx: 0, vy: 0,
+                    missed: 0,
+                    firstSeen: Date.now()
+                });
             }
-        }
-        
-        return activeObjects.size;
-    }
 
-    getPersonDetectionsInLast(minutes) {
-        const cutoff = Date.now() - (minutes * 60 * 1000);
-        return this.events.filter(event => 
-            event.timestamp >= cutoff && 
-            event.data.label === 'person'
-        ).length;
-    }
-
-    getClosestPerson() {
-        const personEvents = this.events.filter(event => 
-            event.data.label === 'person' &&
-            event.data.depthEstimate !== undefined
-        );
-        
-        if (personEvents.length === 0) return null;
-        
-        const closest = personEvents.reduce((prev, current) => 
-            (prev.data.depthEstimate < current.data.depthEstimate) ? prev : current
-        );
-        
-        return {
-            distance: closest.data.depthEstimate,
-            bearing: closest.data.bearingDeg || 0
-        };
-    }
-
-    getMostCommonLabelInLast(minutes) {
-        const cutoff = Date.now() - (minutes * 60 * 1000);
-        const recentEvents = this.events.filter(event => event.timestamp >= cutoff);
-        
-        const labelCounts = {};
-        recentEvents.forEach(event => {
-            const label = event.data.label;
-            labelCounts[label] = (labelCounts[label] || 0) + 1;
-        });
-        
-        let maxCount = 0;
-        let mostCommon = 'none';
-        
-        for (const [label, count] of Object.entries(labelCounts)) {
-            if (count > maxCount) {
-                maxCount = count;
-                mostCommon = label;
-            }
-        }
-        
-        return mostCommon;
-    }
-}
-
-// ============================================================================
-// HUD RENDERER - OPTIMIZED
-// ============================================================================
-
-class HUDRenderer {
-    constructor() {
-        this.canvas = document.getElementById('hud-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.resize();
-        this.hudEnabled = true;
-        
-        window.addEventListener('resize', () => this.resize());
-    }
-
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    render(avionicsData, tracks, primaryTarget) {
-        if (!this.hudEnabled) {
-            this.clear();
-            return;
-        }
-        
-        this.clear();
-        
-        // Set rendering quality based on preset
-        this.ctx.imageSmoothingEnabled = false;
-        
-        this.drawHorizon(avionicsData);
-        this.drawCrosshair();
-        this.drawTargetBoxes(tracks);
-        
-        if (primaryTarget) {
-            this.drawPrimaryTarget(primaryTarget);
-        }
-    }
-
-    drawHorizon(avionicsData) {
-        const { width, height } = this.canvas;
-        const ctx = this.ctx;
-        const orientation = avionicsData.getOrientation();
-        
-        ctx.save();
-        ctx.translate(width/2, height/2);
-        ctx.rotate(orientation.roll * Math.PI / 180);
-        
-        const horizonY = orientation.pitch * 2;
-        
-        // Sky
-        ctx.fillStyle = 'rgba(0, 50, 100, 0.3)';
-        ctx.fillRect(-width, -height, width * 2, height + horizonY);
-        
-        // Ground
-        ctx.fillStyle = 'rgba(101, 67, 33, 0.3)';
-        ctx.fillRect(-width, horizonY, width * 2, height);
-        
-        // Horizon line
-        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-width, horizonY);
-        ctx.lineTo(width, horizonY);
-        ctx.stroke();
-        
-        ctx.restore();
-    }
-
-    drawCrosshair() {
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
-        const ctx = this.ctx;
-
-        ctx.strokeStyle = CONFIG.UI.COLOR_CODING.LOW;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
-        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx - 30, cy);
-        ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 30, cy);
-        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy - 30);
-        ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 30);
-        ctx.stroke();
-        
-        ctx.fillStyle = CONFIG.UI.COLOR_CODING.HIGH;
-        ctx.fillRect(cx - 1, cy - 1, 2, 2);
-    }
-
-    drawTargetBoxes(tracks) {
-        tracks.forEach(track => {
-            this.drawTargetBox(track);
-        });
-    }
-
-    drawTargetBox(track) {
-        const bbox = track.screenBbox || track.bbox;
-        const { x, y, width, height } = bbox;
-        const ctx = this.ctx;
-        
-        let color = CONFIG.UI.COLOR_CODING.LOW;
-        if (track.label === 'person') color = CONFIG.UI.COLOR_CODING.HIGH;
-        else if (['car', 'truck', 'bus'].includes(track.label)) color = CONFIG.UI.COLOR_CODING.MEDIUM;
-        
-        const bracketSize = Math.min(width, height) * 0.15;
-        
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = color;
-        
-        ctx.beginPath();
-        
-        // Top left
-        ctx.moveTo(x, y + bracketSize);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + bracketSize, y);
-        
-        // Top right
-        ctx.moveTo(x + width - bracketSize, y);
-        ctx.lineTo(x + width, y);
-        ctx.lineTo(x + width, y + bracketSize);
-        
-        // Bottom right
-        ctx.moveTo(x + width, y + height - bracketSize);
-        ctx.lineTo(x + width, y + height);
-        ctx.lineTo(x + width - bracketSize, y + height);
-        
-        // Bottom left
-        ctx.moveTo(x + bracketSize, y + height);
-        ctx.lineTo(x, y + height);
-        ctx.lineTo(x, y + height - bracketSize);
-        
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        // Label
-        const label = `${track.label.toUpperCase()} ${Math.floor(track.confidence * 100)}%`;
-        const dist = CONFIG.PHYSICS.IS_CALIBRATED ? 
-            `~${Math.floor(track.depthEstimate)}m` : 
-            `${Math.floor(track.depthEstimate * 100)}%`;
-        
-        ctx.fillStyle = color;
-        ctx.font = "bold 10px monospace";
-        
-        // Background
-        const textWidth = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - 25, textWidth + 10, 20);
-        
-        // Text
-        ctx.fillStyle = color;
-        ctx.fillText(label, x + 5, y - 10);
-    }
-
-    drawPrimaryTarget(target) {
-        const bbox = target.screenBbox || target.bbox;
-        const centerX = bbox.x + bbox.width / 2;
-        const centerY = bbox.y + bbox.height / 2;
-        const ctx = this.ctx;
-        
-        // Pulsing circle
-        const pulsePhase = (Date.now() % 1000) / 1000;
-        const radius = Math.max(bbox.width, bbox.height) / 2 + 15 + Math.sin(pulsePhase * Math.PI * 2) * 5;
-        
-        ctx.strokeStyle = CONFIG.UI.COLOR_CODING.HIGH;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-
-    setHudEnabled(enabled) {
-        this.hudEnabled = enabled;
-    }
-}
-
-// ============================================================================
-// OMEGA KERNEL - OPTIMIZED WITH ALL FIXES
-// ============================================================================
-
-class OmegaKernel {
-    constructor() {
-        this.avionics = new Avionics();
-        this.vision = new VisionEngine();
-        this.tracker = new ObjectTracker();
-        this.physics = new PhysicsEngine();
-        this.radar = new RadarSystem('radar-blips');
-        this.memory = new KnowledgeBase();
-        this.renderer = new HUDRenderer();
-        
-        this.isRunning = false;
-        this.video = document.getElementById('camera-feed');
-        this.trackedObjects = [];
-        this.primaryTarget = null;
-        
-        this.lastAITime = 0;
-        this.lastRenderTime = 0;
-        
-        this._setupControls();
-    }
-
-    _setupControls() {
-        // Control panel toggle
-        document.getElementById('toggle-controls').addEventListener('click', () => {
-            const panel = document.getElementById('control-panel');
-            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        });
-
-        // Quality presets
-        document.getElementById('btn-quality-low').addEventListener('click', () => this._setQuality('LOW'));
-        document.getElementById('btn-quality-balanced').addEventListener('click', () => this._setQuality('BALANCED'));
-        document.getElementById('btn-quality-high').addEventListener('click', () => this._setQuality('HIGH'));
-
-        // HUD toggle
-        document.getElementById('btn-hud-on').addEventListener('click', () => this._setHudEnabled(true));
-        document.getElementById('btn-hud-off').addEventListener('click', () => this._setHudEnabled(false));
-
-        // Memory controls
-        document.getElementById('btn-export').addEventListener('click', () => this.memory.exportData());
-        document.getElementById('btn-clear').addEventListener('click', () => {
-            if (confirm('Clear all memory data?')) {
-                this.memory.clear();
-            }
-        });
-
-        // Calibration
-        document.getElementById('btn-calibrate').addEventListener('click', () => this._startCalibration());
-
-        // Permission retry
-        document.getElementById('btn-retry-permission').addEventListener('click', () => this._retryPermission());
-    }
-
-    _setQuality(preset) {
-        this.vision.setQualityPreset(preset);
-        
-        // Update UI
-        document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`btn-quality-${preset.toLowerCase()}`).classList.add('active');
-        
-        // Update blur effect
-        const blur = CONFIG.AI.QUALITY_PRESETS[preset].blur;
-        document.getElementById('ui-layer').style.backdropFilter = `blur(${blur}px)`;
-    }
-
-    _setHudEnabled(enabled) {
-        this.renderer.setHudEnabled(enabled);
-        document.getElementById('btn-hud-on').classList.toggle('active', enabled);
-        document.getElementById('btn-hud-off').classList.toggle('active', !enabled);
-    }
-
-    async boot() {
-        try {
-            this._updateStatus('INITIALIZING...');
-            
-            // Initialize avionics
-            this._updateBootLED('led-gyro', 'loading');
-            const avionicsReady = await this.avionics.init();
-            this._updateBootLED('led-gyro', avionicsReady ? 'active' : 'warning');
-            
-            // Initialize camera
-            this._updateBootLED('led-cam', 'loading');
-            const cameraReady = await this._initCamera();
-            this._updateBootLED('led-cam', cameraReady ? 'active' : 'error');
-            
-            if (!cameraReady) {
-                this._showPermissionOverlay();
-                return;
-            }
-            
-            // Initialize AI
-            this._updateBootLED('led-ai', 'loading');
-            const visionReady = await this.vision.init();
-            this._updateBootLED('led-ai', visionReady ? 'active' : 'error');
-            
-            this._updateBootLED('led-tracker', 'active');
-            this._updateBootLED('led-memory', 'active');
-            
-            // Start system
-            document.getElementById('boot-overlay').style.display = 'none';
-            this.isRunning = true;
-            
-            this._updateStatus('SYSTEM_OPERATIONAL');
-            this.aiCycle();
-            this.renderCycle();
-            
-        } catch (error) {
-            console.error("Boot failed:", error);
-            this._updateStatus(`ERROR: ${error.message}`);
-        }
-    }
-
-    async _initCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }, 
-                audio: false 
-            });
-            
-            this.video.srcObject = stream;
-            
-            await new Promise((resolve) => {
-                this.video.onloadedmetadata = () => {
-                    this.video.play().then(resolve);
+            scaleBox(bbox) {
+                // bbox is [x, y, w, h] from inference canvas
+                return {
+                    x: bbox[0] * this.scaleX,
+                    y: bbox[1] * this.scaleY,
+                    w: bbox[2] * this.scaleX,
+                    h: bbox[3] * this.scaleY
                 };
-            });
-            
-            // Update physics with video dimensions
-            this.physics.updateVideoDimensions(this.video);
-            
-            return true;
-        } catch (error) {
-            console.error("Camera init failed:", error);
-            return false;
-        }
-    }
+            }
 
-    _showPermissionOverlay() {
-        document.getElementById('permission-overlay').style.display = 'flex';
-    }
+            getIoU(boxA, boxB) {
+                const xA = Math.max(boxA.x, boxB.x);
+                const yA = Math.max(boxA.y, boxB.y);
+                const xB = Math.min(boxA.x + boxA.w, boxB.x + boxB.w);
+                const yB = Math.min(boxA.y + boxA.h, boxB.y + boxB.h);
 
-    _retryPermission() {
-        document.getElementById('permission-overlay').style.display = 'none';
-        setTimeout(() => this.boot(), 100);
-    }
+                const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+                const boxAArea = boxA.w * boxA.h;
+                const boxBArea = boxB.w * boxB.h;
 
-    async aiCycle() {
-        if (!this.isRunning) return;
-        
-        const now = performance.now();
-        const aiInterval = 1000 / this.vision.getInferenceRate();
-        
-        if (now - this.lastAITime >= aiInterval) {
-            this.lastAITime = now;
-            
-            try {
-                const detections = await this.vision.detect(this.video);
-                const rawTracks = this.tracker.update(detections, Date.now());
-                this.trackedObjects = this.physics.analyze(rawTracks);
-                this._updateMemory(this.trackedObjects);
-                this._updatePrimaryTarget();
-            } catch (error) {
-                console.error("AI cycle error:", error);
+                return interArea / (boxAArea + boxBArea - interArea);
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Delegate rendering to Mission Controller (Action Layer)
+                this.app.mission.render(this.ctx, this.tracks);
+            }
+
+            lockTarget(x, y) {
+                // Find nearest track to click
+                let best = null;
+                let minDist = 100; // Pixel radius
+
+                this.tracks.forEach(t => {
+                    const cx = t.x + t.w / 2;
+                    const cy = t.y + t.h / 2;
+                    const dist = Math.hypot(cx - x, cy - y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        best = t;
+                    }
+                });
+
+                if (best) {
+                    this.lockedId = best.id;
+                    this.app.speak(`Target locked. ${best.class}.`);
+                    this.app.log(`Locked ID ${best.id} (${best.class})`);
+                } else {
+                    this.lockedId = null;
+                    this.app.speak("Target released.");
+                }
             }
         }
-        
-        // Adaptive scheduling
-        const nextCycle = Math.max(0, aiInterval - (performance.now() - this.lastAITime));
-        setTimeout(() => this.aiCycle(), nextCycle);
-    }
 
-    renderCycle() {
-        if (!this.isRunning) return;
-        
-        this.vision.updateRenderFPS();
-        
-        this.renderer.render(this.avionics, this.trackedObjects, this.primaryTarget);
-        this.radar.update(this.trackedObjects);
-        this._updateUI();
-        
-        requestAnimationFrame(() => this.renderCycle());
-    }
+        // --- 2. CONTEXT BRAIN (THE SOUL) ---
+        class ContextBrain {
+            constructor(app) {
+                this.app = app;
+                this.mood = 'calm'; // calm, alert, curious, focused
+                this.lastSpeak = 0;
+            }
 
-    _updateMemory(tracks) {
-        // Fix: Convert to array before iterating
-        const tracksArray = Array.from(this.tracker.tracks.values());
-        
-        tracks.forEach(track => {
-            const eventType = track.status === 'new' ? 'object_detected' : 'object_updated';
-            this.memory.recordEvent(eventType, {
-                objectId: track.id,
-                label: track.label,
-                confidence: track.confidence,
-                depthEstimate: track.depthEstimate,
-                bearingDeg: track.bearingDeg,
-                motionState: track.motionAnalysis.motionState
-            });
-        });
-        
-        // Record lost tracks
-        const lostTracks = tracksArray.filter(t => t.status === 'lost');
-        lostTracks.forEach(track => {
-            this.memory.recordEvent('object_lost', {
-                objectId: track.id,
-                label: track.label
-            });
-        });
-    }
+            processPerception(tracks) {
+                // Determine Mood
+                if (this.app.vision.lockedId) {
+                    this.setMood('focused');
+                } else if (this.app.mission.currentMode === 'security' && tracks.some(t => t.class === 'person')) {
+                    this.setMood('alert');
+                } else if (tracks.length > 3) {
+                    this.setMood('curious');
+                } else {
+                    this.setMood('calm');
+                }
+            }
 
-    _updatePrimaryTarget() {
-        if (this.trackedObjects.length === 0) {
-            this.primaryTarget = null;
-            return;
-        }
-        
-        this.primaryTarget = this.trackedObjects.reduce((closest, current) => {
-            const closestDist = Math.abs(closest.screenPosition.xNorm) + Math.abs(closest.screenPosition.yNorm);
-            const currentDist = Math.abs(current.screenPosition.xNorm) + Math.abs(current.screenPosition.yNorm);
-            return currentDist < closestDist ? current : closest;
-        });
-    }
+            setMood(newMood) {
+                if (this.mood === newMood) return;
+                this.mood = newMood;
 
-    _updateUI() {
-        const visionStatus = this.vision.getStatus();
-        document.getElementById('val-cpu').textContent = Utils.formatNumber(visionStatus.lastTime, 1);
-        document.getElementById('val-ai-fps').textContent = Utils.formatNumber(visionStatus.aiFps, 1);
-        document.getElementById('val-render-fps').textContent = Utils.formatNumber(visionStatus.renderFps, 1);
-        
-        const orientation = this.avionics.getOrientation();
-        document.getElementById('val-pitch').textContent = Utils.formatNumber(orientation.pitch, 1) + '°';
-        document.getElementById('val-roll').textContent = Utils.formatNumber(orientation.roll, 1) + '°';
-        document.getElementById('val-heading').textContent = Utils.formatNumber(orientation.heading, 1) + '°';
-        document.getElementById('val-g').textContent = Utils.formatNumber(this.avionics.gForce, 2);
-        
-        const trackerStats = this.tracker.getStats();
-        document.getElementById('val-tracked').textContent = trackerStats.activeTracks;
-        
-        document.getElementById('val-active').textContent = this.memory.getActiveObjectCount();
-        document.getElementById('val-persons').textContent = this.memory.getPersonDetectionsInLast(5);
-        
-        const closestPerson = this.memory.getClosestPerson();
-        document.getElementById('val-closest-person').textContent = closestPerson ? 
-            `~${Utils.formatNumber(closestPerson.distance, 1)}${CONFIG.PHYSICS.IS_CALIBRATED ? 'm' : '%'} @ ${Utils.formatNumber(closestPerson.bearing, 0)}°` : 
-            '--';
-        
-        document.getElementById('val-top-label').textContent = this.memory.getMostCommonLabelInLast(5);
-        
-        if (this.primaryTarget) {
-            document.getElementById('val-target-label').textContent = this.primaryTarget.label.toUpperCase();
-            document.getElementById('val-target-dist').textContent = 
-                `~${Utils.formatNumber(this.primaryTarget.depthEstimate, 1)}${CONFIG.PHYSICS.IS_CALIBRATED ? 'm' : '%'}`;
-            document.getElementById('val-target-bearing').textContent = 
-                `${Utils.formatNumber(this.primaryTarget.bearingDeg, 1)}°`;
-            document.getElementById('val-target-state').textContent = 
-                this.primaryTarget.motionAnalysis.motionState.toUpperCase();
-            document.getElementById('val-target-conf').textContent = 
-                `${Math.floor(this.primaryTarget.confidence * 100)}%`;
-        }
-        
-        this._updateSystemStatus();
-    }
+                // Update Aura
+                const aura = $('#companion-aura');
+                aura.className = ''; // Reset
+                if (newMood === 'alert') aura.classList.add('alert');
+                if (newMood === 'focused') aura.classList.add('thinking');
 
-    _updateSystemStatus() {
-        document.getElementById('status-cam').className = 
-            `status-indicator ${this.video.srcObject ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-ai').className = 
-            `status-indicator ${this.vision.isModelLoaded ? 'status-ok' : 'status-error'}`;
-        document.getElementById('status-gyro').className = 
-            `status-indicator ${this.avionics.isAvailable ? 'status-ok' : 'status-offline'}`;
-        document.getElementById('status-tracker').className = 
-            `status-indicator ${this.trackedObjects.length > 0 ? 'status-ok' : 'status-warn'}`;
-        document.getElementById('status-memory').className = 
-            `status-indicator ${this.memory.events.length > 0 ? 'status-ok' : 'status-warn'}`;
-    }
-
-    _updateBootLED(ledId, state) {
-        const led = document.getElementById(ledId);
-        led.className = 'status-led';
-        if (state === 'active') led.classList.add('active');
-        else if (state === 'error') led.classList.add('error');
-        else if (state === 'warning') led.classList.add('warning');
-        else if (state === 'loading') led.classList.add('loading');
-    }
-
-    _updateStatus(message) {
-        document.getElementById('status-message').textContent = message;
-    }
-
-    _startCalibration() {
-        if (this.trackedObjects.length === 0) {
-            alert('No objects detected for calibration');
-            return;
-        }
-        
-        const distance = prompt('Enter known distance to object (meters):');
-        if (distance && !isNaN(distance)) {
-            const knownDistance = parseFloat(distance);
-            const track = this.trackedObjects[0];
-            this.physics.calibrateDepth(knownDistance, track);
-            alert('Depth calibration completed');
-        }
-    }
-
-    shutdown() {
-        this.isRunning = false;
-        if (this.video.srcObject) {
-            this.video.srcObject.getTracks().forEach(track => track.stop());
-        }
-        this.memory.saveToStorage();
-    }
-}
-
-// ============================================================================
-// SYSTEM INITIALIZATION
-// ============================================================================
-
-const OMEGA = new OmegaKernel();
-
-document.getElementById('btn-init').addEventListener('click', () => {
-    const btn = document.getElementById('btn-init');
-    btn.textContent = 'INITIALIZING...';
-    btn.disabled = true;
-    OMEGA.boot();
-});
-
-// Handle visibility changes for performance
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        // Reduce processing when in background
-        OMEGA.vision.setQualityPreset('LOW');
-    }
-});
-
-window.addEventListener('beforeunload', () => {
-    OMEGA.shutdown();
-});
-
-// Add performance monitoring
-const performanceMonitor = {
-    frames: 0,
-    lastTime: performance.now(),
-    update: function() {
-        this.frames++;
-        const now = performance.now();
-        if (now >= this.lastTime + 1000) {
-            const fps = (this.frames * 1000) / (now - this.lastTime);
-            this.frames = 0;
-            this.lastTime = now;
-            
-            // Adaptive quality adjustment
-            if (fps < 20 && OMEGA.vision.qualityPreset !== 'LOW') {
-                OMEGA._setQuality('LOW');
+                // Log
+                // this.app.log(`Mood: ${newMood}`);
             }
         }
-    }
-};
 
-console.log("OMEGA: Advanced Humanoid Vision System - Optimized Version Loaded");
-</script>
+        // --- 3. MISSION CONTROLLER (THE HANDS) ---
+        class MissionController {
+            constructor(app) {
+                this.app = app;
+                this.currentMode = 'standard';
+            }
+
+            setMode(mode) {
+                this.currentMode = mode;
+                document.body.setAttribute('data-mode', mode);
+                $('#mode-val').innerText = mode.toUpperCase();
+
+                // Update UI buttons
+                $$('.mission-btn').forEach(b => b.classList.remove('active'));
+                $(`.mission-btn[data-mode="${mode}"]`).classList.add('active');
+
+                this.app.speak(`${mode} mode active.`);
+                this.app.log(`Switched to ${mode} mode`);
+            }
+
+            render(ctx, tracks) {
+                tracks.forEach(t => {
+                    const isLocked = (t.id === this.app.vision.lockedId);
+
+                    // Style based on mode
+                    if (this.currentMode === 'minimal' && !isLocked) {
+                        this.drawCornerBrackets(ctx, t, '#fff');
+                    } else if (this.currentMode === 'security') {
+                        const isThreat = this.checkThreat(t);
+                        const color = isThreat ? '#FF2A6D' : '#00F0FF';
+                        this.drawBox(ctx, t, color, isLocked);
+                        if (isThreat) this.drawLabel(ctx, t, `THREAT ${Math.round(t.score * 100)}%`, color);
+                    } else {
+                        // Standard/Film/Explorer
+                        const color = isLocked ? '#FFD700' : '#00F0FF';
+                        this.drawCornerBrackets(ctx, t, color);
+                        if (isLocked || this.currentMode === 'explorer') {
+                            this.drawLabel(ctx, t, t.class.toUpperCase(), color);
+                        }
+                    }
+                });
+            }
+
+            drawCornerBrackets(ctx, t, color) {
+                const len = 10;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                // TL
+                ctx.moveTo(t.x, t.y + len); ctx.lineTo(t.x, t.y); ctx.lineTo(t.x + len, t.y);
+                // TR
+                ctx.moveTo(t.x + t.w - len, t.y); ctx.lineTo(t.x + t.w, t.y); ctx.lineTo(t.x + t.w, t.y + len);
+                // BL
+                ctx.moveTo(t.x, t.y + t.h - len); ctx.lineTo(t.x, t.y + t.h); ctx.lineTo(t.x + len, t.y + t.h);
+                // BR
+                ctx.moveTo(t.x + t.w - len, t.y + t.h); ctx.lineTo(t.x + t.w, t.y + t.h); ctx.lineTo(t.x + t.w, t.y + t.h - len);
+                ctx.stroke();
+            }
+
+            drawBox(ctx, t, color, isLocked) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = isLocked ? 3 : 1;
+                ctx.strokeRect(t.x, t.y, t.w, t.h);
+            }
+
+            drawLabel(ctx, t, text, color) {
+                ctx.fillStyle = color;
+                ctx.font = '10px "SF Mono"';
+                ctx.fillText(text, t.x, t.y - 5);
+            }
+
+            checkThreat(t) {
+                // Simple threat logic: Person inside center zone
+                if (t.class !== 'person') return false;
+                const cx = t.x + t.w / 2;
+                const cy = t.y + t.h / 2;
+                const zx = window.innerWidth / 2;
+                const zy = window.innerHeight / 2;
+                const zw = window.innerWidth * 0.4;
+                const zh = window.innerHeight * 0.4;
+
+                return (cx > zx - zw / 2 && cx < zx + zw / 2 && cy > zy - zh / 2 && cy < zy + zh / 2);
+            }
+        }
+
+        // --- 4. APP CONTROLLER (ORCHESTRATOR) ---
+        class App {
+            constructor() {
+                this.vision = new VisionCore(this);
+                this.brain = new ContextBrain(this);
+                this.mission = new MissionController(this);
+
+                this.setupUI();
+            }
+
+            async start() {
+                $('#start-btn').innerText = "STARTING...";
+                await this.vision.init();
+                this.vision.start();
+                $('#boot-screen').classList.add('hidden');
+                this.speak("System Online.");
+            }
+
+            setupUI() {
+                // Boot
+                setTimeout(() => $('#start-btn').classList.remove('hidden'), 1000);
+                $('#start-btn').onclick = () => this.start();
+
+                // Interaction Layer (Locking)
+                $('#interaction-layer').onclick = (e) => {
+                    this.vision.lockTarget(e.clientX, e.clientY);
+                };
+
+                // Mission Switching
+                $$('.mission-btn').forEach(btn => {
+                    btn.onclick = () => this.mission.setMode(btn.dataset.mode);
+                });
+            }
+
+            log(msg, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `log-entry ${type}`;
+                div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                $('#log-panel').prepend(div);
+            }
+
+            speak(text) {
+                if (!window.speechSynthesis) return;
+                const u = new SpeechSynthesisUtterance(text);
+                u.rate = 1.1;
+                u.pitch = 1.0;
+
+                // Aura animation
+                $('#companion-aura').classList.add('speaking');
+                u.onend = () => $('#companion-aura').classList.remove('speaking');
+
+                window.speechSynthesis.speak(u);
+            }
+        }
+
+        // --- BOOT ---
+        window.GeyeApp = new App();
+
+    </script>
 </body>
+
 </html>
