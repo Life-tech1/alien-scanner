@@ -209,6 +209,85 @@
             pointer-events: none;
         }
 
+        /* MISSION OVERLAYS */
+        #mission-overlays {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .grid-line {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .grid-line.horizontal {
+            left: 0;
+            right: 0;
+            height: 1px;
+        }
+
+        .grid-line.vertical {
+            top: 0;
+            bottom: 0;
+            width: 1px;
+        }
+
+        .safe-area-box {
+            position: absolute;
+            top: 10%;
+            left: 10%;
+            right: 10%;
+            bottom: 10%;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+        }
+
+        .center-cross {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            border-left: 1px solid rgba(255, 255, 255, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+        }
+
+        /* TIMELINE UI */
+        .timeline-event {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .event-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .event-type {
+            font-weight: 600;
+            font-size: 13px;
+            color: white;
+        }
+
+        .event-details {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Show actions based on mode */
+        body[data-mission="film"] #film-actions {
+            display: block !important;
+        }
+
         /* CROSSHAIR REMOVED */
 
         /* ENHANCED GLASS UI */
@@ -823,6 +902,7 @@
     <div id="camera-view">
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="overlay-canvas"></canvas>
+        <div id="mission-overlays"></div>
 
         <!-- CROSSHAIR REMOVED -->
     </div>
@@ -933,7 +1013,8 @@
             <button class="tab-btn" data-tab="reports">Reports</button>
             <button class="tab-btn" data-tab="backup">Backup</button>
             <button class="tab-btn" data-tab="help">Help</button>
-            <button class="tab-btn" data-tab="settings">Settings</button>
+            <button class="tab-btn" data-tab="settings">SETTINGS</button>
+            <button class="tab-btn" data-tab="timeline">TIMELINE</button>
         </div>
 
         <!-- VISION TAB -->
@@ -963,6 +1044,21 @@
                 <div class="status-item">
                     <span class="status-label">THREAT LEVEL</span>
                     <span class="status-value" id="threat-level">LOW</span>
+                </div>
+            </div>
+
+            <!-- Mission Selector -->
+            <div class="glass-panel" style="margin-top: 16px; padding: 16px;">
+                <div class="status-label" style="margin-bottom: 10px;">MISSION MODE</div>
+                <div class="control-grid">
+                    <button class="control-btn active"
+                        onclick="GEYE_ULTIMATE.mission.setMode('standard')">STANDARD</button>
+                    <button class="control-btn" onclick="GEYE_ULTIMATE.mission.setMode('film')">FILM SET</button>
+                    <button class="control-btn" onclick="GEYE_ULTIMATE.mission.setMode('security')">SECURITY</button>
+                </div>
+                <!-- Film Mode Actions -->
+                <div id="film-actions" style="margin-top: 10px; display: none;">
+                    <button class="control-btn full-width" onclick="GEYE_ULTIMATE.takeLog()">📸 TAKE LOG</button>
                 </div>
             </div>
 
@@ -1134,6 +1230,21 @@
     <!-- SCREEN LOCK INDICATOR -->
     <div class="lock-indicator" id="lock-indicator">
         Screen Orientation Locked
+    </div>
+
+    <!-- TIMELINE TAB -->
+    <div id="timeline-tab" class="tab-content">
+        <div class="glass-panel" style="padding: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div class="status-label">MISSION LOGS</div>
+                <button class="control-btn" style="padding: 6px 12px;"
+                    onclick="GEYE_ULTIMATE.refreshTimeline()">REFRESH</button>
+            </div>
+            <div id="timeline-list" style="max-height: 400px; overflow-y: auto;">
+                <!-- Events will be injected here -->
+                <div style="text-align:center; color:rgba(255,255,255,0.5); padding: 20px;">Loading events...</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1469,6 +1580,10 @@
                     this.tracker = new ObjectTracker();
                     this.lastDetectionTime = 0;
                     this.detectionInterval = 100; // 10Hz detection rate
+
+                    // E) Mission & Data
+                    this.timeline = new TimelineManager();
+                    this.mission = new MissionManager(this);
 
                     this.startRenderLoop();
                     this.startDetectionLoop();
@@ -1999,6 +2114,11 @@
                     // Get smoothed tracks
                     const tracks = this.tracker.getTracks();
 
+                    // Mission Logic (Security Check)
+                    if (this.mission.mode === 'security') {
+                        this.mission.checkSecurityZone(tracks);
+                    }
+
                     // Render Tracks
                     this.drawTracks(tracks);
 
@@ -2088,11 +2208,40 @@
                     const drawW = width * scale;
                     const drawH = height * scale;
 
+                    const isLocked = (track.id === this.tracker.lockedTargetId);
+                    const color = isLocked ? '#FF0000' : this.getClassColor(track.class);
+
+                    // Draw Trails
+                    if (track.history.length > 1) {
+                        this.overlayCtx.beginPath();
+                        this.overlayCtx.strokeStyle = color;
+                        this.overlayCtx.lineWidth = 2;
+                        this.overlayCtx.globalAlpha = 0.5;
+                        track.history.forEach((pos, i) => {
+                            const [hx, hy, hw, hh] = pos;
+                            const hcx = offX + (hx + hw / 2) * scale;
+                            const hcy = offY + (hy + hh / 2) * scale;
+                            if (i === 0) this.overlayCtx.moveTo(hcx, hcy);
+                            else this.overlayCtx.lineTo(hcx, hcy);
+                        });
+                        this.overlayCtx.stroke();
+                        this.overlayCtx.globalAlpha = 1.0;
+                    }
+
                     // Draw Box
-                    const color = this.getClassColor(track.class);
                     this.overlayCtx.strokeStyle = color;
-                    this.overlayCtx.lineWidth = 2;
+                    this.overlayCtx.lineWidth = isLocked ? 4 : 2;
                     this.overlayCtx.strokeRect(drawX, drawY, drawW, drawH);
+
+                    // Draw Lock Indicator
+                    if (isLocked) {
+                        this.overlayCtx.beginPath();
+                        this.overlayCtx.moveTo(drawX + drawW / 2, drawY);
+                        this.overlayCtx.lineTo(drawX + drawW / 2, drawY - 10);
+                        this.overlayCtx.stroke();
+                        this.overlayCtx.fillStyle = '#FF0000';
+                        this.overlayCtx.fillText("LOCKED", drawX + drawW / 2 - 20, drawY - 15);
+                    }
 
                     // Draw Label
                     this.overlayCtx.fillStyle = color;
@@ -2108,6 +2257,84 @@
                         drawY - 7
                     );
                 });
+            }
+
+            toggleTargetLock() {
+                if (this.tracker.lockedTargetId) {
+                    this.tracker.unlock();
+                    this.showAlert("Target Unlocked");
+                } else {
+                    const id = this.tracker.lockNearestToCenter(this.video.videoWidth, this.video.videoHeight);
+                    if (id) {
+                        this.showAlert(`Target Locked: ID ${id}`);
+                    } else {
+                        this.showAlert("No target found to lock", true);
+                    }
+                }
+                this.triggerHaptic();
+            }
+
+            triggerSecurityAlert() {
+                // Debounce alerts
+                const now = Date.now();
+                if (this.lastAlertTime && now - this.lastAlertTime < 5000) return;
+                this.lastAlertTime = now;
+
+                this.showAlert("SECURITY BREACH DETECTED", true);
+                this.triggerHaptic();
+
+                // Auto-record
+                if (this.mediaRecorder && this.mediaRecorder.state === 'inactive') {
+                    this.toggleRecording();
+                    setTimeout(() => {
+                        if (this.mediaRecorder.state === 'recording') this.toggleRecording();
+                    }, 10000); // Record for 10s
+                }
+
+                // Log event
+                this.timeline.addEvent('ALERT', 'Security Zone Intrusion');
+            }
+
+            async refreshTimeline() {
+                const list = document.getElementById('timeline-list');
+                list.innerHTML = '';
+
+                try {
+                    const events = await this.timeline.getEvents(20);
+                    if (events.length === 0) {
+                        list.innerHTML = '<div style="text-align:center; color:rgba(255,255,255,0.5); padding: 20px;">No events recorded</div>';
+                        return;
+                    }
+
+                    events.forEach(e => {
+                        const date = new Date(e.timestamp);
+                        const timeStr = date.toLocaleTimeString();
+
+                        const div = document.createElement('div');
+                        div.className = 'timeline-event';
+                        div.innerHTML = `
+                            <div>
+                                <div class="event-type">${e.type}</div>
+                                <div class="event-details">${e.data}</div>
+                            </div>
+                            <div class="event-time">${timeStr}</div>
+                        `;
+                        list.appendChild(div);
+                    });
+                } catch (err) {
+                    console.error("Timeline error", err);
+                    list.innerHTML = '<div style="text-align:center; color:red; padding: 20px;">Error loading timeline</div>';
+                }
+            }
+
+            takeLog() {
+                const tracks = this.tracker.getTracks();
+                const count = tracks.length;
+                const summary = tracks.map(t => `${t.class}(${Math.round(t.score * 100)}%)`).join(', ');
+
+                this.timeline.addEvent('LOG', `Snapshot: ${count} objects. ${summary}`);
+                this.showAlert("Mission Log Saved");
+                this.triggerHaptic();
             }
 
             updateAnalytics(objects) {
@@ -2269,58 +2496,92 @@
             }
         }
 
-        // --- Tracker Class ---
+        // --- Advanced SORT-lite Tracker ---
         class ObjectTracker {
             constructor() {
                 this.tracks = [];
                 this.nextId = 1;
-                this.maxMissedFrames = 10;
-                this.iouThreshold = 0.3;
-                this.alpha = 0.3; // Smoothing factor (lower = smoother)
+                this.maxMissedFrames = 30; // Keep alive longer
+                this.iouThreshold = 0.25;
+                this.alpha = 0.2; // Smoothing factor
+                this.lockedTargetId = null;
+            }
+
+            predict() {
+                this.tracks.forEach(track => {
+                    // Simple linear velocity prediction
+                    if (track.velocity) {
+                        track.bbox[0] += track.velocity[0];
+                        track.bbox[1] += track.velocity[1];
+                    }
+                });
             }
 
             update(predictions, confidenceThreshold) {
-                // Filter low confidence
-                const validDetections = predictions.filter(p => p.score >= confidenceThreshold);
+                // 1. Predict next positions
+                this.predict();
 
-                // Match existing tracks to new detections
+                const validDetections = predictions.filter(p => p.score >= confidenceThreshold);
                 const matched = new Set();
                 const activeTracks = [];
 
+                // 2. Match existing tracks
                 this.tracks.forEach(track => {
                     let bestMatch = null;
                     let bestIOU = 0;
 
+                    // Prefer locked target
+                    if (this.lockedTargetId === track.id) {
+                        // Logic to find nearest detection to predicted position could go here
+                        // For now, standard IOU with a boost or separate pass
+                    }
+
                     validDetections.forEach((detection, index) => {
                         if (matched.has(index)) return;
-
-                        // Check class match
                         if (detection.class !== track.class) return;
 
                         const iou = this.calculateIOU(track.bbox, detection.bbox);
-                        if (iou > this.iouThreshold && iou > bestIOU) {
+
+                        // Boost IOU for locked target to keep it sticky
+                        const threshold = (this.lockedTargetId === track.id) ? 0.1 : this.iouThreshold;
+
+                        if (iou > threshold && iou > bestIOU) {
                             bestIOU = iou;
                             bestMatch = { detection, index };
                         }
                     });
 
                     if (bestMatch) {
-                        // Update track with smoothing
                         matched.add(bestMatch.index);
-                        track.bbox = this.smoothBbox(track.bbox, bestMatch.detection.bbox);
+                        const newBbox = bestMatch.detection.bbox;
+
+                        // Calculate velocity
+                        const vx = newBbox[0] - track.bbox[0];
+                        const vy = newBbox[1] - track.bbox[1];
+                        track.velocity = [vx, vy];
+
+                        // Smooth update
+                        track.bbox = this.smoothBbox(track.bbox, newBbox);
                         track.score = bestMatch.detection.score;
                         track.missedFrames = 0;
+
+                        // Update history (Trails)
+                        track.history.push([...track.bbox]);
+                        if (track.history.length > 60) track.history.shift(); // Keep last ~2-4 seconds
+
                         activeTracks.push(track);
                     } else {
-                        // Track lost temporarily
+                        // Track lost
                         track.missedFrames++;
                         if (track.missedFrames < this.maxMissedFrames) {
                             activeTracks.push(track);
+                        } else if (this.lockedTargetId === track.id) {
+                            this.lockedTargetId = null; // Lost lock
                         }
                     }
                 });
 
-                // Create new tracks for unmatched detections
+                // 3. Create new tracks
                 validDetections.forEach((detection, index) => {
                     if (!matched.has(index)) {
                         activeTracks.push({
@@ -2328,12 +2589,43 @@
                             class: detection.class,
                             bbox: detection.bbox,
                             score: detection.score,
-                            missedFrames: 0
+                            missedFrames: 0,
+                            velocity: [0, 0],
+                            history: [[...detection.bbox]]
                         });
                     }
                 });
 
                 this.tracks = activeTracks;
+            }
+
+            lockNearestToCenter(videoWidth, videoHeight) {
+                const centerX = videoWidth / 2;
+                const centerY = videoHeight / 2;
+                let bestTrack = null;
+                let minDist = Infinity;
+
+                this.tracks.forEach(track => {
+                    const [x, y, w, h] = track.bbox;
+                    const cx = x + w / 2;
+                    const cy = y + h / 2;
+                    const dist = Math.hypot(cx - centerX, cy - centerY);
+
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestTrack = track;
+                    }
+                });
+
+                if (bestTrack) {
+                    this.lockedTargetId = bestTrack.id;
+                    return bestTrack.id;
+                }
+                return null;
+            }
+
+            unlock() {
+                this.lockedTargetId = null;
             }
 
             getTracks() {
@@ -2367,6 +2659,169 @@
                     oldBbox[2] + (newBbox[2] - oldBbox[2]) * this.alpha,
                     oldBbox[3] + (newBbox[3] - oldBbox[3]) * this.alpha
                 ];
+            }
+        }
+
+        // --- Timeline Manager (IndexedDB) ---
+        class TimelineManager {
+            constructor() {
+                this.dbName = 'GeyeProDB';
+                this.storeName = 'timeline';
+                this.db = null;
+                this.initDB();
+            }
+
+            async initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 1);
+                    request.onerror = (e) => console.error("DB Error", e);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('timestamp', 'timestamp', { unique: false });
+                            store.createIndex('type', 'type', { unique: false });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                });
+            }
+
+            async addEvent(type, data, snapshotBlob = null) {
+                if (!this.db) await this.initDB();
+
+                const event = {
+                    type: type,
+                    timestamp: new Date().toISOString(),
+                    data: data,
+                    snapshot: snapshotBlob // Store blob directly (might need optimization for large apps)
+                };
+
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction([this.storeName], 'readwrite');
+                    const store = tx.objectStore(this.storeName);
+                    const request = store.add(event);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getEvents(limit = 50) {
+                if (!this.db) await this.initDB();
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction([this.storeName], 'readonly');
+                    const store = tx.objectStore(this.storeName);
+                    const index = store.index('timestamp');
+                    const request = index.openCursor(null, 'prev');
+                    const events = [];
+
+                    request.onsuccess = (e) => {
+                        const cursor = e.target.result;
+                        if (cursor && events.length < limit) {
+                            events.push(cursor.value);
+                            cursor.continue();
+                        } else {
+                            resolve(events);
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+        }
+
+        // --- Mission Manager ---
+        class MissionManager {
+            constructor(system) {
+                this.system = system;
+                this.mode = 'standard'; // standard, film, security
+                this.overlays = {
+                    thirds: false,
+                    safe: false,
+                    zone: null // {x, y, w, h} relative 0-1
+                };
+                this.isDrawingZone = false;
+                this.zoneStart = null;
+            }
+
+            setMode(mode) {
+                this.mode = mode;
+                this.system.showAlert(`Mission Mode: ${mode.toUpperCase()}`);
+
+                // Reset overlays
+                this.overlays.thirds = (mode === 'film');
+                this.overlays.safe = (mode === 'film');
+
+                // Default Security Zone (Center 40%)
+                if (mode === 'security') {
+                    this.overlays.zone = { x: 0.3, y: 0.3, w: 0.4, h: 0.4 };
+                } else {
+                    this.overlays.zone = null;
+                }
+
+                // Update UI
+                document.body.setAttribute('data-mission', mode);
+                this.updateMissionUI();
+            }
+
+            updateMissionUI() {
+                // Toggle overlays in DOM
+                const overlayContainer = document.getElementById('mission-overlays');
+                if (!overlayContainer) return; // Need to add this to HTML
+
+                overlayContainer.innerHTML = '';
+
+                if (this.overlays.thirds) {
+                    overlayContainer.innerHTML += `
+                        <div class="grid-line horizontal" style="top: 33%"></div>
+                        <div class="grid-line horizontal" style="top: 66%"></div>
+                        <div class="grid-line vertical" style="left: 33%"></div>
+                        <div class="grid-line vertical" style="left: 66%"></div>
+                    `;
+                }
+
+                if (this.overlays.safe) {
+                    overlayContainer.innerHTML += `
+                        <div class="safe-area-box"></div>
+                        <div class="center-cross"></div>
+                    `;
+                }
+
+                if (this.overlays.zone) {
+                    const z = this.overlays.zone;
+                    overlayContainer.innerHTML += `
+                        <div style="position:absolute; left:${z.x * 100}%; top:${z.y * 100}%; width:${z.w * 100}%; height:${z.h * 100}%;
+                                    border: 2px solid rgba(255, 0, 0, 0.5); background: rgba(255, 0, 0, 0.1); pointer-events:none;">
+                            <div style="position:absolute; top:-20px; left:0; color:red; font-size:12px; font-weight:bold;">RESTRICTED ZONE</div>
+                        </div>
+                    `;
+                }
+            }
+
+            checkSecurityZone(tracks) {
+                if (this.mode !== 'security' || !this.overlays.zone) return;
+
+                const z = this.overlays.zone; // 0-1 coords
+                let intrusion = false;
+
+                tracks.forEach(track => {
+                    // Convert track bbox to 0-1
+                    const [x, y, w, h] = track.bbox;
+                    const cx = (x + w / 2) / this.system.video.videoWidth;
+                    const cy = (y + h / 2) / this.system.video.videoHeight;
+
+                    if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) {
+                        intrusion = true;
+                        // Draw alert on track
+                        track.alert = true;
+                    }
+                });
+
+                if (intrusion) {
+                    this.system.triggerSecurityAlert();
+                }
             }
         }
 
