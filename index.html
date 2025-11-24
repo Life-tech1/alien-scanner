@@ -1,833 +1,591 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#000000">
-    <title>Geye Companion: Future Console</title>
-
-    <!-- Core AI -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Console MVP</title>
     <style>
+        /* Minimal Sci-Fi Design System */
         :root {
-            --primary: #00F0FF;
-            /* Cyan Future */
-            --alert: #FF2A6D;
-            /* Cyber Red */
-            --calm: #05D9E8;
-            /* Calm Blue */
-            --warn: #FFD700;
-            /* Gold */
-            --glass: rgba(10, 15, 30, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --font-main: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'SF Mono', 'Courier New', monospace;
+            --primary: #00ff88;
+            --secondary: #0088ff;
+            --background: rgba(0, 10, 20, 0.8);
+            --surface: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
         }
-
-        * {
+        
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
             background: #000;
-            color: #fff;
-            font-family: var(--font-main);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
             overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-            user-select: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
-
-        /* LAYERS */
-        #view-layer {
+        
+        #camera-container {
             position: absolute;
-            inset: 0;
-            z-index: 0;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
         }
-
-        #video-feed {
+        
+        #video {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transform: scaleX(-1);
         }
-
-        #canvas-layer {
+        
+        #canvas {
             position: absolute;
-            inset: 0;
-            z-index: 1;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+        
+        /* Overlay System */
+        .overlay-minimal {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 3;
             pointer-events: none;
         }
-
-        #ui-layer {
-            position: absolute;
-            inset: 0;
-            z-index: 10;
-            pointer-events: none;
+        
+        .corner-hint {
+            background: var(--background);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 6px 12px;
+            margin: 4px;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+            display: inline-block;
         }
-
-        #interaction-layer {
+        
+        /* Core Controls */
+        .core-controls {
             position: absolute;
-            inset: 0;
-            z-index: 20;
-        }
-
-        /* For clicks */
-
-        /* COMPANION AURA */
-        #companion-aura {
-            position: absolute;
-            top: 20px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+        
+        .core-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: var(--background);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s ease;
+        }
+        
+        .core-btn.active {
+            background: var(--primary);
+            color: #000;
+        }
+        
+        /* Companion UI */
+        .companion-aura {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: var(--primary);
-            box-shadow: 0 0 20px var(--primary);
-            opacity: 0.8;
+            z-index: 4;
             transition: all 0.5s ease;
-            z-index: 100;
-            pointer-events: auto;
-            cursor: pointer;
         }
-
-        #companion-aura.speaking {
-            animation: pulse 1s infinite;
-        }
-
-        #companion-aura.alert {
-            background: var(--alert);
-            box-shadow: 0 0 30px var(--alert);
-        }
-
-        #companion-aura.thinking {
-            animation: breathe 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: translateX(-50%) scale(1);
-            }
-
-            50% {
-                transform: translateX(-50%) scale(1.2);
-            }
-
-            100% {
-                transform: translateX(-50%) scale(1);
-            }
-        }
-
-        @keyframes breathe {
-            0% {
-                opacity: 0.5;
-            }
-
-            50% {
-                opacity: 0.9;
-            }
-
-            100% {
-                opacity: 0.5;
-            }
-        }
-
-        /* HUD CONTROLS */
-        .hud-panel {
+        
+        .companion-aura.calm { background: rgba(0, 255, 136, 0.3); }
+        .companion-aura.curious { background: rgba(255, 204, 0, 0.3); }
+        .companion-aura.alert { background: rgba(255, 50, 50, 0.3); }
+        
+        /* Mission Drawer */
+        .mission-drawer {
             position: absolute;
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 12px;
+            top: 0;
+            right: -300px;
+            width: 280px;
+            height: 100%;
+            background: var(--background);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid var(--surface);
+            transition: transform 0.3s ease;
+            z-index: 5;
+            padding: 20px;
             pointer-events: auto;
-            transition: transform 0.3s ease, opacity 0.3s ease;
         }
-
-        /* Top Right: System Status */
-        #status-panel {
-            top: 20px;
-            right: 20px;
-            text-align: right;
+        
+        .mission-drawer.open {
+            transform: translateX(-300px);
         }
-
-        .stat-item {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 4px;
-        }
-
-        .stat-value {
-            color: #fff;
-            font-weight: bold;
-        }
-
-        /* Bottom Center: Mission Control */
-        #mission-dock {
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 12px;
-            padding: 8px;
-            border-radius: 20px;
-        }
-
+        
         .mission-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: var(--surface);
+            border: 1px solid var(--secondary);
+            border-radius: 8px;
+            color: var(--text);
             cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            text-align: left;
         }
-
+        
         .mission-btn.active {
-            background: var(--primary);
-            color: #000;
-            box-shadow: 0 0 15px var(--primary);
-        }
-
-        .mission-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* Bottom Left: Timeline/Log */
-        #log-panel {
-            bottom: 30px;
-            left: 20px;
-            width: 200px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-family: var(--font-mono);
-            font-size: 10px;
-            display: flex;
-            flex-direction: column-reverse;
-            /* Newest at bottom */
-        }
-
-        .log-entry {
-            margin-top: 4px;
-            padding-left: 8px;
-            border-left: 2px solid var(--primary);
-            opacity: 0.8;
-        }
-
-        .log-entry.alert {
-            border-color: var(--alert);
-            color: var(--alert);
-        }
-
-        /* BOOT SCREEN */
-        #boot-screen {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.5s;
-        }
-
-        .boot-circle {
-            width: 60px;
-            height: 60px;
-            border: 2px solid var(--primary);
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        @keyframes spin {
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* UTILS */
-        .hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        /* MISSION OVERLAYS */
-        .overlay-grid {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-            background-size: 33.3% 33.3%;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .overlay-zone {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40%;
-            height: 40%;
-            border: 2px dashed var(--alert);
-            background: rgba(255, 42, 109, 0.1);
-            opacity: 0;
-            transition: opacity 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        body[data-mode="film"] .overlay-grid {
-            opacity: 1;
-        }
-
-        body[data-mode="security"] .overlay-zone {
-            opacity: 1;
+            border-color: var(--primary);
+            background: rgba(0, 255, 136, 0.1);
         }
     </style>
 </head>
-
 <body>
-
-    <!-- BOOT SCREEN -->
-    <div id="boot-screen">
-        <div class="boot-circle"></div>
-        <div style="font-size: 12px; letter-spacing: 2px; color: var(--primary);">INITIALIZING GEYE COMPANION</div>
-        <div id="boot-log" style="font-size: 10px; color: #666; margin-top: 10px;">Loading Neural Core...</div>
-        <button id="start-btn" class="mission-btn hidden" style="margin-top: 20px;">ACTIVATE</button>
+    <!-- Camera Layer -->
+    <div id="camera-container">
+        <video id="video" playsinline></video>
+        <canvas id="canvas"></canvas>
     </div>
-
-    <!-- MAIN VIEW -->
-    <div id="view-layer">
-        <video id="video-feed" autoplay playsinline muted></video>
+    
+    <!-- Overlay: Minimal Mode -->
+    <div class="overlay-minimal">
+        <div class="corner-hint" id="scene-summary">Ready</div>
+        <div class="corner-hint" id="object-count">Objects: 0</div>
+        <div class="corner-hint" id="fps-counter">FPS: 0</div>
     </div>
-
-    <canvas id="canvas-layer"></canvas>
-
-    <!-- OFFSCREEN INFERENCE CANVAS -->
-    <canvas id="inference-canvas" style="display: none;"></canvas>
-
-    <!-- UI LAYER -->
-    <div id="ui-layer">
-        <!-- Companion Avatar -->
-        <div id="companion-aura"></div>
-
-        <!-- Status -->
-        <div id="status-panel" class="hud-panel">
-            <div class="stat-item">FPS: <span id="fps-val" class="stat-value">--</span></div>
-            <div class="stat-item">LATENCY: <span id="lat-val" class="stat-value">--</span>ms</div>
-            <div class="stat-item">OBJECTS: <span id="obj-val" class="stat-value">0</span></div>
-            <div class="stat-item">MODE: <span id="mode-val" class="stat-value">IDLE</span></div>
-        </div>
-
-        <!-- Mission Overlays -->
-        <div class="overlay-grid"></div>
-        <div class="overlay-zone"><span
-                style="color:var(--alert); font-size:10px; background:#000; padding:2px 4px;">RESTRICTED</span></div>
-
-        <!-- Logs -->
-        <div id="log-panel" class="hud-panel">
-            <!-- Logs injected here -->
-        </div>
-
-        <!-- Controls -->
-        <div id="mission-dock" class="hud-panel">
-            <button class="mission-btn active" data-mode="standard">Standard</button>
-            <button class="mission-btn" data-mode="film">Film</button>
-            <button class="mission-btn" data-mode="security">Security</button>
-            <button class="mission-btn" data-mode="explorer">Explorer</button>
-        </div>
+    
+    <!-- Companion Aura -->
+    <div class="companion-aura" id="companion-aura"></div>
+    
+    <!-- Core Controls -->
+    <div class="core-controls">
+        <div class="core-btn" id="activate-btn">⚡</div>
+        <div class="core-btn" id="lock-btn">🔒</div>
+        <div class="core-btn" id="mission-btn">🎯</div>
     </div>
-
-    <!-- INTERACTION LAYER -->
-    <div id="interaction-layer"></div>
+    
+    <!-- Mission Drawer -->
+    <div class="mission-drawer" id="mission-drawer">
+        <h3>Mission Packs</h3>
+        <button class="mission-btn" data-mode="film">🎬 Film Mode</button>
+        <button class="mission-btn" data-mode="safety">🛡️ Safety Mode</button>
+        <button class="mission-btn" data-mode="travel">🧭 Travel Mode</button>
+    </div>
 
     <script>
-        /**
-         * GEYE COMPANION - FUTURE FIELD CONSOLE
-         * Architecture: Modular Monolith
-         * 1. VisionCore: Perception (TFJS, Kalman)
-         * 2. ContextBrain: Understanding (Mood, Memory)
-         * 3. MissionController: Action (Modes)
-         * 4. HUDManager: UI/UX
-         */
-
-        // --- UTILS ---
-        const $ = (sel) => document.querySelector(sel);
-        const $$ = (sel) => document.querySelectorAll(sel);
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-        // --- 1. VISION CORE (THE EYE) ---
-        class VisionCore {
-            constructor(app) {
-                this.app = app;
-                this.video = $('#video-feed');
-                this.canvas = $('#canvas-layer');
-                this.ctx = this.canvas.getContext('2d');
-                this.infCanvas = $('#inference-canvas');
-                this.infCtx = this.infCanvas.getContext('2d');
-
-                this.model = null;
-                this.isActive = false;
-
-                // Adaptive Loop
-                this.lastFrameTime = 0;
-                this.inferenceInterval = 50; // Target ~20 FPS for inference
-                this.lastInferenceTime = 0;
-                this.isInferencing = false;
-
-                // Tracker
-                this.tracks = [];
-                this.nextId = 1;
-                this.lockedId = null;
-            }
-
-            async init() {
-                this.app.log("Loading Vision Model...");
-                await tf.setBackend('webgl');
-                this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-
-                // Warmup
-                this.app.log("Warming up Neural Engine...");
-                const dummy = tf.zeros([1, 300, 300, 3]);
-                await this.model.detect(dummy);
-                dummy.dispose();
-
-                this.setupCamera();
-            }
-
-            async setupCamera() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                        audio: false
-                    });
-                    this.video.srcObject = stream;
-                    await new Promise(r => this.video.onloadedmetadata = r);
-                    this.app.log("Camera Active");
-                    this.resize();
-                    window.addEventListener('resize', () => this.resize());
-                } catch (e) {
-                    this.app.log("Camera Error: " + e.message, 'alert');
-                }
-            }
-
-            resize() {
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
-
-                // Downscale for inference (Max 320px long side)
-                const aspect = this.video.videoWidth / this.video.videoHeight;
-                const size = 320;
-                if (aspect > 1) {
-                    this.infCanvas.width = size;
-                    this.infCanvas.height = size / aspect;
-                } else {
-                    this.infCanvas.width = size * aspect;
-                    this.infCanvas.height = size;
-                }
-                this.scaleX = this.canvas.width / this.infCanvas.width;
-                this.scaleY = this.canvas.height / this.infCanvas.height;
-            }
-
-            start() {
-                this.isActive = true;
-                this.loop();
-            }
-
-            loop() {
-                if (!this.isActive) return;
-                requestAnimationFrame(() => this.loop());
-
-                const now = performance.now();
-
-                // Render Loop (60 FPS)
-                this.render();
-
-                // Inference Loop (Adaptive)
-                if (!this.isInferencing && (now - this.lastInferenceTime > this.inferenceInterval)) {
-                    this.runInference();
-                }
-            }
-
-            async runInference() {
-                this.isInferencing = true;
-                const start = performance.now();
-
-                // Draw to small canvas
-                this.infCtx.drawImage(this.video, 0, 0, this.infCanvas.width, this.infCanvas.height);
-
-                // Detect
-                const predictions = await this.model.detect(this.infCanvas);
-
-                // Update Tracker
-                this.updateTracker(predictions);
-
-                const duration = performance.now() - start;
-                this.lastInferenceTime = performance.now();
-                this.isInferencing = false;
-
-                // Adaptive Scheduling
-                this.inferenceInterval = Math.max(30, duration * 1.2); // Keep some headroom
-
-                // Update Stats
-                $('#lat-val').innerText = Math.round(duration);
-                $('#obj-val').innerText = this.tracks.length;
-            }
-
-            updateTracker(predictions) {
-                // Kalman-lite: Predict
-                this.tracks.forEach(t => {
-                    t.x += t.vx; t.y += t.vy; // Simple velocity prediction
-                    t.missed++;
-                });
-
-                // Match
-                const matched = new Set();
-
-                // 1. Locked Target Priority
-                if (this.lockedId) {
-                    const lockedTrack = this.tracks.find(t => t.id === this.lockedId);
-                    if (lockedTrack) {
-                        const match = this.findBestMatch(lockedTrack, predictions, matched, 0.15); // Lower threshold
-                        if (match) {
-                            this.updateTrack(lockedTrack, match);
-                            matched.add(match);
-                        }
-                    }
-                }
-
-                // 2. Existing Tracks
-                this.tracks.forEach(t => {
-                    if (t.id === this.lockedId) return;
-                    const match = this.findBestMatch(t, predictions, matched, 0.3);
-                    if (match) {
-                        this.updateTrack(t, match);
-                        matched.add(match);
-                    }
-                });
-
-                // 3. New Tracks
-                predictions.forEach(p => {
-                    if (!matched.has(p)) {
-                        this.createTrack(p);
-                    }
-                });
-
-                // Prune
-                this.tracks = this.tracks.filter(t => t.missed < 20); // Keep alive for ~1 sec
-
-                // Notify Brain
-                this.app.brain.processPerception(this.tracks);
-            }
-
-            findBestMatch(track, predictions, matchedSet, threshold) {
-                let best = null;
-                let maxIoU = 0;
-
-                predictions.forEach(p => {
-                    if (matchedSet.has(p)) return;
-                    if (p.class !== track.class) return;
-
-                    // Scale bbox to screen for IoU calc
-                    const pBox = this.scaleBox(p.bbox);
-                    const IoU = this.getIoU(track, pBox);
-
-                    if (IoU > threshold && IoU > maxIoU) {
-                        maxIoU = IoU;
-                        best = p;
-                    }
-                });
-                return best;
-            }
-
-            updateTrack(track, prediction) {
-                const box = this.scaleBox(prediction.bbox);
-
-                // Smooth Update (Alpha filter)
-                const alpha = 0.3;
-                const dx = box.x - track.x;
-                const dy = box.y - track.y;
-
-                track.x += dx * alpha;
-                track.y += dy * alpha;
-                track.w += (box.w - track.w) * alpha;
-                track.h += (box.h - track.h) * alpha;
-
-                // Update Velocity
-                track.vx = dx * 0.5;
-                track.vy = dy * 0.5;
-
-                track.score = prediction.score;
-                track.missed = 0;
-            }
-
-            createTrack(prediction) {
-                const box = this.scaleBox(prediction.bbox);
-                this.tracks.push({
-                    id: this.nextId++,
-                    class: prediction.class,
-                    score: prediction.score,
-                    x: box.x, y: box.y, w: box.w, h: box.h,
-                    vx: 0, vy: 0,
-                    missed: 0,
-                    firstSeen: Date.now()
-                });
-            }
-
-            scaleBox(bbox) {
-                // bbox is [x, y, w, h] from inference canvas
-                return {
-                    x: bbox[0] * this.scaleX,
-                    y: bbox[1] * this.scaleY,
-                    w: bbox[2] * this.scaleX,
-                    h: bbox[3] * this.scaleY
-                };
-            }
-
-            getIoU(boxA, boxB) {
-                const xA = Math.max(boxA.x, boxB.x);
-                const yA = Math.max(boxA.y, boxB.y);
-                const xB = Math.min(boxA.x + boxA.w, boxB.x + boxB.w);
-                const yB = Math.min(boxA.y + boxA.h, boxB.y + boxB.h);
-
-                const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
-                const boxAArea = boxA.w * boxA.h;
-                const boxBArea = boxB.w * boxB.h;
-
-                return interArea / (boxAArea + boxBArea - interArea);
-            }
-
-            render() {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-                // Delegate rendering to Mission Controller (Action Layer)
-                this.app.mission.render(this.ctx, this.tracks);
-            }
-
-            lockTarget(x, y) {
-                // Find nearest track to click
-                let best = null;
-                let minDist = 100; // Pixel radius
-
-                this.tracks.forEach(t => {
-                    const cx = t.x + t.w / 2;
-                    const cy = t.y + t.h / 2;
-                    const dist = Math.hypot(cx - x, cy - y);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        best = t;
-                    }
-                });
-
-                if (best) {
-                    this.lockedId = best.id;
-                    this.app.speak(`Target locked. ${best.class}.`);
-                    this.app.log(`Locked ID ${best.id} (${best.class})`);
-                } else {
-                    this.lockedId = null;
-                    this.app.speak("Target released.");
-                }
-            }
-        }
-
-        // --- 2. CONTEXT BRAIN (THE SOUL) ---
-        class ContextBrain {
-            constructor(app) {
-                this.app = app;
-                this.mood = 'calm'; // calm, alert, curious, focused
-                this.lastSpeak = 0;
-            }
-
-            processPerception(tracks) {
-                // Determine Mood
-                if (this.app.vision.lockedId) {
-                    this.setMood('focused');
-                } else if (this.app.mission.currentMode === 'security' && tracks.some(t => t.class === 'person')) {
-                    this.setMood('alert');
-                } else if (tracks.length > 3) {
-                    this.setMood('curious');
-                } else {
-                    this.setMood('calm');
-                }
-            }
-
-            setMood(newMood) {
-                if (this.mood === newMood) return;
-                this.mood = newMood;
-
-                // Update Aura
-                const aura = $('#companion-aura');
-                aura.className = ''; // Reset
-                if (newMood === 'alert') aura.classList.add('alert');
-                if (newMood === 'focused') aura.classList.add('thinking');
-
-                // Log
-                // this.app.log(`Mood: ${newMood}`);
-            }
-        }
-
-        // --- 3. MISSION CONTROLLER (THE HANDS) ---
-        class MissionController {
-            constructor(app) {
-                this.app = app;
-                this.currentMode = 'standard';
-            }
-
-            setMode(mode) {
-                this.currentMode = mode;
-                document.body.setAttribute('data-mode', mode);
-                $('#mode-val').innerText = mode.toUpperCase();
-
-                // Update UI buttons
-                $$('.mission-btn').forEach(b => b.classList.remove('active'));
-                $(`.mission-btn[data-mode="${mode}"]`).classList.add('active');
-
-                this.app.speak(`${mode} mode active.`);
-                this.app.log(`Switched to ${mode} mode`);
-            }
-
-            render(ctx, tracks) {
-                tracks.forEach(t => {
-                    const isLocked = (t.id === this.app.vision.lockedId);
-
-                    // Style based on mode
-                    if (this.currentMode === 'minimal' && !isLocked) {
-                        this.drawCornerBrackets(ctx, t, '#fff');
-                    } else if (this.currentMode === 'security') {
-                        const isThreat = this.checkThreat(t);
-                        const color = isThreat ? '#FF2A6D' : '#00F0FF';
-                        this.drawBox(ctx, t, color, isLocked);
-                        if (isThreat) this.drawLabel(ctx, t, `THREAT ${Math.round(t.score * 100)}%`, color);
-                    } else {
-                        // Standard/Film/Explorer
-                        const color = isLocked ? '#FFD700' : '#00F0FF';
-                        this.drawCornerBrackets(ctx, t, color);
-                        if (isLocked || this.currentMode === 'explorer') {
-                            this.drawLabel(ctx, t, t.class.toUpperCase(), color);
-                        }
-                    }
-                });
-            }
-
-            drawCornerBrackets(ctx, t, color) {
-                const len = 10;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                // TL
-                ctx.moveTo(t.x, t.y + len); ctx.lineTo(t.x, t.y); ctx.lineTo(t.x + len, t.y);
-                // TR
-                ctx.moveTo(t.x + t.w - len, t.y); ctx.lineTo(t.x + t.w, t.y); ctx.lineTo(t.x + t.w, t.y + len);
-                // BL
-                ctx.moveTo(t.x, t.y + t.h - len); ctx.lineTo(t.x, t.y + t.h); ctx.lineTo(t.x + len, t.y + t.h);
-                // BR
-                ctx.moveTo(t.x + t.w - len, t.y + t.h); ctx.lineTo(t.x + t.w, t.y + t.h); ctx.lineTo(t.x + t.w, t.y + t.h - len);
-                ctx.stroke();
-            }
-
-            drawBox(ctx, t, color, isLocked) {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = isLocked ? 3 : 1;
-                ctx.strokeRect(t.x, t.y, t.w, t.h);
-            }
-
-            drawLabel(ctx, t, text, color) {
-                ctx.fillStyle = color;
-                ctx.font = '10px "SF Mono"';
-                ctx.fillText(text, t.x, t.y - 5);
-            }
-
-            checkThreat(t) {
-                // Simple threat logic: Person inside center zone
-                if (t.class !== 'person') return false;
-                const cx = t.x + t.w / 2;
-                const cy = t.y + t.h / 2;
-                const zx = window.innerWidth / 2;
-                const zy = window.innerHeight / 2;
-                const zw = window.innerWidth * 0.4;
-                const zh = window.innerHeight * 0.4;
-
-                return (cx > zx - zw / 2 && cx < zx + zw / 2 && cy > zy - zh / 2 && cy < zy + zh / 2);
-            }
-        }
-
-        // --- 4. APP CONTROLLER (ORCHESTRATOR) ---
-        class App {
+        // Field Console MVP - Core Engine
+        class FieldConsole {
             constructor() {
-                this.vision = new VisionCore(this);
-                this.brain = new ContextBrain(this);
-                this.mission = new MissionController(this);
-
+                this.isActive = false;
+                this.currentMode = 'film';
+                this.lockedTarget = null;
+                this.companionMood = 'calm';
+                this.performanceMode = 'balanced';
+                this.timeline = [];
+                this.objectTracker = new Map();
+                
+                this.init();
+            }
+            
+            async init() {
+                await this.setupCamera();
+                this.setupVisionEngine();
                 this.setupUI();
+                this.setupCompanion();
+                this.startMainLoop();
             }
-
-            async start() {
-                $('#start-btn').innerText = "STARTING...";
-                await this.vision.init();
-                this.vision.start();
-                $('#boot-screen').classList.add('hidden');
-                this.speak("System Online.");
-            }
-
-            setupUI() {
-                // Boot
-                setTimeout(() => $('#start-btn').classList.remove('hidden'), 1000);
-                $('#start-btn').onclick = () => this.start();
-
-                // Interaction Layer (Locking)
-                $('#interaction-layer').onclick = (e) => {
-                    this.vision.lockTarget(e.clientX, e.clientY);
+            
+            async setupCamera() {
+                this.video = document.getElementById('video');
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', frameRate: { ideal: 25 } }
+                });
+                this.video.srcObject = stream;
+                
+                // Set canvas size to match video
+                this.video.onloadedmetadata = () => {
+                    this.canvas.width = this.video.videoWidth;
+                    this.canvas.height = this.video.videoHeight;
                 };
-
-                // Mission Switching
-                $$('.mission-btn').forEach(btn => {
-                    btn.onclick = () => this.mission.setMode(btn.dataset.mode);
+            }
+            
+            setupVisionEngine() {
+                // MediaPipe initialization would go here
+                // For MVP, using simplified object tracking
+                this.detectionConfig = {
+                    maxObjects: 10,
+                    confidence: 0.6,
+                    tracking: true
+                };
+                
+                // Mock detection for prototype
+                this.mockDetector = {
+                    detect: async (video) => {
+                        // In real implementation, this would use MediaPipe/TensorFlow.js
+                        return this.generateMockDetections();
+                    }
+                };
+            }
+            
+            generateMockDetections() {
+                // Simulate real detection data
+                const objects = [];
+                const types = ['person', 'vehicle', 'text', 'object'];
+                
+                for (let i = 0; i < 3; i++) {
+                    objects.push({
+                        id: `obj_${Date.now()}_${i}`,
+                        type: types[Math.floor(Math.random() * types.length)],
+                        confidence: 0.7 + Math.random() * 0.3,
+                        bbox: [
+                            Math.random() * 0.6,
+                            Math.random() * 0.6,
+                            0.2 + Math.random() * 0.3,
+                            0.2 + Math.random() * 0.3
+                        ],
+                        trackId: i
+                    });
+                }
+                
+                return objects;
+            }
+            
+            setupUI() {
+                // Core buttons
+                document.getElementById('activate-btn').onclick = () => this.toggleActivation();
+                document.getElementById('lock-btn').onclick = () => this.toggleLock();
+                document.getElementById('mission-btn').onclick = () => this.toggleMissionDrawer();
+                
+                // Mission buttons
+                document.querySelectorAll('.mission-btn').forEach(btn => {
+                    btn.onclick = (e) => this.switchMission(e.target.dataset.mode);
                 });
             }
-
-            log(msg, type = 'info') {
-                const div = document.createElement('div');
-                div.className = `log-entry ${type}`;
-                div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-                $('#log-panel').prepend(div);
+            
+            setupCompanion() {
+                this.companionAura = document.getElementById('companion-aura');
+                this.updateCompanionMood('calm');
             }
-
-            speak(text) {
-                if (!window.speechSynthesis) return;
-                const u = new SpeechSynthesisUtterance(text);
-                u.rate = 1.1;
-                u.pitch = 1.0;
-
-                // Aura animation
-                $('#companion-aura').classList.add('speaking');
-                u.onend = () => $('#companion-aura').classList.remove('speaking');
-
-                window.speechSynthesis.speak(u);
+            
+            toggleActivation() {
+                this.isActive = !this.isActive;
+                const btn = document.getElementById('activate-btn');
+                btn.classList.toggle('active', this.isActive);
+                
+                if (this.isActive) {
+                    this.companionSpeak("Systems online. Tracking activated.");
+                    this.updateCompanionMood('curious');
+                } else {
+                    this.companionSpeak("Standing by.");
+                    this.updateCompanionMood('calm');
+                }
+            }
+            
+            toggleLock() {
+                if (!this.isActive) return;
+                
+                // Simple target locking logic
+                if (!this.lockedTarget && this.currentDetections?.length > 0) {
+                    this.lockedTarget = this.currentDetections[0];
+                    this.companionSpeak(`Target locked. Tracking ${this.lockedTarget.type}`);
+                } else {
+                    this.lockedTarget = null;
+                    this.companionSpeak("Target released");
+                }
+            }
+            
+            toggleMissionDrawer() {
+                document.getElementById('mission-drawer').classList.toggle('open');
+            }
+            
+            switchMission(mode) {
+                this.currentMode = mode;
+                
+                // Update UI
+                document.querySelectorAll('.mission-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === mode);
+                });
+                
+                // Mission-specific behaviors
+                const missionConfigs = {
+                    film: { mood: 'curious', message: "Film mode active. Ready for creative work." },
+                    safety: { mood: 'alert', message: "Safety mode engaged. Monitoring environment." },
+                    travel: { mood: 'calm', message: "Travel mode activated. Ready to explore." }
+                };
+                
+                const config = missionConfigs[mode];
+                this.updateCompanionMood(config.mood);
+                this.companionSpeak(config.message);
+                
+                this.toggleMissionDrawer(); // Close drawer
+            }
+            
+            updateCompanionMood(mood) {
+                this.companionMood = mood;
+                this.companionAura.className = `companion-aura ${mood}`;
+            }
+            
+            companionSpeak(message) {
+                // Use Web Speech API
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(message);
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1.2;
+                    speechSynthesis.speak(utterance);
+                }
+                
+                // Add to timeline
+                this.addToTimeline('companion', message);
+            }
+            
+            addToTimeline(type, data) {
+                this.timeline.push({
+                    timestamp: Date.now(),
+                    type: type,
+                    data: data,
+                    mode: this.currentMode,
+                    mood: this.companionMood
+                });
+                
+                // Keep timeline manageable
+                if (this.timeline.length > 1000) {
+                    this.timeline = this.timeline.slice(-500);
+                }
+            }
+            
+            async processFrame() {
+                if (!this.isActive) return;
+                
+                const startTime = performance.now();
+                
+                // Run detection
+                this.currentDetections = await this.mockDetector.detect(this.video);
+                
+                // Update object tracking
+                this.updateObjectTracking(this.currentDetections);
+                
+                // Process based on current mission
+                this.processMissionLogic();
+                
+                // Update scene understanding
+                this.updateSceneSummary();
+                
+                // Draw overlay
+                this.drawOverlay();
+                
+                // Update FPS counter
+                this.updatePerformanceStats(startTime);
+            }
+            
+            updateObjectTracking(detections) {
+                const currentFrame = Date.now();
+                
+                detections.forEach(det => {
+                    if (this.objectTracker.has(det.trackId)) {
+                        const existing = this.objectTracker.get(det.trackId);
+                        existing.lastSeen = currentFrame;
+                        existing.bbox = det.bbox;
+                        existing.trajectory.push({
+                            x: det.bbox[0] + det.bbox[2]/2,
+                            y: det.bbox[1] + det.bbox[3]/2,
+                            timestamp: currentFrame
+                        });
+                    } else {
+                        this.objectTracker.set(det.trackId, {
+                            id: det.trackId,
+                            type: det.type,
+                            firstSeen: currentFrame,
+                            lastSeen: currentFrame,
+                            bbox: det.bbox,
+                            trajectory: [{
+                                x: det.bbox[0] + det.bbox[2]/2,
+                                y: det.bbox[1] + det.bbox[3]/2,
+                                timestamp: currentFrame
+                            }]
+                        });
+                    }
+                });
+                
+                // Clean up old tracks
+                const cleanupThreshold = 2000; // 2 seconds
+                for (let [id, track] of this.objectTracker.entries()) {
+                    if (currentFrame - track.lastSeen > cleanupThreshold) {
+                        this.objectTracker.delete(id);
+                    }
+                }
+            }
+            
+            processMissionLogic() {
+                switch (this.currentMode) {
+                    case 'safety':
+                        this.processSafetyMode();
+                        break;
+                    case 'film':
+                        this.processFilmMode();
+                        break;
+                    case 'travel':
+                        this.processTravelMode();
+                        break;
+                }
+            }
+            
+            processSafetyMode() {
+                const people = Array.from(this.objectTracker.values())
+                    .filter(obj => obj.type === 'person');
+                
+                if (people.length > 3) {
+                    this.updateCompanionMood('alert');
+                    if (this.companionMood !== 'alert') {
+                        this.companionSpeak("Multiple people detected in area");
+                    }
+                }
+            }
+            
+            processFilmMode() {
+                // Film mode logic - composition helpers, etc.
+                const objects = Array.from(this.objectTracker.values());
+                if (objects.length >= 2) {
+                    // Check for interesting compositions
+                    this.updateCompanionMood('curious');
+                }
+            }
+            
+            processTravelMode() {
+                // Travel mode logic - text detection, translation prep
+                const texts = Array.from(this.objectTracker.values())
+                    .filter(obj => obj.type === 'text');
+                
+                if (texts.length > 0 && this.companionMood === 'calm') {
+                    this.updateCompanionMood('curious');
+                    this.companionSpeak("Text detected. Ready for translation.");
+                }
+            }
+            
+            updateSceneSummary() {
+                const objects = Array.from(this.objectTracker.values());
+                const summaryEl = document.getElementById('scene-summary');
+                const countEl = document.getElementById('object-count');
+                
+                countEl.textContent = `Objects: ${objects.length}`;
+                
+                if (objects.length === 0) {
+                    summaryEl.textContent = "Clear scene";
+                } else {
+                    const types = [...new Set(objects.map(obj => obj.type))];
+                    summaryEl.textContent = `Tracking: ${types.join(', ')}`;
+                }
+            }
+            
+            drawOverlay() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (!this.isActive || !this.currentDetections) return;
+                
+                this.ctx.strokeStyle = '#00ff88';
+                this.ctx.lineWidth = 2;
+                this.ctx.font = '12px monospace';
+                this.ctx.fillStyle = '#00ff88';
+                
+                this.currentDetections.forEach(det => {
+                    const [x, y, width, height] = det.bbox;
+                    const absX = x * this.canvas.width;
+                    const absY = y * this.canvas.height;
+                    const absWidth = width * this.canvas.width;
+                    const absHeight = height * this.canvas.height;
+                    
+                    // Draw bounding box
+                    this.ctx.strokeRect(absX, absY, absWidth, absHeight);
+                    
+                    // Draw label
+                    this.ctx.fillText(
+                        `${det.type} ${Math.round(det.confidence * 100)}%`,
+                        absX, absY - 5
+                    );
+                    
+                    // Draw trajectory if available
+                    const track = this.objectTracker.get(det.trackId);
+                    if (track && track.trajectory.length > 1) {
+                        this.ctx.beginPath();
+                        this.ctx.strokeStyle = '#0088ff';
+                        track.trajectory.forEach((point, index) => {
+                            const pointX = point.x * this.canvas.width;
+                            const pointY = point.y * this.canvas.height;
+                            
+                            if (index === 0) {
+                                this.ctx.moveTo(pointX, pointY);
+                            } else {
+                                this.ctx.lineTo(pointX, pointY);
+                            }
+                        });
+                        this.ctx.stroke();
+                    }
+                });
+                
+                // Draw locked target highlight
+                if (this.lockedTarget) {
+                    const [x, y, width, height] = this.lockedTarget.bbox;
+                    this.ctx.strokeStyle = '#ff4444';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeRect(
+                        x * this.canvas.width,
+                        y * this.canvas.height,
+                        width * this.canvas.width,
+                        height * this.canvas.height
+                    );
+                }
+            }
+            
+            updatePerformanceStats(startTime) {
+                const frameTime = performance.now() - startTime;
+                const fps = Math.round(1000 / frameTime);
+                
+                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+                
+                // Adaptive performance adjustment
+                if (fps < 15 && this.performanceMode !== 'performance') {
+                    this.performanceMode = 'performance';
+                    this.companionSpeak("Switching to performance mode");
+                } else if (fps > 25 && this.performanceMode !== 'quality') {
+                    this.performanceMode = 'quality';
+                }
+            }
+            
+            startMainLoop() {
+                const loop = () => {
+                    this.processFrame();
+                    requestAnimationFrame(loop);
+                };
+                loop();
             }
         }
-
-        // --- BOOT ---
-        window.GeyeApp = new App();
-
+        
+        // Initialize the console when page loads
+        window.addEventListener('load', () => {
+            new FieldConsole();
+        });
     </script>
 </body>
-
 </html>
