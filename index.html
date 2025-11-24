@@ -1,987 +1,990 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#000000">
-    <title>Geye Companion: Future Console</title>
-
-    <!-- Core AI -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUANTUM SENSOR | ระบบตรวจจับสนามแม่เหล็กและพลังงานขั้นสูง</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #00F0FF;
-            /* Cyan Future */
-            --alert: #FF2A6D;
-            /* Cyber Red */
-            --calm: #05D9E8;
-            /* Calm Blue */
-            --warn: #FFD700;
-            /* Gold */
-            --glass: rgba(10, 15, 30, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --font-main: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'SF Mono', 'Courier New', monospace;
+            --primary: #0a0a12;
+            --secondary: #151522;
+            --accent: #1a1a2e;
+            --gold: #d4af37;
+            --gold-light: #f4e4a6;
+            --platinum: #e5e4e2;
+            --text: #f8f9fa;
+            --text-secondary: #adb5bd;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --card-bg: rgba(30, 30, 46, 0.6);
+            --glass: rgba(255, 255, 255, 0.05);
+            --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            --gradient: linear-gradient(135deg, #0a0a12 0%, #1a1a2e 50%, #151522 100%);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
+            font-family: 'Kanit', 'Segoe UI', sans-serif;
         }
 
         body {
-            background: #000;
-            color: #fff;
-            font-family: var(--font-main);
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-            user-select: none;
+            background: var(--gradient);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
         }
 
-        /* LAYERS */
-        #view-layer {
-            position: absolute;
-            inset: 0;
-            z-index: 0;
-        }
-
-        #video-feed {
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
-        }
-
-        #canvas-layer {
-            position: absolute;
-            inset: 0;
-            z-index: 1;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(212, 175, 55, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(212, 175, 55, 0.03) 0%, transparent 50%);
             pointer-events: none;
+            z-index: -1;
         }
 
-        #ui-layer {
-            position: absolute;
-            inset: 0;
-            z-index: 10;
-            pointer-events: none;
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
         }
 
-        #interaction-layer {
-            position: absolute;
-            inset: 0;
-            z-index: 20;
-        }
-
-        /* For clicks */
-
-        /* COMPANION AURA */
-        #companion-aura {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--primary);
-            box-shadow: 0 0 20px var(--primary);
-            opacity: 0.8;
-            transition: all 0.5s ease;
-            z-index: 100;
-            pointer-events: auto;
-            cursor: pointer;
-        }
-
-        #companion-aura.speaking {
-            animation: pulse 1s infinite;
-        }
-
-        #companion-aura.alert {
-            background: var(--alert);
-            box-shadow: 0 0 30px var(--alert);
-        }
-
-        #companion-aura.thinking {
-            animation: breathe 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: translateX(-50%) scale(1);
-            }
-
-            50% {
-                transform: translateX(-50%) scale(1.2);
-            }
-
-            100% {
-                transform: translateX(-50%) scale(1);
-            }
-        }
-
-        @keyframes breathe {
-            0% {
-                opacity: 0.5;
-            }
-
-            50% {
-                opacity: 0.9;
-            }
-
-            100% {
-                opacity: 0.5;
-            }
-        }
-
-        /* HUD CONTROLS */
-        .hud-panel {
-            position: absolute;
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 12px;
-            pointer-events: auto;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-
-        /* Top Right: System Status */
-        #status-panel {
-            top: 20px;
-            right: 20px;
-            text-align: right;
-        }
-
-        .stat-item {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 4px;
-        }
-
-        .stat-value {
-            color: #fff;
-            font-weight: bold;
-        }
-
-        /* Bottom Center: Mission Control */
-        #mission-dock {
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
+        header {
             display: flex;
-            gap: 12px;
-            padding: 8px;
-            border-radius: 20px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 0;
+            border-bottom: 1px solid var(--glass);
+            margin-bottom: 40px;
+            position: relative;
         }
 
-        .mission-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-light));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+        }
+
+        .logo-icon i {
+            font-size: 1.8em;
+            color: var(--primary);
+        }
+
+        .logo-text h1 {
+            font-size: 2.2em;
+            font-weight: 500;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--platinum), var(--gold-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .logo-text p {
+            color: var(--text-secondary);
+            font-size: 0.9em;
             letter-spacing: 1px;
         }
 
-        .mission-btn.active {
-            background: var(--primary);
-            color: #000;
-            box-shadow: 0 0 15px var(--primary);
-        }
-
-        .mission-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* Bottom Left: Timeline/Log */
-        #log-panel {
-            bottom: 30px;
-            left: 20px;
-            width: 200px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-family: var(--font-mono);
-            font-size: 10px;
+        .header-controls {
             display: flex;
-            flex-direction: column-reverse;
-            /* Newest at bottom */
-        }
-
-        .log-entry {
-            margin-top: 4px;
-            padding-left: 8px;
-            border-left: 2px solid var(--primary);
-            opacity: 0.8;
-        }
-
-        .log-entry.alert {
-            border-color: var(--alert);
-            color: var(--alert);
-        }
-
-        .log-entry.memory {
-            border-color: var(--warn);
-            color: var(--warn);
-        }
-
-        /* BOOT SCREEN */
-        #boot-screen {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            transition: opacity 0.5s;
+            gap: 20px;
         }
 
-        .boot-circle {
-            width: 60px;
-            height: 60px;
-            border: 2px solid var(--primary);
-            border-top-color: transparent;
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 30px;
+            border: 1px solid var(--glass);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+            background: var(--success);
+            position: relative;
         }
 
-        @keyframes spin {
-            100% {
-                transform: rotate(360deg);
+        .status-dot.recording::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 50%;
+            border: 1px solid var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .main-dashboard {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-dashboard {
+                grid-template-columns: 1fr;
             }
         }
 
-        /* UTILS */
-        .hidden {
-            opacity: 0;
-            pointer-events: none;
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--glass);
+            position: relative;
+            overflow: hidden;
         }
 
-        /* MISSION OVERLAYS */
-        .overlay-grid {
+        .card::before {
+            content: '';
             position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-            background-size: 33.3% 33.3%;
-            opacity: 0;
-            transition: opacity 0.3s;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
 
-        .overlay-zone {
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--glass);
+        }
+
+        .card-title {
+            font-size: 1.4em;
+            font-weight: 500;
+            color: var(--platinum);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-title i {
+            color: var(--gold);
+        }
+
+        .compass-section {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .compass-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto;
+        }
+
+        .compass {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--accent);
+            position: relative;
+            border: 2px solid var(--glass);
+            box-shadow: 
+                inset 0 0 30px rgba(0, 0, 0, 0.5),
+                0 0 30px rgba(212, 175, 55, 0.1);
+        }
+
+        .compass-needle {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40%;
-            height: 40%;
-            border: 2px dashed var(--alert);
-            background: rgba(255, 42, 109, 0.1);
-            opacity: 0;
-            transition: opacity 0.3s;
+            transform-origin: left center;
+            width: 45%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--danger), var(--gold));
+            border-radius: 2px;
+            transition: transform 0.3s ease;
+            z-index: 10;
+            filter: drop-shadow(0 0 5px rgba(220, 53, 69, 0.5));
+        }
+
+        .compass-needle::after {
+            content: '';
+            position: absolute;
+            right: -12px;
+            top: -6px;
+            width: 0;
+            height: 0;
+            border-left: 12px solid var(--gold);
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+        }
+
+        .compass-markings {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .compass-direction {
+            position: absolute;
+            font-size: 1.3em;
+            font-weight: 500;
+            color: var(--platinum);
+        }
+
+        .north { top: 15px; left: 50%; transform: translateX(-50%); }
+        .east { top: 50%; right: 15px; transform: translateY(-50%); }
+        .south { bottom: 15px; left: 50%; transform: translateX(-50%); }
+        .west { top: 50%; left: 15px; transform: translateY(-50%); }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .sensor-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid var(--glass);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--gold);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .sensor-value {
+            font-size: 2.2em;
+            font-weight: 500;
+            margin: 15px 0;
+            color: var(--gold-light);
+            text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        }
+
+        .sensor-label {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        .sensor-unit {
+            font-size: 0.8em;
+            color: var(--gold);
+            margin-left: 5px;
+        }
+
+        .anomaly-detector {
+            margin-top: 30px;
+        }
+
+        .energy-level-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid var(--glass);
+        }
+
+        .energy-level {
+            height: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            margin: 15px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .energy-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+            border-radius: 12px;
+            width: 25%;
+            transition: width 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+            position: relative;
+        }
+
+        .energy-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .energy-markers {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: var(--text-secondary);
+        }
+
+        .anomaly-log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 25px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--glass);
+        }
+
+        .log-entry {
+            padding: 15px;
+            border-bottom: 1px solid var(--glass);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: background 0.3s ease;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .log-time {
+            font-size: 0.8em;
+            color: var(--gold);
+            min-width: 80px;
+            font-feature-settings: "tnum";
+        }
+
+        .log-message {
+            flex: 1;
+            font-size: 0.95em;
+        }
+
+        .log-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.8em;
         }
 
-        body[data-mode="film"] .overlay-grid {
-            opacity: 1;
+        .log-icon.normal { background: var(--success); }
+        .log-icon.warning { background: var(--warning); color: #000; }
+        .log-icon.danger { background: var(--danger); }
+        .log-icon.info { background: var(--text-secondary); }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
         }
 
-        body[data-mode="security"] .overlay-zone {
-            opacity: 1;
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1em;
+            letter-spacing: 0.5px;
         }
 
-        /* SNAPSHOT BUTTON (FILM MODE) */
-        #snap-btn {
-            position: absolute;
-            right: 20px;
-            bottom: 100px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            background: rgba(255, 255, 255, 0.2);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold), var(--gold-light));
+            color: var(--primary);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
         }
 
-        body[data-mode="film"] #snap-btn {
-            opacity: 1;
-            pointer-events: auto;
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4);
         }
 
-        #snap-btn:active {
-            background: #fff;
+        .btn-secondary {
+            background: var(--glass);
+            color: var(--text);
+            border: 1px solid var(--glass);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--gold);
+        }
+
+        .mode-selector {
+            display: flex;
+            background: var(--glass);
+            border-radius: 15px;
+            padding: 8px;
+            margin-bottom: 30px;
+            border: 1px solid var(--glass);
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 15px 25px;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--gold), var(--gold-light));
+            color: var(--primary);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+        }
+
+        .anomaly-alert {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, var(--danger), #c82333);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transform: translateX(150%);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+            border-left: 4px solid var(--gold);
+        }
+
+        .anomaly-alert.show {
+            transform: translateX(0);
+        }
+
+        .alert-icon {
+            font-size: 1.5em;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 50px;
+            border-top: 1px solid var(--glass);
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gold);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--gold-light);
         }
     </style>
 </head>
-
 <body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-atom"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>QUANTUM SENSOR</h1>
+                    <p>ADVANCED MAGNETIC FIELD & ENERGY DETECTION SYSTEM</p>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div class="system-status">
+                    <div class="status-dot recording"></div>
+                    <span>SYSTEM ACTIVE</span>
+                </div>
+                <div class="system-time" id="systemTime">--:--:--</div>
+            </div>
+        </header>
 
-    <!-- BOOT SCREEN -->
-    <div id="boot-screen">
-        <div class="boot-circle"></div>
-        <div style="font-size: 12px; letter-spacing: 2px; color: var(--primary);">INITIALIZING GEYE COMPANION</div>
-        <div id="boot-log" style="font-size: 10px; color: #666; margin-top: 10px;">Loading Neural Core...</div>
-        <button id="start-btn" class="mission-btn hidden" style="margin-top: 20px;">ACTIVATE</button>
-    </div>
-
-    <!-- MAIN VIEW -->
-    <div id="view-layer">
-        <video id="video-feed" autoplay playsinline muted></video>
-    </div>
-
-    <canvas id="canvas-layer"></canvas>
-
-    <!-- OFFSCREEN INFERENCE CANVAS -->
-    <canvas id="inference-canvas" style="display: none;"></canvas>
-
-    <!-- UI LAYER -->
-    <div id="ui-layer">
-        <!-- Companion Avatar -->
-        <div id="companion-aura"></div>
-
-        <!-- Status -->
-        <div id="status-panel" class="hud-panel">
-            <div class="stat-item">FPS: <span id="fps-val" class="stat-value">--</span></div>
-            <div class="stat-item">LATENCY: <span id="lat-val" class="stat-value">--</span>ms</div>
-            <div class="stat-item">OBJECTS: <span id="obj-val" class="stat-value">0</span></div>
-            <div class="stat-item">MODE: <span id="mode-val" class="stat-value">IDLE</span></div>
+        <div class="mode-selector">
+            <div class="mode-btn active" data-mode="magnetic">โหมดตรวจจับสนามแม่เหล็ก</div>
+            <div class="mode-btn" data-mode="energy">โหมดวิเคราะห์พลังงาน</div>
+            <div class="mode-btn" data-mode="spectral">โหมดวิเคราะห์สเปกตรัม</div>
         </div>
 
-        <!-- Mission Overlays -->
-        <div class="overlay-grid"></div>
-        <div class="overlay-zone"><span
-                style="color:var(--alert); font-size:10px; background:#000; padding:2px 4px;">RESTRICTED</span></div>
-
-        <!-- Logs -->
-        <div id="log-panel" class="hud-panel">
-            <!-- Logs injected here -->
+        <div class="main-dashboard">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-satellite"></i>
+                        ระบบนำทางและตรวจจับ
+                    </h2>
+                    <div class="sensitivity">
+                        <span>ความไว: <strong>สูง</strong></span>
+                    </div>
+                </div>
+                
+                <div class="compass-section">
+                    <div class="compass-container">
+                        <div class="compass">
+                            <div class="compass-markings">
+                                <div class="compass-direction north">N</div>
+                                <div class="compass-direction east">E</div>
+                                <div class="compass-direction south">S</div>
+                                <div class="compass-direction west">W</div>
+                            </div>
+                            <div class="compass-needle" id="compassNeedle"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-grid">
+                        <div class="sensor-card">
+                            <div class="sensor-label">ทิศทางแม่เหล็ก</div>
+                            <div class="sensor-value" id="direction">-</div>
+                            <div class="sensor-label">องศา<span class="sensor-unit">°</span></div>
+                        </div>
+                        <div class="sensor-card">
+                            <div class="sensor-label">ความแรงสนามรวม</div>
+                            <div class="sensor-value" id="fieldStrength">-</div>
+                            <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
+                        </div>
+                        <div class="sensor-card">
+                            <div class="sensor-label">ความเข้มพลังงาน</div>
+                            <div class="sensor-value" id="energyIntensity">-</div>
+                            <div class="sensor-label">หน่วยควอนตัม<span class="sensor-unit">QU</span></div>
+                        </div>
+                        <div class="sensor-card">
+                            <div class="sensor-label">อุณหภูมิแวดล้อม</div>
+                            <div class="sensor-value" id="temperature">-</div>
+                            <div class="sensor-label">เซลเซียส<span class="sensor-unit">°C</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-wave-square"></i>
+                        ข้อมูลเซ็นเซอร์
+                    </h2>
+                    <div class="data-quality">
+                        <span>คุณภาพข้อมูล: <strong>98%</strong></span>
+                    </div>
+                </div>
+                
+                <div class="sensor-grid">
+                    <div class="sensor-card">
+                        <div class="sensor-label">สนามแม่เหล็ก X</div>
+                        <div class="sensor-value" id="magX">-</div>
+                        <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-label">สนามแม่เหล็ก Y</div>
+                        <div class="sensor-value" id="magY">-</div>
+                        <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-label">สนามแม่เหล็ก Z</div>
+                        <div class="sensor-value" id="magZ">-</div>
+                        <div class="sensor-label">ไมโครเทสลา<span class="sensor-unit">µT</span></div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-label">ความเร่ง</div>
+                        <div class="sensor-value" id="acceleration">-</div>
+                        <div class="sensor-label">เมตร/วินาที²<span class="sensor-unit">m/s²</span></div>
+                    </div>
+                </div>
+                
+                <div class="anomaly-detector">
+                    <h3 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        การวิเคราะห์พลังงานผิดปกติ
+                    </h3>
+                    
+                    <div class="energy-level-container">
+                        <div class="energy-level">
+                            <div class="energy-fill" id="energyFill"></div>
+                        </div>
+                        <div class="energy-markers">
+                            <span>ปกติ</span>
+                            <span>ต่ำ</span>
+                            <span>ปานกลาง</span>
+                            <span>สูง</span>
+                            <span>อันตราย</span>
+                        </div>
+                    </div>
+                    
+                    <div class="anomaly-log" id="anomalyLog">
+                        <div class="log-entry">
+                            <div class="log-time" id="currentTime">14:23:05</div>
+                            <div class="log-icon normal"><i class="fas fa-check"></i></div>
+                            <div class="log-message">ระบบพร้อมทำงานและตรวจจับข้อมูล</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <!-- Controls -->
-        <div id="mission-dock" class="hud-panel">
-            <button class="mission-btn active" data-mode="standard">Standard</button>
-            <button class="mission-btn" data-mode="film">Film</button>
-            <button class="mission-btn" data-mode="security">Security</button>
-            <button class="mission-btn" data-mode="explorer">Explorer</button>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">
+                <i class="fas fa-play-circle"></i>
+                เริ่มตรวจจับ
+            </button>
+            <button class="btn btn-secondary" id="stopBtn">
+                <i class="fas fa-stop-circle"></i>
+                หยุดตรวจจับ
+            </button>
+            <button class="btn btn-secondary" id="calibrateBtn">
+                <i class="fas fa-sliders-h"></i>
+                ตั้งค่าใหม่
+            </button>
+            <button class="btn btn-secondary" id="exportBtn">
+                <i class="fas fa-download"></i>
+                ส่งออกข้อมูล
+            </button>
         </div>
-
-        <!-- Snapshot Button -->
-        <button id="snap-btn"></button>
     </div>
-
-    <!-- INTERACTION LAYER -->
-    <div id="interaction-layer"></div>
+    
+    <div class="anomaly-alert" id="anomalyAlert">
+        <div class="alert-icon">
+            <i class="fas fa-radiation-alt"></i>
+        </div>
+        <div>
+            <strong>ตรวจพบพลังงานผิดปกติ!</strong>
+            <div>ระดับ: <span id="alertLevel">สูง</span> - โปรดตรวจสอบพื้นที่</div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>QUANTUM SENSOR SYSTEM &copy; 2023 - ADVANCED QUANTUM FIELD DETECTION TECHNOLOGY</p>
+        <p>ระบบนี้พัฒนาขึ้นสำหรับการตรวจจับสนามแม่เหล็กและพลังงานผิดปกติในสภาพแวดล้อมต่างๆ</p>
+    </footer>
 
     <script>
-        /**
-         * GEYE COMPANION - FUTURE FIELD CONSOLE
-         * Architecture: Modular Monolith
-         * 1. VisionCore: Perception (TFJS, Kalman)
-         * 2. ContextBrain: Understanding (Mood, Memory)
-         * 3. MissionController: Action (Modes)
-         * 4. HUDManager: UI/UX
-         */
-
-        // --- UTILS ---
-        const $ = (sel) => document.querySelector(sel);
-        const $$ = (sel) => document.querySelectorAll(sel);
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-        // --- 1. VISION CORE (THE EYE) ---
-        class VisionCore {
-            constructor(app) {
-                this.app = app;
-                this.video = $('#video-feed');
-                this.canvas = $('#canvas-layer');
-                this.ctx = this.canvas.getContext('2d');
-                this.infCanvas = $('#inference-canvas');
-                this.infCtx = this.infCanvas.getContext('2d');
-
-                this.model = null;
-                this.isActive = false;
-
-                // Adaptive Loop
-                this.lastFrameTime = 0;
-                this.inferenceInterval = 50;
-                this.lastInferenceTime = 0;
-                this.isInferencing = false;
-
-                // Tracker
-                this.tracks = [];
-                this.nextId = 1;
-                this.lockedId = null;
+        class QuantumSensorSystem {
+            constructor() {
+                this.isDetecting = false;
+                this.mode = 'magnetic';
+                this.baseMagneticField = 45.0;
+                this.anomalyCount = 0;
+                this.logEntries = [];
+                
+                this.initializeEventListeners();
+                this.updateSystemTime();
+                this.addLogEntry('ระบบ Quantum Sensor พร้อมทำงาน', 'normal');
+                
+                // อัพเดทเวลาตลอดเวลา
+                setInterval(() => this.updateSystemTime(), 1000);
             }
 
-            async init() {
-                this.app.log("Loading Vision Model...");
-                await tf.ready();
-                try {
-                    await tf.setBackend('webgl');
-                } catch (e) {
-                    this.app.log("WebGL unavailable, using WASM", "warn");
-                    await tf.setBackend('wasm');
-                }
-
-                this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-
-                // Warmup
-                this.app.log("Warming up Neural Engine...");
-                const dummy = tf.zeros([300, 300, 3]); // FIXED: 3D Tensor
-                await this.model.detect(dummy);
-                dummy.dispose();
-
-                await this.setupCamera(); // FIXED: Await camera
-            }
-
-            async setupCamera() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                        audio: false
+            initializeEventListeners() {
+                document.getElementById('startBtn').addEventListener('click', () => this.startDetection());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stopDetection());
+                document.getElementById('calibrateBtn').addEventListener('click', () => this.calibrate());
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+                
+                // โหมดการทำงาน
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.mode = e.target.dataset.mode;
+                        this.addLogEntry(`เปลี่ยนเป็นโหมด: ${this.getModeName(this.mode)}`, 'info');
                     });
-                    this.video.srcObject = stream;
-                    await new Promise(r => this.video.onloadedmetadata = r);
-                    this.app.log("Camera Active");
-                    this.resize();
-                    window.addEventListener('resize', () => this.resize());
-                } catch (e) {
-                    this.app.log("Camera Error: " + e.message, 'alert');
-                }
-            }
-
-            resize() {
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
-
-                // Downscale for inference (Max 320px long side)
-                const aspect = this.video.videoWidth / this.video.videoHeight;
-                const size = 320;
-                if (aspect > 1) {
-                    this.infCanvas.width = size;
-                    this.infCanvas.height = size / aspect;
-                } else {
-                    this.infCanvas.width = size * aspect;
-                    this.infCanvas.height = size;
-                }
-                this.scaleX = this.canvas.width / this.infCanvas.width;
-                this.scaleY = this.canvas.height / this.infCanvas.height;
-            }
-
-            start() {
-                this.isActive = true;
-                this.loop();
-            }
-
-            loop() {
-                if (!this.isActive) return;
-                requestAnimationFrame(() => this.loop());
-
-                const now = performance.now();
-                this.render();
-
-                if (!this.isInferencing && (now - this.lastInferenceTime > this.inferenceInterval)) {
-                    this.runInference();
-                }
-            }
-
-            async runInference() {
-                this.isInferencing = true;
-                const start = performance.now();
-
-                this.infCtx.drawImage(this.video, 0, 0, this.infCanvas.width, this.infCanvas.height);
-                const predictions = await this.model.detect(this.infCanvas);
-                this.updateTracker(predictions);
-
-                const duration = performance.now() - start;
-                this.lastInferenceTime = performance.now();
-                this.isInferencing = false;
-
-                this.inferenceInterval = Math.max(30, duration * 1.2);
-                $('#lat-val').innerText = Math.round(duration);
-                $('#obj-val').innerText = this.tracks.length;
-            }
-
-            updateTracker(predictions) {
-                this.tracks.forEach(t => {
-                    t.x += t.vx; t.y += t.vy;
-                    t.missed++;
-                });
-
-                const matched = new Set();
-
-                if (this.lockedId) {
-                    const lockedTrack = this.tracks.find(t => t.id === this.lockedId);
-                    if (lockedTrack) {
-                        const match = this.findBestMatch(lockedTrack, predictions, matched, 0.15);
-                        if (match) {
-                            this.updateTrack(lockedTrack, match);
-                            matched.add(match);
-                        }
-                    }
-                }
-
-                this.tracks.forEach(t => {
-                    if (t.id === this.lockedId) return;
-                    const match = this.findBestMatch(t, predictions, matched, 0.3);
-                    if (match) {
-                        this.updateTrack(t, match);
-                        matched.add(match);
-                    }
-                });
-
-                predictions.forEach(p => {
-                    if (!matched.has(p)) this.createTrack(p);
-                });
-
-                this.tracks = this.tracks.filter(t => t.missed < 20);
-                this.app.brain.processPerception(this.tracks);
-            }
-
-            findBestMatch(track, predictions, matchedSet, threshold) {
-                let best = null;
-                let maxIoU = 0;
-
-                predictions.forEach(p => {
-                    if (matchedSet.has(p)) return;
-                    if (p.class !== track.class) return;
-
-                    const pBox = this.scaleBox(p.bbox);
-                    const IoU = this.getIoU(track, pBox);
-
-                    if (IoU > threshold && IoU > maxIoU) {
-                        maxIoU = IoU;
-                        best = p;
-                    }
-                });
-                return best;
-            }
-
-            updateTrack(track, prediction) {
-                const box = this.scaleBox(prediction.bbox);
-                const alpha = 0.3;
-                const dx = box.x - track.x;
-                const dy = box.y - track.y;
-
-                track.x += dx * alpha;
-                track.y += dy * alpha;
-                track.w += (box.w - track.w) * alpha;
-                track.h += (box.h - track.h) * alpha;
-
-                track.vx = dx * 0.5;
-                track.vy = dy * 0.5;
-                track.score = prediction.score;
-                track.missed = 0;
-            }
-
-            createTrack(prediction) {
-                const box = this.scaleBox(prediction.bbox);
-                this.tracks.push({
-                    id: this.nextId++,
-                    class: prediction.class,
-                    score: prediction.score,
-                    x: box.x, y: box.y, w: box.w, h: box.h,
-                    vx: 0, vy: 0,
-                    missed: 0,
-                    firstSeen: Date.now()
                 });
             }
 
-            scaleBox(bbox) {
-                return {
-                    x: bbox[0] * this.scaleX,
-                    y: bbox[1] * this.scaleY,
-                    w: bbox[2] * this.scaleX,
-                    h: bbox[3] * this.scaleY
+            getModeName(mode) {
+                const modes = {
+                    'magnetic': 'ตรวจจับสนามแม่เหล็ก',
+                    'energy': 'วิเคราะห์พลังงาน',
+                    'spectral': 'วิเคราะห์สเปกตรัม'
                 };
+                return modes[mode] || mode;
             }
 
-            getIoU(boxA, boxB) {
-                const xA = Math.max(boxA.x, boxB.x);
-                const yA = Math.max(boxA.y, boxB.y);
-                const xB = Math.min(boxA.x + boxA.w, boxB.x + boxB.w);
-                const yB = Math.min(boxA.y + boxA.h, boxB.y + boxB.h);
-
-                const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
-                const boxAArea = boxA.w * boxA.h;
-                const boxBArea = boxB.w * boxB.h;
-                return interArea / (boxAArea + boxBArea - interArea);
+            updateSystemTime() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('th-TH');
+                document.getElementById('systemTime').textContent = timeString;
+                document.getElementById('currentTime').textContent = timeString;
             }
 
-            render() {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.app.mission.render(this.ctx, this.tracks);
-            }
-
-            lockTarget(x, y) {
-                let best = null;
-                let minDist = 100;
-
-                this.tracks.forEach(t => {
-                    const cx = t.x + t.w / 2;
-                    const cy = t.y + t.h / 2;
-                    const dist = Math.hypot(cx - x, cy - y);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        best = t;
-                    }
-                });
-
-                if (best) {
-                    this.lockedId = best.id;
-                    this.app.speak(`Target locked. ${best.class}.`);
-                    this.app.log(`Locked ID ${best.id} (${best.class})`);
-                } else {
-                    this.lockedId = null;
-                    this.app.speak("Target released.");
-                }
-            }
-        }
-
-        // --- 2. CONTEXT BRAIN (THE SOUL) ---
-        class ContextBrain {
-            constructor(app) {
-                this.app = app;
-                this.mood = 'calm';
-                this.memory = new MemoryStream();
-            }
-
-            async init() {
+            async startDetection() {
+                if (this.isDetecting) return;
+                
                 try {
-                    await this.memory.init();
-                    this.loadRecentMemories();
-                } catch (e) {
-                    this.app.log("Memory DB unavailable (file://). Running volatile.", "warn");
-                    this.memory = null;
+                    // ขออนุญาตใช้เซ็นเซอร์ (สำหรับอุปกรณ์ iOS)
+                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        const permission = await DeviceOrientationEvent.requestPermission();
+                        if (permission !== 'granted') {
+                            this.addLogEntry('การอนุญาตใช้เซ็นเซอร์ถูกปฏิเสธ', 'warning');
+                            return;
+                        }
+                    }
+                    
+                    this.isDetecting = true;
+                    this.addLogEntry('เริ่มตรวจจับข้อมูลเชิงควอนตัม', 'info');
+                    
+                    // เริ่มตรวจจับการหมุน
+                    window.addEventListener('deviceorientation', (e) => this.handleDeviceOrientation(e));
+                    
+                    // เริ่มจำลองข้อมูลเซ็นเซอร์
+                    this.sensorInterval = setInterval(() => this.updateSensorData(), 500);
+                    
+                } catch (error) {
+                    console.error('Error starting detection:', error);
+                    this.addLogEntry('เกิดข้อผิดพลาดในการเริ่มตรวจจับ', 'error');
                 }
             }
 
-            async loadRecentMemories() {
-                if (!this.memory) return;
-                const recent = await this.memory.getRecent(3);
-                recent.reverse().forEach(m => this.app.log(m.text, 'memory'));
+            stopDetection() {
+                this.isDetecting = false;
+                if (this.sensorInterval) {
+                    clearInterval(this.sensorInterval);
+                }
+                window.removeEventListener('deviceorientation', this.handleDeviceOrientation);
+                this.addLogEntry('หยุดการตรวจจับ', 'info');
             }
 
-            processPerception(tracks) {
-                if (this.app.vision.lockedId) {
-                    this.setMood('focused');
-                } else if (this.app.mission.currentMode === 'security' && this.app.mission.isThreatDetected) {
-                    this.setMood('alert');
-                } else if (tracks.length > 3) {
-                    this.setMood('curious');
+            calibrate() {
+                this.baseMagneticField = 45.0;
+                this.anomalyCount = 0;
+                this.addLogEntry('ปรับเทียบเซ็นเซอร์ใหม่เรียบร้อย', 'info');
+            }
+
+            exportData() {
+                this.addLogEntry('ส่งออกข้อมูลการตรวจจับ', 'info');
+                // ในเวอร์ชันจริงจะมีการส่งออกข้อมูลจริง
+            }
+
+            handleDeviceOrientation(event) {
+                if (!this.isDetecting) return;
+                
+                const alpha = event.alpha; // 0-360 degrees
+                
+                // อัพเดทเข็มทิศ
+                if (alpha !== null) {
+                    const compassNeedle = document.getElementById('compassNeedle');
+                    compassNeedle.style.transform = `translate(-50%, -50%) rotate(${alpha}deg)`;
+                    
+                    // แสดงทิศทาง
+                    const direction = this.getDirectionFromDegree(alpha);
+                    document.getElementById('direction').textContent = `${Math.round(alpha)}° ${direction}`;
+                }
+            }
+
+            getDirectionFromDegree(degree) {
+                const directions = ['เหนือ', 'ตะวันออกเฉียงเหนือ', 'ตะวันออก', 'ตะวันออกเฉียงใต้', 
+                                   'ใต้', 'ตะวันตกเฉียงใต้', 'ตะวันตก', 'ตะวันตกเฉียงเหนือ'];
+                const index = Math.round(degree / 45) % 8;
+                return directions[index];
+            }
+
+            updateSensorData() {
+                if (!this.isDetecting) return;
+                
+                // จำลองข้อมูลเซ็นเซอร์
+                const baseX = (Math.random() * 15 - 7.5);
+                const baseY = (Math.random() * 15 - 7.5);
+                const baseZ = (Math.random() * 15 - 7.5);
+                
+                // สุ่มความผิดปกติ
+                let anomalyFactor = 0;
+                if (Math.random() < 0.18) {
+                    anomalyFactor = (Math.random() * 4) + 1;
+                    this.detectAnomaly(anomalyFactor);
+                }
+                
+                const magX = (baseX + (Math.random() * anomalyFactor * 15)).toFixed(2);
+                const magY = (baseY + (Math.random() * anomalyFactor * 15)).toFixed(2);
+                const magZ = (baseZ + (Math.random() * anomalyFactor * 15)).toFixed(2);
+                
+                const total = Math.sqrt(magX * magX + magY * magY + magZ * magZ).toFixed(2);
+                const energy = (25 + (Math.random() * 75) + (anomalyFactor * 20)).toFixed(1);
+                const temp = (26.5 + (Math.random() * 3 - 1.5) + (anomalyFactor * 1.5)).toFixed(1);
+                const accel = (Math.random() * 0.5 + 9.8).toFixed(2);
+                
+                // อัพเดท UI
+                document.getElementById('magX').textContent = magX;
+                document.getElementById('magY').textContent = magY;
+                document.getElementById('magZ').textContent = magZ;
+                document.getElementById('fieldStrength').textContent = total;
+                document.getElementById('energyIntensity').textContent = energy;
+                document.getElementById('temperature').textContent = temp;
+                document.getElementById('acceleration').textContent = accel;
+                
+                // อัพเดทระดับพลังงาน
+                this.updateEnergyLevel(total, energy, anomalyFactor);
+            }
+
+            updateEnergyLevel(fieldStrength, energy, anomalyFactor) {
+                const energyFill = document.getElementById('energyFill');
+                let energyLevel = (parseFloat(energy) / 150);
+                
+                if (anomalyFactor > 0) {
+                    energyLevel = Math.min(energyLevel + (anomalyFactor * 0.15), 1);
+                }
+                
+                energyFill.style.width = `${energyLevel * 100}%`;
+                
+                // เปลี่ยนสีตามระดับ
+                if (energyLevel > 0.8) {
+                    energyFill.style.background = 'linear-gradient(90deg, #28a745, #ffc107, #dc3545)';
+                } else if (energyLevel > 0.5) {
+                    energyFill.style.background = 'linear-gradient(90deg, #28a745, #ffc107)';
                 } else {
-                    this.setMood('calm');
+                    energyFill.style.background = '#28a745';
                 }
             }
 
-            setMood(newMood) {
-                if (this.mood === newMood) return;
-                this.mood = newMood;
-
-                const aura = $('#companion-aura');
-                aura.className = '';
-                if (newMood === 'alert') aura.classList.add('alert');
-                if (newMood === 'focused') aura.classList.add('thinking');
+            detectAnomaly(anomalyFactor) {
+                this.anomalyCount++;
+                
+                let level, message;
+                if (anomalyFactor > 3) {
+                    level = 'danger';
+                    message = 'ตรวจพบพลังงานผิดปกติระดับอันตราย! แนะนำให้อพยพพื้นที่';
+                    this.showAnomalyAlert('อันตราย');
+                } else if (anomalyFactor > 2) {
+                    level = 'warning';
+                    message = 'ตรวจพบพลังงานผิดปกติระดับสูง โปรดตรวจสอบสภาพแวดล้อม';
+                    this.showAnomalyAlert('สูง');
+                } else {
+                    level = 'info';
+                    message = 'ตรวจพบพลังงานผิดปกติระดับต่ำ';
+                }
+                
+                this.addLogEntry(message, level);
             }
 
-            async addMemory(text, type = 'info', snapshot = null) {
-                this.app.log(text, type);
-                if (this.memory) {
-                    await this.memory.add({ text, type, timestamp: Date.now(), snapshot });
+            showAnomalyAlert(level) {
+                const alert = document.getElementById('anomalyAlert');
+                document.getElementById('alertLevel').textContent = level;
+                
+                alert.classList.add('show');
+                
+                setTimeout(() => {
+                    alert.classList.remove('show');
+                }, 6000);
+            }
+
+            addLogEntry(message, type = 'normal') {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('th-TH');
+                
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                
+                let iconClass = 'normal';
+                let icon = 'check';
+                
+                if (type === 'warning') {
+                    iconClass = 'warning';
+                    icon = 'exclamation-triangle';
+                } else if (type === 'danger') {
+                    iconClass = 'danger';
+                    icon = 'radiation-alt';
+                } else if (type === 'error') {
+                    iconClass = 'danger';
+                    icon = 'times-circle';
+                } else if (type === 'info') {
+                    iconClass = 'info';
+                    icon = 'info-circle';
+                }
+                
+                logEntry.innerHTML = `
+                    <div class="log-time">${timeString}</div>
+                    <div class="log-icon ${iconClass}"><i class="fas fa-${icon}"></i></div>
+                    <div class="log-message">${message}</div>
+                `;
+                
+                const logContainer = document.getElementById('anomalyLog');
+                logContainer.prepend(logEntry);
+                
+                // จำกัดจำนวน log
+                if (logContainer.children.length > 8) {
+                    logContainer.removeChild(logContainer.lastChild);
                 }
             }
         }
 
-        class MemoryStream {
-            constructor() {
-                this.dbName = 'GeyeCompanionDB';
-                this.db = null;
-            }
-
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const req = indexedDB.open(this.dbName, 1);
-                    req.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains('memories')) {
-                            db.createObjectStore('memories', { keyPath: 'id', autoIncrement: true });
-                        }
-                    };
-                    req.onsuccess = (e) => {
-                        this.db = e.target.result;
-                        resolve();
-                    };
-                    req.onerror = reject;
-                });
-            }
-
-            async add(data) {
-                if (!this.db) return;
-                const tx = this.db.transaction('memories', 'readwrite');
-                tx.objectStore('memories').add(data);
-            }
-
-            async getRecent(limit) {
-                if (!this.db) return [];
-                return new Promise(resolve => {
-                    const tx = this.db.transaction('memories', 'readonly');
-                    const store = tx.objectStore('memories');
-                    const req = store.openCursor(null, 'prev');
-                    const results = [];
-                    req.onsuccess = (e) => {
-                        const cursor = e.target.result;
-                        if (cursor && results.length < limit) {
-                            results.push(cursor.value);
-                            cursor.continue();
-                        } else {
-                            resolve(results);
-                        }
-                    };
-                });
-            }
-        }
-
-        // --- 3. MISSION CONTROLLER (THE HANDS) ---
-        class MissionController {
-            constructor(app) {
-                this.app = app;
-                this.currentMode = 'standard';
-                this.isThreatDetected = false;
-                this.mediaRecorder = null;
-                this.isRecording = false;
-                this.lastExplorerSpeak = 0;
-            }
-
-            setMode(mode) {
-                this.currentMode = mode;
-                document.body.setAttribute('data-mode', mode);
-                $('#mode-val').innerText = mode.toUpperCase();
-
-                $$('.mission-btn').forEach(b => b.classList.remove('active'));
-                $(`.mission-btn[data-mode="${mode}"]`).classList.add('active');
-
-                this.app.speak(`${mode} mode active.`);
-                this.app.brain.addMemory(`Switched to ${mode} mode`);
-
-                this.isThreatDetected = false;
-                if (this.isRecording) this.stopRecording();
-            }
-
-            render(ctx, tracks) {
-                let threatFound = false;
-
-                tracks.forEach(t => {
-                    const isLocked = (t.id === this.app.vision.lockedId);
-
-                    if (this.currentMode === 'minimal' && !isLocked) {
-                        this.drawCornerBrackets(ctx, t, '#fff');
-                    } else if (this.currentMode === 'security') {
-                        const isThreat = this.checkThreat(t);
-                        if (isThreat) threatFound = true;
-
-                        const color = isThreat ? '#FF2A6D' : '#00F0FF';
-                        this.drawBox(ctx, t, color, isLocked);
-                        if (isThreat) this.drawLabel(ctx, t, `THREAT ${Math.round(t.score * 100)}%`, color);
-                    } else {
-                        const color = isLocked ? '#FFD700' : '#00F0FF';
-                        this.drawCornerBrackets(ctx, t, color);
-                        if (isLocked || this.currentMode === 'explorer') {
-                            this.drawLabel(ctx, t, t.class.toUpperCase(), color);
-                        }
-                    }
-                });
-
-                if (this.currentMode === 'security') {
-                    if (threatFound && !this.isThreatDetected) {
-                        this.handleThreatStart();
-                    } else if (!threatFound && this.isThreatDetected) {
-                        this.isThreatDetected = false;
-                    }
-                }
-
-                if (this.currentMode === 'explorer') {
-                    this.handleExplorer(tracks);
-                }
-            }
-
-            handleThreatStart() {
-                this.isThreatDetected = true;
-                this.app.speak("Security Breach Detected.");
-                this.app.brain.addMemory("Security Breach Detected", "alert");
-                this.startRecording();
-            }
-
-            startRecording() {
-                if (this.isRecording) return;
-                try {
-                    const stream = this.app.vision.canvas.captureStream(30);
-                    this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                    const chunks = [];
-                    this.mediaRecorder.ondataavailable = e => chunks.push(e.data);
-                    this.mediaRecorder.onstop = () => {
-                        const blob = new Blob(chunks, { type: 'video/webm' });
-                        this.app.brain.addMemory("Video Log Saved", "info", blob);
-                    };
-                    this.mediaRecorder.start();
-                    this.isRecording = true;
-                    this.app.log("Recording Started...", "alert");
-                    setTimeout(() => this.stopRecording(), 10000);
-                } catch (e) {
-                    console.error("Recording failed", e);
-                }
-            }
-
-            stopRecording() {
-                if (!this.isRecording || !this.mediaRecorder) return;
-                this.mediaRecorder.stop();
-                this.isRecording = false;
-                this.app.log("Recording Saved");
-            }
-
-            handleExplorer(tracks) {
-                const now = Date.now();
-                if (now - this.lastExplorerSpeak < 4000) return;
-
-                const cx = window.innerWidth / 2;
-                const cy = window.innerHeight / 2;
-                let best = null;
-                let minDist = 150;
-
-                tracks.forEach(t => {
-                    const tcx = t.x + t.w / 2;
-                    const tcy = t.y + t.h / 2;
-                    const dist = Math.hypot(tcx - cx, tcy - cy);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        best = t;
-                    }
-                });
-
-                if (best) {
-                    this.app.speak(`I see a ${best.class}`);
-                    this.lastExplorerSpeak = now;
-                }
-            }
-
-            takeSnapshot() {
-                this.app.vision.canvas.toBlob(blob => {
-                    this.app.brain.addMemory("Snapshot Taken", "info", blob);
-                    this.app.speak("Snapshot saved.");
-                });
-            }
-
-            drawCornerBrackets(ctx, t, color) {
-                const len = 10;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(t.x, t.y + len); ctx.lineTo(t.x, t.y); ctx.lineTo(t.x + len, t.y);
-                ctx.moveTo(t.x + t.w - len, t.y); ctx.lineTo(t.x + t.w, t.y); ctx.lineTo(t.x + t.w, t.y + len);
-                ctx.moveTo(t.x, t.y + t.h - len); ctx.lineTo(t.x, t.y + t.h); ctx.lineTo(t.x + len, t.y + t.h);
-                ctx.moveTo(t.x + t.w - len, t.y + t.h); ctx.lineTo(t.x + t.w, t.y + t.h); ctx.lineTo(t.x + t.w, t.y + t.h - len);
-                ctx.stroke();
-            }
-
-            drawBox(ctx, t, color, isLocked) {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = isLocked ? 3 : 1;
-                ctx.strokeRect(t.x, t.y, t.w, t.h);
-            }
-
-            drawLabel(ctx, t, text, color) {
-                ctx.fillStyle = color;
-                ctx.font = '10px "SF Mono"';
-                ctx.fillText(text, t.x, t.y - 5);
-            }
-
-            checkThreat(t) {
-                if (t.class !== 'person') return false;
-                const cx = t.x + t.w / 2;
-                const cy = t.y + t.h / 2;
-                const zx = window.innerWidth / 2;
-                const zy = window.innerHeight / 2;
-                const zw = window.innerWidth * 0.4;
-                const zh = window.innerHeight * 0.4;
-                return (cx > zx - zw / 2 && cx < zx + zw / 2 && cy > zy - zh / 2 && cy < zy + zh / 2);
-            }
-        }
-
-        // --- 4. APP CONTROLLER (ORCHESTRATOR) ---
-        class App {
-            constructor() {
-                this.vision = new VisionCore(this);
-                this.brain = new ContextBrain(this);
-                this.mission = new MissionController(this);
-                this.setupUI();
-            }
-
-            async start() {
-                $('#start-btn').innerText = "STARTING...";
-                await this.brain.init();
-                await this.vision.init();
-                this.vision.start();
-                $('#boot-screen').classList.add('hidden');
-                this.speak("System Online.");
-            }
-
-            setupUI() {
-                setTimeout(() => $('#start-btn').classList.remove('hidden'), 1000);
-                $('#start-btn').onclick = () => this.start();
-
-                $('#interaction-layer').onclick = (e) => {
-                    this.vision.lockTarget(e.clientX, e.clientY);
-                };
-
-                $$('.mission-btn').forEach(btn => {
-                    btn.onclick = () => this.mission.setMode(btn.dataset.mode);
-                });
-
-                $('#snap-btn').onclick = (e) => {
-                    e.stopPropagation();
-                    this.mission.takeSnapshot();
-                };
-            }
-
-            log(msg, type = 'info') {
-                const div = document.createElement('div');
-                div.className = `log-entry ${type}`;
-                div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-                $('#log-panel').prepend(div);
-            }
-
-            speak(text) {
-                if (!window.speechSynthesis) return;
-                const u = new SpeechSynthesisUtterance(text);
-                u.rate = 1.1;
-                u.pitch = 1.0;
-                $('#companion-aura').classList.add('speaking');
-                u.onend = () => $('#companion-aura').classList.remove('speaking');
-                window.speechSynthesis.speak(u);
-            }
-        }
-
-        // --- BOOT ---
-        window.GeyeApp = new App();
-
+        // เริ่มต้นแอปพลิเคชันเมื่อโหลดหน้าเว็บ
+        document.addEventListener('DOMContentLoaded', () => {
+            new QuantumSensorSystem();
+        });
     </script>
 </body>
-
 </html>
