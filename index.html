@@ -215,6 +215,52 @@
         .warn-toast.show { opacity: 1; animation: pulse 1s infinite; }
         @keyframes pulse { 50% { opacity: 0.5; } }
 
+        /* --- WIKI LORE STYLES (PATCHED) --- */
+        #btn-lore {
+            display: none; /* Auto-toggled by JS */
+            margin-top: 12px; width: 100%;
+            background: rgba(217, 70, 239, 0.1); border: 1px solid rgba(217, 70, 239, 0.3);
+            color: var(--wr-p); font-size: 0.75rem; font-weight: 700;
+            padding: 10px 0; border-radius: 16px; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 1px;
+            transition: 0.3s ease;
+        }
+        #btn-lore:active { background: var(--wr-p); color: #000; }
+        
+        /* Wiki Modal */
+        .lore-container { text-align: left; padding-bottom: 20px; }
+        .lore-thumb {
+            width: 100%; height: 160px; object-fit: cover; border-radius: 12px;
+            margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1);
+            display: none; /* Hidden by default */
+        }
+        .lore-thumb.active { display: block; }
+        .lore-hero { font-size: 1.3rem; font-weight: 800; color: #fff; margin-bottom: 4px; letter-spacing: -0.5px; }
+        .lore-p { color: #ccc; font-size: 0.95rem; line-height: 1.6; white-space: pre-line; margin-bottom: 16px; }
+        
+        .wiki-src { 
+            display: block; font-size: 0.75rem; color: #666; margin-top: 10px; 
+            text-decoration: none; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;
+        }
+        .wiki-src span { color: var(--wr-b); text-decoration: underline; }
+
+        .lore-close-btn {
+            width: 100%; padding: 14px; border-radius: 20px;
+            background: rgba(255,255,255,0.1); border: none; color: #fff;
+            font-weight: 600; cursor: pointer; margin-top: 12px;
+        }
+        
+        /* Spinner for Wiki */
+        .wiki-loader {
+            display: none; justify-content: center; align-items: center; padding: 40px;
+        }
+        .wiki-loader.show { display: flex; }
+        .wl-spin {
+            width: 24px; height: 24px; border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: var(--wr-p); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
     </style>
 </head>
 <body>
@@ -297,6 +343,9 @@
                     <div id="c-body">Select a mode to begin.</div>
                     <ul class="c-facts" id="c-facts"></ul>
                     <div class="ic-quote" id="c-quote"></div>
+                    
+                    <!-- NEW LORE BUTTON (PATCH) -->
+                    <button id="btn-lore" onclick="app.openLore()" data-t="btn_read_lore">📜 READ LEGEND</button>
                 </div>
             </div>
 
@@ -320,6 +369,20 @@
             <div class="m-title">SETTINGS</div>
             <button class="btn" style="width:100%; margin-bottom:10px;" onclick="app.resetView()">RESET VIEW</button>
             <button class="btn" style="width:100%; margin-top:20px; border-color:var(--wr-r); color:var(--wr-r)" onclick="app.toggleSettings()">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- NEW WIKI LORE MODAL (PATCH) -->
+    <div id="modal-lore" class="modal-wrap">
+        <div class="glass-panel modal-box" style="max-width:450px;">
+            <div class="wiki-loader" id="l-spin"><div class="wl-spin"></div></div>
+            <div class="lore-container" id="l-content" style="display:none">
+                <img id="l-thumb" class="lore-thumb" alt="Wiki Thumb">
+                <div class="lore-hero" id="l-title">Title</div>
+                <div class="lore-p" id="l-text">...</div>
+                <a href="#" target="_blank" class="wiki-src" id="l-src">Source: Wikipedia <span>(Read Full)</span></a>
+            </div>
+            <button class="lore-close-btn" onclick="app.closeLore()" data-t="btn_close">CLOSE</button>
         </div>
     </div>
 
@@ -362,7 +425,11 @@ const DICT = {
         ob_body: "A Jack-Sparrow-style compass.\nIt points toward the nearest of the 7 Wonders, right from where you stand.\nTurn slowly… and follow the needle.",
         ob_note: "If the needle drifts, do a gentle figure-8 calibration.\nMyth mode is storytelling/ARG, not scientific proof.",
         ob_btn: "Let's Go",
-        hint_myth: "Tap 'WHISPERS' to hear local legends"
+        hint_myth: "Tap 'WHISPERS' to hear local legends",
+        // Wiki Keys
+        btn_read_lore: "📜 READ LORE",
+        btn_close: "CLOSE",
+        wiki_offline_lbl: "Offline Summary"
     },
     th: {
         gps_wait:"รอ GPS...", gps_lock:"GPS พร้อม",
@@ -382,17 +449,37 @@ const DICT = {
         ob_body: "นี่คือเข็มทิศแบบ Jack Sparrow\nมันจะชี้ไปยังทิศของ 7 สิ่งมหัศจรรย์ของโลก ที่อยู่ใกล้คุณที่สุดในตอนนี้\nหมุนตัวช้าๆ แล้วเดินตามเข็มได้เลย",
         ob_note: "ถ้าเข็มส่าย ลองหมุนมือถือเป็นรูปเลข 8 เพื่อจูน\nโหมดตำนานคือประสบการณ์/ARG ไม่ใช่การพิสูจน์วิทยาศาสตร์",
         ob_btn: "เข้าใจแล้ว",
-        hint_myth: "แตะ 'เรื่องเล่า' เพื่อฟังตำนานใกล้ตัว"
+        hint_myth: "แตะ 'เรื่องเล่า' เพื่อฟังตำนานใกล้ตัว",
+        // Wiki Keys
+        btn_read_lore: "📜 อ่านเรื่องเล่า",
+        btn_close: "ปิด",
+        wiki_offline_lbl: "สรุปแบบออฟไลน์"
     }
 };
 
-/* --- 2. OFFLINE DATA (ABBREVIATED) --- */
+/* --- 2. DATA & WIKI MAPPING --- */
 const WONDERS = [
     {n:"Great Pyramid", lat:29.9792, lon:31.1342, en:{s:"Ancient Wonder", f:["Built 2560 BC", "True North aligned"], m:"A power plant?"}, th:{s:"สิ่งมหัศจรรย์โบราณ", f:["สร้าง 2560 BC", "หันทิศเหนือจริง"], m:"โรงไฟฟ้าโบราณ?"}},
     {n:"Stonehenge", lat:51.1789, lon:-1.8262, en:{s:"Stone Ring", f:["Solar aligned", "Heavy stones"], m:"Merlin's magic."}, th:{s:"วงล้อมหิน", f:["แนวแสงอาทิตย์", "หินหนักมาก"], m:"เวทมนตร์เมอร์ลิน"}},
     {n:"Great Wall", lat:40.4319, lon:116.5704, en:{s:"Stone Dragon", f:["21,196 km long", "Ancient defense"], m:"Bones in mortar."}, th:{s:"กำแพงเมืองจีน", f:["ยาว 2 หมื่นโล", "ป้องกันข้าศึก"], m:"กระดูกคนในปูน"}},
     {n:"Taj Mahal", lat:27.1751, lon:78.0421, en:{s:"Marble Love", f:["Mausoleum", "Changes color"], m:"Black twin planned."}, th:{s:"อนุสรณ์รัก", f:["สุสานหินอ่อน", "เปลี่ยนสีได้"], m:"จะมีแฝดสีดำ"}}
 ];
+
+// Wikipedia Slugs (Title must match API)
+const WIKI_SLUGS = {
+    "Great Pyramid": { en: "Great_Pyramid_of_Giza", th: "มหาพีระมิดแห่งกิซ่า" },
+    "Stonehenge": { en: "Stonehenge", th: "สโตนเฮนจ์" },
+    "Great Wall": { en: "Great_Wall_of_China", th: "กำแพงเมืองจีน" },
+    "Taj Mahal": { en: "Taj_Mahal", th: "ทัชมาฮาล" }
+};
+
+// Hardcoded Fallback for Offline/Fail
+const OFFLINE_LORE = {
+    "Great Pyramid": { en: "The Great Pyramid of Giza is the oldest of the Seven Wonders of the Ancient World. It was built as a tomb for the Fourth Dynasty Egyptian pharaoh Khufu.", th: "มหาพีระมิดแห่งกิซ่า เป็นสิ่งมหัศจรรย์ที่เก่าแก่ที่สุดในบรรดา 7 สิ่งมหัศจรรย์ของโลกยุคโบราณ สร้างขึ้นเพื่อเป็นสุสานของฟาโรห์คูฟูแห่งราชวงศ์ที่ 4" },
+    "Stonehenge": { en: "Stonehenge is a prehistoric monument on Salisbury Plain in Wiltshire, England. It consists of an outer ring of vertical sarsen standing stones.", th: "สโตนเฮนจ์เป็นอนุสรณ์สถานยุคก่อนประวัติศาสตร์ กลางทุ่งราบซอลส์บรีในอังกฤษ ประกอบด้วยแท่งหินขนาดมหึมาเรียงกันเป็นวงกลม" },
+    "Great Wall": { en: "The Great Wall of China is a series of fortifications that were built across the historical northern borders of ancient Chinese states and Imperial China.", th: "กำแพงเมืองจีนเป็นชุดของป้อมปราการที่สร้างขึ้นตามแนวพรมแดนทางเหนือของจีนโบราณ เพื่อป้องกันการรุกรานจากกลุ่มชนเผ่าเร่ร่อน" },
+    "Taj Mahal": { en: "The Taj Mahal is an ivory-white marble mausoleum on the right bank of the river Yamuna in Agra, India. It was commissioned in 1631 by Shah Jahan.", th: "ทัชมาฮาลเป็นสุสานหินอ่อนสีขาวงาช้าง ตั้งอยู่ริมฝั่งขวาของแม่น้ำยมุนาในเมืองอากรา อินเดีย สร้างขึ้นโดยจักรพรรดิชาห์ชะฮันเพื่อเป็นอนุสรณ์แห่งความรัก" }
+};
 
 /* --- 3. CORE CLASSES --- */
 class I18n {
@@ -462,7 +549,8 @@ class App {
         this.els = {
             ring: document.getElementById('ring'), val: document.getElementById('val-head'),
             nMain: document.getElementById('n-main'), nSun: document.getElementById('n-sun'),
-            radar: document.getElementById('radar-ui'), deck: document.getElementById('main-card')
+            radar: document.getElementById('radar-ui'), deck: document.getElementById('main-card'),
+            btnLore: document.getElementById('btn-lore')
         };
         this.i18n.apply();
         
@@ -473,13 +561,9 @@ class App {
 
     async start() {
         try {
-            // Hide Tap Hint immediately on click
             document.getElementById('tap-hint').style.opacity = 0;
-            
             await this.sensor.init();
-            
             this.transitionToHUD();
-            
             this.sensor.on('gps', () => {
                 document.getElementById('gps-badge').innerText = this.i18n.t('gps_lock');
                 document.getElementById('gps-badge').classList.add('active');
@@ -495,7 +579,7 @@ class App {
         setTimeout(() => {
             ov.style.display = 'none';
             document.getElementById('app').classList.add('visible');
-            document.body.classList.add('active'); // Enable scanlines
+            document.body.classList.add('active'); 
             this.checkFirstRun();
         }, 1000);
     }
@@ -545,18 +629,29 @@ class App {
         WONDERS.forEach((w,i)=>{ const d=MathU.dist(this.sensor.gps.latitude,this.sensor.gps.longitude,w.lat,w.lon); if(d<min){min=d;idx=i;} });
         if(this.state.idx!=idx) { this.state.idx=idx; this.updCard(); }
     }
+    
     updCard() {
         const w = WONDERS[this.state.idx];
         const i = w[this.i18n.lang];
         document.getElementById('c-title').innerText = w.n;
         document.getElementById('c-body').innerText = i.s;
         document.getElementById('c-facts').innerHTML = i.f.map(x=>`<li>${x}</li>`).join('');
+        
+        // Show/Hide Lore Button
+        this.els.btnLore.style.display = this.state.mode === 'disc' ? 'block' : 'none';
+
         if(this.sensor.gps) {
             const d = MathU.dist(this.sensor.gps.latitude,this.sensor.gps.longitude,w.lat,w.lon);
             document.getElementById('c-dist').innerText = d<1?(d*1000).toFixed(0)+"m":d.toFixed(0)+"km";
         }
     }
-    toggleLang() { this.i18n.toggle(); this.i18n.apply(); this.updCard(); }
+
+    toggleLang() { 
+        this.i18n.toggle(); 
+        this.i18n.apply(); 
+        this.updCard(); 
+    }
+
     setMode(m) {
         this.state.mode = m;
         document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
@@ -564,19 +659,126 @@ class App {
         this.els.nMain.style.display = m=='geo'?'none':'block';
         this.els.nSun.style.display = m=='geo'?'block':'none';
         this.els.radar.style.display = m=='whis'?'block':'none';
-        if(m=='disc') this.updCard();
-        else if(m=='geo') { document.getElementById('c-title').innerText="GEOMAG"; document.getElementById('c-body').innerText=this.i18n.t('sun_track'); }
-        else { document.getElementById('c-title').innerText="WHISPERS"; document.getElementById('c-body').innerText=this.i18n.t('flav_a'); }
+        
+        if(m=='disc') {
+            this.updCard();
+        } else {
+            this.els.btnLore.style.display = 'none';
+            if(m=='geo') { 
+                document.getElementById('c-title').innerText="GEOMAG"; 
+                document.getElementById('c-body').innerText=this.i18n.t('sun_track'); 
+            } else { 
+                document.getElementById('c-title').innerText="WHISPERS"; 
+                document.getElementById('c-body').innerText=this.i18n.t('flav_a'); 
+            }
+        }
     }
+
     toggleAuto() { this.state.auto = !this.state.auto; if(this.state.auto) this.findNearest(); }
     nextTarget() { this.state.auto = false; this.state.idx = (this.state.idx+1)%WONDERS.length; this.updCard(); }
     toggleSettings() { document.getElementById('modal-set').classList.toggle('show'); }
     resetView() { document.body.style.zoom=1.0; window.scrollTo(0,0); this.toggleSettings(); }
     openMap() { const w=WONDERS[this.state.idx]; window.open(`https://maps.google.com/?q=${w.lat},${w.lon}`); }
+
+    /* --- WIKI FETCH & MODAL LOGIC (PATCH) --- */
+    openLore() {
+        document.getElementById('modal-lore').classList.add('show');
+        this.fetchWiki();
+    }
+    
+    closeLore() {
+        document.getElementById('modal-lore').classList.remove('show');
+    }
+
+    async fetchWiki() {
+        const wName = WONDERS[this.state.idx].n;
+        const lang = this.i18n.lang;
+        const slug = WIKI_SLUGS[wName][lang];
+        const cacheKey = `WR_WIKI_${lang}_${slug}`;
+
+        const uiLoader = document.getElementById('l-spin');
+        const uiContent = document.getElementById('l-content');
+        const uiTitle = document.getElementById('l-title');
+        const uiText = document.getElementById('l-text');
+        const uiThumb = document.getElementById('l-thumb');
+        const uiSrc = document.getElementById('l-src');
+
+        // Reset UI
+        uiContent.style.display = 'none';
+        uiLoader.classList.add('show');
+        uiThumb.classList.remove('active');
+
+        // 1. Try Cache
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            this.renderWiki(JSON.parse(cached));
+            uiLoader.classList.remove('show');
+            uiContent.style.display = 'block';
+            // Stale-while-revalidate: Fetch in background
+            this.doFetch(slug, lang, cacheKey, false);
+        } else {
+            // 2. Fetch Fresh
+            const success = await this.doFetch(slug, lang, cacheKey, true);
+            if (!success) {
+                // 3. Fallback
+                this.renderFallback(wName, lang);
+            }
+        }
+    }
+
+    async doFetch(slug, lang, cacheKey, renderImmediately) {
+        try {
+            const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${slug}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Wiki Fail');
+            const data = await res.json();
+            
+            // Save & Render
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            if (renderImmediately) {
+                this.renderWiki(data);
+                document.getElementById('l-spin').classList.remove('show');
+                document.getElementById('l-content').style.display = 'block';
+            }
+            return true;
+        } catch (e) {
+            console.warn(e);
+            return false;
+        }
+    }
+
+    renderWiki(data) {
+        document.getElementById('l-title').innerText = data.title;
+        document.getElementById('l-text').innerText = data.extract;
+        
+        const uiThumb = document.getElementById('l-thumb');
+        if(data.thumbnail && data.thumbnail.source) {
+            uiThumb.src = data.thumbnail.source;
+            uiThumb.classList.add('active');
+        } else {
+            uiThumb.classList.remove('active');
+        }
+
+        const uiSrc = document.getElementById('l-src');
+        uiSrc.href = data.content_urls.desktop.page;
+        uiSrc.innerHTML = `Source: Wikipedia (${this.i18n.lang.toUpperCase()})`;
+    }
+
+    renderFallback(wName, lang) {
+        document.getElementById('l-spin').classList.remove('show');
+        document.getElementById('l-content').style.display = 'block';
+        document.getElementById('l-thumb').classList.remove('active');
+        
+        const fb = OFFLINE_LORE[wName][lang];
+        document.getElementById('l-title').innerText = WONDERS[this.state.idx].n;
+        document.getElementById('l-text').innerText = fb;
+        document.getElementById('l-src').innerHTML = `<i>${this.i18n.t('wiki_offline_lbl')}</i>`;
+        document.getElementById('l-src').href = "#";
+    }
 }
 
 const app = new App();
 
 </script>
 </body>
-</html>
+</html>```
