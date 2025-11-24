@@ -1,1369 +1,760 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MAGIC COMPASS | MK-II</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>WIND ROSE | WR</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#050508">
+    <meta name="theme-color" content="#000000">
+    <meta name="description" content="Wind Rose: AR Navigation & Folklore Engine">
 
     <style>
-        /* --- THEME: PURPLE NEON GLASS MK-II --- */
+        /* ------------------------------------------------------------------
+           CORE: RESET & ANTI-ZOOM (CRITICAL FIX)
+           ------------------------------------------------------------------ */
         :root {
-            --bg-core: #050508;
-            --bg-grad: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f0c29 50%, #020204 100%);
-            --glass-base: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --bg-core: #000000;
+            --bg-grad: radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f0c29 50%, #000000 90%);
+            
+            /* Glass System */
+            --glass-surf: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.1);
             --glass-shine: rgba(255, 255, 255, 0.15);
             --blur-val: 24px;
-            --neon-p: #d946ef;
-            /* Purple */
-            --neon-b: #60a5fa;
-            /* Blue */
-            --neon-r: #f43f5e;
-            /* Rose/Alert */
-            --neon-g: #34d399;
-            /* Green/Safe */
-            --text-1: #ffffff;
-            --text-2: #94a3b8;
-            --text-3: #64748b;
-            --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+
+            /* WR Palette */
+            --wr-p: #d946ef; /* Primary / Whispers */
+            --wr-b: #60a5fa; /* Discovery */
+            --wr-y: #fbbf24; /* Sun / Geomag */
+            --wr-r: #f43f5e; /* Alert */
+            --wr-g: #34d399; /* Safe */
+            
+            --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
             --font-mono: "SF Mono", "Menlo", monospace;
-            --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bot: env(safe-area-inset-bottom, 20px);
         }
 
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            margin: 0; padding: 0;
+            background: var(--bg-core); background-image: var(--bg-grad);
+            color: #fff; font-family: var(--font-main);
+            height: 100%; width: 100%;
+            overflow: hidden; /* Prevent scroll bounce */
+            touch-action: none; /* Prevent pan/zoom gestures */
+            overscroll-behavior: none;
+            user-select: none; -webkit-user-select: none;
+            display: flex; flex-direction: column;
         }
 
-        body {
-            margin: 0;
-            background: var(--bg-core);
-            background-image: var(--bg-grad);
-            color: var(--text-1);
-            font-family: var(--font-ui);
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+        /* ------------------------------------------------------------------
+           STARTUP OVERLAY (APPLE MINIMAL)
+           ------------------------------------------------------------------ */
+        #overlay {
+            position: fixed; inset: 0; z-index: 999;
+            background: #000; /* Pure black for OLED boot feeling */
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        #overlay.fade-out { opacity: 0; pointer-events: none; }
+
+        .wr-logo {
+            font-size: 2rem; font-weight: 200; letter-spacing: 4px;
+            background: linear-gradient(to bottom, #fff, #888);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 10px; text-transform: uppercase;
+        }
+        .wr-sub { font-family: var(--font-mono); font-size: 0.8rem; color: var(--wr-p); letter-spacing: 2px; opacity: 0.8; }
+
+        /* Minimal Loader */
+        .wr-loader {
+            width: 40px; height: 40px; margin: 40px 0;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: var(--wr-p); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Hidden Diagnostics Panel */
+        .sys-details {
+            max-height: 0; overflow: hidden; transition: max-height 0.5s ease;
+            background: rgba(255,255,255,0.05); border-radius: 12px; width: 280px;
+        }
+        .sys-details.open { max-height: 200px; margin-bottom: 20px; border: 1px solid var(--glass-border); }
+        
+        .sys-row {
+            display: flex; justify-content: space-between; padding: 8px 12px;
+            font-family: var(--font-mono); font-size: 0.7rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .sys-val { color: var(--wr-b); }
+
+        .diag-toggle {
+            font-size: 0.7rem; color: #666; margin-bottom: 20px; cursor: pointer; text-decoration: underline;
         }
 
-        /* FX */
-        .bg-orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.3;
-            z-index: 0;
-            animation: float 20s infinite alternate ease-in-out;
+        /* Start Button (Pill) */
+        #btn-init {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 14px 40px; border-radius: 30px;
+            font-size: 0.9rem; letter-spacing: 1px; cursor: pointer;
+            transition: all 0.3s; backdrop-filter: blur(10px);
         }
+        #btn-init:active { transform: scale(0.96); background: rgba(255,255,255,0.2); }
 
-        .orb-1 {
-            width: 300px;
-            height: 300px;
-            background: var(--neon-p);
-            top: -10%;
-            left: -20%;
-        }
-
-        .orb-2 {
-            width: 250px;
-            height: 250px;
-            background: var(--neon-b);
-            bottom: 5%;
-            right: -10%;
-            animation-delay: -5s;
-        }
-
-        @keyframes float {
-            0% {
-                transform: translate(0, 0);
-            }
-
-            100% {
-                transform: translate(20px, 30px);
-            }
-        }
-
-        /* UI COMPONENTS */
-        .glass {
-            background: var(--glass-base);
-            backdrop-filter: blur(var(--blur-val));
-            -webkit-backdrop-filter: blur(var(--blur-val));
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-        }
-
-        .flex-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .flex-col {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .mono {
-            font-family: var(--font-mono);
-            letter-spacing: -0.5px;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            color: var(--text-2);
-            padding: 10px 16px;
-            border-radius: 14px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-
-        .btn:active {
-            transform: scale(0.96);
-            background: var(--glass-shine);
-        }
-
-        .btn.active {
-            border-color: var(--neon-p);
-            color: #fff;
-            background: rgba(217, 70, 239, 0.15);
-            box-shadow: 0 0 15px rgba(217, 70, 239, 0.2);
-        }
-
-        /* APP LAYOUT */
+        /* ------------------------------------------------------------------
+           MAIN HUD (GLASS SCI-FI)
+           ------------------------------------------------------------------ */
         #app {
-            position: relative;
-            z-index: 10;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 16px) 16px;
-            gap: 12px;
+            flex: 1; display: flex; flex-direction: column;
+            padding: var(--safe-top) 16px calc(var(--safe-bot) + 12px) 16px;
+            gap: 12px; opacity: 0; transition: opacity 1s ease;
         }
+        #app.visible { opacity: 1; }
 
-        /* HEADER */
-        .header {
-            justify-content: space-between;
-            height: 44px;
-        }
-
-        .brand {
-            font-weight: 800;
-            letter-spacing: 2px;
-            font-size: 0.9rem;
-            color: var(--text-2);
-        }
-
-        .badge {
-            font-size: 0.65rem;
-            padding: 4px 8px;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.4);
+        .glass-panel {
+            background: var(--glass-surf);
+            backdrop-filter: blur(var(--blur-val)); -webkit-backdrop-filter: blur(var(--blur-val));
             border: 1px solid var(--glass-border);
-            color: var(--text-3);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        .badge.ok {
-            border-color: var(--neon-g);
-            color: var(--neon-g);
-        }
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; height: 44px; }
+        .brand { font-weight: 700; letter-spacing: 2px; font-size: 0.8rem; color: #aaa; }
+        .badge { font-size: 0.65rem; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.1); color: #888; }
+        .badge.active { color: var(--wr-g); border: 1px solid var(--wr-g); background: rgba(52, 211, 153, 0.1); }
 
-        .badge.warn {
-            border-color: var(--neon-r);
-            color: var(--neon-r);
-            animation: pulse-warn 2s infinite;
-        }
-
-        @keyframes pulse-warn {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-
-            100% {
-                opacity: 1;
-            }
-        }
-
-        /* COMPASS ORB MK-II */
-        .stage {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            perspective: 1000px;
-        }
-
-        .orb-container {
-            position: relative;
-            width: 280px;
-            height: 280px;
-            transform-style: preserve-3d;
-        }
-
+        /* Compass Core */
+        .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        
         .orb-ring {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 40px rgba(139, 92, 246, 0.1), inset 0 0 40px rgba(0, 0, 0, 0.5);
-            transition: transform 0.1s linear, box-shadow 0.3s ease;
-            /* JS driven smoothing */
-            will-change: transform;
+            width: 280px; height: 280px; border-radius: 50%; position: relative;
+            box-shadow: 0 0 60px rgba(217, 70, 239, 0.1), inset 0 0 40px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.08); will-change: transform;
         }
-
-        .orb-ring.jitter {
-            box-shadow: 0 0 50px rgba(244, 63, 94, 0.3), inset 0 0 40px rgba(0, 0, 0, 0.5);
-            border-color: rgba(244, 63, 94, 0.3);
+        /* Ticks via Conic Gradient (Performance) */
+        .ticks {
+            position: absolute; inset: -10px; border-radius: 50%;
+            background: repeating-conic-gradient(rgba(255,255,255,0.2) 0deg 1deg, transparent 1deg 10deg);
+            mask: radial-gradient(transparent 65%, black 66%); -webkit-mask: radial-gradient(transparent 65%, black 66%);
         }
-
-        /* Ticks (Conic Gradients) */
-        .ticks-major {
-            position: absolute;
-            inset: -10px;
-            border-radius: 50%;
-            background: conic-gradient(from 0deg, var(--text-2) 0deg 1deg, transparent 1deg 29deg, var(--text-2) 30deg 31deg, transparent 31deg 360deg);
-            mask: radial-gradient(transparent 65%, black 66%);
-            -webkit-mask: radial-gradient(transparent 65%, black 66%);
-        }
-
-        .ticks-minor {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            background: repeating-conic-gradient(rgba(255, 255, 255, 0.15) 0deg 1deg, transparent 1deg 5deg);
-            mask: radial-gradient(transparent 68%, black 69%);
-            -webkit-mask: radial-gradient(transparent 68%, black 69%);
-        }
-
-        /* Lens Layers */
-        .lens-1 {
-            position: absolute;
-            inset: 10px;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.05), transparent 60%);
-        }
-
-        .lens-2 {
-            position: absolute;
-            inset: 30px;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.03);
-        }
-
-        /* Cardinals */
-        .cardinal {
-            position: absolute;
-            font-weight: 700;
-            font-size: 0.85rem;
-            color: var(--text-3);
-        }
-
-        .c-n {
-            top: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: var(--neon-p);
-            text-shadow: 0 0 10px var(--neon-p);
-        }
-
-        .c-e {
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .c-s {
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .c-w {
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
+        .cardinals { position: absolute; inset: 10px; pointer-events: none; }
+        .card { position: absolute; font-weight: 700; font-size: 0.8rem; color: #666; }
+        .c-n { top: 0; left: 50%; transform: translateX(-50%); color: var(--wr-r); }
+        .c-e { top: 50%; right: 0; transform: translateY(-50%); }
+        .c-s { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .c-w { top: 50%; left: 0; transform: translateY(-50%); }
 
         /* Needles */
-        .needle-layer {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 2;
+        .needle-layer { position: absolute; inset: 0; pointer-events: none; }
+        .ndl { position: absolute; top: 50%; left: 50%; transform-origin: bottom center; transition: opacity 0.3s; will-change: transform; }
+        
+        /* Discovery Needle */
+        .n-main {
+            width: 6px; height: 42%; margin-left: -3px; margin-top: -42%;
+            background: linear-gradient(to top, transparent, var(--wr-p));
+            border-radius: 4px; z-index: 3; box-shadow: 0 -5px 15px var(--wr-p);
         }
-
-        .needle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform-origin: bottom center;
-            transition: transform 0.4s var(--ease-out);
-            will-change: transform;
+        /* Sun Needle (Geomag) */
+        .n-sun {
+            width: 2px; height: 48%; margin-left: -1px; margin-top: -48%;
+            background: var(--wr-y); z-index: 2; opacity: 0.8;
+            box-shadow: 0 0 8px var(--wr-y);
         }
+        .n-true { width: 2px; height: 48%; background: var(--wr-b); margin-left: -1px; margin-top: -48%; opacity: 0.8; }
 
-        /* Wonder Needle (Crystal) */
-        .n-wonder {
-            width: 6px;
-            height: 42%;
-            margin-left: -3px;
-            margin-top: -42%;
-            background: linear-gradient(to top, transparent, var(--neon-p));
-            border-radius: 4px;
-            box-shadow: 0 -4px 12px var(--neon-p);
-            z-index: 10;
+        /* HUD Data */
+        .hud-val {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; pointer-events: none;
         }
+        .h-deg { font-size: 2.5rem; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+        .h-lbl { font-size: 0.6rem; color: #666; letter-spacing: 2px; margin-top: 4px; }
 
-        .n-wonder::after {
-            content: '';
-            position: absolute;
-            top: -6px;
-            left: -3px;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-bottom: 10px solid #fff;
-        }
+        /* Info Cards */
+        .deck { display: flex; flex-direction: column; gap: 10px; margin-top: auto; perspective: 1000px; }
+        .info-card { padding: 20px; min-height: 120px; position: relative; overflow: hidden; }
+        .info-card::before { content:''; position: absolute; top:0; left:0; bottom:0; width: 3px; background: var(--wr-p); }
+        .ic-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        .ic-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+        .ic-meta { font-size: 0.8rem; font-family: var(--font-mono); color: var(--wr-p); }
+        .ic-body { font-size: 0.85rem; color: #aaa; line-height: 1.5; }
+        .ic-quote { font-style: italic; color: #666; margin-top: 8px; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; }
 
-        /* North Needle (Thin) */
-        .n-north {
-            width: 2px;
-            height: 46%;
-            margin-left: -1px;
-            margin-top: -46%;
-            background: var(--neon-b);
-            opacity: 0.8;
-            box-shadow: 0 0 5px var(--neon-b);
-        }
-
-        /* Center HUD */
-        .center-hud {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 5;
-        }
-
-        .val-head {
-            font-size: 2.4rem;
-            font-weight: 800;
-            letter-spacing: -1px;
-            line-height: 1;
-            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-        }
-
-        .lbl-head {
-            font-size: 0.65rem;
-            color: var(--text-3);
-            letter-spacing: 2px;
-            margin-top: 4px;
-        }
-
-        /* GHOST MONITOR (Myth Mode) */
-        .ghost-ui {
-            position: absolute;
-            inset: -20px;
-            pointer-events: none;
-            display: none;
-        }
-
+        /* Whispers Radar */
+        .radar-box { position: absolute; bottom: -20px; right: -20px; width: 140px; height: 140px; display: none; }
         .radar-sweep {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            border: 1px solid rgba(244, 63, 94, 0.3);
-            background: rgba(0, 0, 0, 0.2);
-            overflow: hidden;
+            width: 100%; height: 100%; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: conic-gradient(from 0deg, transparent 0deg, rgba(217, 70, 239, 0.2) 60deg, transparent 60.1deg);
+            animation: sweep 3s linear infinite;
         }
+        .blip { position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; box-shadow: 0 0 8px var(--wr-r); opacity: 0; animation: blip 2s ease-out; }
+        @keyframes sweep { to { transform: rotate(360deg); } }
+        @keyframes blip { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(3); } }
 
-        .sweep-line {
-            position: absolute;
-            inset: 0;
-            background: conic-gradient(from 0deg, transparent 0deg, rgba(244, 63, 94, 0.4) 30deg, transparent 30.1deg);
-            animation: sweep 2s linear infinite;
-            border-radius: 50%;
+        /* Controls */
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px; }
+        .btn {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            color: #aaa; padding: 12px; border-radius: 16px; font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+            touch-action: manipulation; /* Fix double tap zoom */
         }
+        .btn:active { background: rgba(255,255,255,0.15); transform: scale(0.98); }
+        .btn.active { border-color: var(--wr-p); color: #fff; background: rgba(217, 70, 239, 0.1); }
 
-        .scope-line {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100px;
-            height: 40px;
-            opacity: 0.7;
-        }
-
-        @keyframes sweep {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* INFO DECK */
-        .deck {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .card {
-            padding: 16px;
-            min-height: 110px;
-            position: relative;
-            overflow: hidden;
-            transition: 0.3s;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: 3px;
-            background: var(--text-3);
-        }
-
-        .card.wonder::before {
-            background: var(--neon-p);
-        }
-
-        .card.myth::before {
-            background: var(--neon-r);
-        }
-
-        .c-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 4px;
-            line-height: 1.2;
-        }
-
-        .c-meta {
-            font-size: 0.75rem;
-            color: var(--neon-p);
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .c-body {
-            font-size: 0.85rem;
-            color: var(--text-2);
-            line-height: 1.5;
-        }
-
-        .c-quote {
-            font-style: italic;
-            color: var(--text-3);
-            font-size: 0.8rem;
-            margin-top: 8px;
-            padding-top: 6px;
-            border-top: 1px solid var(--glass-border);
-        }
-
-        .c-list {
-            list-style: none;
-            padding: 0;
-            margin: 4px 0;
-            font-size: 0.8rem;
-            color: var(--text-2);
-        }
-
-        .c-list li::before {
-            content: '• ';
-            color: var(--text-3);
-        }
-
-        /* CONTROLS */
+        /* Dock */
         .dock {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 6px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 4px;
-            border-radius: 20px;
-            border: 1px solid var(--glass-border);
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+            background: rgba(0,0,0,0.6); padding: 5px; border-radius: 24px; border: 1px solid var(--glass-border);
         }
-
-        .dock-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-3);
-            padding: 12px;
-            border-radius: 16px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.2s;
+        .dock-item {
+            background: transparent; border: none; color: #666; padding: 10px;
+            border-radius: 20px; font-size: 0.7rem; font-weight: 700; cursor: pointer;
+            touch-action: manipulation;
         }
+        .dock-item.active { background: rgba(255,255,255,0.1); color: #fff; }
 
-        .dock-btn.active {
-            background: var(--glass-border);
-            color: #fff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        /* Modals */
+        .modal-wrap {
+            position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center;
+            padding: 20px; opacity: 0; pointer-events: none; transition: 0.3s;
         }
+        .modal-wrap.show { opacity: 1; pointer-events: auto; }
+        .modal-box { width: 100%; max-width: 400px; padding: 24px; max-height: 80vh; overflow-y: auto; }
+        .m-title { font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 12px; }
+        .m-body { font-size: 0.9rem; color: #aaa; line-height: 1.6; }
+        
+        .hist-item { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem; }
+        .hist-time { color: var(--wr-b); font-family: var(--font-mono); font-size: 0.7rem; }
 
-        /* MODALS */
-        .modal {
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(12px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            opacity: 0;
-            pointer-events: none;
-            transition: 0.3s;
+        /* Utils */
+        .warn-toast {
+            position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%);
+            background: rgba(244, 63, 94, 0.2); border: 1px solid var(--wr-r); color: var(--wr-r);
+            padding: 6px 12px; border-radius: 20px; font-size: 0.7rem; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s;
         }
+        .warn-toast.show { opacity: 1; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.5; } }
 
-        .modal.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .modal-box {
-            width: 100%;
-            max-width: 360px;
-            padding: 24px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        /* CALIBRATION OVERLAY */
-        #calib-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            display: none;
-        }
-
-        .fig-8 {
-            width: 60px;
-            height: 30px;
-            border: 2px solid var(--neon-p);
-            border-radius: 15px;
-            animation: spin8 2s infinite linear;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin8 {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* OVERLAY (Redesigned) */
-        #overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 2000;
-            background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.5s ease;
-        }
-
-        #overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .overlay-content {
-            width: 100%;
-            max-width: 340px;
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 24px;
-            position: relative;
-        }
-
-        /* Hero Title */
-        .hero-title {
-            text-align: center;
-        }
-
-        .brand-sub {
-            font-size: 0.7rem;
-            color: var(--neon-p);
-            letter-spacing: 4px;
-            margin-bottom: 8px;
-            font-weight: 700;
-            text-transform: uppercase;
-            opacity: 0.8;
-        }
-
-        .hero-title h1 {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: 800;
-            letter-spacing: -1px;
-            background: linear-gradient(to bottom, #fff, #aaa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.1));
-        }
-
-        /* System Check Card */
-        .sys-card {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            backdrop-filter: blur(10px);
-        }
-
-        .sys-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            color: var(--text-2);
-            font-family: var(--font-mono);
-            letter-spacing: 0.5px;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #333;
-            box-shadow: 0 0 5px #333;
-            transition: 0.3s;
-        }
-
-        .status-dot.wait {
-            background: var(--neon-b);
-            box-shadow: 0 0 8px var(--neon-b);
-            animation: pulse 1s infinite;
-        }
-
-        .status-dot.ok {
-            background: var(--neon-g);
-            box-shadow: 0 0 8px var(--neon-g);
-        }
-
-        .status-dot.err {
-            background: var(--neon-r);
-            box-shadow: 0 0 8px var(--neon-r);
-        }
-
-        @keyframes pulse {
-            0% {
-                opacity: 0.5;
-            }
-
-            50% {
-                opacity: 1;
-            }
-
-            100% {
-                opacity: 0.5;
-            }
-        }
-
-        /* Warn Text */
-        .warn-text {
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--text-3);
-            line-height: 1.6;
-        }
-
-        .os-hint {
-            margin-bottom: 4px;
-        }
-
-        /* Premium Button */
-        .btn-core {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #fff;
-            padding: 16px 32px;
-            border-radius: 30px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-core::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transition: 0.5s;
-        }
-
-        .btn-core:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-core:hover::before {
-            left: 100%;
-        }
-
-        .btn-core:active {
-            transform: scale(0.98);
-        }
     </style>
 </head>
-
 <body>
 
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
+    <div class="scanlines"></div>
 
     <!-- STARTUP OVERLAY -->
     <div id="overlay">
-        <div class="overlay-content">
-            <div class="hero-title">
-                <div class="brand-sub">FIELD CONSOLE vMK-II</div>
-                <h1>MAGIC COMPASS</h1>
-            </div>
-
-            <div class="sys-card">
-                <div class="sys-item">
-                    <span>GPS LINK</span>
-                    <span id="chk-gps" class="status-dot wait"></span>
-                </div>
-                <div class="sys-item">
-                    <span>GYROSCOPE</span>
-                    <span id="chk-gyro" class="status-dot wait"></span>
-                </div>
-                <div class="sys-item">
-                    <span>MAGNETOMETER</span>
-                    <span id="chk-mag" class="status-dot wait"></span>
-                </div>
-            </div>
-
-            <div class="warn-text">
-                <div class="os-hint ios">iOS: Allow Motion & Location</div>
-                <div class="os-hint android">Android: Figure-8 to calibrate</div>
-            </div>
-
-            <button id="btn-init" class="btn-core" onclick="app.init()">
-                INITIALIZE SYSTEM
-            </button>
+        <div class="wr-logo">WIND ROSE</div>
+        <div class="wr-sub">MK-II EXPLORATION ENGINE</div>
+        <div class="wr-loader"></div>
+        
+        <div class="diag-toggle" onclick="app.toggleDiag()">System Status</div>
+        <div class="sys-details" id="sys-panel">
+            <div class="sys-row"><span>GPS</span><span class="sys-val" id="chk-gps">WAIT</span></div>
+            <div class="sys-row"><span>GYRO</span><span class="sys-val" id="chk-gyro">WAIT</span></div>
+            <div class="sys-row"><span>MAG</span><span class="sys-val" id="chk-mag">OPT</span></div>
         </div>
+
+        <button id="btn-init">ENTER WIND ROSE</button>
     </div>
 
-    <!-- CALIBRATION OVERLAY -->
-    <div id="calib-overlay">
-        <div class="fig-8"></div>
-        <div style="font-weight:700; color:#fff;" data-t="calib_title">CALIBRATION REQUIRED</div>
-        <div style="font-size:0.8rem; color:var(--text-2); margin-top:4px;" data-t="calib_desc">Wave device in Figure-8
-        </div>
-    </div>
-
-    <!-- MAIN APP -->
-    <div id="app" class="hidden">
-
-        <!-- HEADER -->
-        <div class="flex-row header">
-            <div class="brand"><span style="color:var(--neon-p)">✦</span> MK-II</div>
+    <!-- MAIN HUD -->
+    <div id="app">
+        <div class="header">
+            <div class="brand">WR // MK-II</div>
             <div class="flex-row">
-                <button class="badge" id="btn-lang" onclick="app.toggleLang()">EN</button>
-                <div class="badge" id="gps-badge" data-t="gps_wait">GPS WAIT</div>
-                <div class="badge" id="acc-badge">±0°</div>
+                <div class="badge" onclick="app.toggleLang()" style="cursor:pointer" id="lbl-lang">EN</div>
+                <div class="badge" id="gps-badge">GPS WAIT</div>
+                <div style="cursor:pointer; opacity:0.7" onclick="app.toggleSettings()">⚙</div>
             </div>
         </div>
 
-        <!-- STAGE -->
         <div class="stage">
-            <div class="orb-container">
-                <div class="orb-ring" id="orb-ring">
-                    <div class="ticks-major"></div>
-                    <div class="ticks-minor"></div>
-                    <div class="lens-1"></div>
-                    <div class="lens-2"></div>
-                    <div class="cardinal c-n">N</div>
-                    <div class="cardinal c-e">E</div>
-                    <div class="cardinal c-s">S</div>
-                    <div class="cardinal c-w">W</div>
+            <div class="orb-ring" id="ring">
+                <div class="ticks"></div>
+                <div class="cardinals">
+                    <div class="card c-n">N</div><div class="card c-e">E</div>
+                    <div class="card c-s">S</div><div class="card c-w">W</div>
                 </div>
-
+                
                 <div class="needle-layer">
-                    <div class="needle n-wonder" id="n-wonder"></div>
-                    <div class="needle n-north" id="n-north"></div>
+                    <div class="ndl n-main" id="n-main"></div>
+                    <div class="ndl n-sun" id="n-sun"></div>
+                    <div class="ndl n-true" id="n-true"></div>
                 </div>
 
-                <div class="center-hud">
-                    <div class="val-head mono" id="val-head">000°</div>
-                    <div class="lbl-head" id="lbl-head">HEADING</div>
-                </div>
-
-                <!-- MYTH MODE UI -->
-                <div class="ghost-ui" id="ghost-ui">
-                    <div class="radar-sweep">
-                        <div class="sweep-line"></div>
-                    </div>
-                    <canvas class="scope-line" id="scope-cvs"></canvas>
+                <div class="hud-val">
+                    <div class="h-deg" id="val-head">000°</div>
+                    <div class="h-lbl" id="lbl-sub">HEADING</div>
                 </div>
             </div>
-            <!-- Tilt Warning -->
-            <div id="tilt-warn"
-                style="position:absolute; bottom:20px; font-size:0.75rem; color:var(--neon-r); background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:8px; display:none;"
-                data-t="tilt_warn">Hold Flat</div>
+
+            <div class="warn-toast" id="warn-ui">CALIBRATE</div>
+            <div class="radar-box" id="radar-ui"><div class="radar-sweep"></div></div>
         </div>
 
-        <!-- DECK -->
         <div class="deck">
-            <!-- INFO CARD -->
-            <div class="glass card wonder" id="main-card">
-                <div class="c-title" id="c-title">Loading...</div>
-                <div class="c-meta mono" id="c-meta">-- km</div>
-                <div class="c-body">
-                    <div id="c-desc">...</div>
-                    <ul class="c-list" id="c-facts"></ul>
-                    <div class="c-quote" id="c-quote"></div>
+            <!-- Info Card -->
+            <div class="glass-panel info-card" id="main-card">
+                <div class="ic-head">
+                    <div class="ic-title" id="c-title">System Ready</div>
+                    <div class="ic-meta" id="c-dist">--</div>
                 </div>
-                <!-- Action Buttons -->
-                <div class="flex-row" style="margin-top:12px;">
-                    <button class="btn" id="btn-legend" onclick="app.showLegend()"
-                        style="display:none; flex:1; border-color:var(--neon-r);">
-                        <span data-t="btn_legend">Read Legend</span>
-                    </button>
-                    <button class="btn" id="btn-next" onclick="app.nextTarget()" style="flex:1;">
-                        <span data-t="btn_next">Next Target</span>
-                    </button>
+                <div class="ic-body">
+                    <div id="c-body">Select a mode to begin.</div>
+                    <ul class="c-facts" id="c-facts"></ul>
+                    <div class="ic-quote" id="c-quote"></div>
                 </div>
             </div>
 
-            <!-- DOCK -->
+            <!-- Controls -->
+            <div class="btn-row" id="ctrls">
+                <button class="btn active" id="btn-auto" onclick="app.toggleAuto()"><span>⟳</span> <span id="txt-auto">Auto</span></button>
+                <button class="btn" onclick="app.nextTarget()"><span>→</span> <span id="txt-next">Next</span></button>
+                <button class="btn" onclick="app.openMap()"><span>↗</span> <span id="txt-map">Map</span></button>
+            </div>
+
+            <!-- Mode Dock -->
             <div class="dock">
-                <button class="dock-btn active" onclick="app.setMode('wonder')" data-t="mode_wonder">WONDER</button>
-                <button class="dock-btn" onclick="app.setMode('earth')" data-t="mode_earth">EARTH</button>
-                <button class="dock-btn" onclick="app.setMode('myth')" data-t="mode_myth">MYTH</button>
+                <button class="dock-item active" onclick="app.setMode('disc')" id="m-disc">DISCOVERY</button>
+                <button class="dock-item" onclick="app.setMode('geo')" id="m-geo">GEOMAG</button>
+                <button class="dock-item" onclick="app.setMode('whis')" id="m-whis">WHISPERS</button>
             </div>
         </div>
     </div>
 
-    <!-- LEGEND MODAL -->
-    <div id="modal-legend" class="modal">
-        <div class="glass modal-box">
-            <div class="flex-row" style="justify-content:space-between; margin-bottom:12px;">
-                <div class="badge warn">LOCAL LEGEND</div>
-                <div style="font-size:1.2rem; cursor:pointer;" onclick="app.closeLegend()">×</div>
-            </div>
-            <h2 id="leg-title" style="margin:0 0 8px 0; color:#fff;"></h2>
-            <p id="leg-body" style="color:var(--text-2); line-height:1.6; font-size:0.9rem; white-space:pre-line;"></p>
+    <!-- MODALS -->
+    <!-- Settings -->
+    <div id="modal-set" class="modal-wrap">
+        <div class="glass-panel modal-box">
+            <div class="m-title">SETTINGS</div>
+            <button class="btn" style="width:100%; margin-bottom:10px;" onclick="app.resetView()">RESET VIEW / SCALE</button>
+            <button class="btn" style="width:100%; margin-bottom:10px;" onclick="app.showHistory()">VIEW MEMORY TRAIL</button>
+            <button class="btn" style="width:100%; margin-top:20px; border-color:var(--wr-r); color:var(--wr-r)" onclick="app.toggleSettings()">CLOSE</button>
         </div>
     </div>
 
-    <script>
-        /**
-         * MAGIC COMPASS MK-II (Refined)
-         * Engineering: Advanced Sensor Fusion, Tilt Comp, Offline AI
-         */
+    <!-- History -->
+    <div id="modal-hist" class="modal-wrap">
+        <div class="glass-panel modal-box">
+            <div class="m-title">MEMORY TRAIL</div>
+            <div id="hist-list" style="max-height:300px; overflow-y:auto;"></div>
+            <button class="btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('modal-hist').classList.remove('show')">CLOSE</button>
+        </div>
+    </div>
 
-        // --- 1. LOCALIZATION & DATA ---
-        const DICT = {
-            en: {
-                perm_desc: "Compass MK-II requires sensor access for precision tracking.",
-                btn_start: "INITIALIZE SYSTEM",
-                gps_wait: "GPS WAIT",
-                gps_ok: "GPS LOCK",
-                mode_wonder: "WONDER",
-                mode_earth: "EARTH",
-                mode_myth: "MYTH",
-                btn_next: "Next Target",
-                btn_legend: "Read Local Legend",
-                lbl_head: "HEADING",
-                lbl_var: "VARIANCE",
-                calib_title: "CALIBRATION REQUIRED",
-                calib_desc: "Wave device in Figure-8",
-                tilt_warn: "Hold flat for accuracy",
-                lore_def: "Scanning archives...",
-                omen_0: "Atmosphere: Stable",
-                omen_1: "Atmosphere: Unsettled",
-                omen_2: "Atmosphere: DISTORTED",
-                omen_3: "Atmosphere: CRITICAL",
-                myth_flavor: "The veil is thin here."
-            },
-            th: {
-                perm_desc: "Compass MK-II ต้องการเข้าถึงเซนเซอร์เพื่อความแม่นยำ",
-                btn_start: "เริ่มระบบ",
-                gps_wait: "รอ GPS",
-                gps_ok: "GPS พร้อม",
-                mode_wonder: "สิ่งมหัศจรรย์",
-                mode_earth: "แม่เหล็กโลก",
-                mode_myth: "เรื่องลี้ลับ",
-                btn_next: "เปลี่ยนเป้าหมาย",
-                btn_legend: "อ่านตำนาน",
-                lbl_head: "ทิศหัวเครื่อง",
-                lbl_var: "ความผันผวน",
-                calib_title: "ต้องการการปรับเทียบ",
-                calib_desc: "หมุนเครื่องเป็นเลข 8",
-                tilt_warn: "วางเครื่องราบเพื่อความแม่นยำ",
-                lore_def: "กำลังค้นข้อมูล...",
-                omen_0: "บรรยากาศ: ปกติ",
-                omen_1: "บรรยากาศ: แปรปรวน",
-                omen_2: "บรรยากาศ: บิดเบี้ยว",
-                omen_3: "บรรยากาศ: อันตราย",
-                myth_flavor: "ม่านมิติที่นี่บางเบาเหลือเกิน"
-            }
+    <!-- Legend Reader -->
+    <div id="modal-read" class="modal-wrap">
+        <div class="glass-panel modal-box">
+            <div class="m-title" id="read-title">Legend</div>
+            <div class="m-body" id="read-body">...</div>
+            <div class="ic-quote" id="read-meta">Source: Local</div>
+            <button class="btn" style="width:100%; margin-top:15px;" onclick="document.getElementById('modal-read').classList.remove('show')">CLOSE</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * WIND ROSE (WR) | MK-II PRODUCTION ENGINE
+ * 
+ * Core Features:
+ * - Precision Sensor Fusion (iOS/Android)
+ * - Anti-Zoom Logic
+ * - Offline Intelligence (Lore/Folklore)
+ * - Solar Tracking
+ */
+
+/* --- 0. ANTI-ZOOM & GESTURE CONTROL --- */
+document.addEventListener('gesturestart', e => e.preventDefault());
+let lastTouch = 0;
+document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouch <= 300) e.preventDefault();
+    lastTouch = now;
+}, {passive: false});
+document.body.addEventListener('touchmove', e => { if(e.scale !== 1) e.preventDefault(); }, {passive: false});
+
+/* --- 1. I18N DICTIONARY --- */
+const DICT = {
+    en: {
+        gps_wait:"GPS WAIT", gps_lock:"GPS LOCK",
+        m_disc:"DISCOVERY", m_geo:"GEOMAG", m_whis:"WHISPERS",
+        t_auto:"Auto: ON", t_man:"Auto: OFF", t_next:"Next", t_map:"Map",
+        lore_load:"Accessing Wind Rose Archives...",
+        lbl_head:"HEADING", lbl_var:"VARIANCE", lbl_field:"FIELD",
+        warn_cal:"CALIBRATE (∞)", warn_tilt:"HOLD FLAT",
+        sun_track:"Sun Tracker Active",
+        err_mag:"Mag Sensor Offline",
+        omen_q:"SIGNAL SILENT", omen_r:"ETHER RIPPLE", omen_d:"DISTORTION", omen_p:"HIGH ANOMALY",
+        flav_q:"The wind is quiet here.", flav_a:"Shadows move on their own.",
+        read_btn:"Read Local Legend"
+    },
+    th: {
+        gps_wait:"รอ GPS...", gps_lock:"GPS พร้อม",
+        m_disc:"ค้นพบ", m_geo:"แม่เหล็ก", m_whis:"เรื่องเล่า",
+        t_auto:"ออโต้: เปิด", t_man:"ออโต้: ปิด", t_next:"ถัดไป", t_map:"แผนที่",
+        lore_load:"กำลังค้นข้อมูล...",
+        lbl_head:"ทิศหัวเครื่อง", lbl_var:"ความผันผวน", lbl_field:"สนามแม่เหล็ก",
+        warn_cal:"หมุนเลข 8 เพื่อจูน", warn_tilt:"วางเครื่องราบ",
+        sun_track:"ติดตามดวงอาทิตย์",
+        err_mag:"ไม่พบเซนเซอร์",
+        omen_q:"สัญญาณสงบ", omen_r:"คลื่นรบกวน", omen_d:"มิติบิดเบือน", omen_p:"อาถรรพ์รุนแรง",
+        flav_q:"ลมพัดเอื่อยๆ ไร้สิ่งผิดปกติ", flav_a:"เงาไม้ไหวเอนผิดธรรมชาติ",
+        read_btn:"อ่านตำนานพื้นที่"
+    }
+};
+
+/* --- 2. OFFLINE DATABASES --- */
+const WONDERS = [
+    {n:"Great Pyramid", lat:29.9792, lon:31.1342, en:{s:"Ancient Wonder", f:["Built 2560 BC", "True North aligned"], m:"A power plant?"}, th:{s:"สิ่งมหัศจรรย์โบราณ", f:["สร้าง 2560 ปีก่อนคริสต์", "ชี้ทิศเหนือจริง"], m:"โรงไฟฟ้าโบราณ?"}},
+    {n:"Stonehenge", lat:51.1789, lon:-1.8262, en:{s:"Stone Ring", f:["Solar aligned", "Heavy stones"], m:"Merlin's magic."}, th:{s:"วงล้อมหิน", f:["แนวแสงอาทิตย์", "หินหนักมาก"], m:"เวทมนตร์เมอร์ลิน"}},
+    {n:"Petra", lat:30.3285, lon:35.4444, en:{s:"Rose City", f:["Carved in rock", "Lost city"], m:"Djinn guard it."}, th:{s:"นครสีชมพู", f:["แกะสลักในหิน", "เมืองสาบสูญ"], m:"จินน์เฝ้าสมบัติ"}},
+    {n:"Great Wall", lat:40.4319, lon:116.5704, en:{s:"Stone Dragon", f:["21,196 km long", "Ancient defense"], m:"Bones in mortar."}, th:{s:"กำแพงเมืองจีน", f:["ยาว 2 หมื่นโล", "ป้องกันข้าศึก"], m:"กระดูกคนในปูน"}},
+    {n:"Taj Mahal", lat:27.1751, lon:78.0421, en:{s:"Marble Love", f:["Mausoleum", "Changes color"], m:"Black twin planned."}, th:{s:"อนุสรณ์รัก", f:["สุสานหินอ่อน", "เปลี่ยนสีได้"], m:"จะมีแฝดสีดำ"}}
+];
+
+const FOLK = [
+    {lat:13.75, lon:100.50, en:{t:"Temple Giants", b:"Giants fought here creating a clearing."}, th:{t:"ยักษ์วัดแจ้ง", b:"ยักษ์ตีกันจนที่ราบเตียน (ท่าเตียน)"}},
+    {lat:18.79, lon:98.98, en:{t:"Mountain Guardians", b:"Giants guard the sacred mountain."}, th:{t:"ปู่แสะย่าแสะ", b:"ยักษ์พิทักษ์ดอยสุเทพ"}},
+    {lat:14.35, lon:100.57, en:{t:"Buried Curse", b:"Spirits guard the old capital's gold."}, th:{t:"ปู่โสมเฝ้าทรัพย์", b:"วิญญาณเฝ้าสมบัติกรุงเก่า"}}
+];
+
+/* --- 3. CORE ENGINE --- */
+class WindRose {
+    constructor() {
+        this.lang = localStorage.getItem('wr_lang') || 'en';
+        this.mode = 'disc'; // disc, geo, whis
+        this.state = { idx:0, auto:true, decl:0, heading:0 };
+        this.gps = null; this.mag = [];
+        this.sensor = { head:0, tiltBad:false };
+        
+        // UI Cache
+        this.ui = {
+            ring: document.getElementById('ring'),
+            val: document.getElementById('val-head'),
+            lbl: document.getElementById('lbl-sub'),
+            warn: document.getElementById('warn-ui'),
+            nMain: document.getElementById('n-main'),
+            nSun: document.getElementById('n-sun'),
+            nTrue: document.getElementById('n-true'),
+            radar: document.getElementById('radar-ui'),
+            gps: document.getElementById('gps-badge')
         };
+        
+        this.applyLang();
+        this.loadHistory();
+    }
 
-        const WONDERS = [
-            {
-                n: { en: "Great Pyramid", th: "มหาพีระมิดกีซา" }, lat: 29.9792, lon: 31.1342,
-                d: { en: "Ancient tomb aligned to true north.", th: "สุสานโบราณที่หันทิศเหนือจริงเป๊ะ" },
-                f: { en: ["Built ~2560 BC", "2.3M stone blocks"], th: ["สร้างเมื่อ 2560 ปีก่อน ค.ศ.", "หิน 2.3 ล้านก้อน"] },
-                q: { en: "Man fears Time, Time fears the Pyramids.", th: "มนุษย์กลัวเวลา แต่เวลากลัวพีระมิด" }
-            },
-            {
-                n: { en: "Machu Picchu", th: "มาชูปิกชู" }, lat: -13.1631, lon: -72.5450,
-                d: { en: "Inca city in the clouds.", th: "นครอินคาลอยฟ้าในม่านเมฆ" },
-                f: { en: ["Hidden for centuries", "No mortar used"], th: ["ซ่อนเร้นนับศตวรรษ", "ไม่ใช้ปูนก่อสร้าง"] },
-                q: { en: "The hitching post of the sun.", th: "เสาที่ผูกดวงอาทิตย์ไว้กับโลก" }
-            },
-            {
-                n: { en: "Stonehenge", th: "สโตนเฮนจ์" }, lat: 51.1789, lon: -1.8262,
-                d: { en: "Prehistoric stone circle.", th: "วงล้อมหินปริศนายุคก่อนประวัติศาสตร์" },
-                f: { en: ["Solar alignment", "Stones from Wales"], th: ["ตรงกับแนวสุริยะ", "หินมาจากเวลส์"] },
-                q: { en: "A calendar of stone and shadow.", th: "ปฏิทินแห่งหินและเงา" }
-            },
-            {
-                n: { en: "Angkor Wat", th: "นครวัด" }, lat: 13.4125, lon: 103.8670,
-                d: { en: "Largest religious monument.", th: "ศาสนสถานตระการตาแห่งเขมร" },
-                f: { en: ["Hindu then Buddhist", "Moat represents ocean"], th: ["ฮินดูสู่พุทธ", "คูน้ำแทนมหาสมุทร"] },
-                q: { en: "Heaven on Earth.", th: "สวรรค์บนดินที่สาบสูญ" }
-            },
-            {
-                n: { en: "Bermuda Triangle", th: "สามเหลี่ยมเบอร์มิวดา" }, lat: 25.0000, lon: -71.0000,
-                d: { en: "The Devil's Triangle.", th: "น่านน้ำอาถรรพ์ที่เรือหายสาบสูญ" },
-                f: { en: ["Magnetic anomalies", "Methane hydrates"], th: ["สนามแม่เหล็กแปรปรวน", "ก๊าซมีเทนใต้ทะเล"] },
-                q: { en: "Compass spins wild here.", th: "เข็มทิศหมุนวนอย่างบ้าคลั่ง" }
-            }
-        ];
-
-        const FOLK_DB = [
-            { lat: 13.7, lon: 100.5, r: 50, en: { t: "The Palace Giants", b: "At night, the guardian giants shift their stance." }, th: { t: "ยักษ์วัดพระแก้ว", b: "ตกดึกยักษ์ทวารบาลจะขยับเปลี่ยนท่าแก้เมื่อย" } },
-            { lat: 18.7, lon: 98.9, r: 50, en: { t: "Doi Suthep Guardian", b: "A hermit spirit walks the pilgrim path." }, th: { t: "ปู่แสะย่าแสะ", b: "วิญญาณบรรพชนยังคงเดินตรวจตราป่าเขา" } },
-            { lat: 0, lon: 0, r: 99999, en: { t: "The Crossroads", b: "Spirits gather where paths meet. Don't whistle at night." }, th: { t: "ทางสามแพร่ง", b: "วิญญาณมักชุมนุมตรงทางแยก อย่าผิวปากตอนกลางคืน" } }
-        ];
-
-        // --- 2. SENSOR FUSION ENGINE ---
-        class SensorEngine {
-            constructor() {
-                this.head = 0; // Fused Heading
-                this.tilt = { beta: 0, gamma: 0 };
-                this.gps = { lat: null, lon: null };
-                this.magVar = 0; // Magnetic Variance (Anomaly)
-                this.acc = 0; // Accuracy (0-360)
-                this.jitter = 0;
-                this.history = [];
-                this.listeners = {};
-            }
-
-            async init() {
-                // Update UI to Waiting
-                document.getElementById('chk-gps').className = 'status-dot wait';
-                document.getElementById('chk-gyro').className = 'status-dot wait';
-                document.getElementById('chk-mag').className = 'status-dot wait';
-
-                // 1. GPS
-                if ('geolocation' in navigator) {
-                    navigator.geolocation.watchPosition(
-                        p => {
-                            this.gps = { lat: p.coords.latitude, lon: p.coords.longitude };
-                            document.getElementById('chk-gps').className = 'status-dot ok';
-                            this.emit('gps');
-                        },
-                        e => {
-                            console.warn('GPS Error', e);
-                            document.getElementById('chk-gps').className = 'status-dot err';
-                        },
-                        { enableHighAccuracy: true }
-                    );
-                }
-
-                // 2. COMPASS
-                const isIOS = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
-
-                if (isIOS) {
-                    const perm = await DeviceOrientationEvent.requestPermission();
-                    if (perm === 'granted') {
-                        window.addEventListener('deviceorientation', e => this.handleIOS(e));
-                        document.getElementById('chk-gyro').className = 'status-dot ok';
-                        document.getElementById('chk-mag').className = 'status-dot ok'; // Simulated on iOS
-                    } else {
-                        document.getElementById('chk-gyro').className = 'status-dot err';
-                    }
-                } else {
-                    // Android: Priority deviceorientationabsolute
-                    if ('ondeviceorientationabsolute' in window) {
-                        window.addEventListener('deviceorientationabsolute', e => this.handleAndroid(e, true));
-                        document.getElementById('chk-gyro').className = 'status-dot ok';
-                        document.getElementById('chk-mag').className = 'status-dot ok';
-                    } else {
-                        window.addEventListener('deviceorientation', e => this.handleAndroid(e, false));
-                        document.getElementById('chk-gyro').className = 'status-dot ok';
-                        document.getElementById('chk-mag').className = 'status-dot wait'; // Might be erratic
-                    }
-                }
-            }
-
-            handleIOS(e) {
-                if (e.webkitCompassHeading) {
-                    this.head = e.webkitCompassHeading;
-                    this.acc = e.webkitCompassAccuracy || 0;
-                    this.tilt = { beta: e.beta, gamma: e.gamma };
-                    this.updateJitter(this.head);
-                    this.emit('heading');
-                }
-            }
-
-            handleAndroid(e, isAbs) {
-                let alpha = e.alpha;
-                let beta = e.beta;
-                let gamma = e.gamma;
-
-                // Tilt Compensation Fallback (Simplified)
-                // If not absolute, we try to use raw alpha but warn user
-                if (!isAbs && !e.absolute) {
-                    // Fallback: Just use raw alpha, maybe drift
-                    this.acc = -1;
-                } else {
-                    this.acc = e.absolute ? 10 : 50;
-                }
-
-                // Screen Orientation Compensation
-                const screenOr = window.screen.orientation ? window.screen.orientation.angle : window.orientation || 0;
-
-                // Basic correction
-                let compass = alpha;
-                if (isAbs) {
-                    compass = 360 - alpha; // Android absolute is counter-clockwise usually
-                }
-
-                compass -= screenOr;
-                compass = (compass + 360) % 360;
-
-                this.head = compass;
-                this.tilt = { beta, gamma };
-                this.updateJitter(this.head);
-                this.emit('heading');
-            }
-
-            updateJitter(val) {
-                this.history.push(val);
-                if (this.history.length > 10) this.history.shift();
-
-                // Calculate Std Dev
-                if (this.history.length > 2) {
-                    const mean = this.history.reduce((a, b) => a + b, 0) / this.history.length;
-                    // Handle wrap-around for variance calc (0 vs 360)
-                    const v = this.history.reduce((a, b) => {
-                        let d = Math.abs(b - mean);
-                        if (d > 180) d = 360 - d;
-                        return a + d * d;
-                    }, 0) / this.history.length;
-                    this.jitter = Math.sqrt(v);
-                    this.magVar = this.jitter; // Use jitter as anomaly proxy
-                }
-            }
-
-            on(ev, cb) { this.listeners[ev] = cb; }
-            emit(ev) { if (this.listeners[ev]) this.listeners[ev](); }
+    async init() {
+        // GPS
+        if(navigator.geolocation) {
+            navigator.geolocation.watchPosition(p => {
+                this.gps = p.coords;
+                this.ui.gps.innerText = this.t('gps_lock');
+                this.ui.gps.classList.add('active');
+                document.getElementById('chk-gps').innerText = "OK"; document.getElementById('chk-gps').style.color="#4ade80";
+                if(this.state.auto) this.findNearest();
+                this.checkIn();
+            }, e => {}, {enableHighAccuracy:true});
         }
 
-        // --- 3. APP LOGIC ---
-        class App {
-            constructor() {
-                this.lang = localStorage.getItem('lang') || (navigator.language.startsWith('th') ? 'th' : 'en');
-                this.mode = 'wonder';
-                this.sensor = new SensorEngine();
-                this.targetIdx = 0;
-                this.smoothHead = 0;
-
-                // Scope Canvas
-                this.scopeCtx = document.getElementById('scope-cvs').getContext('2d');
-                this.scopeData = new Array(50).fill(0);
-            }
-
-            async init() {
+        // Sensors
+        if (window.DeviceOrientationEvent?.requestPermission) {
+            const r = await DeviceOrientationEvent.requestPermission();
+            if(r==='granted') window.addEventListener('deviceorientation', e => this.handleIOS(e));
+        } else {
+            const h = e => this.handleDroid(e, e.absolute);
+            if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', e => h(e,true));
+            else window.addEventListener('deviceorientation', e => h(e,false));
+            
+            if('Magnetometer' in window) {
                 try {
-                    await this.sensor.init();
-                    document.getElementById('overlay').classList.add('hidden');
-                    document.getElementById('app').classList.remove('hidden');
-                    this.sensor.on('gps', () => this.onGPS());
-                    this.sensor.on('heading', () => this.onHeading());
-                    this.loop();
-                    this.updateTexts();
-                } catch (e) {
-                    alert("Sensors Blocked. Please allow permissions.");
-                }
-            }
-
-            toggleLang() {
-                this.lang = this.lang === 'en' ? 'th' : 'en';
-                localStorage.setItem('lang', this.lang);
-                document.getElementById('btn-lang').innerText = this.lang.toUpperCase();
-                this.updateTexts();
-                this.updateCard();
-            }
-
-            t(key) { return DICT[this.lang][key] || key; }
-
-            updateTexts() {
-                document.querySelectorAll('[data-t]').forEach(el => {
-                    el.innerText = this.t(el.dataset.t);
-                });
-            }
-
-            setMode(m) {
-                this.mode = m;
-                document.querySelectorAll('.dock-btn').forEach(b => b.classList.remove('active'));
-                event.target.classList.add('active');
-
-                const card = document.getElementById('main-card');
-                const ghost = document.getElementById('ghost-ui');
-                const nWonder = document.getElementById('n-wonder');
-                const btnLegend = document.getElementById('btn-legend');
-                const btnNext = document.getElementById('btn-next');
-
-                card.className = `glass card ${m}`;
-                ghost.style.display = 'none';
-                nWonder.style.opacity = 1;
-                btnLegend.style.display = 'none';
-                btnNext.style.display = 'block';
-
-                if (m === 'wonder') {
-                    this.updateCard();
-                } else if (m === 'earth') {
-                    document.getElementById('c-title').innerText = this.t('mode_earth');
-                    document.getElementById('c-meta').innerText = "MAGNETIC FIELD";
-                    document.getElementById('c-desc').innerText = "Tracking True North vs Magnetic North.";
-                    document.getElementById('c-facts').innerHTML = "";
-                    document.getElementById('c-quote').innerText = "";
-                    nWonder.style.opacity = 0;
-                } else if (m === 'myth') {
-                    ghost.style.display = 'block';
-                    document.getElementById('c-title').innerText = this.t('mode_myth');
-                    document.getElementById('c-meta').innerText = "ANOMALY DETECTOR";
-                    document.getElementById('c-facts').innerHTML = "";
-                    document.getElementById('c-quote').innerText = this.t('myth_flavor');
-                    btnLegend.style.display = 'block';
-                    btnNext.style.display = 'none';
-                }
-            }
-
-            onGPS() {
-                document.getElementById('gps-badge').innerText = this.t('gps_ok');
-                document.getElementById('gps-badge').classList.add('ok');
-                if (this.mode === 'wonder') this.findNearest();
-            }
-
-            findNearest() {
-                if (!this.sensor.gps.lat) return;
-                let min = Infinity;
-                WONDERS.forEach((w, i) => {
-                    const d = this.dist(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon);
-                    if (d < min) { min = d; this.targetIdx = i; }
-                });
-                this.updateCard();
-            }
-
-            updateCard() {
-                if (this.mode !== 'wonder') return;
-                const w = WONDERS[this.targetIdx];
-                const d = this.sensor.gps.lat ? this.dist(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon) : 0;
-
-                document.getElementById('c-title').innerText = w.n[this.lang];
-                document.getElementById('c-meta').innerText = d.toFixed(0) + " KM";
-                document.getElementById('c-desc').innerText = w.d[this.lang];
-                document.getElementById('c-facts').innerHTML = w.f[this.lang].map(f => `<li>${f}</li>`).join('');
-                document.getElementById('c-quote').innerText = `"${w.q[this.lang]}"`;
-            }
-
-            nextTarget() {
-                this.targetIdx = (this.targetIdx + 1) % WONDERS.length;
-                this.updateCard();
-            }
-
-            onHeading() {
-                // Calibration Check
-                const calib = document.getElementById('calib-overlay');
-                if (this.sensor.acc !== -1 && this.sensor.acc < 15) {
-                    calib.style.display = 'flex';
-                } else {
-                    calib.style.display = 'none';
-                }
-
-                // Tilt Warning
-                const tilt = document.getElementById('tilt-warn');
-                if (Math.abs(this.sensor.tilt.beta) > 45 || Math.abs(this.sensor.tilt.gamma) > 45) {
-                    tilt.style.display = 'block';
-                } else {
-                    tilt.style.display = 'none';
-                }
-
-                document.getElementById('acc-badge').innerText = `±${Math.round(this.sensor.acc)}°`;
-
-                // Jitter Glow
-                const ring = document.getElementById('orb-ring');
-                if (this.sensor.jitter > 5) ring.classList.add('jitter');
-                else ring.classList.remove('jitter');
-            }
-
-            loop() {
-                requestAnimationFrame(() => this.loop());
-
-                // 1. Smooth Heading (LPF)
-                let h = this.sensor.head;
-                let diff = h - this.smoothHead;
-                if (diff > 180) diff -= 360;
-                if (diff < -180) diff += 360;
-                this.smoothHead += diff * 0.15; // Smooth factor
-
-                // 2. Rotate Ring (Opposite to heading)
-                const ring = document.getElementById('orb-ring');
-                ring.style.transform = `rotate(${-this.smoothHead}deg)`;
-
-                // 3. Update HUD
-                document.getElementById('val-head').innerText = Math.round(this.sensor.head).toString().padStart(3, '0') + "°";
-
-                // 4. Target Needle
-                if (this.mode === 'wonder') {
-                    const w = WONDERS[this.targetIdx];
-                    if (this.sensor.gps.lat) {
-                        const bear = this.bearing(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon);
-                        document.getElementById('n-wonder').style.transform = `rotate(${bear}deg)`;
-                    }
-                } else if (this.mode === 'myth') {
-                    // Glitchy Needle
-                    const noise = (Math.random() - 0.5) * this.sensor.magVar * 5;
-                    document.getElementById('n-wonder').style.transform = `rotate(${this.sensor.head + noise}deg)`;
-                    this.updateScope();
-                }
-            }
-
-            updateScope() {
-                // Draw Sparkline
-                this.scopeData.push(this.sensor.magVar);
-                this.scopeData.shift();
-
-                const ctx = this.scopeCtx;
-                const w = ctx.canvas.width = 100;
-                const h = ctx.canvas.height = 40;
-
-                ctx.clearRect(0, 0, w, h);
-                ctx.beginPath();
-                ctx.strokeStyle = '#f43f5e';
-                ctx.lineWidth = 2;
-
-                this.scopeData.forEach((v, i) => {
-                    const x = (i / 50) * w;
-                    const y = h - (v * 5);
-                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
-
-                // Omen Text
-                const lvl = Math.min(3, Math.floor(this.sensor.magVar));
-                if (this.mode === 'myth') {
-                    document.getElementById('c-desc').innerText = this.t('omen_' + lvl);
-                    document.getElementById('c-desc').style.color = lvl > 1 ? 'var(--neon-r)' : 'var(--text-2)';
-                }
-            }
-
-            // --- MATH UTILS ---
-            dist(lat1, lon1, lat2, lon2) {
-                const R = 6371;
-                const dLat = (lat2 - lat1) * Math.PI / 180;
-                const dLon = (lon2 - lon1) * Math.PI / 180;
-                const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            }
-
-            bearing(lat1, lon1, lat2, lon2) {
-                const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
-                const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) - Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
-                return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            }
-
-            showLegend() {
-                if (!this.sensor.gps.lat) return;
-                let min = Infinity; let story = FOLK_DB[2]; // Default
-                FOLK_DB.forEach(s => {
-                    const d = this.dist(this.sensor.gps.lat, this.sensor.gps.lon, s.lat, s.lon);
-                    if (d < min) { min = d; story = s; }
-                });
-
-                document.getElementById('leg-title').innerText = story[this.lang].t;
-                document.getElementById('leg-body').innerText = story[this.lang].b;
-                document.getElementById('modal-legend').classList.add('show');
-            }
-
-            closeLegend() {
-                document.getElementById('modal-legend').classList.remove('show');
+                    const m = new Magnetometer({frequency:10});
+                    m.addEventListener('reading', () => this.handleMag(m));
+                    m.start();
+                    document.getElementById('chk-mag').innerText = "OK";
+                } catch(e){}
             }
         }
+        
+        document.getElementById('chk-gyro').innerText = "OK"; document.getElementById('chk-gyro').style.color="#4ade80";
+        
+        // Start Loop
+        this.loop();
+        this.updCard();
+    }
 
-        const app = new App();
-    </script>
+    /* --- SENSOR LOGIC --- */
+    handleIOS(e) {
+        if(e.webkitCompassHeading) {
+            this.sensor.head = (e.webkitCompassHeading + (window.screen.orientation?.angle||0)) % 360;
+            this.sensor.tiltBad = Math.abs(e.beta)>50;
+        }
+    }
+    handleDroid(e, abs) {
+        if(abs && e.alpha!=null) {
+            this.sensor.head = (360 - e.alpha - (window.screen.orientation?.angle||0) + 360) % 360;
+            this.sensor.tiltBad = Math.abs(e.beta)>50;
+        } else if(e.alpha!=null) {
+            this.sensor.head = 360 - e.alpha; // Fallback
+        }
+    }
+    handleMag(m) {
+        const v = Math.sqrt(m.x**2 + m.y**2 + m.z**2);
+        this.mag.push(v); if(this.mag.length>50) this.mag.shift();
+    }
+
+    /* --- APP LOGIC --- */
+    loop() {
+        requestAnimationFrame(() => this.loop());
+        
+        // Smooth Heading
+        let d = this.sensor.head - this.state.heading;
+        if(d > 180) d -= 360; if(d < -180) d += 360;
+        this.state.heading += d * 0.15;
+        
+        // Render Ring
+        this.ui.ring.style.transform = `rotate(${-this.state.heading}deg)`;
+        this.ui.val.innerText = Math.round(this.state.heading).toString().padStart(3,'0') + "°";
+        
+        // Warnings
+        if(this.sensor.tiltBad) {
+            this.ui.warn.innerText = this.t('warn_tilt'); this.ui.warn.classList.add('show');
+        } else {
+            this.ui.warn.classList.remove('show');
+        }
+
+        // Mode Specifics
+        if(this.mode === 'disc' && this.gps) {
+            const w = WONDERS[this.state.idx];
+            const b = this.bearing(this.gps.latitude, this.gps.longitude, w.lat, w.lon);
+            this.ui.nMain.style.transform = `translateX(-50%) rotate(${b}deg)`;
+        } else if (this.mode === 'geo') {
+            // Sun Logic (Approx)
+            const now = new Date();
+            const hours = now.getHours() + now.getMinutes()/60;
+            // Very rough approximation of sun azimuth based on time (No complex astro lib)
+            // Noon = South (180) in N Hemisphere. 
+            const sunAz = (hours - 12) * 15 + 180; 
+            this.ui.nSun.style.transform = `translateX(-50%) rotate(${sunAz}deg)`;
+            this.ui.nSun.style.opacity = (hours > 6 && hours < 18) ? 1 : 0.2;
+        } else if (this.mode === 'whis') {
+            // Glitch Needle
+            const noise = (Math.random()-0.5) * 10 * this.getAnomalyLevel();
+            this.ui.nMain.style.transform = `translateX(-50%) rotate(${this.state.heading + noise}deg)`;
+            
+            // Radar Blips
+            if(Math.random() < (this.getAnomalyLevel() * 0.05)) this.spawnBlip();
+            
+            // Haptics
+            if(this.getAnomalyLevel() > 2 && navigator.vibrate) navigator.vibrate(50);
+        }
+    }
+
+    /* --- UTILS --- */
+    bearing(lat1,lon1,lat2,lon2) {
+        const r = Math.PI/180;
+        const y = Math.sin((lon2-lon1)*r) * Math.cos(lat2*r);
+        const x = Math.cos(lat1*r)*Math.sin(lat2*r) - Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lon2-lon1)*r);
+        return (Math.atan2(y,x) * 180/Math.PI + 360) % 360;
+    }
+    
+    dist(lat1,lon1,lat2,lon2) {
+        const R = 6371; const p = Math.PI/180;
+        const a = 0.5 - Math.cos((lat2-lat1)*p)/2 + Math.cos(lat1*p) * Math.cos(lat2*p) * (1-Math.cos((lon2-lon1)*p))/2;
+        return 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    getAnomalyLevel() {
+        // Deterministic Chaos
+        if(!this.gps) return 0;
+        const seed = this.gps.latitude + this.gps.longitude + Math.floor(Date.now()/10000);
+        return Math.abs(Math.sin(seed * 100)) * 3; 
+    }
+
+    /* --- UI CONTROLLER --- */
+    setMode(m) {
+        this.mode = m;
+        document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('m-'+m).classList.add('active');
+        
+        // Visibility Toggles
+        this.ui.nMain.style.display = (m=='disc'||m=='whis') ? 'block' : 'none';
+        this.ui.nSun.style.display = (m=='geo') ? 'block' : 'none';
+        this.ui.nTrue.style.display = (m=='geo') ? 'block' : 'none';
+        this.ui.radar.style.display = (m=='whis') ? 'block' : 'none';
+        document.getElementById('ctrls').style.display = (m=='disc') ? 'grid' : 'none';
+        
+        this.updCard();
+    }
+
+    updCard() {
+        const title = document.getElementById('c-title');
+        const body = document.getElementById('c-body');
+        const facts = document.getElementById('c-facts');
+        const quote = document.getElementById('c-quote');
+        const dist = document.getElementById('c-dist');
+        
+        facts.innerHTML = ''; quote.innerText = ''; dist.innerText = '';
+
+        if(this.mode === 'disc') {
+            const w = WONDERS[this.state.idx];
+            const d = WONDERS[this.state.idx][this.lang];
+            title.innerText = w.n;
+            body.innerText = d.s;
+            d.f.forEach(f => facts.innerHTML += `<li>${f}</li>`);
+            quote.innerText = d.m;
+            if(this.gps) {
+                const km = this.dist(this.gps.latitude, this.gps.longitude, w.lat, w.lon);
+                dist.innerText = km < 1 ? (km*1000).toFixed(0)+"m" : km.toFixed(0)+"km";
+            }
+        } else if (this.mode === 'geo') {
+            title.innerText = "GEOMAGNETIC";
+            body.innerText = this.t('sun_track');
+            quote.innerText = "Yellow: Sun Azimuth | Blue: True North";
+        } else {
+            const lvl = Math.floor(this.getAnomalyLevel());
+            const codes = ['q','r','d','p'];
+            title.innerText = this.t('omen_'+codes[lvl]);
+            title.style.color = lvl > 2 ? 'var(--wr-r)' : '#fff';
+            body.innerText = this.t(lvl>0 ? 'flav_a' : 'flav_q');
+            
+            // Add Read Legend Button
+            facts.innerHTML = `<button class="btn" style="width:100%; margin-top:10px;" onclick="app.readFolk()">${this.t('read_btn')}</button>`;
+        }
+    }
+
+    findNearest() {
+        if(!this.gps) return;
+        let min = Infinity; let idx = 0;
+        WONDERS.forEach((w, i) => {
+            const d = this.dist(this.gps.latitude, this.gps.longitude, w.lat, w.lon);
+            if(d < min) { min = d; idx = i; }
+        });
+        if(this.state.idx !== idx) { this.state.idx = idx; this.updCard(); }
+    }
+
+    nextTarget() {
+        this.state.auto = false;
+        document.getElementById('txt-auto').innerText = this.t('t_man');
+        document.getElementById('btn-auto').classList.remove('active');
+        this.state.idx = (this.state.idx + 1) % WONDERS.length;
+        this.updCard();
+    }
+
+    toggleAuto() {
+        this.state.auto = !this.state.auto;
+        document.getElementById('txt-auto').innerText = this.t(this.state.auto ? 't_auto' : 't_man');
+        document.getElementById('btn-auto').classList.toggle('active');
+        if(this.state.auto) this.findNearest();
+    }
+
+    spawnBlip() {
+        const b = document.createElement('div'); b.className = 'blip';
+        const a = Math.random()*6.28; const r = 10 + Math.random()*40;
+        b.style.left = (50 + Math.cos(a)*r) + '%'; b.style.top = (50 + Math.sin(a)*r) + '%';
+        document.querySelector('.radar-sweep').after(b);
+        setTimeout(() => b.remove(), 2000);
+    }
+
+    readFolk() {
+        if(!this.gps) return alert("Wait for GPS");
+        let min = Infinity; let s = FOLK[0];
+        FOLK.forEach(f => {
+            const d = this.dist(this.gps.latitude, this.gps.longitude, f.lat, f.lon);
+            if(d < min) { min = d; s = f; }
+        });
+        const t = s[this.lang];
+        document.getElementById('read-title').innerText = t.t;
+        document.getElementById('read-body').innerText = t.b;
+        document.getElementById('read-meta').innerText = `Dist: ${min.toFixed(1)}km`;
+        document.getElementById('modal-read').classList.add('show');
+        document.getElementById('modal-read').style.pointerEvents = 'auto';
+    }
+
+    /* --- SYSTEM & HELPERS --- */
+    toggleDiag() {
+        document.getElementById('sys-panel').classList.toggle('open');
+    }
+    
+    t(k) { return DICT[this.lang][k] || k; }
+    
+    applyLang() {
+        document.getElementById('lbl-lang').innerText = this.lang.toUpperCase();
+        document.querySelectorAll('[data-t]').forEach(el => el.innerText = this.t(el.dataset.t));
+        this.updCard();
+    }
+    
+    toggleLang() {
+        this.lang = this.lang === 'en' ? 'th' : 'en';
+        localStorage.setItem('wr_lang', this.lang);
+        this.applyLang();
+    }
+
+    checkIn() {
+        if(!this.gps) return;
+        const hist = JSON.parse(localStorage.getItem('wr_hist') || '[]');
+        const now = new Date().toLocaleTimeString();
+        // Simple dedup
+        if(hist.length > 0 && Math.abs(hist[0].lat - this.gps.latitude) < 0.001) return;
+        
+        hist.unshift({lat:this.gps.latitude, lon:this.gps.longitude, t:now, m:this.mode});
+        if(hist.length > 10) hist.pop();
+        localStorage.setItem('wr_hist', JSON.stringify(hist));
+    }
+
+    loadHistory() {
+        // Just prep logic, modal opens via button
+    }
+
+    showHistory() {
+        const hist = JSON.parse(localStorage.getItem('wr_hist') || '[]');
+        const list = document.getElementById('hist-list');
+        list.innerHTML = '';
+        hist.forEach(h => {
+            list.innerHTML += `<div class="hist-item"><div>${h.m.toUpperCase()} @ ${h.lat.toFixed(4)},${h.lon.toFixed(4)}</div><div class="hist-time">${h.t}</div></div>`;
+        });
+        document.getElementById('modal-hist').classList.add('show');
+        document.getElementById('modal-hist').style.pointerEvents = 'auto';
+    }
+
+    toggleSettings() {
+        const m = document.getElementById('modal-set');
+        m.classList.toggle('show');
+        m.style.pointerEvents = m.classList.contains('show') ? 'auto' : 'none';
+    }
+
+    resetView() {
+        document.body.style.zoom = 1.0;
+        window.scrollTo(0,0);
+        this.toggleSettings();
+    }
+}
+
+/* --- BOOTSTRAP --- */
+const app = new WindRose();
+
+document.getElementById('btn-init').addEventListener('click', () => {
+    app.init().then(() => {
+        document.getElementById('overlay').classList.add('fade-out');
+        setTimeout(() => {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('app').classList.add('visible');
+        }, 800);
+    }).catch(() => alert("Sensors required. Check permissions."));
+});
+
+</script>
 </body>
-
 </html>
