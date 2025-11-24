@@ -3,75 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MAGIC COMPASS | OMNI-LORE</title>
+    <title>MAGIC COMPASS | PRO</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#050508">
 
     <style>
         /* ------------------------------------------------------------------
-           THEME: ECHOMIND PURPLE NEON GLASS
+           DESIGN SYSTEM: ECHO-MIND PURPLE NEON GLASS
            ------------------------------------------------------------------ */
         :root {
             --bg-dark: #050508;
-            --bg-grad: linear-gradient(170deg, #0a0a12 0%, #1a103c 40%, #2d1b4e 100%);
+            --bg-grad: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f0c29 60%, #000000 100%);
             
             /* Glass Surface */
-            --glass-surf: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --glass-shine: rgba(255, 255, 255, 0.15);
-            --blur-px: 20px;
+            --glass-base: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.12);
+            --blur: 24px;
 
             /* Neon Accents */
             --neon-p: #d946ef; /* Purple */
             --neon-b: #60a5fa; /* Blue */
-            --neon-r: #f43f5e; /* Red/Rose */
-            --neon-g: #34d399; /* Green/Teal */
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-
-            --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
-            --font-mono: "SF Mono", "Menlo", monospace;
+            --neon-r: #f43f5e; /* Rose */
+            --neon-g: #34d399; /* Emerald */
             
+            /* Typography */
+            --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            --font-mono: "SF Mono", "Menlo", monospace;
+            --text-1: #ffffff;
+            --text-2: #94a3b8;
+
             --safe-top: env(safe-area-inset-top, 20px);
             --safe-bot: env(safe-area-inset-bottom, 20px);
+            --ease-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-        
+
         body {
             margin: 0; padding: 0;
             background: var(--bg-dark); background-image: var(--bg-grad);
-            color: var(--text-main); font-family: var(--font-ui);
+            color: var(--text-1); font-family: var(--font-main);
             height: 100vh; width: 100vw; overflow: hidden;
             display: flex; flex-direction: column;
         }
 
-        /* BACKGROUND FX */
-        .orb-bg {
-            position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.3; z-index: 0;
-            animation: drift 15s infinite alternate ease-in-out;
+        /* ANIMATED BACKGROUND ORBS */
+        .bg-orb {
+            position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; z-index: 0;
+            animation: float 15s infinite alternate ease-in-out;
         }
         .orb-1 { width: 300px; height: 300px; background: var(--neon-p); top: -10%; left: -20%; }
         .orb-2 { width: 250px; height: 250px; background: var(--neon-b); bottom: 10%; right: -10%; animation-delay: -5s; }
-        @keyframes drift { 0% { transform: translate(0,0); } 100% { transform: translate(20px, 40px); } }
+        @keyframes float { 0% { transform: translate(0,0); } 100% { transform: translate(20px, 30px); } }
 
         /* UTILS */
         .hidden { display: none !important; }
-        .flex-col { display: flex; flex-direction: column; }
-        .flex-row { display: flex; align-items: center; }
-        .glass-panel {
-            background: var(--glass-surf);
-            backdrop-filter: blur(var(--blur-px)); -webkit-backdrop-filter: blur(var(--blur-px));
+        .glass-card {
+            background: var(--glass-base);
+            backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
             border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border-radius: 28px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
-        .text-glow { text-shadow: 0 0 12px rgba(217, 70, 239, 0.4); }
         .mono { font-family: var(--font-mono); }
+        .text-neon { text-shadow: 0 0 12px var(--neon-p); color: var(--neon-p); }
+        .flex-row { display: flex; align-items: center; gap: 10px; }
+        .flex-col { display: flex; flex-direction: column; gap: 8px; }
 
-        /* --- LAYOUT --- */
-        #app {
+        /* --- APP LAYOUT --- */
+        #app-ui {
             position: relative; z-index: 10; flex: 1;
             display: flex; flex-direction: column;
             padding: var(--safe-top) 16px calc(var(--safe-bot) + 10px) 16px;
@@ -79,325 +81,385 @@
         }
 
         /* HEADER */
-        .header { justify-content: space-between; height: 44px; padding: 0 4px; }
-        .brand { font-weight: 700; font-size: 1.1rem; letter-spacing: 1px; color: var(--text-main); }
-        .status-badge {
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            height: 44px; padding: 0 4px;
+        }
+        .app-logo { font-weight: 800; letter-spacing: 1px; font-size: 1.1rem; display: flex; align-items: center; gap: 6px; }
+        .lang-btn {
+            background: var(--glass-border); border: 1px solid var(--glass-highlight);
+            color: var(--text-2); padding: 6px 12px; border-radius: 16px;
+            font-size: 0.75rem; font-weight: 700; cursor: pointer;
+        }
+        .gps-badge {
             font-size: 0.65rem; padding: 4px 10px; border-radius: 20px;
-            background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);
-            color: var(--text-muted); font-weight: 600; transition: all 0.3s;
+            background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+            color: var(--text-2); transition: 0.3s;
         }
-        .status-badge.active { border-color: var(--neon-g); color: var(--neon-g); box-shadow: 0 0 8px rgba(52, 211, 153, 0.2); }
+        .gps-badge.active { border-color: var(--neon-g); color: var(--neon-g); box-shadow: 0 0 8px rgba(52, 211, 153, 0.2); }
 
-        /* COMPASS CORE */
-        .compass-core {
+        /* COMPASS ORB */
+        .compass-stage {
             flex: 1; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            position: relative; min-height: 260px;
+            align-items: center; justify-content: center; position: relative;
+            min-height: 280px;
         }
-        
-        .ring {
+        .orb-ring {
             width: 260px; height: 260px; border-radius: 50%;
             border: 1px solid var(--glass-border); position: relative;
-            box-shadow: 0 0 50px rgba(139, 92, 246, 0.1);
-            transition: transform 0.1s linear;
+            box-shadow: 0 0 40px rgba(217, 70, 239, 0.1);
+            transition: transform 0.1s linear; /* Updated by JS */
         }
-        /* Ticks via gradient */
-        .ring::before {
+        /* Conic Gradient Ticks */
+        .orb-ring::after {
             content: ''; position: absolute; inset: 0; border-radius: 50%;
             background: conic-gradient(
-                var(--glass-border) 0deg 1deg, transparent 1deg 89deg,
-                var(--glass-border) 90deg 91deg, transparent 91deg 179deg,
-                var(--glass-border) 180deg 181deg, transparent 181deg 269deg,
-                var(--glass-border) 270deg 271deg, transparent 271deg 359deg
+                var(--glass-highlight) 0deg 1deg, transparent 1deg 89deg,
+                var(--glass-highlight) 90deg 91deg, transparent 91deg 179deg,
+                var(--glass-highlight) 180deg 181deg, transparent 181deg 269deg,
+                var(--glass-highlight) 270deg 271deg, transparent 271deg 359deg
             );
         }
-
-        .cardinal { position: absolute; font-weight: 700; font-size: 0.8rem; color: var(--text-muted); }
-        .c-n { top: 8px; left: 50%; transform: translateX(-50%); color: var(--neon-p); }
+        .cardinal { position: absolute; font-weight: 700; font-size: 0.85rem; color: var(--text-2); }
+        .c-n { top: 10px; left: 50%; transform: translateX(-50%); color: var(--neon-p); }
         .c-e { right: 12px; top: 50%; transform: translateY(-50%); }
-        .c-s { bottom: 8px; left: 50%; transform: translateX(-50%); }
+        .c-s { bottom: 10px; left: 50%; transform: translateX(-50%); }
         .c-w { left: 12px; top: 50%; transform: translateY(-50%); }
 
         /* NEEDLES */
-        .needle-wrap { position: absolute; inset: 0; pointer-events: none; }
+        .needle-layer { position: absolute; inset: 0; pointer-events: none; }
         .needle {
             position: absolute; top: 50%; left: 50%;
-            transform-origin: bottom center; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform-origin: bottom center;
+            transition: transform 0.6s var(--ease-elastic); will-change: transform;
         }
-        
-        /* Wonder Needle */
-        .n-target { 
-            width: 4px; height: 42%; background: var(--neon-p); 
+        .n-target {
+            width: 4px; height: 42%; background: var(--neon-p);
             margin-left: -2px; margin-top: -42%; border-radius: 2px;
             box-shadow: 0 0 15px var(--neon-p); z-index: 3;
         }
-        /* North Needle */
-        .n-true { width: 2px; height: 46%; background: var(--neon-b); margin-left: -1px; margin-top: -46%; opacity: 0.8; z-index: 2; }
-        .n-mag { width: 0; height: 38%; border-left: 1px dashed var(--neon-r); margin-left: 0; margin-top: -38%; opacity: 0.6; z-index: 1; }
+        .n-true { width: 2px; height: 46%; background: var(--neon-b); margin-left: -1px; margin-top: -46%; opacity: 0.9; z-index: 2; }
+        .n-mag { width: 0; height: 38%; border-left: 1px dashed var(--neon-r); margin-left: 0; margin-top: -38%; opacity: 0.7; z-index: 1; }
 
-        /* CENTER DATA */
-        .center-hud {
+        /* HUD DATA */
+        .hud-center {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             text-align: center; pointer-events: none;
         }
-        .heading-num { font-size: 2.2rem; font-weight: 800; line-height: 1; letter-spacing: -1px; }
-        .heading-lbl { font-size: 0.6rem; color: var(--text-muted); letter-spacing: 2px; margin-top: 4px; }
+        .val-heading { font-size: 2.4rem; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+        .lbl-heading { font-size: 0.65rem; color: var(--text-2); letter-spacing: 2px; margin-top: 4px; }
 
-        /* CONTENT DECK (LORE / OMEN) */
-        .deck {
-            display: flex; flex-direction: column; gap: 10px;
-            transition: opacity 0.3s;
-        }
-
-        /* INFO CARD */
-        .info-card { padding: 16px; position: relative; overflow: hidden; min-height: 140px; }
-        .info-card::after { content: ''; position: absolute; top:0; left:0; width: 3px; height: 100%; background: var(--neon-p); }
+        /* INFO DECK */
+        .deck-container { display: flex; flex-direction: column; gap: 10px; perspective: 1000px; }
         
-        .target-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .t-name { font-size: 1.3rem; font-weight: 700; line-height: 1.1; color: #fff; max-width: 80%; }
-        .t-dist { font-size: 0.9rem; color: var(--neon-p); font-family: var(--font-mono); font-weight: 600; }
+        /* LORE CARD */
+        .lore-card { padding: 20px; position: relative; overflow: hidden; transition: 0.3s; min-height: 140px; }
+        .lore-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--neon-p); }
         
-        .lore-box { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px; }
-        .lore-facts { list-style: none; padding: 0; margin: 8px 0 0 0; font-size: 0.75rem; }
+        .target-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .t-name { font-size: 1.25rem; font-weight: 700; line-height: 1.2; color: #fff; max-width: 80%; }
+        .t-dist { font-size: 0.9rem; color: var(--neon-p); font-weight: 600; }
+        
+        .lore-content { font-size: 0.85rem; color: var(--text-2); line-height: 1.5; }
+        .lore-short { margin-bottom: 8px; color: var(--text-1); }
+        .lore-facts { padding-left: 0; list-style: none; font-size: 0.75rem; margin: 8px 0; }
         .lore-facts li { display: flex; gap: 6px; margin-bottom: 4px; }
         .lore-facts li::before { content: '•'; color: var(--neon-b); }
-        .lore-myth { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--glass-border); font-style: italic; color: var(--neon-p); font-size: 0.75rem; opacity: 0.9; }
+        .lore-myth { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--glass-border); font-style: italic; color: var(--neon-p); opacity: 0.9; font-size: 0.8rem; }
 
-        /* OMEN CARD (Myth Mode) */
-        .omen-card { 
-            padding: 16px; border: 1px solid rgba(244, 63, 94, 0.3); 
-            background: rgba(244, 63, 94, 0.05);
-            display: none; /* Hidden by default */
+        /* OMEN CARD (ARG) */
+        .omen-card {
+            padding: 16px; background: rgba(244, 63, 94, 0.05);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            display: none; /* Toggled by JS */
         }
-        .omen-lvl { font-size: 0.7rem; color: var(--neon-r); letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
-        .omen-text { font-size: 0.9rem; color: #fff; font-family: var(--font-mono); line-height: 1.4; }
-        .omen-disclaimer { font-size: 0.6rem; color: var(--text-muted); margin-top: 8px; opacity: 0.6; text-align: right; }
+        .omen-title { font-size: 0.75rem; font-weight: 800; color: var(--neon-r); letter-spacing: 1px; margin-bottom: 4px; }
+        .omen-body { font-size: 0.9rem; color: #fff; line-height: 1.4; margin-bottom: 8px; }
+        .omen-meta { font-size: 0.6rem; color: var(--text-2); opacity: 0.7; text-align: right; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 4px;}
 
-        /* CONTROLS */
-        .controls-row { display: flex; gap: 8px; margin-top: 4px; }
-        .c-pill {
-            flex: 1; background: var(--glass-surf); border: 1px solid var(--glass-border);
-            color: var(--text-muted); padding: 10px; border-radius: 16px;
-            font-size: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 6px;
-            cursor: pointer; transition: background 0.2s;
+        /* CONTROL BAR */
+        .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 4px; }
+        .act-btn {
+            background: var(--glass-base); border: 1px solid var(--glass-border);
+            color: var(--text-2); padding: 12px; border-radius: 20px;
+            font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 6px;
+            cursor: pointer; transition: 0.2s;
         }
-        .c-pill:active { background: var(--glass-shine); }
-        .icon { font-size: 0.9rem; }
+        .act-btn:active { background: var(--glass-highlight); transform: scale(0.98); }
+        .act-btn.active { border-color: var(--neon-p); color: #fff; background: rgba(217, 70, 239, 0.1); }
 
-        /* MODE BAR */
-        .mode-dock {
+        /* BOTTOM DOCK */
+        .dock {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
-            background: rgba(0,0,0,0.3); padding: 4px; border-radius: 20px;
-            border: 1px solid var(--glass-border);
+            background: rgba(0,0,0,0.4); padding: 5px; border-radius: 24px;
+            border: 1px solid var(--glass-border); margin-top: auto;
         }
-        .mode-btn {
-            background: transparent; border: none; color: var(--text-muted);
-            padding: 10px; border-radius: 16px; font-size: 0.75rem; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
+        .mode-tab {
+            background: transparent; border: none; color: var(--text-2);
+            padding: 10px; border-radius: 18px; font-size: 0.75rem; font-weight: 600;
+            cursor: pointer; transition: 0.2s;
         }
-        .mode-btn.active { background: var(--glass-border); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .mode-tab.active { background: var(--glass-highlight); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
         /* PERMISSION OVERLAY */
         #perm-wall {
             position: fixed; inset: 0; z-index: 100;
-            background: rgba(5, 5, 8, 0.95); backdrop-filter: blur(10px);
+            background: rgba(5, 5, 8, 0.95); backdrop-filter: blur(20px);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center; padding: 30px;
         }
-        .btn-start {
+        .btn-hero {
             background: var(--neon-p); color: #fff; border: none;
-            padding: 16px 40px; border-radius: 30px; font-size: 1rem; font-weight: 700;
-            box-shadow: 0 0 25px rgba(217, 70, 239, 0.5); margin-top: 20px;
+            padding: 16px 40px; border-radius: 32px; font-size: 1rem; font-weight: 700;
+            box-shadow: 0 0 25px rgba(217, 70, 239, 0.4); margin-top: 20px;
             cursor: pointer;
         }
 
         /* SETTINGS MODAL */
         #modal {
             position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(5px); padding: 20px; 
-            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center;
         }
-        .modal-box { width: 100%; max-width: 360px; padding: 20px; position: relative; }
-        .close-x { position: absolute; top: 15px; right: 15px; font-size: 1.2rem; cursor: pointer; }
-        input { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; padding: 8px; border-radius: 8px; width: 100%; margin-top: 5px; }
-
-        /* GLITCH FX */
-        .glitch-mode .heading-num { animation: glitch 0.3s infinite; text-shadow: 2px 0 var(--neon-r), -2px 0 var(--neon-b); }
-        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-1px, 1px); } 40% { transform: translate(1px, -1px); } 100% { transform: translate(0); } }
+        .modal-box { width: 90%; max-width: 360px; padding: 24px; position: relative; }
+        .close-btn { position: absolute; top: 15px; right: 15px; font-size: 1.5rem; cursor: pointer; color: var(--text-2); }
+        input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; padding: 10px; border-radius: 12px; margin-top: 6px; }
+        
+        /* GLITCH ANIMATION */
+        .glitch-mode .val-heading { animation: glitch 0.2s infinite; text-shadow: 2px 0 var(--neon-r), -2px 0 var(--neon-b); }
+        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
 
     </style>
 </head>
 <body>
 
-    <div class="orb-bg orb-1"></div>
-    <div class="orb-bg orb-2"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
 
     <!-- PERMISSION WALL -->
     <div id="perm-wall">
-        <h1 class="text-glow" style="font-size: 1.8rem; margin-bottom: 10px;">MAGIC COMPASS<br><span style="font-size:0.8em; color:var(--neon-b)">AI LORE EDITION</span></h1>
-        <p style="color: var(--text-muted); max-width: 280px; font-size: 0.9rem;">
-            Requires Sensor Fusion (GPS + Compass) to enable Augmented Reality Navigation & Myth Engine.
+        <h1 class="text-neon" style="font-size: 2rem; margin-bottom: 10px; line-height:1.2">MAGIC COMPASS<br><span style="font-size:0.6em; color:#fff; font-weight:400">PRO EDITION</span></h1>
+        <p style="color: var(--text-2); font-size: 0.9rem; max-width: 300px;" data-i18n="perm_desc">
+            Requires Sensor Fusion (GPS + Compass) for AR Navigation and Myth Experience.
         </p>
-        <button class="btn-start" id="btn-init">INITIALIZE SYSTEM</button>
+        <button class="btn-hero" id="btn-init" data-i18n="perm_btn">INITIALIZE SYSTEM</button>
     </div>
 
     <!-- MAIN APP -->
-    <div id="app" class="hidden">
+    <div id="app-ui" class="hidden">
         
-        <!-- Header -->
-        <div class="flex-row header">
-            <div class="brand"><span style="color:var(--neon-p)">✦</span> OMNI</div>
-            <div class="flex-row" style="gap:8px">
-                <div class="status-badge" id="gps-badge">GPS WAIT</div>
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="app-logo"><span style="color:var(--neon-p)">✦</span> MAGIC CMPSS</div>
+            <div class="flex-row">
+                <button class="lang-btn" id="btn-lang" onclick="app.toggleLang()">EN</button>
+                <div class="gps-badge" id="gps-stat" data-i18n="gps_wait">GPS WAIT</div>
                 <div style="cursor:pointer; padding:4px;" onclick="app.toggleSettings()">⚙</div>
             </div>
         </div>
 
-        <!-- Compass -->
-        <div class="compass-core">
-            <div class="ring" id="ring">
+        <!-- Compass Core -->
+        <div class="compass-stage">
+            <div class="orb-ring" id="orb-ring">
                 <div class="cardinal c-n">N</div><div class="cardinal c-e">E</div>
                 <div class="cardinal c-s">S</div><div class="cardinal c-w">W</div>
                 
-                <div class="needle-wrap">
+                <div class="needle-layer">
+                    <!-- Target Needle (Wonder Mode) -->
                     <div class="needle n-target" id="n-target"></div>
+                    <!-- True North (Earth Mode) -->
                     <div class="needle n-true" id="n-true"></div>
+                    <!-- Mag North (Earth Mode) -->
                     <div class="needle n-mag" id="n-mag"></div>
                 </div>
 
-                <div class="center-hud">
-                    <span class="heading-num mono" id="val-head">000°</span>
-                    <span class="heading-lbl" id="lbl-head">HEADING</span>
+                <div class="hud-center">
+                    <span class="val-heading mono" id="val-head">000°</span>
+                    <span class="lbl-heading" id="lbl-head" data-i18n="lbl_heading">HEADING</span>
                 </div>
             </div>
         </div>
 
         <!-- Info Deck -->
-        <div class="deck">
+        <div class="deck-container">
             
-            <!-- Wonder/Lore Card -->
-            <div class="glass-panel info-card" id="card-lore">
-                <div class="target-head">
-                    <div class="t-name" id="txt-name">Loading...</div>
-                    <div class="t-dist" id="txt-dist">-- km</div>
+            <!-- LORE CARD (AI Summarizer) -->
+            <div class="glass-card lore-card" id="card-lore">
+                <div class="target-header">
+                    <div class="t-name" id="txt-target">Loading...</div>
+                    <div class="t-dist mono" id="txt-dist">-- km</div>
                 </div>
-                <div class="lore-box">
-                    <div id="txt-short">...</div>
+                <div class="lore-content">
+                    <div class="lore-short" id="txt-short"></div>
                     <ul class="lore-facts" id="list-facts"></ul>
                     <div class="lore-myth" id="txt-myth"></div>
                 </div>
             </div>
 
-            <!-- Omen Card (Myth Mode Only) -->
-            <div class="glass-panel omen-card" id="card-omen">
-                <div class="omen-lvl" id="omen-title">SIGNAL QUIET</div>
-                <div class="omen-text" id="omen-body">Scanning local ether...</div>
-                <div class="omen-disclaimer">MYTH MODE: ARG NARRATIVE ONLY</div>
+            <!-- OMEN CARD (Myth/ARG Mode) -->
+            <div class="glass-card omen-card" id="card-omen">
+                <div class="omen-title" id="omen-title">SIGNAL QUIET</div>
+                <div class="omen-body mono" id="omen-body">Scanning local ether...</div>
+                <div class="omen-meta" data-i18n="omen_meta">MYTH MODE: NARRATIVE ARG ONLY</div>
             </div>
 
-            <!-- Action Bar -->
-            <div class="controls-row" id="action-bar">
-                <div class="c-pill" onclick="app.toggleAuto()">
-                    <span class="icon">⟳</span> <span id="lbl-auto">Auto: ON</span>
+            <!-- Actions -->
+            <div class="actions" id="row-actions">
+                <div class="act-btn" id="btn-auto" onclick="app.toggleAuto()">
+                    <span>⟳</span> <span data-i18n="btn_auto">Auto</span>
                 </div>
-                <div class="c-pill" onclick="app.nextTarget()">
-                    <span class="icon">→</span> Next
+                <div class="act-btn" onclick="app.nextTarget()">
+                    <span>→</span> <span data-i18n="btn_next">Next</span>
                 </div>
-                <div class="c-pill" onclick="app.openMap()">
-                    <span class="icon">↗</span> Map
+                <div class="act-btn" onclick="app.openMap()">
+                    <span>↗</span> <span data-i18n="btn_map">Map</span>
                 </div>
             </div>
-
         </div>
 
         <!-- Mode Switcher -->
-        <div style="margin-top: auto;">
-            <div class="mode-dock">
-                <button class="mode-btn active" onclick="app.setMode('wonder')">WONDER</button>
-                <button class="mode-btn" onclick="app.setMode('earth')">EARTH</button>
-                <button class="mode-btn" onclick="app.setMode('myth')">MYTH</button>
-            </div>
+        <div class="dock">
+            <button class="mode-tab active" onclick="app.setMode('wonder')" data-i18n="mode_wonder">WONDER</button>
+            <button class="mode-tab" onclick="app.setMode('earth')" data-i18n="mode_earth">EARTH</button>
+            <button class="mode-tab" onclick="app.setMode('myth')" data-i18n="mode_myth">MYTH</button>
         </div>
-
     </div>
 
     <!-- SETTINGS MODAL -->
     <div id="modal" class="hidden">
-        <div class="glass-panel modal-box">
-            <div class="close-x" onclick="app.toggleSettings()">×</div>
-            <h3 style="margin:0 0 10px 0">Settings</h3>
-            <label style="font-size:0.8rem; color:var(--text-muted)">Magnetic Declination (°)</label>
-            <div class="flex-row" style="gap:8px">
+        <div class="glass-card modal-box">
+            <div class="close-btn" onclick="app.toggleSettings()">×</div>
+            <h3 style="margin:0 0 15px 0; color:var(--text-1);" data-i18n="settings_title">Settings</h3>
+            
+            <label style="font-size:0.8rem; color:var(--text-2);" data-i18n="lbl_decl">Magnetic Declination (°)</label>
+            <div class="flex-row">
                 <input type="number" id="inp-decl" value="0">
-                <button class="c-pill" style="flex:0 0 auto" onclick="app.fetchDecl()">Fetch</button>
+                <button class="act-btn" style="padding:8px 16px" onclick="app.fetchDecl()">Fetch</button>
             </div>
-            <div style="margin-top:20px">
-                <button class="c-pill" style="width:100%" onclick="app.toggleMute()" id="btn-mute">Sound: ON</button>
-            </div>
+            <p style="font-size:0.65rem; color:var(--text-2); margin-top:4px;" data-i18n="decl_hint">Use online fetch or enter manually if offline.</p>
         </div>
     </div>
 
 <script>
 /**
- * MAGIC COMPASS: PRO AI-LORE EDITION
- * Single-file architecture for Production (iOS/Android)
+ * MAGIC WONDER COMPASS PRO (Single File)
+ * Features: Sensor Fusion, I18n (TH/EN), Offline AI Lore, Magnetic ARG Omen
  */
 
-// --- 1. LORE DATABASE (Offline AI) ---
-const LORE_DB = {
-    "Great Pyramid of Giza": {
-        short: "The last standing wonder of the ancient world.",
-        facts: ["Built for Khufu (~2600 BC)", "2.3 million stone blocks", "Aligned to True North"],
-        myth: "Whispers say it was a power plant for the gods, not a tomb."
+// --- 1. I18N ENGINE ---
+const TRANSLATIONS = {
+    en: {
+        perm_desc: "Requires Sensor Fusion (GPS + Compass) for AR Navigation and Myth Experience.",
+        perm_btn: "INITIALIZE SYSTEM",
+        gps_wait: "GPS WAIT",
+        gps_lock: "GPS LOCK",
+        lbl_heading: "HEADING",
+        lbl_bearing: "BEARING",
+        lbl_field: "FIELD",
+        lbl_var: "VARIANCE",
+        btn_auto: "Auto: ON",
+        btn_manual: "Auto: OFF",
+        btn_next: "Next",
+        btn_map: "Map",
+        mode_wonder: "WONDER",
+        mode_earth: "EARTH",
+        mode_myth: "MYTH",
+        omen_meta: "MYTH MODE: ARG NARRATIVE ONLY",
+        settings_title: "Settings",
+        lbl_decl: "Magnetic Declination (°)",
+        decl_hint: "Use online fetch or enter manually.",
+        err_mag_u: "Mag Sensor Unavailable",
+        lore_fallback: "No data available. Tap map to explore."
     },
-    "Great Wall of China": {
-        short: "A dragon of stone winding through mountains.",
-        facts: ["Length: 21,196 km", "Built over 2,000 years", "Sticky rice used in mortar"],
-        myth: "They say the souls of fallen workers guide the wind along the wall."
-    },
-    "Petra": {
-        short: "The Rose City, half as old as time.",
-        facts: ["Capital of Nabataeans", "Carved into sandstone cliffs", "Lost to West until 1812"],
-        myth: "Djinn are said to guard the Pharaoh's Treasury at night."
-    },
-    "Colosseum": {
-        short: "The grandest amphitheater of the Roman Empire.",
-        facts: ["Held 50,000 spectators", "Could be flooded for sea battles", "Built by Vespasian"],
-        myth: "The sand still remembers the roar of the gladiators."
-    },
-    "Chichen Itza": {
-        short: "The sacred city of the Itza Maya.",
-        facts: ["El Castillo has 365 steps", "Shadow snake appears on Equinox", "Ball court acoustics"],
-        myth: "The Cenote Sagrado demands offerings to the Rain God Chaac."
-    },
-    "Machu Picchu": {
-        short: "The Lost City of the Incas in the clouds.",
-        facts: ["Built for Pachacuti (1450)", "No mortar used (Ashlar)", "Hidden from Spanish"],
-        myth: "The Intihuatana stone tethers the sun to the earth."
-    },
-    "Taj Mahal": {
-        short: "An immense mausoleum of white marble.",
-        facts: ["Built by Shah Jahan", "Took 22 years to build", "Changes color with sunlight"],
-        myth: "Legend says the Black Taj was meant to mirror it across the river."
-    },
-    "Christ the Redeemer": {
-        short: "A symbol of peace watching over Rio.",
-        facts: ["30 meters tall", "Soapstone mosaic", "Struck by lightning often"],
-        myth: "It embraces the city to protect it from the sea's fury."
-    },
-    "Stonehenge": {
-        short: "A prehistoric ring of standing stones.",
-        facts: ["Built ~2500 BC", "Stones form Wales (200km away)", "Solar alignment"],
-        myth: "Merlin himself danced these stones into place."
-    },
-    "Bermuda Triangle": {
-        short: "The devil's triangle of the Atlantic.",
-        facts: ["Bound by Miami, Bermuda, Puerto Rico", "Heavy traffic zone", "Deep trenches"],
-        myth: "Compass needles spin wildly here, pointing to other worlds."
+    th: {
+        perm_desc: "ต้องการการเข้าถึง GPS และเข็มทิศ เพื่อระบบนำทาง AR และโหมดตำนาน",
+        perm_btn: "เริ่มระบบ",
+        gps_wait: "รอ GPS...",
+        gps_lock: "GPS พร้อม",
+        lbl_heading: "ทิศหัวเครื่อง",
+        lbl_bearing: "ทิศเป้าหมาย",
+        lbl_field: "สนามแม่เหล็ก",
+        lbl_var: "ความผันผวน",
+        btn_auto: "ออโต้: เปิด",
+        btn_manual: "ออโต้: ปิด",
+        btn_next: "ถัดไป",
+        btn_map: "แผนที่",
+        mode_wonder: "สิ่งมหัศจรรย์",
+        mode_earth: "แม่เหล็กโลก",
+        mode_myth: "ตำนาน/ลาง",
+        omen_meta: "โหมดตำนาน: เรื่องเล่าเพื่อความบันเทิงเท่านั้น",
+        settings_title: "ตั้งค่า",
+        lbl_decl: "มุมบ่ายเบนแม่เหล็ก (°)",
+        decl_hint: "ดึงข้อมูลออนไลน์หรือกรอกเองหากออฟไลน์",
+        err_mag_u: "ไม่พบเซนเซอร์แม่เหล็ก",
+        lore_fallback: "ไม่มีข้อมูล แตะแผนที่เพื่อดูเพิ่มเติม"
     }
 };
 
-// --- 2. MATH UTILS ---
+class I18n {
+    constructor() {
+        const saved = localStorage.getItem('lang');
+        const browser = navigator.language.startsWith('th') ? 'th' : 'en';
+        this.lang = saved || browser;
+        this.apply();
+    }
+
+    toggle() {
+        this.lang = this.lang === 'en' ? 'th' : 'en';
+        localStorage.setItem('lang', this.lang);
+        this.apply();
+        return this.lang;
+    }
+
+    apply() {
+        document.getElementById('btn-lang').innerText = this.lang.toUpperCase();
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if(TRANSLATIONS[this.lang][key]) el.innerText = TRANSLATIONS[this.lang][key];
+        });
+    }
+
+    t(key) {
+        return TRANSLATIONS[this.lang][key] || key;
+    }
+}
+
+// --- 2. LORE DATABASE (OFFLINE) ---
+const LORE_DB = {
+    "Great Pyramid of Giza": {
+        en: { short: "The last standing wonder of the ancient world.", facts: ["Built for Khufu (~2600 BC)", "2.3 million stone blocks", "Aligned to True North"], myth: "Whispers say it was a power plant for the gods." },
+        th: { short: "สิ่งมหัศจรรย์ยุคโบราณแห่งเดียวที่ยังคงอยู่", facts: ["สร้างเพื่อฟาโรห์คูฟู (2600 ปีก่อน ค.ศ.)", "ใช้หินกว่า 2.3 ล้านก้อน", "หันหน้าไปทางทิศเหนือจริงอย่างแม่นยำ"], myth: "เสียงกระซิบเล่าขานว่านี่คือโรงไฟฟ้าของทวยเทพ ไม่ใช่สุสาน" }
+    },
+    "Great Wall of China": {
+        en: { short: "A dragon of stone winding through mountains.", facts: ["Length: 21,196 km", "Built over 2,000 years", "Visible from low orbit"], myth: "Souls of fallen workers guide the wind along the wall." },
+        th: { short: "มังกรหินที่พาดผ่านขุนเขาอันไกลโพ้น", facts: ["ความยาวกว่า 21,196 กม.", "ใช้เวลาสร้างนานกว่า 2,000 ปี", "มองเห็นได้จากวงโคจรต่ำ"], myth: "วิญญาณแรงงานผู้ล่วงลับคอยนำทางสายลมไปตามกำแพง" }
+    },
+    "Petra": {
+        en: { short: "The Rose City, half as old as time.", facts: ["Capital of Nabataeans", "Carved into sandstone cliffs", "Rediscovered in 1812"], myth: "Djinn guard the Pharaoh's Treasury at night." },
+        th: { short: "นครสีชมพูที่ซ่อนตัวอยู่ในหุบเขา", facts: ["เมืองหลวงของชาวนาบาเทียน", "แกะสลักเข้าไปในหน้าผาหินทราย", "ค้นพบใหม่อีกครั้งในปี 1812"], myth: "เหล่าจินน์คอยเฝ้าสมบัติของฟาโรห์ในยามค่ำคืน" }
+    },
+    "Colosseum": {
+        en: { short: "The grandest amphitheater of Rome.", facts: ["Held 50,000 spectators", "Could be flooded for sea battles", "Completed in 80 AD"], myth: "The sand still remembers the roar of gladiators." },
+        th: { short: "อัฒจันทร์ที่ยิ่งใหญ่ที่สุดแห่งอาณาจักรโรมัน", facts: ["จุผู้ชมได้ 50,000 คน", "เคยปล่อยน้ำเข้าเพื่อจำลองยุทธนาวี", "สร้างเสร็จในปี ค.ศ. 80"], myth: "ผืนทรายยังคงจดจำเสียงคำรามของเหล่านักสู้" }
+    },
+    "Chichen Itza": {
+        en: { short: "The sacred city of the Itza Maya.", facts: ["El Castillo has 365 steps", "Shadow snake appears on Equinox", "Ball court acoustics"], myth: "The Cenote demands offerings to the Rain God." },
+        th: { short: "นครศักดิ์สิทธิ์แห่งชาวมายาอิตซา", facts: ["พีระมิดมีบันไดรวม 365 ขั้น", "เงางูยักษ์ปรากฏตอนวสันตวิษุวัต", "สนามบอลมีระบบเสียงสะท้อนน่าทึ่ง"], myth: "บ่อน้ำศักดิ์สิทธิ์เรียกร้องเครื่องสังเวยแด่เทพแห่งฝน" }
+    },
+    "Machu Picchu": {
+        en: { short: "The Lost City of the Incas.", facts: ["Built for Pachacuti (1450)", "Ashlar masonry (no mortar)", "Hidden from Spanish"], myth: "The Intihuatana stone tethers the sun to earth." },
+        th: { short: "นครสาบสูญแห่งอินคาบนเทือกเขาสูง", facts: ["สร้างเพื่อจักรพรรดิปาชาคูติ", "หินเรียงกันแนบสนิทโดยไม่ใช้ปูน", "ซ่อนเร้นจากการรุกรานของสเปน"], myth: "หินอินติวาตานาทำหน้าที่ผูกดวงอาทิตย์ไว้กับโลก" }
+    },
+    "Taj Mahal": {
+        en: { short: "An immense mausoleum of white marble.", facts: ["Built by Shah Jahan", "Took 22 years to build", "Changes color with sun"], myth: "Legend says a Black Taj was planned across the river." },
+        th: { short: "อนุสรณ์สถานแห่งความรักทำจากหินอ่อนขาว", facts: ["สร้างโดยจักรพรรดิชาห์จาฮาน", "ใช้เวลาสร้าง 22 ปี", "เปลี่ยนสีตามแสงอาทิตย์"], myth: "ตำนานเล่าว่ามีการวางแผนสร้างทัจมาฮาลสีดำฝั่งตรงข้าม" }
+    },
+    "Christ the Redeemer": {
+        en: { short: "Symbol of peace watching over Rio.", facts: ["30 meters tall", "Soapstone mosaic", "Struck by lightning often"], myth: "It embraces the city to protect it from the sea." },
+        th: { short: "สัญลักษณ์แห่งสันติภาพเหนือเมืองริโอ", facts: ["สูง 30 เมตร", "ประดับด้วยหินสบู่", "มักถูกฟ้าผ่าบ่อยครั้ง"], myth: "อ้อมกอดของรูปปั้นปกป้องเมืองจากความเกรี้ยวกราดของทะเล" }
+    }
+};
+
+// --- 3. MATH UTILS ---
 const MathUtils = {
     toRad: d => d * Math.PI / 180,
     toDeg: r => r * 180 / Math.PI,
@@ -413,165 +475,211 @@ const MathUtils = {
         const x = Math.cos(MathUtils.toRad(lat1))*Math.sin(MathUtils.toRad(lat2)) - Math.sin(MathUtils.toRad(lat1))*Math.cos(MathUtils.toRad(lat2))*Math.cos(MathUtils.toRad(lon2-lon1));
         return (MathUtils.toDeg(Math.atan2(y, x)) + 360) % 360;
     },
-    lerpAngle: (a, b, t) => {
-        let d = b - a;
-        if (d > 180) d -= 360; if (d < -180) d += 360;
-        return a + d * t;
+    lerpAngle: (current, target, factor) => {
+        let delta = target - current;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        return current + delta * factor;
     }
 };
 
-// --- 3. SENSOR ENGINE (Android Mag + iOS Logic) ---
+// --- 4. SENSOR ENGINE ---
 class SensorEngine {
     constructor() {
-        this.head = 0;
+        this.heading = 0;
         this.gps = { lat: null, lon: null };
-        this.magData = { x:0, y:0, z:0, val:0, active: false };
-        this.magWindow = []; // Rolling window for ARG
-        this.listeners = {};
+        this.mag = { x:0, y:0, z:0, val:0, active:false };
+        this.magWindow = []; // For ARG Analysis
+        this.callbacks = {};
     }
 
     init() {
         return new Promise(async (resolve, reject) => {
-            // GPS
+            // 1. GPS
             if("geolocation" in navigator) {
                 navigator.geolocation.watchPosition(
                     p => {
                         this.gps = { lat: p.coords.latitude, lon: p.coords.longitude };
                         this.emit('gps', this.gps);
                     },
-                    e => console.warn(e), { enableHighAccuracy:true }
+                    e => console.warn(e), { enableHighAccuracy: true }
                 );
             }
 
-            // Compass & Motion
+            // 2. Compass (iOS vs Android)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
-                    const r = await DeviceOrientationEvent.requestPermission();
-                    if(r==='granted') {
-                        window.addEventListener('deviceorientation', e => this.handleOr(e));
+                    const resp = await DeviceOrientationEvent.requestPermission();
+                    if(resp === 'granted') {
+                        window.addEventListener('deviceorientation', e => this.handleOrient(e));
                         resolve(true);
                     } else reject('Permission Denied');
                 } catch(e) { reject(e); }
             } else {
-                // Android / Standard
-                window.addEventListener('deviceorientationabsolute', e => this.handleOr(e, true));
-                window.addEventListener('deviceorientation', e => this.handleOr(e, false));
+                // Android - try absolute first
+                if('ondeviceorientationabsolute' in window) {
+                    window.addEventListener('deviceorientationabsolute', e => this.handleOrient(e, true));
+                } else {
+                    window.addEventListener('deviceorientation', e => this.handleOrient(e, false));
+                }
                 
-                // Android Generic Sensor (Magnetometer)
+                // 3. Magnetometer (Android Chrome)
                 if ('Magnetometer' in window) {
                     try {
                         // @ts-ignore
                         const mag = new Magnetometer({ frequency: 20 });
                         mag.addEventListener('reading', () => {
                             const m = Math.sqrt(mag.x**2 + mag.y**2 + mag.z**2);
-                            this.magData = { x:mag.x, y:mag.y, z:mag.z, val:m, active:true };
+                            this.mag = { x:mag.x, y:mag.y, z:mag.z, val:m, active:true };
                             this.pushMagHistory(m);
                         });
                         mag.start();
-                    } catch(e) { console.log("Mag sensor error", e); }
+                    } catch(e) { console.log("Mag API Error", e); }
                 }
                 resolve(true);
             }
         });
     }
 
-    handleOr(e, abs) {
-        if(e.webkitCompassHeading) this.head = e.webkitCompassHeading;
-        else if(e.alpha !== null) this.head = 360 - e.alpha; 
+    handleOrient(e, abs) {
+        // iOS Priority
+        if(e.webkitCompassHeading) {
+            this.heading = e.webkitCompassHeading;
+        } 
+        // Android Absolute or Standard
+        else if(e.alpha !== null) {
+            // Simple conversion (Real world needs tilt compensation, but this is HTML MVP)
+            this.heading = 360 - e.alpha; 
+        }
     }
 
     pushMagHistory(val) {
         this.magWindow.push(val);
-        if(this.magWindow.length > 60) this.magWindow.shift();
+        if(this.magWindow.length > 120) this.magWindow.shift();
     }
 
-    on(e, fn) { this.listeners[e] = fn; }
-    emit(e, d) { if(this.listeners[e]) this.listeners[e](d); }
+    on(ev, fn) { this.callbacks[ev] = fn; }
+    emit(ev, data) { if(this.callbacks[ev]) this.callbacks[ev](data); }
 }
 
-// --- 4. OMEN ENGINE (ARG Logic) ---
+// --- 5. OMEN ARG ENGINE ---
 const OmenEngine = {
-    analyze: (window) => {
-        if(!window || window.length < 10) return 0;
-        const mean = window.reduce((a,b)=>a+b,0)/window.length;
-        const variance = window.reduce((a,b)=>a+(b-mean)**2,0)/window.length;
-        return Math.sqrt(variance); // std dev
+    analyze: (win) => {
+        if(!win || win.length < 10) return 0;
+        const mean = win.reduce((a,b)=>a+b,0)/win.length;
+        const variance = win.reduce((a,b)=>a+(b-mean)**2,0)/win.length;
+        return Math.sqrt(variance); // StdDev
     },
-    
-    generate: (magActive, magWindow, seedInput) => {
-        const timeBlock = Math.floor(Date.now() / 5000); // Change every 5s
-        const seed = Math.sin(seedInput + timeBlock); // Deterministic
+    generate: (magActive, magWin, seed, lang) => {
+        // Deterministic based on seed (Time Block + Location)
+        const timeSeed = Math.floor(Date.now() / 4000); // Change every 4s
+        const combinedSeed = Math.sin(seed + timeSeed); 
         
         let level = 0;
-        let title = "SIGNAL QUIET";
-        let text = "Ether is stable. No anomalies.";
+        let keyTitle = "SIGNAL QUIET";
+        let keyText = "Ether is stable.";
 
-        if (magActive) {
-            // REAL SENSOR LOGIC
-            const std = OmenEngine.analyze(magWindow);
-            if (std > 15) { level = 3; title = "OMEN PEAK"; text = "HIGH MAGNETIC DISTORTION DETECTED."; }
-            else if (std > 5) { level = 2; title = "RIPPLE"; text = "Field fluctuations exceed normal variance."; }
-            else if (std > 1) { level = 1; title = "WHISPER"; text = "Subtle vibrations in the local field."; }
-        } else {
-            // IPHONE / FALLBACK LOGIC (Deterministic ARG)
-            // Use the seed to fake a "wave"
-            const wave = Math.abs(Math.sin(Date.now()/3000 + seedInput));
-            if (wave > 0.9) { level=2; title="ECHO DETECTED"; text = "Simulated resonance high. The veil thins."; }
-            else if (wave > 0.6) { level=1; title="STATIC"; text = "Background radiation pattern irregular."; }
-        }
-
-        // Flavor text
-        if(level > 0) {
-            const flavors = ["Something is watching.", "Ancient grid aligned.", "Frequency matches 432Hz.", "Deviation confirmed."];
-            text += " " + flavors[Math.floor(Math.abs(seed * flavors.length))];
-        }
+        // TH/EN Logic happens in render, here we set generic keys or values
+        // But since we need dynamic construction, let's return codes.
         
-        return { level, title, text };
+        if (magActive) {
+            // Real Analysis
+            const std = OmenEngine.analyze(magWin);
+            if(std > 15) level = 3;
+            else if(std > 5) level = 2;
+            else if(std > 1) level = 1;
+        } else {
+            // iPhone Fallback (Deterministic Narrative)
+            const wave = Math.abs(Math.sin(Date.now()/3000 + seed));
+            if(wave > 0.85) level = 2;
+            else if(wave > 0.6) level = 1;
+        }
+
+        // Content Dictionary
+        const content = {
+            en: [
+                { t: "SIGNAL QUIET", b: "Ether is stable. No anomalies." },
+                { t: "SUBTLE RIPPLE", b: "Faint vibrations in the local field." },
+                { t: "DISTORTION FIELD", b: "Magnetic waves are bending reality." },
+                { t: "OMEN PEAK", b: "CRITICAL RESONANCE DETECTED." }
+            ],
+            th: [
+                { t: "สัญญาณสงบ", b: "คลื่นอีเธอร์ราบเรียบ ไม่มีความผิดปกติ" },
+                { t: "ริ้วคลื่นจางๆ", b: "แรงสั่นสะเทือนแผ่วเบาในบริเวณนี้" },
+                { t: "สนามบิดเบือน", b: "คลื่นแม่เหล็กกำลังบิดเบือนความเป็นจริง" },
+                { t: "ลางสูงสุด", b: "ตรวจพบการสั่นพ้องระดับวิกฤต" }
+            ]
+        };
+
+        const flavors = {
+            en: ["Something is watching.", "Ancient grid aligned.", "Veil is thinning.", "Coordinates locked."],
+            th: ["บางสิ่งกำลังจ้องมอง", "เส้นทางโบราณเชื่อมต่อแล้ว", "ม่านมิติกำลังบางลง", "พิกัดถูกล็อค"]
+        };
+
+        const base = content[lang][level];
+        // Deterministic Flavor
+        const fIdx = Math.floor(Math.abs(combinedSeed * flavors[lang].length)) % flavors[lang].length;
+        
+        return {
+            level: level,
+            title: base.t,
+            text: `${base.b} ${level > 0 ? flavors[lang][fIdx] : ''}`
+        };
     }
 };
 
-// --- 5. MAIN APP ---
+// --- 6. MAIN APP CONTROLLER ---
+const WONDERS_LIST = Object.keys(LORE_DB).map(k => ({ name: k, ...LORE_DB[k].en })); // Temp init
+// Coordinates map
+const COORDS = {
+    "Great Pyramid of Giza": { lat: 29.9792, lon: 31.1342 },
+    "Great Wall of China": { lat: 40.4319, lon: 116.5704 },
+    "Petra": { lat: 30.3285, lon: 35.4444 },
+    "Colosseum": { lat: 41.8902, lon: 12.4922 },
+    "Chichen Itza": { lat: 20.6843, lon: -88.5678 },
+    "Machu Picchu": { lat: -13.1631, lon: -72.5450 },
+    "Taj Mahal": { lat: 27.1751, lon: 78.0421 },
+    "Christ the Redeemer": { lat: -22.9519, lon: -43.2105 }
+};
+
 class App {
     constructor() {
+        this.i18n = new I18n();
         this.sensor = new SensorEngine();
-        this.mode = 'wonder';
-        this.wonders = Object.keys(LORE_DB).map(k => {
-            // Map back to WONDERS array logic
-            const w = WONDERS_RAW.find(x => x.name === k);
-            return { ...w, ...LORE_DB[k] };
-        });
-        
+        this.mode = 'wonder'; // wonder, earth, myth
         this.state = {
             idx: 0,
             auto: true,
             decl: 0,
-            mute: false,
             dispHead: 0
         };
-
+        this.wonders = Object.keys(COORDS).map(k => ({ name: k, lat: COORDS[k].lat, lon: COORDS[k].lon }));
+        
+        // UI Cache
         this.ui = {
-            ring: document.getElementById('ring'),
-            head: document.getElementById('val-head'),
+            ring: document.getElementById('orb-ring'),
+            headVal: document.getElementById('val-head'),
+            headLbl: document.getElementById('lbl-head'),
             nTarget: document.getElementById('n-target'),
             nTrue: document.getElementById('n-true'),
             nMag: document.getElementById('n-mag'),
             
-            // Lore UI
+            // Cards
             cardLore: document.getElementById('card-lore'),
-            txtName: document.getElementById('txt-name'),
-            txtDist: document.getElementById('txt-dist'),
-            txtShort: document.getElementById('txt-short'),
-            listFacts: document.getElementById('list-facts'),
-            txtMyth: document.getElementById('txt-myth'),
-            
-            // Omen UI
             cardOmen: document.getElementById('card-omen'),
+            tName: document.getElementById('txt-target'),
+            tDist: document.getElementById('txt-dist'),
+            tShort: document.getElementById('txt-short'),
+            tFacts: document.getElementById('list-facts'),
+            tMyth: document.getElementById('txt-myth'),
+            
             omenTitle: document.getElementById('omen-title'),
             omenBody: document.getElementById('omen-body'),
             
-            actions: document.getElementById('action-bar'),
-            gpsBad: document.getElementById('gps-badge'),
-            lblAuto: document.getElementById('lbl-auto')
+            // Controls
+            btnAuto: document.getElementById('btn-auto'),
+            actions: document.getElementById('row-actions'),
+            gps: document.getElementById('gps-stat')
         };
     }
 
@@ -579,18 +687,25 @@ class App {
         try {
             await this.sensor.init();
             document.getElementById('perm-wall').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            
+            document.getElementById('app-ui').classList.remove('hidden');
+
             this.sensor.on('gps', () => {
-                this.ui.gpsBad.innerText = "GPS LOCKED";
-                this.ui.gpsBad.classList.add('active');
+                this.ui.gps.innerText = this.i18n.t('gps_lock');
+                this.ui.gps.classList.add('active');
                 if(this.state.auto) this.findNearest();
                 else this.updateDist();
             });
 
-            this.updateLore();
+            this.updateLoreUI();
             this.loop();
-        } catch(e) { alert(e); }
+        } catch(e) { alert("Error: " + e); }
+    }
+
+    // Logic
+    toggleLang() {
+        const newLang = this.i18n.toggle();
+        this.updateLoreUI();
+        this.updateAutoBtn();
     }
 
     findNearest() {
@@ -602,7 +717,7 @@ class App {
         });
         if(this.state.idx !== idx) {
             this.state.idx = idx;
-            this.updateLore();
+            this.updateLoreUI();
         }
     }
 
@@ -610,64 +725,84 @@ class App {
         if(!this.sensor.gps.lat) return;
         const w = this.wonders[this.state.idx];
         const d = MathUtils.getDist(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon);
-        this.ui.txtDist.innerText = d < 1 ? (d*1000).toFixed(0)+" m" : d.toFixed(1)+" km";
+        this.ui.tDist.innerText = d < 1 ? (d*1000).toFixed(0)+" m" : d.toFixed(1)+" km";
     }
 
-    updateLore() {
-        const w = this.wonders[this.state.idx];
-        this.ui.txtName.innerText = w.name;
-        this.ui.txtShort.innerText = w.short;
-        this.ui.listFacts.innerHTML = w.facts.map(f => `<li>${f}</li>`).join('');
-        this.ui.txtMyth.innerText = `"${w.myth}"`;
+    updateLoreUI() {
+        const wName = this.wonders[this.state.idx].name;
+        const data = LORE_DB[wName] ? LORE_DB[wName][this.i18n.lang] : null;
+        
+        if(data) {
+            this.ui.tName.innerText = wName; // Could localize names too if added to DB
+            this.ui.tShort.innerText = data.short;
+            this.ui.tFacts.innerHTML = data.facts.map(f => `<li>${f}</li>`).join('');
+            this.ui.tMyth.innerText = `"${data.myth}"`;
+        } else {
+            this.ui.tName.innerText = wName;
+            this.ui.tShort.innerText = this.i18n.t('lore_fallback');
+            this.ui.tFacts.innerHTML = "";
+            this.ui.tMyth.innerText = "";
+        }
         this.updateDist();
     }
 
+    // Render Loop
     loop() {
         requestAnimationFrame(() => this.loop());
         
-        // Smoothing Heading
-        this.state.dispHead = MathUtils.lerpAngle(this.state.dispHead, this.sensor.head, 0.15);
+        // Smoothing
+        this.state.dispHead = MathUtils.lerpAngle(this.state.dispHead, this.sensor.heading, 0.15);
+        
+        // Rotate Ring (-Heading) so 'N' is North
         this.ui.ring.style.transform = `rotate(${-this.state.dispHead}deg)`;
-        this.ui.head.innerText = Math.round(this.state.dispHead).toString().padStart(3,'0') + "°";
+        this.ui.headVal.innerText = Math.round(this.state.dispHead).toString().padStart(3,'0') + "°";
 
-        // Render Modes
         if(this.mode === 'wonder') {
+            // Target Needle
             if(this.sensor.gps.lat) {
                 const w = this.wonders[this.state.idx];
-                const b = MathUtils.getBearing(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon);
-                this.ui.nTarget.style.transform = `translateX(-50%) rotate(${b}deg)`;
+                const bearing = MathUtils.getBearing(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon);
+                // Needle rotation is relative to ring container. 
+                // Since Ring rotates -Heading, and we want Needle to point to Bearing relative to North.
+                // CSS: `rotate(bearing)` inside a container rotated by `-heading` works perfectly if the needle is a child of the ring.
+                // Wait: If ring is rotated -90 (N is Left). Bearing is 90 (East). Needle should point Right relative to screen (which is South relative to Ring?).
+                // Let's re-verify: 
+                // Screen Top = 0. Heading = 90 (E). Ring Rot = -90. N is Left (-90). E is Top (0).
+                // Target = 180 (S). Relative to Heading(90) -> Target is +90 deg (Right).
+                // Bearing = 180. 
+                // If I apply `rotate(180)` to needle inside Ring. Ring is -90. Needle net = 90. Correct.
+                this.ui.nTarget.style.transform = `translateX(-50%) rotate(${bearing}deg)`;
             }
         } 
-        else if(this.mode === 'earth') {
-            // True vs Mag
-            const trueN = -this.state.decl;
-            this.ui.nTrue.style.transform = `translateX(-50%) rotate(${trueN}deg)`;
+        else if (this.mode === 'earth') {
+            // True North = -Declination relative to Mag North (Ring N)
+            const trueH = -this.state.decl; 
+            this.ui.nTrue.style.transform = `translateX(-50%) rotate(${trueH}deg)`;
             this.ui.nMag.style.transform = `translateX(-50%) rotate(0deg)`;
-            this.ui.txtShort.innerText = `Mag Field: ${this.sensor.magData.active ? this.sensor.magData.val.toFixed(1) : 'N/A'} µT`;
+            this.ui.headLbl.innerText = this.i18n.t('lbl_field');
         }
-        else if(this.mode === 'myth') {
-            // OMEN ARG
-            const seed = (this.sensor.gps.lat || 0) + (this.sensor.gps.lon || 0);
-            const omen = OmenEngine.generate(this.sensor.magData.active, this.sensor.magWindow, seed);
+        else if (this.mode === 'myth') {
+            // ARG Omen Update
+            const seed = (this.sensor.gps.lat||0) + (this.sensor.gps.lon||0);
+            const omen = OmenEngine.generate(this.sensor.mag.active, this.sensor.magWindow, seed, this.i18n.lang);
             
-            // Throttle UI update (simple check every ~1s handled by text compare or time, but here we just update)
             this.ui.omenTitle.innerText = omen.title;
             this.ui.omenBody.innerText = omen.text;
             this.ui.omenTitle.style.color = omen.level > 1 ? 'var(--neon-r)' : 'var(--neon-g)';
             
-            // Glitch needle
-            const noise = (Math.sin(Date.now()/200) * 10) * omen.level;
+            // Glitch Needle
+            const noise = Math.sin(Date.now()/200) * (omen.level * 10);
             this.ui.nTarget.style.transform = `translateX(-50%) rotate(${noise}deg)`;
         }
     }
 
-    // Actions
+    // Interaction
     setMode(m) {
         this.mode = m;
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
         event.target.classList.add('active');
         
-        // Reset UI
+        // Visibilities
         this.ui.nTarget.style.display = 'none'; this.ui.nTrue.style.display = 'none'; this.ui.nMag.style.display = 'none';
         this.ui.cardLore.style.display = 'none'; this.ui.cardOmen.style.display = 'none';
         this.ui.actions.style.display = 'none';
@@ -676,35 +811,42 @@ class App {
         if(m === 'wonder') {
             this.ui.nTarget.style.display = 'block';
             this.ui.cardLore.style.display = 'block';
-            this.ui.actions.style.display = 'flex';
-            this.ui.txtDist.style.opacity = 1;
+            this.ui.actions.style.display = 'grid';
+            this.ui.headLbl.innerText = this.i18n.t('lbl_heading');
         } else if (m === 'earth') {
             this.ui.nTrue.style.display = 'block';
             this.ui.nMag.style.display = 'block';
             this.ui.cardLore.style.display = 'block';
-            this.ui.txtName.innerText = "Magnetic Earth";
-            this.ui.txtShort.innerText = "Analysis Mode";
-            this.ui.listFacts.innerHTML = `<li>True North: Green</li><li>Mag North: Red (Dashed)</li><li>Declination: ${this.state.decl}°</li>`;
-            this.ui.txtMyth.innerText = "";
-            this.ui.txtDist.style.opacity = 0;
+            // Reuse Lore Card for Earth Info
+            this.ui.tName.innerText = this.i18n.t('mode_earth');
+            this.ui.tShort.innerText = this.sensor.mag.active ? `${this.sensor.mag.val.toFixed(1)} µT` : this.i18n.t('err_mag_u');
+            this.ui.tFacts.innerHTML = ""; this.ui.tMyth.innerText = "";
         } else {
             this.ui.nTarget.style.display = 'block';
             this.ui.cardOmen.style.display = 'block';
             document.body.classList.add('glitch-mode');
+            this.ui.headLbl.innerText = this.i18n.t('lbl_var');
         }
     }
 
     toggleAuto() {
         this.state.auto = !this.state.auto;
-        this.ui.lblAuto.innerText = this.state.auto ? "Auto: ON" : "Auto: OFF";
+        this.updateAutoBtn();
         if(this.state.auto) this.findNearest();
     }
-    
+
+    updateAutoBtn() {
+        const txt = this.state.auto ? 'btn_auto' : 'btn_manual';
+        this.ui.btnAuto.querySelector('span:last-child').innerText = this.i18n.t(txt);
+        if(this.state.auto) this.ui.btnAuto.classList.add('active');
+        else this.ui.btnAuto.classList.remove('active');
+    }
+
     nextTarget() {
         this.state.auto = false;
-        this.ui.lblAuto.innerText = "Auto: OFF";
+        this.updateAutoBtn();
         this.state.idx = (this.state.idx + 1) % this.wonders.length;
-        this.updateLore();
+        this.updateLoreUI();
     }
 
     openMap() {
@@ -715,37 +857,22 @@ class App {
     fetchDecl() {
         if(!this.sensor.gps.lat) return alert("Wait for GPS");
         const url = `https://www.ngdc.noaa.gov/geomag-web/calculators/calculateDeclination?lat1=${this.sensor.gps.lat}&lon1=${this.sensor.gps.lon}&resultFormat=json`;
-        fetch(url).then(r=>r.json()).then(d=>{
-            this.state.decl = d.result[0].declination;
-            document.getElementById('inp-decl').value = this.state.decl.toFixed(2);
-            alert("Updated: " + this.state.decl);
-        }).catch(()=>alert("Offline mode. Enter manually."));
+        fetch(url)
+            .then(r=>r.json())
+            .then(d => {
+                this.state.decl = d.result[0].declination;
+                document.getElementById('inp-decl').value = this.state.decl.toFixed(2);
+                alert("Updated: " + this.state.decl);
+            })
+            .catch(() => alert("Online fetch failed. Enter manually."));
     }
 
     toggleSettings() {
         document.getElementById('modal').classList.toggle('hidden');
     }
-    
-    toggleMute() {
-        this.state.mute = !this.state.mute;
-        document.getElementById('btn-mute').innerText = this.state.mute ? "Sound: OFF" : "Sound: ON";
-    }
 }
 
-// Raw coords for matching DB
-const WONDERS_RAW = [
-    { name: "Great Pyramid of Giza", lat: 29.9792, lon: 31.1342 },
-    { name: "Great Wall of China", lat: 40.4319, lon: 116.5704 },
-    { name: "Petra", lat: 30.3285, lon: 35.4444 },
-    { name: "Colosseum", lat: 41.8902, lon: 12.4922 },
-    { name: "Chichen Itza", lat: 20.6843, lon: -88.5678 },
-    { name: "Machu Picchu", lat: -13.1631, lon: -72.5450 },
-    { name: "Taj Mahal", lat: 27.1751, lon: 78.0421 },
-    { name: "Christ the Redeemer", lat: -22.9519, lon: -43.2105 },
-    { name: "Stonehenge", lat: 51.1789, lon: -1.8262 },
-    { name: "Bermuda Triangle", lat: 25.0, lon: -71.0 }
-];
-
+// Init
 const app = new App();
 document.getElementById('btn-init').addEventListener('click', () => app.start());
 
