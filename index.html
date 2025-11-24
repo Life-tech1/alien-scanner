@@ -1465,7 +1465,13 @@
                     this.handleResize();
                     window.addEventListener('resize', () => this.handleResize());
 
-                    this.startMainLoop();
+                    // D) Advanced Tracking Engine
+                    this.tracker = new ObjectTracker();
+                    this.lastDetectionTime = 0;
+                    this.detectionInterval = 100; // 10Hz detection rate
+
+                    this.startRenderLoop();
+                    this.startDetectionLoop();
                     this.startSystemMonitoring();
 
                 } catch (error) {
@@ -1473,32 +1479,109 @@
                 }
             }
 
-            toggleFullscreen() {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(() => {
-                        this.showAlert("Fullscreen not supported", true);
-                    });
-                } else {
-                    document.exitFullscreen();
+            // --- Core System Upgrades ---
+
+            // A) Robust Fullscreen Helper
+            async requestFullscreen(element) {
+                try {
+                    if (element.requestFullscreen) {
+                        await element.requestFullscreen();
+                    } else if (element.webkitRequestFullscreen) { /* Safari */
+                        await element.webkitRequestFullscreen();
+                    } else if (element.msRequestFullscreen) { /* IE11 */
+                        await element.msRequestFullscreen();
+                    } else if (element.tagName === 'VIDEO' && element.webkitEnterFullscreen) {
+                        // iOS Video Fullscreen
+                        element.webkitEnterFullscreen();
+                    } else {
+                        throw new Error("Fullscreen API not supported");
+                    }
+                } catch (err) {
+                    console.warn("Fullscreen failed:", err);
+                    this.showAlert("Fullscreen not supported", true);
                 }
             }
 
-            toggleOrientationLock() {
-                if (screen.orientation && screen.orientation.lock) {
-                    if (!this.isOrientationLocked) {
-                        screen.orientation.lock('landscape').then(() => {
-                            this.isOrientationLocked = true;
-                            document.getElementById('btn-lock').classList.add('active');
-                            this.showLockIndicator();
-                        }).catch(() => {
-                            this.showAlert("Orientation lock not supported", true);
-                        });
+            async toggleFullscreen() {
+                const doc = window.document;
+                const docEl = doc.documentElement;
+
+                // iOS Detection
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+                if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement && !doc.msFullscreenElement) {
+                    // Enter Fullscreen
+                    if (isIOS) {
+                        // iOS only supports fullscreen on video elements
+                        await this.requestFullscreen(this.video);
                     } else {
-                        screen.orientation.unlock();
-                        this.isOrientationLocked = false;
-                        document.getElementById('btn-lock').classList.remove('active');
+                        await this.requestFullscreen(docEl);
+                    }
+                    this.isFullscreen = true;
+                } else {
+                    // Exit Fullscreen
+                    if (doc.exitFullscreen) {
+                        await doc.exitFullscreen();
+                    } else if (doc.webkitExitFullscreen) {
+                        await doc.webkitExitFullscreen();
+                    } else if (doc.msExitFullscreen) {
+                        await doc.msExitFullscreen();
+                    }
+                    this.isFullscreen = false;
+                }
+
+                // Update UI
+                const btn = document.getElementById('btn-fullscreen');
+                btn.classList.toggle('active', this.isFullscreen);
+                this.triggerHaptic();
+            }
+
+            async toggleOrientationLock() {
+                // B) Reliable Orientation Lock
+
+                // Check if Screen Orientation API is supported
+                if (!screen.orientation || !screen.orientation.lock) {
+                    this.showAlert("Orientation lock not supported", true);
+                    return;
+                }
+
+                // Requirement: Must be in fullscreen (usually)
+                const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+
+                // If not fullscreen, try to enter first or warn
+                if (!isFullscreen) {
+                    try {
+                        await this.toggleFullscreen();
+                        // Wait a tiny bit for fullscreen to engage
+                        await new Promise(r => setTimeout(r, 100));
+                    } catch (e) {
+                        this.showAlert("Lock requires fullscreen", true);
+                        return;
                     }
                 }
+
+                try {
+                    if (this.isOrientationLocked) {
+                        screen.orientation.unlock();
+                        this.isOrientationLocked = false;
+                        this.showAlert("Orientation Unlocked");
+                    } else {
+                        // Lock to current orientation
+                        const type = screen.orientation.type.startsWith('portrait') ? 'portrait' : 'landscape';
+                        await screen.orientation.lock(type);
+                        this.isOrientationLocked = true;
+                        this.showAlert(`Locked to ${type.toUpperCase()}`);
+                    }
+                } catch (err) {
+                    console.warn("Orientation lock failed:", err);
+                    this.showAlert("Lock failed: " + err.message, true);
+                    this.isOrientationLocked = false;
+                }
+
+                // Update UI
+                const btn = document.getElementById('btn-lock');
+                btn.classList.toggle('active', this.isOrientationLocked);
+                this.triggerHaptic();
             }
 
             showLockIndicator() {
@@ -1518,7 +1601,13 @@
                 document.querySelectorAll('.zoom-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                if (targetBtn) targetBtn.classList.add('active');
+                if (targetBtn) {
+                    targetBtn.classList.add('active');
+                } else {
+                    // Fallback if no target passed (e.g. initial set)
+                    const btn = document.querySelector(`.zoom-btn[data-zoom="${level}"]`);
+                    if (btn) btn.classList.add('active');
+                }
             }
 
             setFilter(filter, targetBtn) {
@@ -1529,7 +1618,13 @@
                 document.querySelectorAll('.filter-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                if (targetBtn) targetBtn.classList.add('active');
+                if (targetBtn) {
+                    targetBtn.classList.add('active');
+                } else {
+                    // Fallback
+                    const btn = document.querySelector(`.filter-btn[data-filter="${filter}"]`);
+                    if (btn) btn.classList.add('active');
+                }
 
                 this.showAlert(`Filter: ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
             }
@@ -1664,11 +1759,12 @@
                 const settings = track.getSettings();
 
                 // Helper to setup slider
-                const setupSlider = (id, capKey, settingKey, labelId, unit = '') => {
+                const setupSlider = (id, capKey, settingKey, labelId, unit = '', modeKey = null) => {
                     const slider = document.getElementById(id);
                     const label = document.getElementById(labelId);
 
-                    if (capabilities[capKey]) {
+                    // Check if capability exists and is a range (has min/max)
+                    if (capabilities[capKey] && typeof capabilities[capKey] === 'object' && 'min' in capabilities[capKey]) {
                         slider.min = capabilities[capKey].min;
                         slider.max = capabilities[capKey].max;
                         slider.step = capabilities[capKey].step;
@@ -1678,30 +1774,66 @@
                         slider.addEventListener('input', async (e) => {
                             const value = parseFloat(e.target.value);
                             label.textContent = value + unit;
+
+                            const constraints = { advanced: [{ [capKey]: value }] };
+
+                            // Set manual mode if required
+                            if (modeKey && capabilities[modeKey] && capabilities[modeKey].includes('manual')) {
+                                constraints.advanced[0][modeKey] = 'manual';
+                            }
+
                             try {
-                                await track.applyConstraints({
-                                    advanced: [{ [capKey]: value }]
-                                });
+                                await track.applyConstraints(constraints);
                             } catch (err) {
                                 console.warn(`Failed to set ${capKey}:`, err);
                             }
                         });
                     } else {
+                        // Disable and hide if not supported
                         slider.disabled = true;
                         label.textContent = 'N/A';
+                        slider.parentElement.style.opacity = '0.5';
                     }
                 };
 
-                setupSlider('iso-slider', 'iso', 'iso', 'iso-val');
-                setupSlider('shutter-slider', 'exposureTime', 'exposureTime', 'shutter-val', 'ms');
-                setupSlider('wb-slider', 'whiteBalanceMode', 'whiteBalanceMode', 'wb-val', 'K'); // Simplified
-                setupSlider('focus-slider', 'focusDistance', 'focusDistance', 'focus-val', 'm');
-                setupSlider('exposure-slider', 'exposureCompensation', 'exposureCompensation', 'exposure-val');
+                // C) Real Pro Camera Controls
+                setupSlider('iso-slider', 'iso', 'iso', 'iso-val', '', 'exposureMode');
+                setupSlider('shutter-slider', 'exposureTime', 'exposureTime', 'shutter-val', 'ms', 'exposureMode');
+                setupSlider('focus-slider', 'focusDistance', 'focusDistance', 'focus-val', 'm', 'focusMode');
+                setupSlider('exposure-slider', 'exposureCompensation', 'exposureCompensation', 'exposure-val', '', 'exposureMode');
 
-                // Special handling for White Balance Mode vs Temperature
-                if (capabilities.whiteBalanceMode && Array.isArray(capabilities.whiteBalanceMode) && capabilities.whiteBalanceMode.includes('manual')) {
-                    // If manual WB is supported, try to enable it
-                    track.applyConstraints({ advanced: [{ whiteBalanceMode: 'manual' }] }).catch(e => console.log(e));
+                // Special handling for White Balance
+                // Check for colorTemperature (range) vs whiteBalanceMode (enum)
+                const wbSlider = document.getElementById('wb-slider');
+                const wbLabel = document.getElementById('wb-val');
+
+                if (capabilities.colorTemperature) {
+                    // Supported as range
+                    wbSlider.min = capabilities.colorTemperature.min;
+                    wbSlider.max = capabilities.colorTemperature.max;
+                    wbSlider.step = capabilities.colorTemperature.step;
+                    wbSlider.value = settings.colorTemperature;
+                    wbSlider.disabled = false;
+
+                    wbSlider.addEventListener('input', async (e) => {
+                        const value = parseFloat(e.target.value);
+                        wbLabel.textContent = value + 'K';
+                        try {
+                            await track.applyConstraints({
+                                advanced: [{
+                                    whiteBalanceMode: 'manual',
+                                    colorTemperature: value
+                                }]
+                            });
+                        } catch (err) {
+                            console.warn("WB set failed", err);
+                        }
+                    });
+                } else {
+                    // Fallback or unsupported
+                    wbSlider.disabled = true;
+                    wbLabel.textContent = 'Auto';
+                    wbSlider.parentElement.style.opacity = '0.5';
                 }
             }
 
@@ -1855,19 +1987,27 @@
                 return { x: startX, y: startY, w: drawWidth, h: drawHeight, scale: drawWidth / this.video.videoWidth };
             }
 
-            async startMainLoop() {
-                const loop = async () => {
+            // --- Advanced Tracking Engine ---
+
+            startRenderLoop() {
+                const render = () => {
                     if (!this.isActive) return;
 
-                    // Guard: Video not ready
-                    if (this.video.readyState < 2 || this.video.videoWidth === 0) {
-                        requestAnimationFrame(loop);
-                        return;
+                    // Clear canvas
+                    this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+
+                    // Get smoothed tracks
+                    const tracks = this.tracker.getTracks();
+
+                    // Render Tracks
+                    this.drawTracks(tracks);
+
+                    // Render Poses (if available)
+                    if (this.lastPoses) {
+                        this.drawPose(this.lastPoses);
                     }
 
-                    // Update video rect if needed
-                    if (!this.videoRect) this.videoRect = this.calculateVideoRect();
-
+                    // FPS Counter (Render FPS)
                     this.frameCount++;
                     const now = Date.now();
                     if (now - this.lastFpsUpdate >= 1000) {
@@ -1877,34 +2017,97 @@
                         document.getElementById('fps-counter').textContent = this.fps;
                     }
 
-                    // Clear canvas
-                    this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+                    requestAnimationFrame(render);
+                };
+                render();
+            }
 
-                    // AI Detection Logic
-                    if (this.objectDetector && this.settings.confidence > 0) {
-                        try {
-                            const predictions = await this.objectDetector.detect(this.video);
-                            this.drawDetections(predictions);
-                            this.updateAnalytics(predictions);
-                        } catch (e) {
-                            // Silent fail for single frame error
-                        }
+            async startDetectionLoop() {
+                const loop = async () => {
+                    if (!this.isActive) {
+                        setTimeout(loop, 100);
+                        return;
                     }
 
-                    if (this.poseDetector) {
-                        try {
+                    const now = Date.now();
+                    if (now - this.lastDetectionTime < this.detectionInterval) {
+                        setTimeout(loop, 10); // Check again soon
+                        return;
+                    }
+
+                    // Guard: Video not ready
+                    if (this.video.readyState < 2 || this.video.videoWidth === 0) {
+                        setTimeout(loop, 100);
+                        return;
+                    }
+
+                    // Update video rect if needed
+                    if (!this.videoRect) this.videoRect = this.calculateVideoRect();
+
+                    try {
+                        // Run AI Detection
+                        if (this.objectDetector && this.settings.confidence > 0) {
+                            const predictions = await this.objectDetector.detect(this.video);
+
+                            // Update Tracker
+                            this.tracker.update(predictions, this.settings.confidence);
+
+                            // Update Analytics
+                            this.updateAnalytics(predictions);
+                        }
+
+                        // Run Pose Detection
+                        if (this.poseDetector) {
                             const poses = await this.poseDetector.estimatePoses(this.video);
                             if (poses.length > 0) {
-                                this.drawPose(poses[0]);
+                                this.lastPoses = poses[0];
+                            } else {
+                                this.lastPoses = null;
                             }
-                        } catch (e) {
-                            // Silent fail
                         }
+
+                    } catch (e) {
+                        // Silent fail
                     }
 
-                    requestAnimationFrame(loop);
+                    this.lastDetectionTime = Date.now();
+                    setTimeout(loop, 10); // Loop immediately but respect interval check
                 };
                 loop();
+            }
+
+            drawTracks(tracks) {
+                if (!this.videoRect) return;
+                const { x: offX, y: offY, scale } = this.videoRect;
+
+                tracks.forEach(track => {
+                    // Map coordinates
+                    const [x, y, width, height] = track.bbox;
+                    const drawX = offX + (x * scale);
+                    const drawY = offY + (y * scale);
+                    const drawW = width * scale;
+                    const drawH = height * scale;
+
+                    // Draw Box
+                    const color = this.getClassColor(track.class);
+                    this.overlayCtx.strokeStyle = color;
+                    this.overlayCtx.lineWidth = 2;
+                    this.overlayCtx.strokeRect(drawX, drawY, drawW, drawH);
+
+                    // Draw Label
+                    this.overlayCtx.fillStyle = color;
+                    this.overlayCtx.globalAlpha = 0.8;
+                    this.overlayCtx.fillRect(drawX, drawY - 24, drawW, 24);
+                    this.overlayCtx.globalAlpha = 1.0;
+
+                    this.overlayCtx.fillStyle = '#fff';
+                    this.overlayCtx.font = 'bold 12px "Montserrat", sans-serif';
+                    this.overlayCtx.fillText(
+                        `${track.class.toUpperCase()} ${Math.round(track.score * 100)}% [ID:${track.id}]`,
+                        drawX + 6,
+                        drawY - 7
+                    );
+                });
             }
 
             updateAnalytics(objects) {
@@ -2063,6 +2266,107 @@
                         }
                     });
                 }
+            }
+        }
+
+        // --- Tracker Class ---
+        class ObjectTracker {
+            constructor() {
+                this.tracks = [];
+                this.nextId = 1;
+                this.maxMissedFrames = 10;
+                this.iouThreshold = 0.3;
+                this.alpha = 0.3; // Smoothing factor (lower = smoother)
+            }
+
+            update(predictions, confidenceThreshold) {
+                // Filter low confidence
+                const validDetections = predictions.filter(p => p.score >= confidenceThreshold);
+
+                // Match existing tracks to new detections
+                const matched = new Set();
+                const activeTracks = [];
+
+                this.tracks.forEach(track => {
+                    let bestMatch = null;
+                    let bestIOU = 0;
+
+                    validDetections.forEach((detection, index) => {
+                        if (matched.has(index)) return;
+
+                        // Check class match
+                        if (detection.class !== track.class) return;
+
+                        const iou = this.calculateIOU(track.bbox, detection.bbox);
+                        if (iou > this.iouThreshold && iou > bestIOU) {
+                            bestIOU = iou;
+                            bestMatch = { detection, index };
+                        }
+                    });
+
+                    if (bestMatch) {
+                        // Update track with smoothing
+                        matched.add(bestMatch.index);
+                        track.bbox = this.smoothBbox(track.bbox, bestMatch.detection.bbox);
+                        track.score = bestMatch.detection.score;
+                        track.missedFrames = 0;
+                        activeTracks.push(track);
+                    } else {
+                        // Track lost temporarily
+                        track.missedFrames++;
+                        if (track.missedFrames < this.maxMissedFrames) {
+                            activeTracks.push(track);
+                        }
+                    }
+                });
+
+                // Create new tracks for unmatched detections
+                validDetections.forEach((detection, index) => {
+                    if (!matched.has(index)) {
+                        activeTracks.push({
+                            id: this.nextId++,
+                            class: detection.class,
+                            bbox: detection.bbox,
+                            score: detection.score,
+                            missedFrames: 0
+                        });
+                    }
+                });
+
+                this.tracks = activeTracks;
+            }
+
+            getTracks() {
+                return this.tracks;
+            }
+
+            calculateIOU(bbox1, bbox2) {
+                const [x1, y1, w1, h1] = bbox1;
+                const [x2, y2, w2, h2] = bbox2;
+
+                const xi1 = Math.max(x1, x2);
+                const yi1 = Math.max(y1, y2);
+                const xi2 = Math.min(x1 + w1, x2 + w2);
+                const yi2 = Math.min(y1 + h1, y2 + h2);
+
+                const interW = Math.max(0, xi2 - xi1);
+                const interH = Math.max(0, yi2 - yi1);
+                const interArea = interW * interH;
+
+                const area1 = w1 * h1;
+                const area2 = w2 * h2;
+                const unionArea = area1 + area2 - interArea;
+
+                return interArea / unionArea;
+            }
+
+            smoothBbox(oldBbox, newBbox) {
+                return [
+                    oldBbox[0] + (newBbox[0] - oldBbox[0]) * this.alpha,
+                    oldBbox[1] + (newBbox[1] - oldBbox[1]) * this.alpha,
+                    oldBbox[2] + (newBbox[2] - oldBbox[2]) * this.alpha,
+                    oldBbox[3] + (newBbox[3] - oldBbox[3]) * this.alpha
+                ];
             }
         }
 
