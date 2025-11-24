@@ -909,40 +909,64 @@
         <video id="camera-feed" autoplay playsinline muted></video>
         <canvas id="overlay-canvas"></canvas>
 
-        <!-- SNIPER CROSSHAIR -->
-        <div id="crosshair">
-            <div class="sight-ring"></div>
-            <div class="targeting-dot"></div>
-            <div class="range-marking" style="top:60%;">20m</div>
-            <div class="range-marking" style="top:70%;">50m</div>
-            <div class="range-marking" style="top:80%;">100m</div>
-        </div>
+        <!-- CROSSHAIR REMOVED -->
     </div>
 
-    <!-- FULLSCREEN CONTROLS -->
     <div id="fullscreen-controls">
-        <button class="screen-btn" id="btn-fullscreen" title="Fullscreen">⛶</button>
-        <button class="screen-btn" id="btn-lock" title="Lock Orientation">🔒</button>
+        <button class="screen-btn" id="btn-fullscreen" title="Fullscreen">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+        </button>
+        <button class="screen-btn" id="btn-lock" title="Lock Orientation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+        </button>
     </div>
 
-    <!-- LANGUAGE SELECTOR -->
-    <div class="language-selector">
-        <select class="lang-btn" id="language-select">
-            <option value="en">EN</option>
-            <option value="th">TH</option>
-            <option value="zh">中文</option>
-            <option value="ja">日本語</option>
-        </select>
-    </div>
+    <!-- LANGUAGE SELECTOR MOVED TO SETTINGS -->
 
     <!-- FLOATING UI TOGGLE -->
-    <div id="toggle-ui">⚙️</div>
+    <div id="toggle-ui">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+        </svg>
+    </div>
 
     <!-- MEDIA CONTROLS -->
     <div id="media-controls">
-        <button class="media-btn" id="btn-capture" title="Capture Photo">📸</button>
-        <button class="media-btn" id="btn-record" title="Record Video">🎥</button>
-        <button class="media-btn" id="btn-audio" title="Record Audio">🎤</button>
+        <button class="media-btn" id="btn-capture" title="Capture Photo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+        </button>
+        <button class="media-btn" id="btn-record" title="Record Video">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 7l-7 5 7 5V7z"></path>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+        </button>
+        <button class="media-btn" id="btn-audio" title="Record Audio">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+        </button>
     </div>
 
     <!-- ZOOM CONTROLS -->
@@ -954,10 +978,33 @@
 
     <!-- FILTER CONTROLS -->
     <div id="filter-controls">
-        <button class="filter-btn" data-filter="normal" title="Normal View">👁️</button>
-        <button class="filter-btn" data-filter="thermal" title="Thermal Simulation">🔥</button>
-        <button class="filter-btn" data-filter="night" title="Night Vision">🌙</button>
-        <button class="filter-btn" data-filter="enhanced" title="Enhanced">✨</button>
+        <button class="filter-btn" data-filter="normal" title="Normal View">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+        </button>
+        <button class="filter-btn" data-filter="thermal" title="Thermal Simulation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+            </svg>
+        </button>
+        <button class="filter-btn" data-filter="night" title="Night Vision">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+        </button>
+        <button class="filter-btn" data-filter="enhanced" title="Enhanced">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon
+                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                </polygon>
+            </svg>
+        </button>
     </div>
 
     <!-- MAIN UI CONTAINER -->
@@ -965,6 +1012,7 @@
         <!-- TAB NAVIGATION -->
         <div class="tab-navigation">
             <button class="tab-btn active" data-tab="vision">Vision</button>
+            <button class="tab-btn" data-tab="pro">Pro Mode</button>
             <button class="tab-btn" data-tab="audio">Audio</button>
             <button class="tab-btn" data-tab="share">Share</button>
             <button class="tab-btn" data-tab="reports">Reports</button>
@@ -1026,6 +1074,51 @@
             </div>
         </div>
 
+        <!-- PRO MODE TAB -->
+        <div class="tab-content" id="pro-tab">
+            <div class="glass-panel" style="padding: 24px;">
+                <div class="status-label" style="margin-bottom: 20px;">PRO CAMERA SETTINGS</div>
+
+                <div class="setting-item">
+                    <span class="setting-label">ISO <span id="iso-val"
+                            style="float:right; color:var(--primary);">AUTO</span></span>
+                    <input type="range" class="setting-control" id="iso-slider" min="100" max="3200" step="100"
+                        disabled>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">Shutter Speed <span id="shutter-val"
+                            style="float:right; color:var(--primary);">AUTO</span></span>
+                    <input type="range" class="setting-control" id="shutter-slider" min="0" max="1000" step="1"
+                        disabled>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">White Balance <span id="wb-val"
+                            style="float:right; color:var(--primary);">AUTO</span></span>
+                    <input type="range" class="setting-control" id="wb-slider" min="2000" max="8000" step="100"
+                        disabled>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">Focus Distance <span id="focus-val"
+                            style="float:right; color:var(--primary);">AUTO</span></span>
+                    <input type="range" class="setting-control" id="focus-slider" min="0" max="100" step="1" disabled>
+                </div>
+
+                <div class="setting-item">
+                    <span class="setting-label">Exposure Compensation <span id="exposure-val"
+                            style="float:right; color:var(--primary);">0</span></span>
+                    <input type="range" class="setting-control" id="exposure-slider" min="-3" max="3" step="0.5"
+                        value="0">
+                </div>
+
+                <div style="margin-top: 20px; font-size: 11px; color: rgba(255,255,255,0.4);">
+                    * Pro controls depend on hardware support. Unavailable controls are disabled.
+                </div>
+            </div>
+        </div>
+
         <!-- REMAINING TAB CONTENT (SAME AS BEFORE BUT WITH ENHANCED STYLING) -->
         <!-- Audio, Share, Reports, Backup, Help, Settings tabs remain with enhanced glass styling -->
 
@@ -1072,8 +1165,11 @@
                 // Media Recording
                 this.mediaRecorder = null;
                 this.recordedChunks = [];
+                this.recordings = [];
                 this.audioRecorder = null;
                 this.audioChunks = [];
+                this.audioRecordings = [];
+                this.recordStartTime = 0;
 
                 // Analytics
                 this.analytics = {
@@ -1123,11 +1219,12 @@
                         }
                     );
 
+                    // Initialize Media Systems with the SAME stream
                     this.updateBootProgress(85, "Initializing Media Systems...");
-                    await this.initializeMediaSystems();
+                    // Media systems are initialized in activateSystem to use the active stream
 
                     this.updateBootProgress(95, "Finalizing Systems...");
-                    this.setupEventListeners();
+                    this.setupEventListeners(); // Setup listeners BEFORE activation
                     this.initializeCanvas();
                     this.loadSettings();
 
@@ -1140,25 +1237,7 @@
                 }
             }
 
-            async initializeMediaSystems() {
-                try {
-                    // Initialize video recording
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: true,
-                        audio: true
-                    });
-
-                    this.mediaRecorder = new MediaRecorder(stream);
-                    this.setupMediaRecorder();
-
-                    // Initialize audio recording
-                    this.audioRecorder = new MediaRecorder(stream);
-                    this.setupAudioRecorder();
-
-                } catch (error) {
-                    console.warn("Media systems not fully available:", error);
-                }
-            }
+            // REMOVED initializeMediaSystems - logic moved to activateSystem to share stream
 
             setupMediaRecorder() {
                 this.mediaRecorder.ondataavailable = (event) => {
@@ -1350,6 +1429,13 @@
                     });
 
                     this.video.srcObject = stream;
+                    this.activeStream = stream; // Store stream for media recorders
+
+                    // Initialize Media Recorders with the active stream
+                    this.initializeMediaRecorders(stream);
+
+                    // Initialize Pro Mode Capabilities
+                    this.initializeProMode(stream);
 
                     await new Promise((resolve, reject) => {
                         this.video.onloadedmetadata = () => {
@@ -1486,6 +1572,7 @@
                 } else {
                     this.mediaRecorder.start();
                     this.isRecording = true;
+                    this.recordStartTime = Date.now();
                     btn.classList.add('recording');
                     this.showAlert("Recording started");
                 }
@@ -1517,6 +1604,67 @@
                     duration: Date.now() - this.recordStartTime
                 });
                 this.analytics.totalRecordings++;
+            }
+
+            initializeMediaRecorders(stream) {
+                try {
+                    // Video Recorder
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.setupMediaRecorder();
+
+                    // Audio Recorder (using same stream)
+                    this.audioRecorder = new MediaRecorder(stream);
+                    this.setupAudioRecorder();
+                } catch (e) {
+                    console.warn("MediaRecorder init failed:", e);
+                }
+            }
+
+            initializeProMode(stream) {
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                const settings = track.getSettings();
+
+                // Helper to setup slider
+                const setupSlider = (id, capKey, settingKey, labelId, unit = '') => {
+                    const slider = document.getElementById(id);
+                    const label = document.getElementById(labelId);
+
+                    if (capabilities[capKey]) {
+                        slider.min = capabilities[capKey].min;
+                        slider.max = capabilities[capKey].max;
+                        slider.step = capabilities[capKey].step;
+                        slider.value = settings[settingKey];
+                        slider.disabled = false;
+
+                        slider.addEventListener('input', async (e) => {
+                            const value = parseFloat(e.target.value);
+                            label.textContent = value + unit;
+                            try {
+                                await track.applyConstraints({
+                                    advanced: [{ [capKey]: value }]
+                                });
+                            } catch (err) {
+                                console.warn(`Failed to set ${capKey}:`, err);
+                            }
+                        });
+                    } else {
+                        slider.disabled = true;
+                        label.textContent = 'N/A';
+                    }
+                };
+
+                setupSlider('iso-slider', 'iso', 'iso', 'iso-val');
+                setupSlider('shutter-slider', 'exposureTime', 'exposureTime', 'shutter-val', 'ms');
+                setupSlider('wb-slider', 'whiteBalanceMode', 'whiteBalanceMode', 'wb-val', 'K'); // Simplified
+                setupSlider('focus-slider', 'focusDistance', 'focusDistance', 'focus-val', 'm');
+                setupSlider('exposure-slider', 'exposureCompensation', 'exposureCompensation', 'exposure-val');
+
+                // Special handling for White Balance Mode vs Temperature
+                if (capabilities.whiteBalanceMode && Array.isArray(capabilities.whiteBalanceMode) && capabilities.whiteBalanceMode.includes('manual')) {
+                    // If manual WB is supported, try to enable it
+                    track.applyConstraints({ advanced: [{ whiteBalanceMode: 'manual' }] }).catch(e => console.log(e));
+                }
             }
 
             saveAudioRecording(blob) {
