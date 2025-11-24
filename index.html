@@ -3,350 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MAGIC WONDER COMPASS | MK-II</title>
-    <meta name="description" content="Professional Grade Sensor Fusion Compass">
-    <meta name="theme-color" content="#000000">
+    <title>MAGIC WONDER COMPASS | PRO</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f0c29">
 
     <style>
-        /* -------------------------------------------------------
-           SYSTEM STYLES (SCI-FI HUD / MINIMAL)
-           ------------------------------------------------------- */
+        /* ------------------------------------------------------------------
+           DESIGN SYSTEM: PURPLE NEON GLASSMORPHISM (iOS 14 Pro Optimized)
+           ------------------------------------------------------------------ */
         :root {
-            --c-bg: #000000;
-            --c-primary: #00ffcc; /* Cyan Teal */
-            --c-secondary: #00aaff; /* Deep Blue */
-            --c-accent: #ff3366; /* Red/Pink */
-            --c-warn: #ffcc00; /* Amber */
-            --c-glass: rgba(0, 20, 30, 0.6);
-            --c-dim: #334444;
-            --font-hud: "SF Mono", "Courier New", Courier, monospace;
-            --safe-top: env(safe-area-inset-top);
-            --safe-bot: env(safe-area-inset-bottom);
+            --bg-dark: #050508;
+            --bg-gradient: linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            --glass-surf: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-highlight: rgba(255, 255, 255, 0.2);
+            --blur-strength: 20px;
+            
+            --c-primary: #ffffff;
+            --c-sec: #94a3b8;
+            --c-neon-purple: #d946ef;
+            --c-neon-blue: #60a5fa;
+            --c-neon-red: #f43f5e;
+            --c-warn: #fbbf24;
+
+            --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            --font-mono: "SF Mono", "Menlo", monospace;
+            
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+            
+            --ease-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
-        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
-        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
         body {
             margin: 0; padding: 0;
-            background-color: var(--c-bg);
+            background: var(--bg-dark);
+            background-image: var(--bg-gradient);
             color: var(--c-primary);
-            font-family: var(--font-hud);
-            overflow: hidden;
+            font-family: var(--font-main);
             height: 100vh; width: 100vw;
+            overflow: hidden;
             display: flex; flex-direction: column;
         }
 
-        /* --- UTILS --- */
+        /* BACKGROUND FX */
+        .bg-orb {
+            position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: 0;
+            animation: float 10s infinite ease-in-out alternate;
+        }
+        .orb-1 { width: 300px; height: 300px; background: #7c3aed; top: -50px; left: -50px; }
+        .orb-2 { width: 250px; height: 250px; background: #2563eb; bottom: 10%; right: -20px; animation-delay: -5s; }
+        @keyframes float { 0% { transform: translate(0,0); } 100% { transform: translate(30px, 50px); } }
+
+        /* UTILS */
         .hidden { display: none !important; }
-        .blink { animation: blink 1.5s infinite; }
-        @keyframes blink { 50% { opacity: 0.3; } }
-        .text-warn { color: var(--c-warn); }
-        .text-accent { color: var(--c-accent); }
-        .text-dim { color: #667777; }
-        
-        /* --- SCANLINES & FX --- */
-        .scanlines {
-            position: fixed; inset: 0; pointer-events: none; z-index: 5;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 3px, 3px 100%;
-            opacity: 0.4;
+        .flex-col { display: flex; flex-direction: column; }
+        .flex-row { display: flex; align-items: center; }
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+        .glass-card {
+            background: var(--glass-surf);
+            backdrop-filter: blur(var(--blur-strength));
+            -webkit-backdrop-filter: blur(var(--blur-strength));
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
+        .text-neon { color: var(--c-neon-purple); text-shadow: 0 0 10px rgba(217, 70, 239, 0.5); }
+        .text-mono { font-family: var(--font-mono); letter-spacing: -0.5px; }
 
-        /* --- OVERLAYS --- */
-        #overlay {
-            position: absolute; inset: 0; z-index: 100;
-            background: rgba(0,0,0,0.92);
-            backdrop-filter: blur(10px);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            text-align: center; padding: 20px;
-        }
-        h1 { font-size: 1.2rem; letter-spacing: 3px; color: var(--c-primary); text-transform: uppercase; border-bottom: 2px solid var(--c-secondary); padding-bottom: 10px; }
-        
-        button.btn-core {
-            background: rgba(0, 255, 204, 0.1);
-            border: 1px solid var(--c-primary); color: var(--c-primary);
-            padding: 15px 40px; font-family: var(--font-hud); font-size: 1rem;
-            cursor: pointer; margin-top: 20px; text-transform: uppercase;
-            transition: all 0.2s;
-            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-        }
-        button.btn-core:active { background: var(--c-primary); color: #000; }
-
-        /* --- MAIN HUD LAYOUT --- */
-        #hud-layer {
-            flex: 1; display: flex; flex-direction: column;
-            padding: calc(10px + var(--safe-top)) 15px calc(10px + var(--safe-bot)) 15px;
+        /* --- UI LAYOUT --- */
+        #app-container {
             position: relative; z-index: 10;
+            flex: 1; display: flex; flex-direction: column;
+            padding: var(--safe-top) 20px calc(var(--safe-bottom) + 10px) 20px;
+            gap: 16px;
         }
 
         /* TOP BAR */
-        .top-bar { display: flex; justify-content: space-between; font-size: 0.75rem; border-bottom: 1px solid var(--c-dim); padding-bottom: 8px; margin-bottom: 10px; }
-        .gps-stat { display: flex; gap: 10px; }
+        .top-bar { justify-content: space-between; height: 50px; }
+        .app-title { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .status-pill {
+            font-size: 0.7rem; padding: 6px 12px; border-radius: 20px;
+            background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+            color: var(--c-sec); font-weight: 600;
+        }
+        .status-pill.active { color: var(--c-neon-blue); border-color: rgba(96, 165, 250, 0.3); }
+        .settings-btn { font-size: 1.2rem; padding: 8px; cursor: pointer; opacity: 0.8; }
 
-        /* COMPASS RING AREA */
-        .compass-container {
-            flex: 1; position: relative;
-            display: flex; align-items: center; justify-content: center;
-            perspective: 800px;
+        /* COMPASS ORB (HERO) */
+        .compass-stage {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; min-height: 300px;
         }
-        .compass-ring {
-            width: min(80vw, 380px); height: min(80vw, 380px);
-            border: 1px dashed var(--c-dim); border-radius: 50%;
+        
+        .orb-ring {
+            width: 280px; height: 280px; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
             position: relative;
-            transition: transform 0.1s linear; /* Smooth update handled by JS */
-            box-shadow: 0 0 30px rgba(0, 255, 204, 0.05);
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+            transition: transform 0.2s var(--ease-smooth);
         }
-        .compass-ring::after {
-            content: ''; position: absolute; inset: -5px; border-radius: 50%;
-            border: 2px solid transparent; border-top-color: var(--c-primary);
-            opacity: 0.5;
+        
+        /* Graduated ticks logic in CSS conic gradient for performance */
+        .orb-ticks {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(
+                from 0deg, 
+                var(--glass-border) 0deg 1deg, transparent 1deg 29deg,
+                var(--glass-border) 30deg 31deg, transparent 31deg 59deg,
+                var(--glass-border) 60deg 61deg, transparent 61deg 89deg,
+                rgba(255,255,255,0.5) 90deg 91deg, transparent 91deg 119deg, /* E */
+                var(--glass-border) 120deg 121deg, transparent 121deg 149deg,
+                var(--glass-border) 150deg 151deg, transparent 151deg 179deg,
+                rgba(255,255,255,0.5) 180deg 181deg, transparent 181deg 209deg, /* S */
+                var(--glass-border) 210deg 211deg, transparent 211deg 239deg,
+                var(--glass-border) 240deg 241deg, transparent 241deg 269deg,
+                rgba(255,255,255,0.5) 270deg 271deg, transparent 271deg 299deg, /* W */
+                var(--glass-border) 300deg 301deg, transparent 301deg 329deg,
+                var(--glass-border) 330deg 331deg, transparent 331deg 359deg,
+                var(--c-neon-purple) 360deg
+            );
+            mask: radial-gradient(transparent 65%, black 66%);
+            -webkit-mask: radial-gradient(transparent 65%, black 66%);
         }
-        .marker { position: absolute; font-size: 0.8rem; font-weight: bold; }
-        .m-n { top: 5px; left: 50%; transform: translateX(-50%); color: var(--c-accent); }
-        .m-e { right: 10px; top: 50%; transform: translateY(-50%); }
-        .m-s { bottom: 5px; left: 50%; transform: translateX(-50%); }
-        .m-w { left: 10px; top: 50%; transform: translateY(-50%); }
+
+        .cardinal { position: absolute; font-weight: 700; font-size: 0.9rem; color: var(--c-sec); }
+        .c-n { top: 10px; left: 50%; transform: translateX(-50%); color: var(--c-neon-purple); }
+        .c-e { right: 15px; top: 50%; transform: translateY(-50%); }
+        .c-s { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .c-w { left: 15px; top: 50%; transform: translateY(-50%); }
 
         /* NEEDLES */
-        .needle-stage { position: absolute; inset: 0; pointer-events: none; }
+        .needle-container { position: absolute; inset: 0; pointer-events: none; }
         .needle {
-            position: absolute; top: 50%; left: 50%;
-            transform-origin: bottom center;
-            will-change: transform;
-            transition: transform 0.4s cubic-bezier(0.1, 0.7, 0.1, 1); /* Smooth damping */
+            position: absolute; top: 50%; left: 50%; width: 4px; height: 42%;
+            transform-origin: bottom center; margin-left: -2px; margin-top: -42%;
+            border-radius: 4px; transition: transform 0.5s var(--ease-elastic); will-change: transform;
         }
+        .n-wonder { background: var(--c-neon-purple); box-shadow: 0 0 12px var(--c-neon-purple); z-index: 3; }
+        .n-wonder::after { content: ''; position: absolute; top: -6px; left: -4px; border-bottom: 12px solid var(--c-neon-purple); border-left: 6px solid transparent; border-right: 6px solid transparent; }
         
-        /* 1. Target Needle (Wonder) */
-        .n-target { width: 4px; height: 42%; background: var(--c-primary); margin-left: -2px; margin-top: -42%; border-radius: 2px; box-shadow: 0 0 8px var(--c-primary); }
-        .n-target::before { content: ''; position: absolute; top: -10px; left: -6px; border: 8px solid transparent; border-bottom-color: var(--c-primary); }
+        .n-north { background: var(--c-neon-blue); height: 45%; margin-top: -45%; z-index: 2; opacity: 0.8; }
+        .n-mag { height: 35%; margin-top: -35%; border-left: 2px dashed var(--c-neon-red); width: 0; margin-left: -1px; z-index: 2; opacity: 0.6; }
         
-        /* 2. True North (Green) */
-        .n-true { width: 2px; height: 45%; background: var(--c-secondary); margin-left: -1px; margin-top: -45%; opacity: 0.8; }
+        .center-data {
+            position: absolute; text-align: center; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column;
+        }
+        .heading-val { font-size: 2.5rem; font-weight: 800; line-height: 1; }
+        .heading-lbl { font-size: 0.7rem; color: var(--c-sec); letter-spacing: 2px; margin-top: 4px; }
+
+        /* INFO CARD */
+        .info-card {
+            padding: 20px; display: flex; flex-direction: column; gap: 12px;
+            position: relative; overflow: hidden;
+        }
+        .info-card::before { content: ''; position: absolute; top:0; left:0; width: 4px; height: 100%; background: var(--c-neon-purple); }
         
-        /* 3. Mag North (Red/Dash) */
-        .n-mag { width: 2px; height: 35%; border-left: 2px dashed var(--c-accent); margin-left: -1px; margin-top: -35%; opacity: 0.6; }
+        .target-row { display: flex; justify-content: space-between; align-items: flex-end; }
+        .target-name { font-size: 1.4rem; font-weight: 700; line-height: 1.1; color: #fff; max-width: 75%; }
+        .target-tag { font-size: 0.7rem; background: rgba(217, 70, 239, 0.2); color: var(--c-neon-purple); padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+        .stat-box { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 12px; }
+        .stat-lbl { font-size: 0.7rem; color: var(--c-sec); margin-bottom: 4px; }
+        .stat-val { font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono); }
 
-        /* 4. Anomaly (Glitch) */
-        .n-anom { width: 3px; height: 40%; background: #fff; margin-left: -1.5px; margin-top: -40%; display: none; filter: drop-shadow(0 0 5px #fff); }
+        /* CONTROL BAR */
+        .control-dock {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+            padding: 4px; background: rgba(0,0,0,0.2); border-radius: 30px;
+        }
+        .mode-btn {
+            background: transparent; border: none; color: var(--c-sec);
+            padding: 12px; border-radius: 24px; font-size: 0.8rem; font-weight: 600;
+            transition: all 0.2s; cursor: pointer;
+        }
+        .mode-btn.active { background: var(--glass-highlight); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
-        /* CENTER READOUT */
-        .center-hud {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            text-align: center; pointer-events: none;
-            background: rgba(0,0,0,0.8); padding: 5px 10px; border: 1px solid var(--c-dim);
+        /* ACTION BUTTONS (Auto, Next, Map) */
+        .actions-row { display: flex; gap: 10px; margin-top: 4px; }
+        .action-pill {
+            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            color: var(--c-sec); padding: 10px; border-radius: 16px; font-size: 0.75rem;
+            display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+            transition: background 0.2s;
         }
-        .h-val { font-size: 1.8rem; font-weight: 700; display: block; line-height: 1; }
-        .h-lbl { font-size: 0.6rem; letter-spacing: 1px; color: var(--c-dim); }
+        .action-pill:active { background: rgba(255,255,255,0.15); }
+        .icon-s { font-size: 1rem; }
 
-        /* BOTTOM PANEL */
-        .info-deck {
-            background: var(--c-glass); border-top: 2px solid var(--c-dim);
-            padding: 15px; display: flex; flex-direction: column; gap: 8px;
-            backdrop-filter: blur(5px);
+        /* PERMISSION OVERLAY */
+        #perm-overlay {
+            position: fixed; inset: 0; z-index: 999;
+            background: rgba(5, 5, 8, 0.9); backdrop-filter: blur(30px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 40px;
         }
-        .main-target { font-size: 1.1rem; color: var(--c-primary); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; justify-content: space-between; align-items: center;}
-        .sub-target { font-size: 0.8rem; color: var(--c-secondary); display: flex; justify-content: space-between; }
-        .metrics { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; }
+        .btn-primary {
+            background: var(--c-neon-purple); color: #fff; border: none;
+            padding: 16px 40px; border-radius: 50px; font-size: 1rem; font-weight: 700;
+            box-shadow: 0 0 20px rgba(217, 70, 239, 0.4); margin-top: 30px;
+            cursor: pointer;
+        }
 
-        /* CONTROLS */
-        .control-bar {
-            display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 5px; margin-top: 10px;
+        /* SCANLINE FX (Myth Mode) */
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.5s;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 1px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 3px);
         }
-        .c-btn {
-            background: #111; border: 1px solid var(--c-dim); color: #888;
-            padding: 12px 0; font-size: 0.7rem; font-family: var(--font-hud);
-            cursor: pointer; text-align: center;
-        }
-        .c-btn.active { background: rgba(0, 255, 204, 0.15); color: var(--c-primary); border-color: var(--c-primary); }
-        .c-icon { font-size: 1rem; }
+        .myth-active .scanlines { opacity: 1; }
+        .myth-active .heading-val { text-shadow: 2px 0 var(--c-neon-red), -2px 0 cyan; }
 
         /* SETTINGS MODAL */
-        .modal {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 200;
-            display: flex; flex-direction: column; padding: 20px;
+        #modal {
+            position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px); padding: 20px; display: flex; align-items: center; justify-content: center;
         }
-        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid var(--c-dim); padding-bottom: 10px; }
-        .modal-row { margin-bottom: 15px; }
-        .modal label { display: block; font-size: 0.8rem; color: var(--c-dim); margin-bottom: 5px; }
-        .modal select, .modal input { width: 100%; background: #222; border: 1px solid #444; color: #fff; padding: 10px; font-family: var(--font-hud); }
-        .close-btn { color: var(--c-accent); font-size: 1.5rem; cursor: pointer; }
+        .modal-content { width: 100%; max-width: 400px; padding: 24px; position: relative; }
+        .close-modal { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; }
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 0.8rem; color: var(--c-sec); margin-bottom: 6px; }
+        .input-group input { width: 100%; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 12px; }
 
-        /* ANIMATIONS */
-        .glitch-anim { animation: glitch 0.3s infinite; }
-        @keyframes glitch {
-            0% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(-2px, -2px); }
-            60% { transform: translate(2px, 2px); }
-            80% { transform: translate(2px, -2px); }
-            100% { transform: translate(0); }
-        }
-
-        /* UTILITY LINKS */
-        .map-link { text-decoration: none; color: var(--c-secondary); font-size: 0.7rem; border: 1px solid var(--c-secondary); padding: 2px 6px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
+    <!-- BACKGROUND -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
     <div class="scanlines"></div>
 
-    <!-- STARTUP SCREEN -->
-    <div id="overlay">
-        <h1>Magic Wonder Compass <span style="font-size:0.5em; color:var(--c-accent)">MK-II</span></h1>
-        <div style="font-size: 0.8rem; color: #888; margin: 15px 0; max-width: 300px; line-height: 1.5;">
-            SYSTEM CHECK:<br>
-            • GPS: <span id="chk-gps">WAITING</span><br>
-            • GYRO: <span id="chk-gyro">WAITING</span><br>
-            • MAG: <span id="chk-mag">OPTIONAL</span>
-        </div>
-        <p style="font-size: 0.7rem; color: var(--c-warn);">
-            iOS REQUIREMENT: PLEASE ALLOW SENSORS<br>
-            ANDROID: CALIBRATE BY FIGURE-8 MOTION
-        </p>
-        <button id="btn-init" class="btn-core">INITIALIZE SYSTEM</button>
+    <!-- PERMISSION SCREEN -->
+    <div id="perm-overlay">
+        <h1 style="font-size: 2rem; margin-bottom: 10px;">MAGIC<br>COMPASS</h1>
+        <p style="color: var(--c-sec);">Precision Sensor Fusion<br>For iPhone 14 Pro & Modern Android</p>
+        <button class="btn-primary" id="btn-start">INITIALIZE SENSORS</button>
+        <p style="font-size: 0.7rem; color: #555; margin-top: 20px;">Requires Motion & GPS Permissions</p>
     </div>
 
-    <!-- MAIN HUD -->
-    <div id="hud-layer" class="hidden">
-        <!-- Top Status -->
-        <div class="top-bar">
-            <div class="gps-stat">
-                <span id="stat-gps-icon" class="blink">GPS: ACQUIRING</span>
-                <span id="stat-coords" class="text-dim">--.---, --.---</span>
+    <!-- MAIN APP -->
+    <div id="app-container" class="hidden">
+        
+        <!-- Top Bar -->
+        <div class="flex-row top-bar">
+            <div class="app-title">
+                <span style="color:var(--c-neon-purple)">✦</span> WONDER CMPSS
             </div>
-            <div class="sensor-stat">
-                <span id="stat-mag-strength">-- µT</span>
+            <div class="flex-row" style="gap:8px">
+                <div class="status-pill" id="pill-gps">GPS WAIT</div>
+                <div class="settings-btn" onclick="app.toggleSettings()">⚙</div>
             </div>
         </div>
 
-        <!-- Compass -->
-        <div class="compass-container">
-            <div class="compass-ring" id="compass-ring">
-                <div class="marker m-n">N</div><div class="marker m-e">E</div>
-                <div class="marker m-s">S</div><div class="marker m-w">W</div>
+        <!-- Compass Core -->
+        <div class="compass-stage">
+            <div class="orb-ring" id="orb-ring">
+                <div class="orb-ticks"></div>
+                <div class="cardinal c-n">N</div>
+                <div class="cardinal c-e">E</div>
+                <div class="cardinal c-s">S</div>
+                <div class="cardinal c-w">W</div>
                 
-                <div class="needle-stage">
-                    <div id="ndl-target" class="needle n-target"></div>
-                    <div id="ndl-north" class="needle n-true"></div>
-                    <div id="ndl-mag" class="needle n-mag"></div>
-                    <div id="ndl-anom" class="needle n-anom"></div>
+                <!-- Needles -->
+                <div class="needle-container">
+                    <div class="needle n-wonder" id="ndl-target"></div>
+                    <div class="needle n-north" id="ndl-true"></div>
+                    <div class="needle n-mag" id="ndl-mag"></div>
                 </div>
 
-                <div class="center-hud">
-                    <span class="h-val" id="val-heading">000°</span>
-                    <span class="h-lbl">HEADING</span>
+                <!-- Center Data -->
+                <div class="center-data">
+                    <span class="heading-val text-mono" id="val-heading">000°</span>
+                    <span class="heading-lbl" id="lbl-sub">HEADING</span>
                 </div>
             </div>
         </div>
 
-        <!-- Info Deck -->
-        <div class="info-deck">
-            <div class="main-target">
-                <span id="txt-target-name">NO TARGET</span>
-                <a id="lnk-map" href="#" target="_blank" class="map-link hidden">MAP ↗</a>
+        <!-- Info Dashboard -->
+        <div class="info-card glass-card" id="info-panel">
+            <div class="target-row">
+                <div class="target-name" id="txt-name">Select Target</div>
+                <div class="target-tag" id="txt-tag">SYSTEM</div>
             </div>
-            <div class="sub-target">
-                <span id="txt-target-region">--</span>
-                <span id="txt-auto-badge" class="text-accent hidden">[AUTO-NEAREST]</span>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-lbl">DISTANCE</div>
+                    <div class="stat-val text-neon" id="val-dist">-- km</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-lbl" id="lbl-extra">BEARING</div>
+                    <div class="stat-val" id="val-extra">--°</div>
+                </div>
             </div>
-            <div class="metrics">
-                <div>DST: <span id="val-dist" class="text-primary">---</span></div>
-                <div>BRG: <span id="val-bearing">---°</span></div>
-                <div>ACC: <span id="val-acc">±--m</span></div>
+
+            <!-- Sub Controls (Wonder Mode) -->
+            <div class="actions-row" id="row-wonder-actions">
+                <div class="action-pill" onclick="app.toggleAutoNearest()">
+                    <span class="icon-s">⟳</span> <span id="txt-auto">Auto: ON</span>
+                </div>
+                <div class="action-pill" onclick="app.nextNearest()">
+                    <span class="icon-s">→</span> Next
+                </div>
+                <div class="action-pill" onclick="app.openMap()">
+                    <span class="icon-s">↗</span> Map
+                </div>
             </div>
-            <div id="myth-disclaimer" class="hidden" style="font-size:0.6rem; color:#555; margin-top:5px; border-top:1px solid #222; padding-top:2px;">
-                * MYTH MODE IS FOR NARRATIVE PURPOSES ONLY.
+
+            <div id="myth-disclaimer" class="hidden" style="font-size: 0.6rem; color: var(--c-sec); margin-top: 10px; text-align: center;">
+                ⚠️ MYTH MODE: Narrative purpose only. Sensor data creates procedural noise. Not a ghost detector.
             </div>
         </div>
 
-        <!-- Controls -->
-        <div class="control-bar">
-            <button class="c-btn active" onclick="app.setMode('wonder')">WONDER</button>
-            <button class="c-btn" onclick="app.setMode('magnetic')">EARTH</button>
-            <button class="c-btn" onclick="app.setMode('anomaly')">MYTH</button>
-            <button class="c-btn" onclick="app.toggleSettings()">⚙</button>
+        <!-- Bottom Mode Switcher -->
+        <div style="margin-top: auto;">
+            <div class="control-dock glass-card">
+                <button class="mode-btn active" onclick="app.setMode('wonder')">WONDER</button>
+                <button class="mode-btn" onclick="app.setMode('magnetic')">EARTH</button>
+                <button class="mode-btn" onclick="app.setMode('myth')">MYTH</button>
+            </div>
         </div>
+
     </div>
 
     <!-- SETTINGS MODAL -->
-    <div id="modal-settings" class="modal hidden">
-        <div class="modal-header">
-            <span>CONFIGURATION</span>
-            <span class="close-btn" onclick="app.toggleSettings()">×</span>
-        </div>
-        
-        <!-- Wonder Settings -->
-        <div id="set-wonder">
-            <div class="modal-row">
-                <label>TARGET SELECTION</label>
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <button id="btn-auto-toggle" class="c-btn" style="flex:1" onclick="app.toggleAutoNearest()">AUTO NEAREST: OFF</button>
-                    <button id="btn-next-target" class="c-btn hidden" style="width:50px" onclick="app.nextNearest()">→</button>
+    <div id="modal" class="hidden">
+        <div class="modal-content glass-card">
+            <span class="close-modal" onclick="app.toggleSettings()">×</span>
+            <h2 style="margin-top:0">Settings</h2>
+            
+            <div class="input-group">
+                <label>Magnetic Declination (deg)</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="number" id="inp-decl" value="0">
+                    <button class="action-pill" style="flex:0 0 80px" onclick="app.fetchDeclination()">Fetch</button>
                 </div>
-                <select id="sel-target" onchange="app.manualSelectTarget(this.value)"></select>
+                <small style="color:var(--c-sec); font-size:0.65rem;">Positive = East, Negative = West</small>
             </div>
-        </div>
 
-        <!-- Magnetic Settings -->
-        <div id="set-magnetic" class="hidden">
-            <div class="modal-row">
-                <label>MAGNETIC DECLINATION (°)</label>
-                <div style="display:flex; gap:5px;">
-                    <input type="number" id="inp-declination" value="0" step="0.1" onchange="app.setDeclination(this.value)">
-                    <button class="c-btn" style="width:80px;" onclick="app.fetchDeclination()">AUTO FETCH</button>
-                </div>
-                <p style="font-size:0.6rem; color:#666; margin-top:5px;">
-                    Uses NOAA WMM API. If offline, enter manually (East +, West -).
-                </p>
+            <div class="input-group">
+                <label>Sound FX</label>
+                <button class="action-pill" style="width:100%" onclick="app.toggleMute()" id="btn-mute">Sound: ON</button>
             </div>
-        </div>
-
-        <!-- Anomaly Settings -->
-        <div id="set-anomaly" class="hidden">
-            <div class="modal-row">
-                <label>AUDIO / HAPTICS</label>
-                <button id="btn-mute" class="c-btn" style="width:100%" onclick="app.toggleMute()">MUTE SOUND: ON</button>
-            </div>
-        </div>
-
-        <div style="margin-top:auto; font-size:0.6rem; color:#444; text-align:center;">
-            RUNNING VER: 2.1.0 | BUILD: SINGLE-FILE
         </div>
     </div>
 
 <script>
 /**
- * MAGIC WONDER COMPASS MK-II
- * Single-file Production Build
- * 
- * Stack: Vanilla ES6+, No Dependencies
- * Features: Geodesy, Sensor Fusion (iOS/Android), WMM API, Auto-Nearest
+ * MAGIC WONDER COMPASS PRO
+ * Architecture:
+ * 1. MathUtils: Pure geometry functions.
+ * 2. SensorEngine: Hardware abstraction (iOS/Android).
+ * 3. LogicCore: Business logic (Nearest wonder, formatting).
+ * 4. CompassApp: Main state & UI Controller.
  */
 
-// --- 1. DATA: WORLD WONDERS & CUSTOM ---
+// --- 1. DATA ---
 const WONDERS = [
-    { name: "Great Pyramid of Giza", lat: 29.9792, lon: 31.1342, region: "Egypt (Ancient)" },
-    { name: "Great Wall of China", lat: 40.4319, lon: 116.5704, region: "China (New7)" },
+    { name: "Great Pyramid", lat: 29.9792, lon: 31.1342, region: "Egypt (Ancient)" },
+    { name: "Great Wall", lat: 40.4319, lon: 116.5704, region: "China (New7)" },
     { name: "Petra", lat: 30.3285, lon: 35.4444, region: "Jordan (New7)" },
     { name: "Colosseum", lat: 41.8902, lon: 12.4922, region: "Italy (New7)" },
     { name: "Chichen Itza", lat: 20.6843, lon: -88.5678, region: "Mexico (New7)" },
     { name: "Machu Picchu", lat: -13.1631, lon: -72.5450, region: "Peru (New7)" },
     { name: "Taj Mahal", lat: 27.1751, lon: 78.0421, region: "India (New7)" },
-    { name: "Christ the Redeemer", lat: -22.9519, lon: -43.2105, region: "Brazil (New7)" },
+    { name: "Christ Redeemer", lat: -22.9519, lon: -43.2105, region: "Brazil (New7)" },
     { name: "Stonehenge", lat: 51.1789, lon: -1.8262, region: "UK (Ancient)" },
-    { name: "Bermuda Triangle", lat: 25.0000, lon: -71.0000, region: "Atlantic (Myth)" },
-    { name: "Magnetic North Pole", lat: 86.5000, lon: 164.0400, region: "Arctic (Approx)" }
+    { name: "Bermuda Triangle", lat: 25.0, lon: -71.0, region: "Atlantic (Myth)" }
 ];
 
-// --- 2. MODULE: GEODESY & MATH ---
+// --- 2. MATH UTILS ---
 const MathUtils = {
-    toRad: d => d * Math.PI / 180,
-    toDeg: r => r * 180 / Math.PI,
+    toRad: (d) => d * Math.PI / 180,
+    toDeg: (r) => r * 180 / Math.PI,
     
-    // Haversine Distance (km)
+    // Great-Circle Distance (Haversine)
     getDistance: (lat1, lon1, lat2, lon2) => {
         const R = 6371; 
         const dLat = MathUtils.toRad(lat2 - lat1);
@@ -355,7 +391,7 @@ const MathUtils = {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     },
 
-    // Forward Azimuth (Bearing 0-360)
+    // Initial Bearing (0-360)
     getBearing: (lat1, lon1, lat2, lon2) => {
         const y = Math.sin(MathUtils.toRad(lon2 - lon1)) * Math.cos(MathUtils.toRad(lat2));
         const x = Math.cos(MathUtils.toRad(lat1)) * Math.sin(MathUtils.toRad(lat2)) -
@@ -364,442 +400,301 @@ const MathUtils = {
         return (b + 360) % 360;
     },
 
-    // Smart Angle Interpolation (handles 359->1)
-    lerpAngle: (current, target, factor) => {
-        let delta = target - current;
-        while (delta < -180) delta += 360;
-        while (delta > 180) delta -= 360;
-        return current + delta * factor;
+    // Shortest angle interpolation
+    lerpAngle: (a, b, t) => {
+        let delta = b - a;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        return a + delta * t;
     }
 };
 
-// --- 3. MODULE: SENSOR ENGINE (IOS/ANDROID ABSTRACTION) ---
+// --- 3. SENSOR ENGINE ---
 class SensorEngine {
     constructor() {
-        this.heading = 0; // 0 = Magnetic North (Clockwise)
-        this.gps = { lat: null, lon: null, acc: 0, alt: 0 };
-        this.magData = { x:0, y:0, z:0, strength: 0, available: false };
+        this.heading = 0; // 0 = Mag North
+        this.gps = { lat: null, lon: null, acc: 0 };
+        this.mag = { x: 0, y: 0, z: 0, strength: 0, available: false };
         this.callbacks = {};
-        
-        // Settings
-        this.declination = parseFloat(localStorage.getItem('declination') || '0');
     }
 
-    async init() {
-        // 1. GPS (Geolocation API)
-        if ("geolocation" in navigator) {
-            navigator.geolocation.watchPosition(
-                pos => {
-                    this.gps = {
-                        lat: pos.coords.latitude,
-                        lon: pos.coords.longitude,
-                        acc: pos.coords.accuracy,
-                        alt: pos.coords.altitude
-                    };
-                    this.trigger('gps', this.gps);
-                    document.getElementById('chk-gps').innerText = "OK";
-                    document.getElementById('chk-gps').style.color = "#00ffcc";
-                },
-                err => { console.warn('GPS Error', err); document.getElementById('chk-gps').innerText = "ERR"; },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        }
+    init() {
+        return new Promise(async (resolve, reject) => {
+            // 1. GPS
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    pos => {
+                        this.gps = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy };
+                        this.emit('gps', this.gps);
+                    },
+                    err => console.warn('GPS Err', err),
+                    { enableHighAccuracy: true, maximumAge: 0 }
+                );
+            }
 
-        // 2. COMPASS (DeviceOrientation)
-        // iOS 13+ requires permission
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            try {
-                const response = await DeviceOrientationEvent.requestPermission();
-                if (response === 'granted') {
-                    window.addEventListener('deviceorientation', e => this.handleOrientation(e));
-                    document.getElementById('chk-gyro').innerText = "OK (iOS)";
-                } else {
-                    alert('Compass permission denied');
-                }
-            } catch (e) { console.error(e); }
-        } else {
-            // Android / Non-iOS 13+
-            // Prefer absolute orientation
-            if ('ondeviceorientationabsolute' in window) {
-                window.addEventListener('deviceorientationabsolute', e => this.handleOrientation(e, true));
-                document.getElementById('chk-gyro').innerText = "OK (ABS)";
+            // 2. ORIENTATION (iOS 13+ needs permission)
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') {
+                        window.addEventListener('deviceorientation', e => this.handleOrientation(e));
+                        resolve(true);
+                    } else {
+                        reject('Permission denied');
+                    }
+                } catch (e) { reject(e); }
             } else {
+                // Android / Old iOS
+                window.addEventListener('deviceorientationabsolute', e => this.handleOrientation(e, true));
                 window.addEventListener('deviceorientation', e => this.handleOrientation(e, false));
-                document.getElementById('chk-gyro').innerText = "OK (STD)";
-            }
-        }
-
-        // 3. MAGNETOMETER (Generic Sensor API - Android mainly)
-        try {
-            // @ts-ignore
-            if ('Magnetometer' in window) {
+                
+                // 3. MAGNETOMETER (Android Generic Sensor API)
                 // @ts-ignore
-                const mag = new Magnetometer({ frequency: 10 });
-                mag.addEventListener('reading', () => {
-                    this.magData = {
-                        x: mag.x, y: mag.y, z: mag.z,
-                        strength: Math.sqrt(mag.x**2 + mag.y**2 + mag.z**2),
-                        available: true
-                    };
-                    document.getElementById('chk-mag').innerText = "ACTIVE";
-                    document.getElementById('chk-mag').style.color = "#00ffcc";
-                });
-                mag.start();
+                if ('Magnetometer' in window) {
+                    try {
+                        // @ts-ignore
+                        const mag = new Magnetometer({ frequency: 60 });
+                        mag.addEventListener('reading', () => {
+                            this.mag.available = true;
+                            this.mag.x = mag.x; this.mag.y = mag.y; this.mag.z = mag.z;
+                            this.mag.strength = Math.sqrt(mag.x**2 + mag.y**2 + mag.z**2);
+                        });
+                        mag.start();
+                    } catch(e) { console.log('Mag API not supported'); }
+                }
+                resolve(true);
             }
-        } catch(e) { /* Ignore if not supported */ }
+        });
     }
 
-    handleOrientation(e, isAbsolute) {
-        let h = 0;
-        
-        // iOS Logic: webkitCompassHeading is key (0 = Mag North, CW)
-        if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
-            h = e.webkitCompassHeading;
-        } 
-        // Android/Standard Logic
-        else if (e.alpha !== null) {
-            // Alpha: 0 = North, Counter-Clockwise (usually)
-            // But we need Clockwise for CSS rotation logic compatibility
-            // h = 360 - e.alpha; 
-            
-            // Note: This is simplified. Real Android heading needs `absolute` event
-            // and often compensation for beta/gamma tilt. 
-            // For this single-file MVP, we use the standard conversion:
-            h = 360 - e.alpha; 
+    handleOrientation(e, absolute) {
+        // iOS Priority
+        if (e.webkitCompassHeading) {
+            this.heading = e.webkitCompassHeading;
+        } else if (e.alpha !== null) {
+            // Android standard (simplified, assumes standard portrait use)
+            this.heading = 360 - e.alpha; 
         }
-
-        // Screen Rotation Compensation (Portrait vs Landscape)
-        // Note: Modern browsers use screen.orientation.angle
-        /* 
-           Usually not needed for webkitCompassHeading as it follows device top,
-           but useful if user rotates phone to landscape.
-           For this HUD, we assume Portrait lock mainly, or CSS rotation.
-           Let's keep raw heading for now.
-        */
-
-        this.heading = h;
     }
 
-    // Event System
     on(event, fn) { this.callbacks[event] = fn; }
-    trigger(event, data) { if(this.callbacks[event]) this.callbacks[event](data); }
+    emit(event, data) { if(this.callbacks[event]) this.callbacks[event](data); }
 }
 
-// --- 4. MODULE: APP LOGIC ---
-class WonderCompassApp {
+// --- 4. MAIN APP LOGIC ---
+class CompassApp {
     constructor() {
         this.sensor = new SensorEngine();
-        this.mode = 'wonder'; // wonder | magnetic | anomaly
+        this.mode = 'wonder'; // wonder | magnetic | myth
         this.state = {
-            targetIndex: 0,
+            targetIndex: 0, // Index in filtered array
+            sortedWonders: [...WONDERS], // Will be sorted by dist
             autoNearest: true,
-            headingDisplay: 0,
-            isMuted: false,
-            anomalySeed: 0
-        };
-        
-        // Cached Elements
-        this.ui = {
-            ring: document.getElementById('compass-ring'),
-            needles: {
-                target: document.getElementById('ndl-target'),
-                north: document.getElementById('ndl-north'),
-                mag: document.getElementById('ndl-mag'),
-                anom: document.getElementById('ndl-anom')
-            },
-            txt: {
-                heading: document.getElementById('val-heading'),
-                target: document.getElementById('txt-target-name'),
-                region: document.getElementById('txt-target-region'),
-                dist: document.getElementById('val-dist'),
-                bearing: document.getElementById('val-bearing'),
-                acc: document.getElementById('val-acc'),
-                magStr: document.getElementById('stat-mag-strength')
-            },
-            modal: {
-                wonder: document.getElementById('set-wonder'),
-                magnetic: document.getElementById('set-magnetic'),
-                anomaly: document.getElementById('set-anomaly')
-            }
+            declination: parseFloat(localStorage.getItem('declination') || '0'),
+            muted: false,
+            mythSeed: 0,
+            displayHeading: 0
         };
 
-        this.populateSelect();
+        // UI Refs
+        this.ui = {
+            ring: document.getElementById('orb-ring'),
+            needles: {
+                target: document.getElementById('ndl-target'),
+                true: document.getElementById('ndl-true'),
+                mag: document.getElementById('ndl-mag')
+            },
+            text: {
+                heading: document.getElementById('val-heading'),
+                name: document.getElementById('txt-name'),
+                tag: document.getElementById('txt-tag'),
+                dist: document.getElementById('val-dist'),
+                extraLbl: document.getElementById('lbl-extra'),
+                extraVal: document.getElementById('val-extra'),
+                gps: document.getElementById('pill-gps'),
+                auto: document.getElementById('txt-auto')
+            },
+            actions: document.getElementById('row-wonder-actions')
+        };
     }
 
     async start() {
-        document.getElementById('overlay').style.display = 'none';
-        document.getElementById('hud-layer').classList.remove('hidden');
-        
-        // Init Sensors
-        await this.sensor.init();
-
-        // Listen for GPS to update Nearest
-        this.sensor.on('gps', (gps) => {
-            document.getElementById('stat-gps-icon').innerText = "GPS: LOCKED";
-            document.getElementById('stat-gps-icon').classList.remove('blink');
-            document.getElementById('stat-gps-icon').style.color = "var(--c-primary)";
-            document.getElementById('stat-coords').innerText = `${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}`;
+        try {
+            await this.sensor.init();
+            document.getElementById('perm-overlay').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
             
-            if (this.state.autoNearest) this.findNearest();
-        });
+            this.sensor.on('gps', () => {
+                this.ui.text.gps.innerText = "GPS LOCKED";
+                this.ui.text.gps.classList.add('active');
+                this.updateDistances();
+            });
 
-        // Loop
-        this.loop();
+            this.loop();
+        } catch (e) {
+            alert("Sensors required! " + e);
+        }
     }
 
-    // --- LOGIC: WONDER MODE ---
-    findNearest() {
+    updateDistances() {
         if (!this.sensor.gps.lat) return;
         
-        // Sort wonders by distance
-        const sorted = WONDERS.map((w, i) => {
+        // Calculate distances and sort
+        this.state.sortedWonders = WONDERS.map(w => {
             const d = MathUtils.getDistance(this.sensor.gps.lat, this.sensor.gps.lon, w.lat, w.lon);
-            return { index: i, dist: d, ...w };
-        }).sort((a,b) => a.dist - b.dist);
+            return { ...w, distance: d };
+        }).sort((a, b) => a.distance - b.distance);
 
-        // If we are just "updating", pick the closest one (index 0 of sorted)
-        // But if user wants to cycle "Next Nearest", we might handle that separately.
-        // For standard "Auto Nearest", we pick sorted[0].
-        
-        if (this.state.targetIndex !== sorted[0].index) {
-            this.state.targetIndex = sorted[0].index;
-            this.updateTargetUI();
+        // If auto, snap to nearest (index 0)
+        if (this.state.autoNearest) {
+            this.state.targetIndex = 0;
         }
     }
-    
+
+    setMode(mode) {
+        this.mode = mode;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Reset UI visibility
+        Object.values(this.ui.needles).forEach(n => n.style.display = 'none');
+        document.body.classList.remove('myth-active');
+        document.getElementById('myth-disclaimer').classList.add('hidden');
+        this.ui.actions.classList.add('hidden');
+        this.ui.text.tag.style.display = 'block';
+
+        if (mode === 'wonder') {
+            this.ui.needles.target.style.display = 'block';
+            this.ui.actions.classList.remove('hidden');
+            this.ui.text.extraLbl.innerText = "BEARING";
+        } else if (mode === 'magnetic') {
+            this.ui.needles.true.style.display = 'block';
+            this.ui.needles.mag.style.display = 'block';
+            this.ui.text.name.innerText = "Magnetic Field";
+            this.ui.text.tag.innerText = "EARTH";
+            this.ui.text.dist.innerText = this.state.declination.toFixed(1) + "°";
+            this.ui.text.extraLbl.innerText = "INTENSITY";
+        } else if (mode === 'myth') {
+            document.body.classList.add('myth-active');
+            document.getElementById('myth-disclaimer').classList.remove('hidden');
+            this.ui.needles.target.style.display = 'block'; // Reuse purple needle as "Sensor"
+            this.ui.text.name.innerText = "Anomaly Scan";
+            this.ui.text.tag.innerText = "SEARCHING";
+            this.ui.text.extraLbl.innerText = "VARIANCE";
+        }
+    }
+
+    // Wonder Actions
     toggleAutoNearest() {
         this.state.autoNearest = !this.state.autoNearest;
-        const btn = document.getElementById('btn-auto-toggle');
-        const nextBtn = document.getElementById('btn-next-target');
-        const sel = document.getElementById('sel-target');
-
-        if (this.state.autoNearest) {
-            btn.innerText = "AUTO NEAREST: ON";
-            btn.classList.add('active');
-            sel.disabled = true;
-            nextBtn.classList.remove('hidden'); // Allow cycling nearest logic later if expanded
-            this.findNearest();
-            document.getElementById('txt-auto-badge').classList.remove('hidden');
-        } else {
-            btn.innerText = "AUTO NEAREST: OFF";
-            btn.classList.remove('active');
-            sel.disabled = false;
-            nextBtn.classList.add('hidden');
-            document.getElementById('txt-auto-badge').classList.add('hidden');
-        }
+        this.ui.text.auto.innerText = this.state.autoNearest ? "Auto: ON" : "Auto: OFF";
+        if(this.state.autoNearest) this.updateDistances();
     }
 
-    // --- LOGIC: MAGNETIC MODE ---
-    setDeclination(val) {
-        this.sensor.declination = parseFloat(val);
-        localStorage.setItem('declination', val);
+    nextNearest() {
+        this.state.autoNearest = false;
+        this.ui.text.auto.innerText = "Auto: OFF";
+        this.state.targetIndex = (this.state.targetIndex + 1) % this.state.sortedWonders.length;
     }
 
-    async fetchDeclination() {
-        if (!this.sensor.gps.lat) { alert("Wait for GPS fix."); return; }
-        const btn = event.target;
-        btn.innerText = "FETCHING...";
-        
-        try {
-            // Using NOAA API
-            const url = `https://www.ngdc.noaa.gov/geomag-web/calculators/calculateDeclination?lat1=${this.sensor.gps.lat}&lon1=${this.sensor.gps.lon}&resultFormat=json`;
-            const res = await fetch(url);
-            const data = await res.json();
-            
-            if (data && data.result) {
-                const dec = data.result[0].declination;
-                this.setDeclination(dec.toFixed(2));
-                document.getElementById('inp-declination').value = dec.toFixed(2);
-                alert(`Updated Declination: ${dec.toFixed(2)}°`);
-            }
-        } catch(e) {
-            alert("Fetch failed (CORS/Offline). Using Manual.");
-            console.error(e);
-        } finally {
-            btn.innerText = "AUTO FETCH";
-        }
+    openMap() {
+        const t = this.state.sortedWonders[this.state.targetIndex];
+        if(t) window.open(`https://maps.google.com/?q=${t.lat},${t.lon}`);
     }
 
-    // --- CORE RENDER LOOP ---
+    // Magnetic Logic
+    fetchDeclination() {
+        if(!this.sensor.gps.lat) return alert("Need GPS first");
+        const url = `https://www.ngdc.noaa.gov/geomag-web/calculators/calculateDeclination?lat1=${this.sensor.gps.lat}&lon1=${this.sensor.gps.lon}&resultFormat=json`;
+        fetch(url)
+            .then(r => r.json())
+            .then(d => {
+                const val = d.result[0].declination;
+                this.state.declination = val;
+                document.getElementById('inp-decl').value = val.toFixed(2);
+                localStorage.setItem('declination', val);
+                alert("Declination Updated: " + val.toFixed(2));
+            })
+            .catch(() => alert("Offline. Enter manually."));
+    }
+
+    toggleSettings() {
+        document.getElementById('modal').classList.toggle('hidden');
+    }
+    
+    toggleMute() {
+        this.state.muted = !this.state.muted;
+        document.getElementById('btn-mute').innerText = this.state.muted ? "Sound: OFF" : "Sound: ON";
+    }
+
+    // --- RENDER LOOP ---
     loop() {
         requestAnimationFrame(() => this.loop());
 
         // 1. Heading Smoothing
-        this.state.headingDisplay = MathUtils.lerpAngle(this.state.headingDisplay, this.sensor.heading, 0.15);
+        const rawHeading = this.sensor.heading || 0;
+        this.state.displayHeading = MathUtils.lerpAngle(this.state.displayHeading, rawHeading, 0.15);
         
-        // Rotate the Ring (Inverse Heading so 'N' points North)
-        this.ui.ring.style.transform = `rotate(${-this.state.headingDisplay}deg)`;
-        
-        // Update Text
-        this.ui.txt.heading.innerText = Math.round(this.state.headingDisplay).toString().padStart(3,'0') + "°";
+        // Rotate Ring: The ring rotates -heading so "N" points North on screen
+        this.ui.ring.style.transform = `rotate(${-this.state.displayHeading}deg)`;
+        this.ui.text.heading.innerText = Math.round(this.state.displayHeading).toString().padStart(3,'0') + "°";
 
-        // 2. Mode Rendering
+        // 2. Mode Render
         if (this.mode === 'wonder') {
-            this.renderWonderMode();
-        } else if (this.mode === 'magnetic') {
-            this.renderMagneticMode();
-        } else if (this.mode === 'anomaly') {
-            this.renderAnomalyMode();
-        }
-    }
+            const t = this.state.sortedWonders[this.state.targetIndex];
+            if (!t) return;
 
-    renderWonderMode() {
-        const target = WONDERS[this.state.targetIndex];
-        
-        if (this.sensor.gps.lat) {
-            const dist = MathUtils.getDistance(this.sensor.gps.lat, this.sensor.gps.lon, target.lat, target.lon);
-            const bearing = MathUtils.getBearing(this.sensor.gps.lat, this.sensor.gps.lon, target.lat, target.lon);
+            // Update Text
+            this.ui.text.name.innerText = t.name;
+            this.ui.text.tag.innerText = t.region.toUpperCase();
+            this.ui.text.dist.innerText = (t.distance || 0).toFixed(1) + " km";
             
-            this.ui.txt.dist.innerText = (dist < 1) ? (dist*1000).toFixed(0)+" m" : dist.toFixed(1)+" km";
-            this.ui.txt.bearing.innerText = bearing.toFixed(0) + "°";
-            this.ui.txt.acc.innerText = "±"+Math.round(this.sensor.gps.acc)+"m";
+            if (this.sensor.gps.lat) {
+                const bearing = MathUtils.getBearing(this.sensor.gps.lat, this.sensor.gps.lon, t.lat, t.lon);
+                this.ui.text.extraVal.innerText = Math.round(bearing) + "°";
+                // Rotate needle relative to Ring (Ring is World Frame). Needle points to Bearing.
+                this.ui.needles.target.style.transform = `translateX(-50%) rotate(${bearing}deg)`;
+            }
 
-            // Needle Rotation
-            // Ring is at -Heading (N is North). 
-            // Needle needs to point to Bearing. 
-            // Since Ring is frame of reference 0=North, we just rotate needle to Bearing.
-            this.ui.needles.target.style.transform = `translateX(-50%) rotate(${bearing}deg)`;
+        } else if (this.mode === 'magnetic') {
+            // True North Needle: Offset by -Declination from Mag North (0 on ring)
+            // If Dec is East (+), True North is -Dec degrees relative to Mag
+            const trueH = -this.state.declination;
+            this.ui.needles.true.style.transform = `translateX(-50%) rotate(${trueH}deg)`;
+            // Mag Needle always points to 0 (N on ring)
+            this.ui.needles.mag.style.transform = `translateX(-50%) rotate(0deg)`;
+
+            this.ui.text.extraVal.innerText = this.sensor.mag.available ? 
+                this.sensor.mag.strength.toFixed(1) + " µT" : "N/A";
+
+        } else if (this.mode === 'myth') {
+            // Procedural Noise or Real Variance
+            const time = Date.now() / 1000;
+            let noise = 0;
+            
+            if (this.sensor.mag.available) {
+                // Real mag variance visualizer
+                noise = (this.sensor.mag.strength % 50) * 7.2; // arbitrary map
+                this.ui.text.extraVal.innerText = (this.sensor.mag.strength % 10).toFixed(2) + " Δ";
+            } else {
+                // Deterministic "Ghost" based on Location + Time
+                const locSeed = this.sensor.gps.lat ? (this.sensor.gps.lat + this.sensor.gps.lon) : 0;
+                noise = Math.sin(time * 0.5 + locSeed) * 180 + Math.cos(time * 2) * 30;
+                this.ui.text.extraVal.innerText = (Math.abs(Math.sin(time))*100).toFixed(0) + "%";
+            }
+            
+            // Glitch Text effect
+            if (Math.random() > 0.92) this.ui.text.dist.innerText = "E̶R̶R̶O̶R̶";
+            else this.ui.text.dist.innerText = "SCANNING";
+
+            this.ui.needles.target.style.transform = `translateX(-50%) rotate(${noise}deg)`;
         }
-    }
-
-    renderMagneticMode() {
-        // True North Needle
-        // True North is Declination degrees away from Mag North.
-        // If Declination = 10 (East), True North is +10 degrees relative to Mag North?
-        // Wait: Mag North = 0. True North = Mag North + Declination?
-        // Actually: True Bearing = Mag Bearing + Declination.
-        // So if Ring N is Mag North (0), True North is at angle = Declination.
-        // Wait, if Declination is East (+), then True North is to the Right?
-        // No, Declination East means Magnetic North is East of True North.
-        // So True North is WEST of Magnetic North.
-        // Angle = -Declination.
-        // Let's verify: Declination +10 (East). True North is -10 deg from Mag North.
-        // Yes.
-        
-        const trueAngle = -this.sensor.declination;
-        this.ui.needles.north.style.transform = `translateX(-50%) rotate(${trueAngle}deg)`;
-        this.ui.needles.mag.style.transform = `translateX(-50%) rotate(0deg)`; // Always points to 'N' on ring
-
-        this.ui.txt.bearing.innerText = `MN: 0° | TN: ${trueAngle.toFixed(1)}°`;
-        this.ui.txt.dist.innerText = "---";
-        
-        if (this.sensor.magData.available) {
-            this.ui.txt.magStr.innerText = this.sensor.magData.strength.toFixed(1) + " µT";
-        } else {
-            this.ui.txt.magStr.innerText = "MAG: N/A";
-        }
-    }
-
-    renderAnomalyMode() {
-        // Pseudo-random / Sensor-driven Noise
-        const t = Date.now() / 1000;
-        let noise = 0;
-
-        if (this.sensor.magData.available) {
-            // Real Glitch: Use variance of field strength
-            // Simple visualizer: (strength % 10) mapped to angle
-            noise = (this.sensor.magData.strength % 20) * 18; 
-        } else {
-            // Procedural Glitch (iOS fallback)
-            // Deterministic based on Lat/Lon to feel "real" at a location
-            const locSeed = this.sensor.gps.lat ? (this.sensor.gps.lat * 100) : 0;
-            noise = Math.sin(t * 2 + locSeed) * 45 + Math.cos(t * 5) * 20;
-        }
-
-        // Anomaly Needle wanders
-        this.state.anomalySeed = MathUtils.lerpAngle(this.state.anomalySeed, noise, 0.05);
-        this.ui.needles.anom.style.transform = `translateX(-50%) rotate(${this.state.anomalySeed}deg)`;
-        
-        // UI Glitch Text
-        if (Math.random() > 0.9) this.ui.txt.dist.innerText = "E̴R̴R̴";
-        else this.ui.txt.dist.innerText = "SCANNING";
-
-        this.ui.txt.bearing.innerText = "UNKNOWN";
-    }
-
-    // --- UI HELPERS ---
-    setMode(m) {
-        this.mode = m;
-        // Buttons
-        document.querySelectorAll('.c-btn').forEach(b => b.classList.remove('active'));
-        // (Simplified selector)
-        const btns = document.querySelectorAll('.control-bar .c-btn');
-        if(m=='wonder') btns[0].classList.add('active');
-        if(m=='magnetic') btns[1].classList.add('active');
-        if(m=='anomaly') btns[2].classList.add('active');
-
-        // Needles
-        Object.values(this.ui.needles).forEach(n => n.style.display = 'none');
-        
-        if(m=='wonder') {
-            this.ui.needles.target.style.display = 'block';
-            this.updateTargetUI();
-            document.body.classList.remove('glitch-anim');
-            document.getElementById('myth-disclaimer').classList.add('hidden');
-        } else if (m=='magnetic') {
-            this.ui.needles.north.style.display = 'block';
-            this.ui.needles.mag.style.display = 'block';
-            this.ui.txt.target.innerText = "MAGNETIC ANALYSIS";
-            this.ui.txt.region.innerText = "EARTH FIELD DATA";
-            document.body.classList.remove('glitch-anim');
-            document.getElementById('myth-disclaimer').classList.add('hidden');
-        } else {
-            this.ui.needles.anom.style.display = 'block';
-            this.ui.txt.target.innerText = "ANOMALY DETECTOR";
-            this.ui.txt.region.innerText = "SEARCHING FOR SIGNAL...";
-            document.body.classList.add('glitch-anim');
-            document.getElementById('myth-disclaimer').classList.remove('hidden');
-        }
-    }
-
-    updateTargetUI() {
-        const t = WONDERS[this.state.targetIndex];
-        this.ui.txt.target.innerText = t.name;
-        this.ui.txt.region.innerText = t.region;
-        document.getElementById('sel-target').value = this.state.targetIndex;
-        
-        const mapLink = document.getElementById('lnk-map');
-        mapLink.href = `https://maps.google.com/?q=${t.lat},${t.lon}`;
-        mapLink.classList.remove('hidden');
-    }
-
-    populateSelect() {
-        const sel = document.getElementById('sel-target');
-        WONDERS.forEach((w, i) => {
-            const opt = document.createElement('option');
-            opt.value = i; opt.text = w.name;
-            sel.appendChild(opt);
-        });
-    }
-
-    manualSelectTarget(val) {
-        this.state.targetIndex = parseInt(val);
-        this.updateTargetUI();
-    }
-    
-    toggleSettings() {
-        const m = document.getElementById('modal-settings');
-        m.classList.toggle('hidden');
-        
-        // Show correct sub-panel
-        this.ui.modal.wonder.classList.add('hidden');
-        this.ui.modal.magnetic.classList.add('hidden');
-        this.ui.modal.anomaly.classList.add('hidden');
-        
-        if(this.mode == 'wonder') this.ui.modal.wonder.classList.remove('hidden');
-        if(this.mode == 'magnetic') this.ui.modal.magnetic.classList.remove('hidden');
-        if(this.mode == 'anomaly') this.ui.modal.anomaly.classList.remove('hidden');
-    }
-
-    toggleMute() {
-        this.state.isMuted = !this.state.isMuted;
-        document.getElementById('btn-mute').innerText = this.state.isMuted ? "MUTE SOUND: ON" : "MUTE SOUND: OFF";
     }
 }
 
-// --- INIT ---
-const app = new WonderCompassApp();
-document.getElementById('btn-init').addEventListener('click', () => app.start());
+// Init
+const app = new CompassApp();
+document.getElementById('btn-start').addEventListener('click', () => app.start());
 
 </script>
 </body>
