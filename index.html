@@ -3,54 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA ORACLE | v3.5 Hybrid Pastel</title>
+    <title>AURA ORACLE v4.0 | Weather OS</title>
 
-    <!-- Typography: Outfit (English) & Anuphan (Thai - Premium Round) -->
+    <!-- Typography: Outfit (EN) & Anuphan (TH) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
         /* =========================================
-           🎨 HYBRID PASTEL ENGINE (STRICT)
+           🎨 AURA HYBRID PASTEL SYSTEM (STRICT)
            ========================================= */
         :root {
             /* 1. Base Atmosphere */
             --bg-cloud: #F7F9FC;
             --bg-mist: #EEF1F6;
-            --bg-glass: rgba(255, 255, 255, 0.75);
-            --bg-glass-heavy: rgba(255, 255, 255, 0.90);
+            --bg-glass-card: rgba(255, 255, 255, 0.80);
+            --bg-glass-heavy: rgba(255, 255, 255, 0.92);
 
-            /* 2. Hybrid Pastels (The Palette) */
+            /* 2. Hybrid Pastels */
             --p-sky: #A8D8FF;
             --p-breeze: #A9E9F7;
             --p-amber: #FFDBA3;
             --p-lavender: #C3B4FF;
             --p-indigo: #8A9BFF;
-            
-            /* 3. Semantic Accents (Softened) */
-            --acc-rain: #8FB8FF;
-            --acc-heat: #FFCB86;
-            --acc-good: #9CE5B5;
-            --acc-bad:  #FCA5A5;
+            --p-mint: #9CE5B5;
+            --p-rose: #FFB3B3;
 
-            /* 4. Gradients (Low Opacity Mesh) */
-            --grad-sky: linear-gradient(135deg, rgba(168, 216, 255, 0.15), rgba(255, 255, 255, 0));
-            --grad-lavender: linear-gradient(135deg, rgba(195, 180, 255, 0.15), rgba(255, 255, 255, 0));
-            --grad-amber: linear-gradient(135deg, rgba(255, 219, 163, 0.15), rgba(255, 255, 255, 0));
+            /* 3. Gradients (Mesh System) */
+            --mesh-grad: radial-gradient(at 0% 0%, rgba(168, 216, 255, 0.3) 0%, transparent 50%),
+                         radial-gradient(at 100% 0%, rgba(195, 180, 255, 0.25) 0%, transparent 50%),
+                         radial-gradient(at 50% 100%, rgba(255, 219, 163, 0.15) 0%, transparent 60%);
 
-            /* 5. Typography */
+            /* 4. Text Tones */
             --tx-charcoal: #2A2D33;
             --tx-soft: #6D7380;
             --tx-light: #9AA0AC;
 
-            /* 6. System Tokens */
-            --shadow-cold: 
-                0 15px 40px -10px rgba(168, 216, 255, 0.25),
-                0 4px 12px -4px rgba(42, 45, 51, 0.03);
+            /* 5. System Tokens */
+            --shadow-float: 
+                0 15px 40px -10px rgba(168, 216, 255, 0.3),
+                0 4px 12px -4px rgba(42, 45, 51, 0.05);
             
-            --glow-pulse: 0 0 20px rgba(195, 180, 255, 0.5);
-            --radius-card: 26px;
+            --glow-pulse: 0 0 15px rgba(195, 180, 255, 0.6);
+            --radius-xl: 32px;
+            --radius-l: 24px;
+            --radius-m: 16px;
+            
             --font-en: 'Outfit', sans-serif;
             --font-th: 'Anuphan', sans-serif;
         }
@@ -68,116 +67,112 @@
             position: relative;
         }
 
-        /* Ambient Pastel Mesh Background */
+        /* Animated Mesh Background */
         .ambient-mesh {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: 
-                radial-gradient(circle at 0% 0%, rgba(168, 216, 255, 0.18) 0%, transparent 50%),
-                radial-gradient(circle at 100% 0%, rgba(195, 180, 255, 0.18) 0%, transparent 40%),
-                radial-gradient(circle at 50% 100%, rgba(255, 219, 163, 0.12) 0%, transparent 60%);
+            background-image: var(--mesh-grad);
             z-index: -1;
-            filter: blur(40px);
+            filter: blur(60px);
+            animation: breathe 10s infinite ease-in-out;
         }
 
         .app-frame {
             width: 100%; max-width: 440px;
-            padding: 24px; padding-top: 40px; padding-bottom: 80px;
+            padding: 24px; padding-top: 50px; padding-bottom: 90px;
             display: flex; flex-direction: column; gap: 28px;
+            opacity: 0; animation: fadeEntry 1s ease forwards;
         }
 
         /* --- HEADER --- */
         header { display: flex; justify-content: space-between; align-items: center; }
         .brand {
-            font-size: 11px; letter-spacing: 2px; font-weight: 600;
+            font-size: 11px; letter-spacing: 2px; font-weight: 700;
             color: var(--p-indigo); display: flex; align-items: center; gap: 8px;
             text-transform: uppercase;
         }
         .brand-dot { width: 8px; height: 8px; background: var(--p-lavender); border-radius: 50%; box-shadow: var(--glow-pulse); }
         
-        .lang-toggle {
-            background: rgba(255,255,255,0.6); border-radius: 20px;
-            padding: 3px; display: flex; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-            border: 1px solid rgba(255,255,255,0.8);
-        }
-        .lang-btn {
-            padding: 4px 14px; border-radius: 16px; font-size: 11px; font-weight: 600;
+        .controls { display: flex; gap: 10px; }
+        .gps-btn, .lang-btn {
+            background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.8);
+            border-radius: 20px; padding: 6px 14px; font-size: 11px; font-weight: 600;
             color: var(--tx-soft); cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; gap: 4px;
         }
-        .lang-btn.active { background: #fff; color: var(--p-indigo); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .active-btn { background: #fff; color: var(--p-indigo); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        /* --- HERO: LIFE SCORE --- */
+        /* --- HERO --- */
         .hero { display: flex; flex-direction: column; align-items: center; position: relative; margin: 10px 0; }
         .score-ring {
-            width: 170px; height: 170px; border-radius: 50%;
+            width: 160px; height: 160px; border-radius: 50%;
             background: linear-gradient(135deg, #FFF, #F2F8FF);
-            box-shadow: var(--shadow-cold), inset 0 0 0 1px rgba(255,255,255,0.8);
+            box-shadow: var(--shadow-float), inset 0 0 0 1px rgba(255,255,255,0.8);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             position: relative; z-index: 2;
         }
-        .score-ring::before { /* Pulse Animation */
-            content: ''; position: absolute; inset: -4px; border-radius: 50%;
-            border: 1px solid var(--p-lavender); opacity: 0.4;
-            animation: breathe 4s infinite ease-in-out; z-index: -1;
+        .score-ring::after {
+            content: ''; position: absolute; inset: -5px; border-radius: 50%;
+            border: 1px solid var(--p-lavender); opacity: 0.3;
+            animation: pulseRing 3s infinite;
         }
-        .score-val { font-size: 68px; font-weight: 300; line-height: 1; color: var(--tx-charcoal); font-family: 'Outfit'; }
-        .score-lbl { font-size: 12px; color: var(--tx-soft); margin-top: 6px; letter-spacing: 0.5px; }
+        .score-val { font-size: 64px; font-weight: 300; line-height: 1; color: var(--tx-charcoal); font-family: 'Outfit'; }
+        .score-lbl { font-size: 11px; color: var(--tx-soft); margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
         
-        .hero-meta { margin-top: 20px; display: flex; gap: 16px; align-items: baseline; }
-        .meta-val { font-size: 28px; font-weight: 300; font-family: 'Outfit'; }
-        .meta-loc { font-size: 14px; color: var(--tx-soft); }
+        .hero-meta { margin-top: 20px; text-align: center; }
+        .loc-name { font-size: 14px; font-weight: 600; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; justify-content: center; }
+        .loc-icon { width: 12px; height: 12px; fill: var(--p-indigo); }
+        .weather-status { font-size: 13px; color: var(--tx-soft); margin-top: 4px; }
 
-        /* --- ORACLE SYSTEM (REASONING) --- */
+        /* --- REASONING PANEL --- */
         .oracle-card {
-            background: var(--bg-glass-heavy); backdrop-filter: blur(24px);
-            border-radius: var(--radius-card); padding: 24px;
-            box-shadow: var(--shadow-cold); border: 1px solid rgba(255,255,255,0.6);
+            background: var(--bg-glass-heavy); backdrop-filter: blur(30px);
+            border-radius: var(--radius-l); padding: 24px;
+            box-shadow: var(--shadow-float); border: 1px solid rgba(255,255,255,0.8);
             position: relative; overflow: hidden;
         }
-        .ai-pulse-line {
-            position: absolute; top: 0; left: 0; height: 3px; width: 100%;
+        .ai-glow {
+            position: absolute; top: 0; left: 0; width: 100%; height: 3px;
             background: linear-gradient(90deg, transparent, var(--p-lavender), transparent);
             animation: scan 3s infinite linear; opacity: 0.8;
         }
         .oracle-head { display: flex; justify-content: space-between; margin-bottom: 12px; }
-        .oracle-title { font-size: 11px; font-weight: 600; color: var(--p-indigo); letter-spacing: 1px; text-transform: uppercase; }
-        .oracle-msg { font-size: 15px; line-height: 1.6; font-weight: 400; color: var(--tx-charcoal); margin-bottom: 16px; }
+        .oracle-title { font-size: 11px; font-weight: 700; color: var(--p-indigo); letter-spacing: 1px; text-transform: uppercase; }
+        .oracle-msg { font-size: 15px; line-height: 1.6; color: var(--tx-charcoal); margin-bottom: 16px; font-weight: 400; }
 
-        /* Reasoning Panel */
-        .reason-panel {
-            background: rgba(247, 249, 252, 0.6); border-radius: 16px; padding: 14px;
-            display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(255,255,255,0.5);
+        .reason-box {
+            background: rgba(247, 249, 252, 0.7); border-radius: 16px; padding: 14px;
+            display: flex; flex-direction: column; gap: 10px;
         }
-        .reason-row { display: flex; justify-content: space-between; font-size: 12px; align-items: center; }
-        .reason-key { color: var(--tx-soft); }
-        .reason-val { font-weight: 600; color: var(--p-indigo); font-family: 'Outfit'; }
-        
-        .conf-track { width: 100%; height: 4px; background: rgba(0,0,0,0.05); border-radius: 2px; overflow: hidden; }
-        .conf-bar { height: 100%; background: var(--p-lavender); width: 0%; transition: width 1s ease; }
-        
-        .micro-chart-row { display: flex; gap: 8px; margin-top: 4px; }
-        .micro-chart { flex: 1; height: 24px; background: rgba(255,255,255,0.8); border-radius: 4px; display: flex; align-items: flex-end; padding: 2px; gap: 2px; }
-        .mc-bar { flex: 1; background: var(--p-sky); border-radius: 1px; }
+        .rb-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+        .rb-key { color: var(--tx-light); font-weight: 500; }
+        .rb-val { font-weight: 600; color: var(--p-indigo); }
+        .conf-track { width: 100%; height: 4px; background: rgba(0,0,0,0.05); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+        .conf-fill { height: 100%; background: var(--p-lavender); width: 0%; transition: width 1s ease; }
 
-        /* --- LIFE OPPORTUNITIES (TIMELINE CHIPS) --- */
-        .opp-section { display: flex; flex-direction: column; gap: 12px; }
-        .sec-label { font-size: 11px; color: var(--tx-light); letter-spacing: 1px; text-transform: uppercase; font-weight: 600; padding-left: 4px; }
-        
+        /* Micro Sparklines */
+        .spark-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .spark-item { height: 30px; background: #fff; border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: flex-end; padding: 2px; }
+        .spark-line { fill: none; stroke: var(--p-sky); stroke-width: 2; stroke-linecap: round; }
+        .spark-lbl { position: absolute; top: 2px; left: 4px; font-size: 8px; color: var(--tx-light); }
+
+        /* --- LIFE OPPORTUNITIES --- */
+        .sec-title { font-size: 11px; font-weight: 700; color: var(--tx-light); letter-spacing: 1px; margin-bottom: 12px; padding-left: 4px; }
         .opp-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scroll-behavior: smooth; }
         .opp-scroll::-webkit-scrollbar { display: none; }
         
-        .opp-chip {
-            min-width: 140px; padding: 12px 14px; border-radius: 18px;
+        .chip {
+            min-width: 130px; padding: 12px; border-radius: 18px;
             background: #FFF; border: 1px solid rgba(255,255,255,0.8);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-            display: flex; flex-direction: column; gap: 4px;
-            position: relative; overflow: hidden; flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03); flex-shrink: 0;
+            position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px;
         }
-        .opp-chip.sky::before { content:''; position:absolute; inset:0; background: var(--grad-sky); }
-        .opp-chip.lavender::before { content:''; position:absolute; inset:0; background: var(--grad-lavender); }
-        .opp-chip.amber::before { content:''; position:absolute; inset:0; background: var(--grad-amber); }
+        .chip::before { content:''; position: absolute; inset:0; opacity: 0.15; z-index: 0; }
+        .chip.sky::before { background: var(--p-sky); }
+        .chip.amber::before { background: var(--p-amber); }
+        .chip.mint::before { background: var(--p-mint); }
         
-        .opp-time { font-size: 12px; font-weight: 600; color: var(--tx-charcoal); font-family: 'Outfit'; z-index: 1; }
-        .opp-desc { font-size: 11px; color: var(--tx-soft); z-index: 1; }
+        .chip-time { font-size: 12px; font-weight: 700; color: var(--tx-charcoal); font-family: 'Outfit'; z-index: 1; }
+        .chip-desc { font-size: 11px; color: var(--tx-soft); z-index: 1; }
 
         /* --- INSIGHT GRID --- */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -186,385 +181,414 @@
             display: flex; flex-direction: column; gap: 10px;
             box-shadow: 0 6px 15px rgba(0,0,0,0.02);
             border: 1px solid rgba(255,255,255,0.6); position: relative; overflow: hidden;
-            transition: transform 0.2s;
         }
-        .card:active { transform: scale(0.98); }
-        .card-bg::before { content:''; position: absolute; inset:0; pointer-events: none; opacity: 0.6; }
-        .bg-rain::before { background: var(--grad-sky); }
-        .bg-heat::before { background: var(--grad-amber); }
-        .bg-good::before { background: linear-gradient(135deg, rgba(156,229,181,0.1), transparent); }
-
-        .icon-box {
-            width: 32px; height: 32px; border-radius: 12px; background: var(--bg-cloud);
-            display: flex; align-items: center; justify-content: center; color: var(--tx-soft);
-        }
-        .card-t { font-size: 10px; font-weight: 600; color: var(--tx-light); letter-spacing: 0.5px; text-transform: uppercase; }
-        .card-v { font-size: 13px; font-weight: 500; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; }
-        .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .card-icon { width: 32px; height: 32px; border-radius: 10px; background: var(--bg-mist); display: flex; justify-content: center; align-items: center; color: var(--tx-soft); }
+        .card-lbl { font-size: 10px; font-weight: 700; color: var(--tx-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .card-val { font-size: 13px; font-weight: 500; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; }
 
         /* --- INTERACTIVE TIMELINE --- */
-        .timeline-box {
-            background: #FFF; border-radius: 24px; padding: 20px;
-            box-shadow: var(--shadow-cold);
-        }
-        .timeline-scroll {
-            display: flex; justify-content: space-between;
-            position: relative; padding: 10px 0;
-        }
-        .timeline-scroll::after {
-            content:''; position: absolute; top: 50%; left: 10px; right: 10px;
-            height: 1px; background: rgba(0,0,0,0.05); z-index: 0;
-        }
-        .t-node {
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-            position: relative; z-index: 1; width: 40px; cursor: pointer; transition: 0.3s;
-        }
-        .t-dot {
-            width: 10px; height: 10px; background: #FFF; border: 2px solid var(--tx-light);
-            border-radius: 50%; transition: 0.3s;
-        }
+        .timeline-box { background: #FFF; border-radius: 24px; padding: 20px; box-shadow: var(--shadow-float); }
+        .timeline-row { display: flex; justify-content: space-between; position: relative; padding: 10px 0; }
+        .timeline-row::after { content:''; position: absolute; top: 50%; left: 10px; right: 10px; height: 1px; background: var(--bg-mist); z-index: 0; }
+        
+        .t-node { z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: 0.3s; min-width: 40px; }
+        .t-dot { width: 10px; height: 10px; background: #FFF; border: 2px solid var(--tx-light); border-radius: 50%; transition: 0.3s; }
         .t-time { font-size: 11px; color: var(--tx-light); font-family: 'Outfit'; }
         
-        .t-node.active .t-dot {
-            transform: scale(1.4); background: var(--p-breeze); border-color: var(--p-sky);
-            box-shadow: 0 0 0 4px rgba(169, 233, 247, 0.3);
-        }
-        .t-node.active .t-time { color: var(--p-indigo); font-weight: 600; }
+        .t-node.active .t-dot { transform: scale(1.4); background: var(--p-breeze); border-color: var(--p-sky); box-shadow: 0 0 0 4px rgba(169, 233, 247, 0.3); }
+        .t-node.active .t-time { color: var(--p-indigo); font-weight: 700; }
 
-        /* Colors */
-        .c-good { background: var(--acc-good); }
-        .c-warn { background: var(--acc-heat); }
-        .c-bad { background: var(--acc-bad); }
-        .c-rain { background: var(--acc-rain); }
-
-        /* Animations */
-        @keyframes breathe { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.03); } }
+        /* Animation */
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes pulseRing { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(1.15); opacity: 0; } }
         @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-        .anim { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
-        .d1 { animation-delay: 0.1s; } .d2 { animation-delay: 0.2s; } .d3 { animation-delay: 0.3s; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeEntry { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         /* SVG */
         svg { fill: currentColor; }
+        .hidden { display: none; }
+        
+        /* Utils */
+        .c-good { background: var(--p-mint); }
+        .c-warn { background: var(--p-amber); }
+        .c-bad { background: var(--p-rose); }
+        .c-sky { background: var(--p-sky); }
+
     </style>
 </head>
 <body>
     <div class="ambient-mesh"></div>
 
     <div class="app-frame">
+        
         <!-- HEADER -->
-        <header class="anim">
-            <div class="brand"><div class="brand-dot"></div>Aura v3.5</div>
-            <div class="lang-toggle">
-                <div class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</div>
-                <div class="lang-btn" id="btn-th" onclick="setLang('th')">TH</div>
+        <header>
+            <div class="brand"><div class="brand-dot"></div>Aura v4.0</div>
+            <div class="controls">
+                <button class="gps-btn" onclick="initGPS()">
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg> GPS
+                </button>
+                <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
             </div>
         </header>
 
         <!-- HERO -->
-        <section class="hero anim d1">
+        <section class="hero">
             <div class="score-ring">
-                <span class="score-val" id="score-val">--</span>
+                <span class="score-val" id="score">--</span>
                 <span class="score-lbl" id="score-lbl">LIFE SCORE</span>
             </div>
             <div class="hero-meta">
-                <div class="meta-val"><span id="temp-val">--</span>°</div>
-                <div class="meta-loc" id="loc-lbl">Bangkok, TH</div>
+                <div class="loc-name">
+                    <svg class="loc-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <span id="location">Detecting...</span>
+                </div>
+                <div class="weather-status" id="weather-desc">Connecting to Satellites...</div>
             </div>
         </section>
 
         <!-- ORACLE REASONING -->
-        <section class="oracle-card anim d2">
-            <div class="ai-pulse-line"></div>
+        <section class="oracle-card">
+            <div class="ai-glow"></div>
             <div class="oracle-head">
-                <span class="oracle-title" id="oracle-title">ORACLE PREDICTION</span>
+                <span class="oracle-title" id="oracle-lbl">ORACLE REASONING</span>
             </div>
-            <div class="oracle-msg" id="oracle-msg">Gathering atmosphere data...</div>
+            <div class="oracle-msg" id="oracle-msg">Aura is analyzing atmospheric data...</div>
             
-            <!-- REASONING PANEL -->
-            <div class="reason-panel">
-                <div class="reason-row">
-                    <span class="reason-key" id="lbl-conf">AI Confidence</span>
-                    <span class="reason-val" id="val-conf">96%</span>
+            <div class="reason-box">
+                <div class="rb-row">
+                    <span class="rb-key" id="conf-lbl">AI Confidence</span>
+                    <span class="rb-val" id="conf-val">98%</span>
                 </div>
-                <div class="conf-track"><div class="conf-bar" id="bar-conf" style="width:0%"></div></div>
+                <div class="conf-track"><div class="conf-fill" id="conf-bar" style="width:0%"></div></div>
                 
-                <div class="reason-row" style="margin-top:4px;">
-                    <span class="reason-key" id="lbl-factor">Key Driver</span>
-                    <span class="reason-val" style="color:var(--tx-charcoal); font-weight:400;" id="val-factor">PM2.5 Shift</span>
+                <div class="rb-row" style="margin-top:6px;">
+                    <span class="rb-key" id="factor-lbl">Key Driver</span>
+                    <span class="rb-val" style="color:var(--tx-charcoal); font-weight:400;" id="factor-val">--</span>
                 </div>
 
-                <!-- Micro Charts (Visual Polish) -->
-                <div class="micro-chart-row">
-                    <div class="micro-chart"><div class="mc-bar" style="height:40%"></div><div class="mc-bar" style="height:60%"></div><div class="mc-bar" style="height:30%"></div></div>
-                    <div class="micro-chart"><div class="mc-bar" style="height:80%; background:var(--p-lavender)"></div><div class="mc-bar" style="height:50%; background:var(--p-lavender)"></div></div>
-                    <div class="micro-chart"><div class="mc-bar" style="height:20%; background:var(--p-amber)"></div><div class="mc-bar" style="height:90%; background:var(--p-amber)"></div></div>
+                <!-- Sparklines -->
+                <div class="spark-grid" id="spark-grid">
+                    <!-- Injected via JS -->
                 </div>
             </div>
         </section>
 
-        <!-- LIFE OPPORTUNITIES -->
-        <section class="opp-section anim d2">
-            <div class="sec-label" id="lbl-opp">LIFE OPPORTUNITIES</div>
+        <!-- OPPORTUNITIES -->
+        <section>
+            <div class="sec-title" id="opp-lbl">LIFE OPPORTUNITIES</div>
             <div class="opp-scroll" id="opp-list">
                 <!-- JS Injected -->
             </div>
         </section>
 
-        <!-- INSIGHTS GRID (Pet, Indoor, Laundry) -->
-        <section class="grid anim d3">
-            <!-- Pet Health -->
-            <div class="card card-bg bg-heat">
-                <div class="icon-box">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-t" id="lbl-pet">PET HEALTH</div>
-                    <div class="card-v" id="val-pet">--</div>
-                </div>
-            </div>
-
-            <!-- Aura Sense (Indoor) -->
-            <div class="card card-bg bg-good">
-                <div class="icon-box">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-t" id="lbl-indoor">AURA SENSE</div>
-                    <div class="card-v" id="val-indoor">--</div>
-                </div>
-            </div>
-
+        <!-- INSIGHTS GRID -->
+        <section class="grid">
             <!-- Laundry -->
-            <div class="card card-bg bg-rain">
-                <div class="icon-box">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-t" id="lbl-laundry">LAUNDRY</div>
-                    <div class="card-v" id="val-laundry">--</div>
-                </div>
-            </div>
-
-            <!-- Mold Risk -->
             <div class="card">
-                <div class="icon-box">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-t" id="lbl-mold">MOLD RISK</div>
-                    <div class="card-v" id="val-mold">--</div>
-                </div>
+                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg></div>
+                <div><div class="card-lbl" id="laundry-lbl">LAUNDRY</div><div class="card-val" id="laundry-val">--</div></div>
+            </div>
+            <!-- Pet -->
+            <div class="card">
+                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg></div>
+                <div><div class="card-lbl" id="pet-lbl">PET HEALTH</div><div class="card-val" id="pet-val">--</div></div>
+            </div>
+            <!-- Comfort -->
+            <div class="card">
+                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg></div>
+                <div><div class="card-lbl" id="comfort-lbl">COMFORT</div><div class="card-val" id="comfort-val">--</div></div>
+            </div>
+            <!-- Mold -->
+            <div class="card">
+                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg></div>
+                <div><div class="card-lbl" id="mold-lbl">MOLD RISK</div><div class="card-val" id="mold-val">--</div></div>
             </div>
         </section>
 
-        <!-- HYBRID TIMELINE -->
-        <section class="timeline-box anim d3">
-            <div class="sec-label" style="padding-left:0; margin-bottom:12px;" id="lbl-nowcast">TIMELINE</div>
+        <!-- TIMELINE -->
+        <section class="timeline-box">
+            <div class="sec-title" id="timeline-lbl">HOURLY TIMELINE</div>
             <div class="timeline-scroll" id="timeline-row">
-                <!-- JS Generated -->
+                <!-- JS Injected -->
             </div>
         </section>
+
     </div>
 
-    <!-- 🧠 AURA INTELLIGENCE v3.5 -->
+    <!-- 🧠 AURA ENGINE V4.0 -->
     <script>
-        // --- 1. LANGUAGE ENGINE ---
-        let lang = localStorage.getItem('aura_lang_3_5') || 'en';
-        
+        // --- 1. STATE & CONFIG ---
+        const State = {
+            lang: localStorage.getItem('aura_lang_v4') || 'en',
+            lat: 13.7563, // Fallback (Bangkok)
+            lon: 100.5018,
+            weather: null,
+            aqi: null
+        };
+
         const DICT = {
             en: {
-                score: "LIFE SCORE",
-                oracle: "ORACLE PREDICTION",
-                conf: "AI Confidence",
-                factor: "Key Factor",
-                opps: "LIFE OPPORTUNITIES",
-                pet: "PET HEALTH",
-                indoor: "AURA SENSE",
-                laundry: "LAUNDRY",
-                mold: "MOLD RISK",
-                nowcast: "HYBRID TIMELINE",
-                loc: "Bangkok, Thailand",
-                msg: {
-                    good: "Atmosphere is balanced. A perfect time for fresh air.",
-                    rain: "Rain clouds detected nearby. Keep it cozy indoors.",
-                    bad_air: "Pollution drift detected. Please close windows.",
-                    heat: "High thermal load. Stay hydrated and cool."
-                },
+                score: "LIFE SCORE", oracle: "ORACLE REASONING", conf: "AI Confidence",
+                factor: "Key Driver", opp: "LIFE OPPORTUNITIES", time: "TIMELINE",
+                laundry: "LAUNDRY", pet: "PET HEALTH", comfort: "COMFORT", mold: "MOLD RISK",
+                loc_denied: "GPS Denied (Demo Mode)", connect: "Connecting...",
+                chips: { shop: "Best Shopping", dry: "Fastest Dry", air: "Best Air", relax: "Relax Time" },
                 status: {
+                    dry: "Perfect Dry", slow: "Slow Dry", bad: "Don't Dry",
                     safe: "Safe to Play", allergy: "Allergy Risk",
-                    vent: "Ventilate Now", seal: "Seal Windows",
-                    dry: "Perfect Dry", slow: "Slow Dry",
+                    comf: "Perfect", humid: "Too Humid", hot: "Too Hot",
                     low: "Low Risk", high: "High Risk"
                 },
-                chips: {
-                    shop: "Best Shopping",
-                    air: "Purest Air",
-                    dry: "Fastest Dry",
-                    relax: "Relax Mode"
-                }
+                msg: {
+                    rain: "Precipitation inbound. Best to stay cozy indoors.",
+                    hot: "Thermal load is high. Stay hydrated and seek shade.",
+                    bad: "Air quality degrading. Close windows recommended.",
+                    good: "Atmosphere is balanced. Enjoy the fresh air."
+                },
+                factors: { rain: "Precipitation", heat: "UV Index", air: "PM2.5 Drift", calm: "Stability" }
             },
             th: {
-                score: "คะแนนชีวิต",
-                oracle: "คำทำนายจากออร่า",
-                conf: "ความมั่นใจ AI",
-                factor: "ปัจจัยหลัก",
-                opps: "โอกาสที่ดีที่สุดวันนี้",
-                pet: "สุขภาพสัตว์เลี้ยง",
-                indoor: "อากาศในบ้าน",
-                laundry: "การซักผ้า",
-                mold: "ความเสี่ยงเชื้อรา",
-                nowcast: "ไทม์ไลน์ล่วงหน้า",
-                loc: "กรุงเทพฯ",
-                msg: {
-                    good: "บรรยากาศสมดุลดีเยี่ยม เหมาะแก่การเปิดรับอากาศบริสุทธิ์ครับ",
-                    rain: "ตรวจพบกลุ่มฝนใกล้เคียง ดูแลสุขภาพและอยู่ในที่ร่มนะครับ",
-                    bad_air: "ค่าฝุ่นเริ่มสูง ปิดหน้าต่างเพื่อสุขภาพที่ดีนะครับ",
-                    heat: "ความร้อนสะสมสูง ดื่มน้ำและหลีกเลี่ยงแดดจัดนะครับ"
-                },
+                score: "คะแนนชีวิต", oracle: "บทวิเคราะห์ออร่า", conf: "ความมั่นใจ AI",
+                factor: "ปัจจัยหลัก", opp: "โอกาสที่ดีที่สุด", time: "พยากรณ์รายชั่วโมง",
+                laundry: "การซักผ้า", pet: "สุขภาพสัตว์เลี้ยง", comfort: "ความสบาย", mold: "ความเสี่ยงเชื้อรา",
+                loc_denied: "ไม่พบ GPS (โหมดสาธิต)", connect: "กำลังเชื่อมต่อ...",
+                chips: { shop: "เวลาซื้อของ", dry: "ผ้าแห้งไวสุด", air: "อากาศดีสุด", relax: "เวลาผ่อนคลาย" },
                 status: {
+                    dry: "ตากแห้งสนิท", slow: "แห้งช้า", bad: "ไม่ควรตาก",
                     safe: "วิ่งเล่นได้", allergy: "เสี่ยงภูมิแพ้",
-                    vent: "เปิดหน้าต่างได้", seal: "ปิดหน้าต่าง",
-                    dry: "ตากแห้งไว", slow: "แห้งช้า",
+                    comf: "สบายตัว", humid: "เหนียวตัว", hot: "ร้อนอบอ้าว",
                     low: "ความเสี่ยงต่ำ", high: "ความเสี่ยงสูง"
                 },
-                chips: {
-                    shop: "เวลาซื้อของ",
-                    air: "อากาศดีสุด",
-                    dry: "ผ้าแห้งไวสุด",
-                    relax: "เวลาผ่อนคลาย"
-                }
+                msg: {
+                    rain: "ฝนกำลังจะตกในไม่ช้า ดูแลสุขภาพในร่มดีกว่าครับ",
+                    hot: "อากาศร้อนจัด ดื่มน้ำบ่อยๆ และเลี่ยงแดดนะครับ",
+                    bad: "ค่าฝุ่นเริ่มสูง ปิดหน้าต่างเพื่อสุขภาพนะครับ",
+                    good: "บรรยากาศวันนี้สมดุลดีเยี่ยม เหมาะแก่การพักผ่อนครับ"
+                },
+                factors: { rain: "โอกาสฝนตก", heat: "ดัชนี UV", air: "ลมพัดฝุ่น", calm: "ความสมดุล" }
             }
         };
 
-        // --- 2. DATA SIMULATION ---
-        const Data = {
-            temp: 31, humidity: 62, pm25: 45, uv: 6, rainChance: 15,
-            wind: 12, hour: new Date().getHours()
-        };
-
-        // --- 3. INTELLIGENCE LOGIC ---
-        const Aura = {
-            getScore: (d) => {
+        // --- 2. LOGIC ENGINE ---
+        const AuraBrain = {
+            calcScore: (cur, aqi) => {
                 let s = 100;
-                if(d.temp > 33) s-=10;
-                if(d.pm25 > 50) s-=20;
-                if(d.rainChance > 40) s-=15;
+                if(cur.temperature_2m > 33) s -= 15;
+                if(aqi > 50) s -= 20;
+                if(cur.precipitation > 0) s -= 20;
                 return Math.max(0, s);
             },
             
-            analyze: (d, t) => {
-                // Pet
-                let pet = { t: t.status.safe, c: 'c-good' };
-                if(d.pm25 > 80 || d.humidity > 70) pet = { t: t.status.allergy, c: 'c-warn' };
-                
-                // Indoor (Aura Sense)
-                let inn = { t: t.status.vent, c: 'c-good' };
-                if(d.pm25 > 50) inn = { t: t.status.seal, c: 'c-bad' };
-
+            analyze: (cur, hourly, aqi, t) => {
                 // Laundry
-                let lnd = { t: t.status.dry, c: 'c-good' };
-                if(d.rainChance > 30) lnd = { t: t.status.slow, c: 'c-rain' };
+                let l = { t: t.status.dry, c: 'c-good' };
+                if(hourly.precipitation_probability[0] > 40) l = { t: t.status.bad, c: 'c-bad' };
+                else if(cur.relative_humidity_2m > 70) l = { t: t.status.slow, c: 'c-warn' };
+
+                // Pet
+                let p = { t: t.status.safe, c: 'c-good' };
+                if(aqi > 100 || cur.temperature_2m > 32) p = { t: t.status.allergy, c: 'c-bad' };
+
+                // Comfort
+                let c = { t: t.status.comf, c: 'c-good' };
+                if(cur.temperature_2m > 30) c = { t: t.status.hot, c: 'c-warn' };
+                else if(cur.relative_humidity_2m > 80) c = { t: t.status.humid, c: 'c-warn' };
 
                 // Mold
-                let mld = { t: t.status.low, c: 'c-good' };
-                if(d.humidity > 75) mld = { t: t.status.high, c: 'c-warn' };
+                let m = { t: t.status.low, c: 'c-good' };
+                if(cur.relative_humidity_2m > 75) m = { t: t.status.high, c: 'c-warn' };
 
                 // Oracle
                 let msg = t.msg.good;
-                let factor = "Wind Stability";
-                if(d.pm25 > 50) { msg = t.msg.bad_air; factor = "PM2.5 Drift"; }
-                else if(d.rainChance > 30) { msg = t.msg.rain; factor = "Moisture"; }
-                else if(d.temp > 33) { msg = t.msg.heat; factor = "Thermal Load"; }
+                let fac = t.factors.calm;
+                if(aqi > 100) { msg = t.msg.bad; fac = t.factors.air; }
+                else if(cur.precipitation > 0 || hourly.precipitation_probability[0] > 50) { msg = t.msg.rain; fac = t.factors.rain; }
+                else if(cur.temperature_2m > 33) { msg = t.msg.hot; fac = t.factors.heat; }
 
-                return { pet, inn, lnd, mld, msg, factor };
+                return { laundry: l, pet: p, comfort: c, mold: m, msg, fac };
             },
 
-            getOpps: (d, t) => {
-                // Generate logic-based chips
+            findOpps: (hourly, t) => {
+                // Simplified Logic for Demo
                 return [
-                    { time: "11:30", txt: t.chips.shop, type: "sky" },
-                    { time: "14:00", txt: t.chips.dry, type: "amber" },
-                    { time: "20:00", txt: t.chips.relax, type: "lavender" }
+                    { time: "11:00", txt: t.chips.shop, type: "amber" },
+                    { time: "14:00", txt: t.chips.dry, type: "sky" },
+                    { time: "19:00", txt: t.chips.relax, type: "mint" }
                 ];
             }
         };
 
-        // --- 4. RENDER ENGINE ---
+        // --- 3. API & DATA ---
+        async function fetchData() {
+            try {
+                // 1. Weather
+                const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${State.lat}&longitude=${State.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,wind_speed_10m`;
+                const wRes = await fetch(wUrl);
+                const wData = await wRes.json();
+
+                // 2. Air Quality
+                const aUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${State.lat}&longitude=${State.lon}&current=pm2_5`;
+                const aRes = await fetch(aUrl);
+                const aData = await aRes.json();
+
+                State.weather = wData;
+                State.aqi = aData;
+                render();
+
+            } catch(e) {
+                console.error(e);
+                alert("Data Fetch Error. Using Sim Data.");
+            }
+        }
+
+        function initGPS() {
+            document.getElementById('location').innerText = "Locating...";
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        State.lat = pos.coords.latitude;
+                        State.lon = pos.coords.longitude;
+                        document.getElementById('location').innerText = "GPS Fixed";
+                        fetchData();
+                    },
+                    (err) => {
+                        document.getElementById('location').innerText = DICT[State.lang].loc_denied;
+                        fetchData(); // Load fallback
+                    }
+                );
+            } else {
+                fetchData();
+            }
+        }
+
+        // --- 4. RENDERER ---
         function render() {
-            const t = DICT[lang];
-            const d = Data;
-            const res = Aura.analyze(d, t);
-            const opps = Aura.getOpps(d, t);
+            if(!State.weather) return;
 
-            // Font Switching
-            document.body.style.fontFamily = lang === 'th' ? 'var(--font-th)' : 'var(--font-en)';
-
-            // Labels
-            const ids = ['score-lbl','oracle-title','lbl-conf','lbl-factor','lbl-opp','lbl-pet','lbl-indoor','lbl-laundry','lbl-nowcast','lbl-mold'];
-            const keys = ['score','oracle','conf','factor','opps','pet','indoor','laundry','nowcast','mold'];
-            ids.forEach((id, i) => document.getElementById(id).innerText = t[keys[i]]);
+            const t = DICT[State.lang];
+            const cur = State.weather.current;
+            const hr = State.weather.hourly;
+            const aqi = State.aqi.current.pm2_5;
             
-            document.getElementById('loc-lbl').innerText = t.loc;
+            const analysis = AuraBrain.analyze(cur, hr, aqi, t);
+            const score = AuraBrain.calcScore(cur, aqi);
 
-            // Values
-            document.getElementById('score-val').innerText = Aura.getScore(d);
-            document.getElementById('temp-val').innerText = d.temp;
-            document.getElementById('oracle-msg').innerText = res.msg;
-            document.getElementById('val-factor').innerText = res.factor;
-            
-            // Confidence Animation
-            setTimeout(() => document.getElementById('bar-conf').style.width = "96%", 200);
+            // Font
+            document.body.style.fontFamily = State.lang === 'th' ? 'var(--font-th)' : 'var(--font-en)';
 
-            // Update Cards
-            updateCard('val-pet', res.pet);
-            updateCard('val-indoor', res.inn);
-            updateCard('val-laundry', res.lnd);
-            updateCard('val-mold', res.mld);
+            // --- HERO ---
+            document.getElementById('score').innerText = score;
+            document.getElementById('score-lbl').innerText = t.score;
+            document.getElementById('weather-desc').innerText = `${Math.round(cur.temperature_2m)}°C • H:${Math.round(cur.relative_humidity_2m)}%`;
 
-            // Render Opportunities
+            // --- ORACLE ---
+            document.getElementById('oracle-lbl').innerText = t.oracle;
+            document.getElementById('oracle-msg').innerText = analysis.msg;
+            document.getElementById('conf-lbl').innerText = t.conf;
+            document.getElementById('factor-lbl').innerText = t.factor;
+            document.getElementById('factor-val').innerText = analysis.fac;
+            setTimeout(() => document.getElementById('conf-bar').style.width = "94%", 300);
+
+            // Sparklines Generation
+            renderSparklines(hr);
+
+            // --- INSIGHTS ---
+            updateCard('laundry', analysis.laundry, t.laundry);
+            updateCard('pet', analysis.pet, t.pet);
+            updateCard('comfort', analysis.comfort, t.comfort);
+            updateCard('mold', analysis.mold, t.mold);
+
+            // --- OPPORTUNITIES ---
+            document.getElementById('opp-lbl').innerText = t.opp;
+            const opps = AuraBrain.findOpps(hr, t);
             const oppList = document.getElementById('opp-list');
             oppList.innerHTML = '';
             opps.forEach(o => {
                 oppList.innerHTML += `
-                    <div class="opp-chip ${o.type}">
-                        <span class="opp-time">${o.time}</span>
-                        <span class="opp-desc">${o.txt}</span>
+                    <div class="chip ${o.type}">
+                        <span class="chip-time">${o.time}</span>
+                        <span class="chip-desc">${o.txt}</span>
                     </div>
                 `;
             });
 
-            // Render Timeline (Interactive)
+            // --- TIMELINE ---
+            document.getElementById('timeline-lbl').innerText = t.time;
             const tl = document.getElementById('timeline-row');
             tl.innerHTML = '';
+            const currentHr = new Date().getHours();
+            
             for(let i=0; i<6; i++) {
-                let h = (d.hour + i) % 24;
-                let active = i===0 ? 'active' : '';
+                let idx = (currentHr + i); 
+                // Fix index overflow if using real data array (usually huge)
+                if(idx >= hr.time.length) idx = 0; 
+
+                let timeDisplay = (currentHr + i) % 24 + ":00";
+                let tempDisplay = Math.round(hr.temperature_2m[idx]);
+                let activeClass = i === 0 ? 'active' : '';
+                
                 tl.innerHTML += `
-                    <div class="t-node ${active}">
+                    <div class="t-node ${activeClass}">
                         <div class="t-dot"></div>
-                        <span class="t-time">${h}:00</span>
+                        <span class="t-time">${timeDisplay}</span>
+                        <span class="t-time" style="margin-top:2px; font-weight:500">${tempDisplay}°</span>
                     </div>
                 `;
             }
 
-            // Lang Toggle
-            document.getElementById('btn-en').className = `lang-btn ${lang==='en'?'active':''}`;
-            document.getElementById('btn-th').className = `lang-btn ${lang==='th'?'active':''}`;
+            // Lang Btn
+            document.getElementById('lang-btn').innerText = State.lang === 'en' ? 'EN' : 'TH';
         }
 
-        function updateCard(id, data) {
-            document.getElementById(id).innerHTML = `<span class="dot ${data.c}"></span>${data.t}`;
+        function updateCard(id, state, title) {
+            document.getElementById(`${id}-lbl`).innerText = title;
+            document.getElementById(`${id}-val`).innerHTML = `<span class="status-dot ${state.c}"></span>${state.t}`;
         }
 
-        function setLang(l) {
-            lang = l;
-            localStorage.setItem('aura_lang_3_5', l);
+        function renderSparklines(hr) {
+            const container = document.getElementById('spark-grid');
+            container.innerHTML = '';
+            
+            // Helper to make SVG polyline
+            const createSpark = (data, color, label) => {
+                const slice = data.slice(0, 10);
+                const min = Math.min(...slice);
+                const max = Math.max(...slice);
+                const range = max - min || 1;
+                
+                const points = slice.map((val, i) => {
+                    const x = (i / (slice.length - 1)) * 100;
+                    const y = 100 - ((val - min) / range) * 80 - 10;
+                    return `${x},${y}`;
+                }).join(' ');
+
+                return `
+                    <div class="spark-item">
+                        <span class="spark-lbl">${label}</span>
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polyline fill="none" stroke="${color}" stroke-width="3" points="${points}" />
+                        </svg>
+                    </div>
+                `;
+            };
+
+            container.innerHTML += createSpark(hr.temperature_2m, '#FFCB86', 'Temp');
+            container.innerHTML += createSpark(hr.relative_humidity_2m, '#8FB8FF', 'Humid');
+            container.innerHTML += createSpark(hr.wind_speed_10m, '#9CE5B5', 'Wind');
+        }
+
+        function toggleLang() {
+            State.lang = State.lang === 'en' ? 'th' : 'en';
             render();
         }
 
-        // Boot
-        document.addEventListener('DOMContentLoaded', render);
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initGPS();
+        });
+
     </script>
 </body>
 </html>
