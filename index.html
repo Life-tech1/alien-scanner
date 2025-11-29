@@ -3,650 +3,417 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AURA v8.0 | Real-Time Engine</title>
-
-    <!-- Typography -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Find My</title>
+    
+    <!-- Dependencies -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
-        /* =========================================
-           🎨 AURA v8.0 DESIGN SYSTEM
-           ========================================= */
+        /* 
+         * APPLE ULTRA MINIMAL DESIGN SYSTEM 
+         * iOS 18 Style Guide 
+         */
         :root {
-            /* Atmosphere */
-            --bg-cloud: #F5F7FA;
-            --bg-glass: rgba(255, 255, 255, 0.65);
-            --bg-glass-heavy: rgba(255, 255, 255, 0.85);
-
-            /* Hybrid Pastels */
-            --p-sky: #A8D8FF;
-            --p-breeze: #A9E9F7;
-            --p-amber: #FFDBA3;
-            --p-lavender: #C3B4FF;
-            --p-indigo: #8A9BFF;
-            --p-mint: #9CE5B5;
-            --p-rose: #FFB3B3;
-
-            /* Text */
-            --tx-charcoal: #1D1D1F;
-            --tx-soft: #6D7380;
-            --tx-light: #9AA0AC;
-
-            /* Physics */
-            --shadow-float: 0 20px 40px -10px rgba(168, 216, 255, 0.3), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
-            --radius-card: 28px;
-            --font-en: 'Outfit', sans-serif;
-            --font-th: 'Anuphan', sans-serif;
-            --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+            --bg: #000000;
+            --card-bg: rgba(28, 28, 30, 0.85);
+            --text-primary: #FFFFFF;
+            --text-secondary: #8E8E93;
+            --accent: #30D158; /* iOS Green */
+            --danger: #FF453A;
+            --blur: blur(25px);
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+            --ease-spring: cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        
         body {
-            background-color: var(--bg-cloud);
-            color: var(--tx-charcoal);
-            font-family: var(--font-en);
-            min-height: 100vh;
-            overflow-x: hidden;
-            position: relative;
-            overscroll-behavior-y: none;
+            margin: 0; padding: 0;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: var(--font-stack);
+            overflow: hidden;
+            height: 100vh;
+            display: flex; flex-direction: column;
         }
 
-        /* --- FLUID SIMULATION LAYER --- */
-        #sim-canvas {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1; transform: translateZ(0); pointer-events: none;
-        }
-
-        /* --- APP UI --- */
-        .app-frame {
-            width: 100%; max-width: 460px; margin: 0 auto;
-            padding: 24px; padding-top: 50px; padding-bottom: 120px;
-            display: flex; flex-direction: column; gap: 24px;
-            position: relative; z-index: 10;
-            opacity: 0; animation: fadeEntry 1s var(--ease-out) forwards;
-        }
-
-        /* Header */
-        header { display: flex; justify-content: space-between; align-items: center; }
-        .brand { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: var(--tx-charcoal); display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
-        .brand-dot { width: 8px; height: 8px; background: var(--p-lavender); border-radius: 50%; box-shadow: 0 0 15px var(--p-lavender); animation: pulse 3s infinite; }
-        
-        .controls { display: flex; gap: 8px; }
-        .btn-pill {
-            background: var(--bg-glass); border: 1px solid rgba(255,255,255,0.6);
-            border-radius: 20px; padding: 6px 14px; font-size: 11px; font-weight: 600;
-            color: var(--tx-soft); cursor: pointer; transition: 0.3s;
-            display: flex; align-items: center; gap: 4px; backdrop-filter: blur(10px);
-        }
-        .btn-pill.active { background: #fff; color: var(--p-indigo); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .btn-pill.refreshing { animation: spinBorder 1s infinite linear; border-color: var(--p-indigo); color: var(--p-indigo); }
-
-        /* Hero */
-        .hero { display: flex; flex-direction: column; align-items: center; margin: 10px 0; }
-        .score-ring {
-            width: 180px; height: 180px; border-radius: 50%;
-            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(240,245,255,0.4));
-            box-shadow: var(--shadow-float), inset 0 0 0 1px rgba(255,255,255,0.5);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            position: relative; transition: transform 0.5s var(--ease-out);
-        }
-        .score-val { font-size: 72px; font-weight: 300; line-height: 1; color: var(--tx-charcoal); font-family: 'Outfit'; letter-spacing: -3px; }
-        .score-lbl { font-size: 11px; color: var(--tx-soft); margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
-        .hero-meta { margin-top: 24px; text-align: center; }
-        .loc-name { font-size: 15px; font-weight: 600; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; justify-content: center; }
-        .weather-status { font-size: 13px; color: var(--tx-soft); margin-top: 4px; font-weight: 400; transition: color 0.3s; }
-
-        /* Cards */
-        .card-glass {
-            background: var(--bg-glass-heavy); backdrop-filter: blur(40px);
-            border-radius: var(--radius-card); padding: 24px;
-            box-shadow: var(--shadow-float); border: 1px solid rgba(255,255,255,0.7);
-            position: relative; overflow: hidden; transition: transform 0.3s;
+        /* --- LAYER 1: MAP VIEW --- */
+        #map-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+            filter: grayscale(100%) brightness(0.6); /* Minimal dark map */
+            transition: transform 0.5s var(--ease-spring);
         }
         
-        /* Oracle */
-        .oracle-head { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; }
-        .oracle-title { font-size: 11px; font-weight: 700; color: var(--p-indigo); letter-spacing: 1px; text-transform: uppercase; }
-        .oracle-msg { font-size: 15px; line-height: 1.6; color: var(--tx-charcoal); font-weight: 400; margin-bottom: 16px; }
+        /* Custom Pin */
+        .memoji-pin {
+            width: 40px; height: 40px;
+            background: #1c1c1e; border: 2px solid var(--text-primary);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+
+        /* --- LAYER 2: CAMERA AR VIEW --- */
+        #ar-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 2;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.4s ease;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
         
-        .diagnosis-pill {
-            background: rgba(240, 244, 255, 0.6); padding: 12px; border-radius: 16px;
-            display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--tx-soft);
-            border: 1px solid rgba(255,255,255,0.5);
+        video {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; opacity: 0.7;
         }
-        .ai-pulse-bar { width: 3px; height: 24px; background: var(--p-lavender); border-radius: 2px; transition: height 0.2s; }
 
-        /* Grid */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .insight-card {
-            background: rgba(255,255,255,0.8); border-radius: 20px; padding: 16px;
-            display: flex; flex-direction: column; gap: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-            border: 1px solid rgba(255,255,255,0.5); position: relative; overflow: hidden;
-            transition: all 0.3s;
+        /* --- UI: BOTTOM CARD (HOME) --- */
+        #device-card {
+            position: absolute; bottom: 20px; left: 16px; right: 16px;
+            background: var(--card-bg);
+            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+            border-radius: 24px;
+            padding: 24px;
+            padding-bottom: calc(24px + var(--safe-bottom));
+            z-index: 10;
+            transform: translateY(0);
+            transition: transform 0.5s var(--ease-spring);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
-        .insight-icon { width: 32px; height: 32px; border-radius: 10px; background: var(--bg-cloud); display: flex; justify-content: center; align-items: center; color: var(--tx-soft); }
-        .insight-lbl { font-size: 10px; font-weight: 700; color: var(--tx-light); text-transform: uppercase; letter-spacing: 0.5px; }
-        .insight-val { font-size: 13px; font-weight: 600; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; transition: background-color 0.5s; }
 
-        /* Timeline */
-        .timeline-scroll { display: flex; gap: 16px; overflow-x: auto; padding: 10px 0; scroll-behavior: smooth; }
-        .timeline-scroll::-webkit-scrollbar { display: none; }
-        .t-node { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 50px; opacity: 0.6; transition: 0.3s; cursor: pointer; }
-        .t-node.active { opacity: 1; transform: scale(1.1); }
-        .t-time { font-size: 11px; font-family: 'Outfit'; color: var(--tx-soft); }
-        .t-temp { font-size: 13px; font-weight: 600; color: var(--tx-charcoal); }
-        .t-dot { width: 6px; height: 6px; background: #ddd; border-radius: 50%; transition: background 0.3s; }
-        .t-node.active .t-dot { background: var(--p-indigo); box-shadow: 0 0 8px var(--p-indigo); }
-
-        /* Animations */
-        @keyframes fadeEntry { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes breathe { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        @keyframes highlight { 0% { background: rgba(255,255,255,0.8); } 50% { background: rgba(169, 233, 247, 0.4); } 100% { background: rgba(255,255,255,0.8); } }
+        .card-header { display: flex; align-items: center; margin-bottom: 24px; }
+        .icon-box {
+            width: 48px; height: 48px;
+            background: #2C2C2E; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin-right: 16px;
+        }
+        .text-group h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: -0.5px; }
+        .text-group p { font-size: 13px; color: var(--text-secondary); margin: 4px 0 0 0; }
+        .battery-pill { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
         
-        .updated-pulse { animation: highlight 1s ease-out; }
-        .vibrate { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
-        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
-
-        /* Utils */
-        .c-good { background: var(--p-mint); }
-        .c-warn { background: var(--p-amber); }
-        .c-bad { background: var(--p-rose); }
-        .c-rain { background: var(--p-indigo); }
-        svg { fill: currentColor; }
-        .hidden { display: none; }
-
-        /* Toast */
-        .toast {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
-            background: rgba(29, 29, 31, 0.9); color: #fff; padding: 12px 24px;
-            border-radius: 30px; font-size: 12px; z-index: 100;
-            opacity: 0; pointer-events: none; transition: 0.4s var(--ease-out);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); backdrop-filter: blur(10px);
+        .btn-main {
+            width: 100%; height: 50px;
+            background: var(--accent); color: #000;
+            border: none; border-radius: 25px;
+            font-size: 17px; font-weight: 600;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: transform 0.1s;
         }
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .btn-main:active { transform: scale(0.96); opacity: 0.9; }
+
+        /* --- UI: PRECISION FINDING HUD --- */
+        #hud-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 20; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.3s;
+        }
+
+        .close-btn {
+            position: absolute; top: calc(20px + var(--safe-top)); left: 20px;
+            width: 40px; height: 40px;
+            background: rgba(40,40,40,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 50%; border: none;
+            color: white; font-size: 20px;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: auto; cursor: pointer;
+        }
+
+        /* The Minimal Arrow */
+        .arrow-wrapper {
+            width: 200px; height: 200px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 20px;
+            will-change: transform;
+        }
+        
+        .arrow-svg {
+            width: 100px; height: 100px;
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.1));
+        }
+
+        .distance-label {
+            font-size: 64px; font-weight: 700;
+            letter-spacing: -2px;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 0;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        
+        .unit-label {
+            font-size: 19px; font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            margin-top: -5px;
+        }
+
+        /* Pulse Animation */
+        .pulse {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px; height: 300px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+            opacity: 0;
+        }
+        
+        @keyframes ripple {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+        }
+
+        /* STATE: PRECISION MODE ACTIVE */
+        body.mode-ar #map-container { transform: scale(0.9); opacity: 0; }
+        body.mode-ar #ar-container { opacity: 1; pointer-events: auto; }
+        body.mode-ar #device-card { transform: translateY(120%); }
+        body.mode-ar #hud-layer { opacity: 1; }
+
     </style>
 </head>
 <body>
 
-    <!-- REAL-TIME FLUID ENGINE -->
-    <canvas id="sim-canvas"></canvas>
+    <!-- 1. MAP LAYER -->
+    <div id="map-container"></div>
 
-    <div class="app-frame" id="app">
-        
-        <!-- HEADER -->
-        <header>
-            <div class="brand"><div class="brand-dot"></div>Aura v8.0</div>
-            <div class="controls">
-                <div class="btn-pill" id="btn-refresh" onclick="Engine.refresh()">
-                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                    AUTO
-                </div>
-                <div class="btn-pill" id="btn-lang" onclick="State.toggleLang()">EN</div>
-            </div>
-        </header>
-
-        <!-- HERO -->
-        <section class="hero">
-            <div class="score-ring" id="hero-ring">
-                <span class="score-val" id="score-val">--</span>
-                <span class="score-lbl" id="score-lbl">LIFE SCORE</span>
-            </div>
-            <div class="hero-meta">
-                <div class="loc-name">
-                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5-2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                    <span id="loc-txt">Locating...</span>
-                </div>
-                <div class="weather-status" id="weather-desc">Initializing Engine...</div>
-            </div>
-        </section>
-
-        <!-- DIAGNOSTIC -->
-        <section class="card-glass">
-            <div class="oracle-head">
-                <span class="oracle-title" id="lbl-diag">AI DIAGNOSTIC</span>
-                <div style="font-size:10px; color:var(--tx-light);">LIVE</div>
-            </div>
-            <div class="oracle-msg" id="ai-msg">Aura is synchronizing with satellites...</div>
-            <div class="diagnosis-pill">
-                <div class="ai-pulse-bar" id="pulse-bar"></div>
-                <span id="ai-reason">Calibrating sensors.</span>
-            </div>
-        </section>
-
-        <!-- INSIGHTS -->
-        <section class="grid">
-            <div class="insight-card" id="card-laundry">
-                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg></div>
-                <div><div class="insight-lbl" id="lbl-laundry">LAUNDRY</div><div class="insight-val" id="val-laundry">--</div></div>
-            </div>
-            <div class="insight-card" id="card-pet">
-                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg></div>
-                <div><div class="insight-lbl" id="lbl-pet">PET HEALTH</div><div class="insight-val" id="val-pet">--</div></div>
-            </div>
-            <div class="insight-card" id="card-outdoor">
-                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg></div>
-                <div><div class="insight-lbl" id="lbl-outdoor">OUTDOOR</div><div class="insight-val" id="val-outdoor">--</div></div>
-            </div>
-            <div class="insight-card" id="card-mold">
-                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg></div>
-                <div><div class="insight-lbl" id="lbl-mold">MOLD RISK</div><div class="insight-val" id="val-mold">--</div></div>
-            </div>
-        </section>
-
-        <!-- TIMELINE -->
-        <section class="card-glass" style="padding: 16px;">
-            <div class="oracle-head" style="margin-bottom:0;">
-                <span class="oracle-title" id="lbl-timeline">TIMELINE SYNC</span>
-                <span style="font-size:10px; color:var(--p-indigo);" id="live-indicator">LIVE</span>
-            </div>
-            <div class="timeline-scroll" id="timeline-row"></div>
-        </section>
-
+    <!-- 2. AR CAMERA LAYER -->
+    <div id="ar-container">
+        <video id="camera-feed" autoplay playsinline muted></video>
     </div>
 
-    <!-- TOAST -->
-    <div id="toast" class="toast"></div>
+    <!-- 3. PRECISION HUD -->
+    <div id="hud-layer">
+        <button class="close-btn" onclick="app.stopFinding()">✕</button>
+        
+        <div class="pulse" id="pulse-ring"></div>
 
-    <script>
-        /**
-         * AURA V8.0 - TRUE REAL-TIME ENGINE
-         * Interpolates data, physics simulation, and live logic.
-         */
+        <div class="arrow-wrapper" id="arrow-el">
+            <svg class="arrow-svg" viewBox="0 0 100 100" fill="none">
+                <path d="M50 0 L90 100 L50 85 L10 100 Z" fill="white"/>
+            </svg>
+        </div>
 
-        const Config = {
-            API_W: 'https://api.open-meteo.com/v1/forecast',
-            API_A: 'https://air-quality-api.open-meteo.com/v1/air-quality',
-            API_G: 'https://api.bigdatacloud.net/data/reverse-geocode-client',
-            REFRESH_DATA: 300000, // 5 mins
-            REFRESH_LOC: 600000, // 10 mins
-            SYNC_TIME: 60000 // 1 min
+        <div class="distance-label" id="dist-el">0.0</div>
+        <div class="unit-label">meters</div>
+    </div>
+
+    <!-- 4. BOTTOM SHEET -->
+    <div id="device-card">
+        <div class="card-header">
+            <div class="icon-box">🎒</div>
+            <div class="text-group">
+                <h1>Omega Backpack</h1>
+                <p>124 W 24th St • 2 min ago</p>
+            </div>
+            <div class="battery-pill">
+                <span>84%</span> 
+                <svg width="18" height="10" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="1" width="20" height="10" rx="2" />
+                    <path d="M22 4V8" stroke-linecap="round"/>
+                </svg>
+            </div>
+        </div>
+        <button class="btn-main" onclick="app.startFinding()">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg>
+            Find Nearby
+        </button>
+    </div>
+
+<script>
+/**
+ * OMEGA FINDER X-PRO | ULTRA MINIMAL CORE
+ * Includes: EKF Sensor Fusion, AR Logic, UI Controller
+ */
+
+// --- UTILS ---
+const toRad = x => x * Math.PI / 180;
+const toDeg = x => x * 180 / Math.PI;
+
+// --- 1D KALMAN FILTER (For Smoothing GPS) ---
+class KalmanFilter {
+    constructor(R = 1, Q = 0.1) {
+        this.x = 0; // State
+        this.P = 0; // Uncertainty
+        this.R = R; // Measurement Noise (GPS Accuracy)
+        this.Q = Q; // Process Noise (Movement)
+    }
+    update(measurement, accuracy) {
+        // Adapt R based on GPS reported accuracy
+        let R_adaptive = accuracy ? accuracy * accuracy : this.R;
+        
+        // Prediction
+        this.P = this.P + this.Q;
+        
+        // Update
+        const K = this.P / (this.P + R_adaptive);
+        this.x = this.x + K * (measurement - this.x);
+        this.P = (1 - K) * this.P;
+        
+        return this.x;
+    }
+}
+
+// --- APP ENGINE ---
+class OmegaSystem {
+    constructor() {
+        this.socket = io('http://localhost:3000'); // Optional Backend
+        
+        // State
+        this.myPos = { lat: 0, lng: 0, heading: 0 };
+        this.targetPos = { lat: 40.748817, lng: -73.985428 }; // Default: Empire State
+        this.isTracking = false;
+
+        // Filters
+        this.kfLat = new KalmanFilter();
+        this.kfLng = new KalmanFilter();
+
+        // UI Refs
+        this.ui = {
+            arrow: document.getElementById('arrow-el'),
+            dist: document.getElementById('dist-el'),
+            pulse: document.getElementById('pulse-ring')
         };
 
-        const Dict = {
-            en: {
-                score: "LIFE SCORE", diag: "AI DIAGNOSTIC", laundry: "LAUNDRY", pet: "PET HEALTH", outdoor: "OUTDOOR", mold: "MOLD RISK", timeline: "TIMELINE",
-                loc_fail: "GPS Signal Weak", gps_ok: "GPS Live",
-                status: {
-                    good: "Optimal", bad: "Critical", mod: "Moderate",
-                    dry: "Fast Dry", slow: "Slow Dry", no_dry: "Do Not Dry",
-                    safe: "Safe & Happy", heat: "Heat Risk", allergy: "Allergy Risk",
-                    vent: "Ventilate", seal: "Seal Windows",
-                    low: "Low Risk", high: "High Risk"
-                },
-                msg: {
-                    rain: "Precipitation accumulating. Stay sheltered.",
-                    heat: "Thermal bloom detected. High stress.",
-                    dust: "Particulate drift active. Seal windows.",
-                    good: "Atmosphere stable. Conditions optimal."
-                },
-                reason: {
-                    rain: "Moisture saturation > 90%",
-                    heat: "Solar radiation peak",
-                    dust: "Stagnant airflow",
-                    good: "Balanced pressure system"
-                }
-            },
-            th: {
-                score: "คะแนนชีวิต", diag: "บทวิเคราะห์ AI", laundry: "ซักผ้า", pet: "สัตว์เลี้ยง", outdoor: "กิจกรรม", mold: "เชื้อรา", timeline: "พยากรณ์",
-                loc_fail: "สัญญาณ GPS อ่อน", gps_ok: "GPS ทำงาน",
-                status: {
-                    good: "ดีเยี่ยม", bad: "วิกฤต", mod: "ปานกลาง",
-                    dry: "แห้งไว", slow: "แห้งช้า", no_dry: "ไม่ควรตาก",
-                    safe: "ปลอดภัย", heat: "เสี่ยงฮีทสโตรก", allergy: "เสี่ยงภูมิแพ้",
-                    vent: "เปิดหน้าต่างได้", seal: "ปิดหน้าต่าง",
-                    low: "ความเสี่ยงต่ำ", high: "ความเสี่ยงสูง"
-                },
-                msg: {
-                    rain: "ความชื้นสะสมสูง ฝนกำลังก่อตัวครับ",
-                    heat: "ความร้อนสะสมสูง ระวังฮีทสโตรกนะครับ",
-                    dust: "ฝุ่นละอองหนาแน่น ปิดหน้าต่างดีกว่าครับ",
-                    good: "บรรยากาศสมดุลดีมาก เหมาะแก่การพักผ่อน"
-                },
-                reason: {
-                    rain: "ความชื้นสัมพัทธ์ > 90%",
-                    heat: "รังสีความร้อนสูงสุด",
-                    dust: "ลมสงบทำให้ฝุ่นสะสม",
-                    good: "ความกดอากาศเสถียร"
-                }
-            }
-        };
+        this.initMap();
+        this.simMovement(); // Remove in prod
+    }
 
-        // --- CORE STATE ---
-        const State = {
-            lang: localStorage.getItem('aura_lang') || 'en',
-            lat: 13.7563, lon: 100.5018,
-            weather: null, aqi: null,
-            lastLat: 0, lastLon: 0,
-            
-            // Physics Targets (Interpolation)
-            target: { wind: 0, rain: 0, heat: 0, pm: 0 },
-            current: { wind: 0, rain: 0, heat: 0, pm: 0 },
-            
-            simHourOffset: 0,
-            isLive: true
-        };
+    // --- MAP INITIALIZATION ---
+    initMap() {
+        this.map = L.map('map-container', { zoomControl: false, attributionControl: false })
+            .setView([51.505, -0.09], 13);
+        
+        // Dark Minimal Tiles (CartoDB Dark Matter)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(this.map);
 
-        // --- UTILS ---
-        const Utils = {
-            t: (k) => Dict[State.lang][k] || k,
-            lerp: (start, end, amt) => (1 - amt) * start + amt * end,
-            dist: (lat1, lon1, lat2, lon2) => {
-                const R = 6371; 
-                const dLat = (lat2-lat1) * Math.PI/180;
-                const dLon = (lon2-lon1) * Math.PI/180;
-                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            },
-            toast: (msg) => {
-                const t = document.getElementById('toast');
-                t.innerText = msg; t.classList.add('show');
-                setTimeout(() => t.classList.remove('show'), 3000);
-            }
-        };
+        this.marker = L.marker([0,0]).addTo(this.map);
+    }
 
-        // --- 1. FLUID PHYSICS ENGINE ---
-        const Sim = {
-            cvs: document.getElementById('sim-canvas'),
-            ctx: null, w: 0, h: 0,
-            particles: [],
-            fluidT: 0,
+    // --- CORE: START AR MODE ---
+    async startFinding() {
+        // 1. Permission (iOS 13+)
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const resp = await DeviceOrientationEvent.requestPermission();
+            if (resp !== 'granted') return alert('Compass Required');
+        }
 
-            init: () => {
-                Sim.ctx = Sim.cvs.getContext('2d', { alpha: false });
-                Sim.resize();
-                window.addEventListener('resize', Sim.resize);
-                Sim.loop();
-            },
-            resize: () => {
-                Sim.w = Sim.cvs.width = window.innerWidth;
-                Sim.h = Sim.cvs.height = window.innerHeight;
-            },
-            
-            spawn: () => {
-                // Rain
-                if(State.current.rain > 0.1) {
-                    const count = Math.floor(State.current.rain * 2); 
-                    for(let i=0; i<count; i++) {
-                        Sim.particles.push({ t:'rain', x:Math.random()*Sim.w, y:-10, v:15+Math.random()*10, l:60 });
-                    }
-                }
-                // Dust
-                if(State.current.pm > 30 && Math.random() < 0.2) {
-                    Sim.particles.push({ t:'dust', x:Math.random()*Sim.w, y:Math.random()*Sim.h, v:(Math.random()-0.5), l:200 });
-                }
-            },
-
-            draw: () => {
-                const ctx = Sim.ctx;
-                // Fluid Background Interpolation
-                State.current.wind = Utils.lerp(State.current.wind, State.target.wind, 0.05);
-                State.current.rain = Utils.lerp(State.current.rain, State.target.rain, 0.05);
-                State.current.heat = Utils.lerp(State.current.heat, State.target.heat, 0.05);
-                State.current.pm = Utils.lerp(State.current.pm, State.target.pm, 0.05);
-
-                Sim.fluidT += 0.005 + (State.current.wind * 0.0005);
-                
-                // Color Mixing Logic
-                let c1 = '#A8D8FF', c2 = '#C3B4FF', c3 = '#A9E9F7'; // Default
-                if(State.current.rain > 0.5) { c1='#8A9BFF'; c2='#6D7380'; c3='#A8D8FF'; }
-                if(State.current.heat > 35) { c1='#FFDBA3'; c2='#FFB3B3'; c3='#A8D8FF'; }
-                if(State.current.pm > 50) { c1='#FFE4C4'; c2='#EEF1F6'; c3='#C3B4FF'; }
-
-                // Draw Fluid
-                ctx.fillStyle = '#F5F7FA'; ctx.fillRect(0,0,Sim.w,Sim.h);
-                
-                const blob = (x,y,r,c) => {
-                    const g = ctx.createRadialGradient(x,y,0,x,y,r);
-                    g.addColorStop(0,c); g.addColorStop(1,'rgba(255,255,255,0)');
-                    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-                };
-
-                blob(Sim.w*0.5 + Math.sin(Sim.fluidT)*100, Sim.h*0.4, Sim.w*0.8, c1);
-                blob(Sim.w*0.8, Sim.h*0.8 + Math.cos(Sim.fluidT*0.8)*50, Sim.w*0.7, c2);
-                blob(Sim.w*0.2, Sim.h*0.2 - Math.sin(Sim.fluidT*1.2)*50, Sim.w*0.6, c3);
-
-                // Particles
-                Sim.spawn();
-                for(let i=Sim.particles.length-1; i>=0; i--){
-                    const p = Sim.particles[i];
-                    p.l--;
-                    if(p.t === 'rain') {
-                        p.y += p.v;
-                        ctx.fillStyle = 'rgba(138,155,255,0.6)'; ctx.fillRect(p.x, p.y, 1, 10);
-                    } else if(p.t === 'dust') {
-                        p.x += p.v + (State.current.wind*0.1); 
-                        ctx.fillStyle = 'rgba(255,219,163,0.5)'; ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2); ctx.fill();
-                    }
-                    if(p.l<=0 || p.y>Sim.h) Sim.particles.splice(i,1);
-                }
-            },
-
-            loop: () => {
-                Sim.draw();
-                requestAnimationFrame(Sim.loop);
-            }
-        };
-
-        // --- 2. DATA ENGINE ---
-        const Data = {
-            fetch: async () => {
-                const btn = document.getElementById('btn-refresh');
-                btn.classList.add('refreshing');
-                
-                try {
-                    const wUrl = `${Config.API_W}?latitude=${State.lat}&longitude=${State.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,relative_humidity_2m&timezone=auto`;
-                    const aUrl = `${Config.API_A}?latitude=${State.lat}&longitude=${State.lon}&current=pm2_5`;
-                    const gUrl = `${Config.API_G}?latitude=${State.lat}&longitude=${State.lon}&localityLanguage=en`;
-
-                    const [w, a, g] = await Promise.all([
-                        fetch(wUrl).then(r=>r.json()), 
-                        fetch(aUrl).then(r=>r.json()),
-                        fetch(gUrl).then(r=>r.json())
-                    ]);
-
-                    State.weather = w;
-                    State.aqi = a;
-                    
-                    document.getElementById('loc-txt').innerText = `${g.city || g.locality}, ${g.countryCode}`;
-                    
-                    Engine.update(); // Trigger Logic Update
-                    Utils.toast("Data Synced");
-
-                } catch(e) { console.error(e); }
-                finally { btn.classList.remove('refreshing'); }
-            }
-        };
-
-        // --- 3. LOCATION MANAGER ---
-        const Location = {
-            request: () => {
-                if(!navigator.geolocation) return Data.fetch();
-                navigator.geolocation.getCurrentPosition(
-                    pos => {
-                        const dist = Utils.dist(State.lastLat, State.lastLon, pos.coords.latitude, pos.coords.longitude);
-                        State.lat = pos.coords.latitude;
-                        State.lon = pos.coords.longitude;
-                        // Only fetch if moved > 2km or first run
-                        if(dist > 2 || State.lastLat === 0) {
-                            State.lastLat = State.lat; State.lastLon = State.lon;
-                            Data.fetch();
-                        }
-                    },
-                    () => Data.fetch() // Fallback
-                );
-            }
-        };
-
-        // --- 4. CORE ENGINE (LOGIC & UI) ---
-        const Engine = {
-            refresh: () => { Location.request(); },
-            
-            update: () => {
-                if(!State.weather) return;
-                
-                // Determine Source Data (Live vs Sim)
-                const nowHour = new Date().getHours();
-                const idx = State.isLive ? 
-                    State.weather.hourly.time.findIndex(t => new Date(t).getHours() === nowHour) :
-                    (State.weather.hourly.time.findIndex(t => new Date(t).getHours() === nowHour) + State.simHourOffset);
-                
-                const safeIdx = Math.max(0, Math.min(idx, 23));
-                const hData = {
-                    temp: State.weather.hourly.temperature_2m[safeIdx],
-                    rain: State.weather.hourly.precipitation_probability[safeIdx],
-                    wind: State.weather.hourly.wind_speed_10m[safeIdx],
-                    hum: State.weather.hourly.relative_humidity_2m[safeIdx],
-                    pm: State.aqi ? State.aqi.current.pm2_5 : 0
-                };
-
-                // Update Physics Targets
-                State.target.wind = hData.wind;
-                State.target.rain = hData.rain > 30 ? (hData.rain/10) : 0; // Normalize rain for particles
-                State.target.heat = hData.temp;
-                State.target.pm = hData.pm;
-
-                // UI Logic
-                const t = Dict[State.lang];
-                
-                // Score
-                let score = 100;
-                if(hData.temp > 35) score -= 20;
-                if(hData.rain > 40) score -= 25;
-                if(hData.pm > 50) score -= 20;
-                score = Math.max(0, score);
-
-                // Update DOM with Pulse
-                const setVal = (id, val, logic) => {
-                    const el = document.getElementById(id);
-                    if(el.innerText !== val) {
-                        el.innerText = val;
-                        el.classList.add('updated-pulse');
-                        setTimeout(()=>el.classList.remove('updated-pulse'), 1000);
-                        if(logic) logic(el.parentElement); // Parent vibration etc
-                    }
-                };
-
-                setVal('score-val', score);
-                setVal('weather-desc', `${Math.round(hData.temp)}°C • H:${hData.hum}% • Wind ${hData.wind}`);
-
-                // Cards logic
-                const updateCard = (id, type, val) => {
-                    let st = { t:t.status.good, c:'c-good' };
-                    // Logic trees
-                    if(type === 'laundry') {
-                        if(hData.rain > 30) st = {t:t.status.no_dry, c:'c-bad'};
-                        else if(hData.hum > 70) st = {t:t.status.slow, c:'c-warn'};
-                        else st = {t:t.status.dry, c:'c-good'};
-                    }
-                    if(type === 'pet') {
-                        if(hData.temp > 33) st = {t:t.status.heat, c:'c-bad'};
-                        else if(hData.pm > 80) st = {t:t.status.allergy, c:'c-warn'};
-                        else st = {t:t.status.safe, c:'c-good'};
-                    }
-                    if(type === 'outdoor') {
-                        if(hData.pm > 100) st = {t:t.status.seal, c:'c-bad'};
-                        else if(hData.pm > 50) st = {t:t.status.vent, c:'c-warn'};
-                        else st = {t:t.status.good, c:'c-good'};
-                    }
-                    if(type === 'mold') {
-                        if(hData.hum > 80) st = {t:t.status.high, c:'c-bad'};
-                        else if(hData.hum > 60) st = {t:t.status.low, c:'c-good'};
-                    }
-                    
-                    document.getElementById(`val-${type}`).innerText = st.t;
-                    document.getElementById(`card-${type}`).style.borderColor = st.c === 'c-bad' ? 'var(--p-rose)' : 'rgba(255,255,255,0.5)';
-                };
-
-                updateCard('laundry', 'laundry');
-                updateCard('pet', 'pet');
-                updateCard('outdoor', 'outdoor');
-                updateCard('mold', 'mold');
-
-                // Oracle Msg
-                let msg = t.msg.good; 
-                let reason = t.reason.good;
-                if(hData.rain > 40) { msg = t.msg.rain; reason = t.reason.rain; }
-                else if(hData.temp > 35) { msg = t.msg.heat; reason = t.reason.heat; }
-                else if(hData.pm > 50) { msg = t.msg.dust; reason = t.reason.dust; }
-                document.getElementById('ai-msg').innerText = msg;
-                document.getElementById('ai-reason').innerText = reason;
-                
-                // Pulse Bar
-                document.getElementById('pulse-bar').style.height = `${10 + (Math.random()*20)}px`;
-
-                Engine.renderTimeline(nowHour);
-            },
-
-            renderTimeline: (currentHour) => {
-                const con = document.getElementById('timeline-row');
-                con.innerHTML = '';
-                
-                for(let i=0; i<12; i++) {
-                    const h = (currentHour + i) % 24;
-                    const el = document.createElement('div');
-                    const isActive = State.simHourOffset === i;
-                    el.className = `t-node ${isActive ? 'active' : ''}`;
-                    el.onclick = () => {
-                        State.simHourOffset = i;
-                        State.isLive = (i === 0);
-                        document.getElementById('live-indicator').innerText = i===0 ? "LIVE" : `FUTURE +${i}h`;
-                        Engine.update();
-                    };
-                    
-                    // Temp Data
-                    // Safe access
-                    let temp = "--";
-                    if (State.weather && State.weather.hourly) {
-                         // Simple mapping, not exact index finding for performance in loop
-                         // Just taking array index approx
-                         const idx = Math.min(State.weather.hourly.temperature_2m.length-1, i + (new Date().getHours())); 
-                         // Better: Find index matching hour
-                         const match = State.weather.hourly.time.findIndex(t => new Date(t).getHours() === h);
-                         if(match > -1) temp = Math.round(State.weather.hourly.temperature_2m[match]);
-                    }
-
-                    el.innerHTML = `
-                        <span class="t-time">${h}:00</span>
-                        <div class="t-dot"></div>
-                        <span class="t-temp">${temp}°</span>
-                    `;
-                    con.appendChild(el);
-                }
-            }
-        };
-
-        // --- INITIALIZATION ---
-        State.toggleLang = () => {
-            State.lang = State.lang === 'en' ? 'th' : 'en';
-            localStorage.setItem('aura_lang', State.lang);
-            // Update static labels
-            const t = Dict[State.lang];
-            ['score-lbl','lbl-diag','lbl-laundry','lbl-pet','lbl-outdoor','lbl-mold','lbl-timeline'].forEach(id => {
-                const k = id.replace('lbl-','').replace('score-','score').replace('diag','diag'); 
-                if(t[k]) document.getElementById(id).innerText = t[k];
+        // 2. Camera
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' } 
             });
-            document.getElementById('btn-lang').innerText = State.lang === 'en' ? 'EN' : 'TH';
-            Engine.update();
-        };
+            document.getElementById('camera-feed').srcObject = stream;
+        } catch(e) { console.log('Camera error (Desktop?)'); }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            Sim.init();
-            Location.request();
-            
-            // Real-Time Loops
-            setInterval(Engine.update, Config.SYNC_TIME); // Every minute UI sync
-            setInterval(Data.fetch, Config.REFRESH_DATA); // Every 5 mins data
-            setInterval(Location.request, Config.REFRESH_LOC); // Every 10 mins GPS
-            
-            State.toggleLang(); // Set initial lang text
-        });
+        // 3. Sensors
+        this.watchId = navigator.geolocation.watchPosition(
+            p => this.handleGPS(p), 
+            e => console.error(e), 
+            { enableHighAccuracy: true, maximumAge: 0 }
+        );
 
-    </script>
+        window.addEventListener('deviceorientation', this.handleCompass);
+
+        // 4. UI Transition
+        document.body.classList.add('mode-ar');
+        this.isTracking = true;
+        this.renderLoop();
+    }
+
+    stopFinding() {
+        document.body.classList.remove('mode-ar');
+        this.isTracking = false;
+        navigator.geolocation.clearWatch(this.watchId);
+        window.removeEventListener('deviceorientation', this.handleCompass);
+    }
+
+    // --- SENSOR LOGIC ---
+    handleGPS(pos) {
+        const { latitude, longitude, accuracy } = pos.coords;
+        
+        // Apply Kalman Filter
+        this.myPos.lat = this.kfLat.update(latitude, accuracy);
+        this.myPos.lng = this.kfLng.update(longitude, accuracy);
+
+        // Update Map (Hidden but running)
+        this.marker.setLatLng([this.myPos.lat, this.myPos.lng]);
+    }
+
+    handleCompass = (e) => {
+        // webkitCompassHeading (iOS) || alpha (Android)
+        let heading = e.webkitCompassHeading || (360 - e.alpha);
+        this.myPos.heading = heading || 0;
+    }
+
+    // --- PHYSICS & RENDERING LOOP ---
+    renderLoop() {
+        if (!this.isTracking) return;
+
+        // 1. Math: Distance & Bearing
+        const dLat = toRad(this.targetPos.lat - this.myPos.lat);
+        const dLng = toRad(this.targetPos.lng - this.myPos.lng);
+        const lat1 = toRad(this.myPos.lat);
+        const lat2 = toRad(this.targetPos.lat);
+
+        // Haversine Distance
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+        const distMeters = 6371e3 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        // Bearing
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+        const bearing = (toDeg(Math.atan2(y, x)) + 360) % 360;
+
+        // 2. AR Logic: Relative Rotation
+        // "Where is target" minus "Where am I looking"
+        let relativeRot = bearing - this.myPos.heading;
+        
+        // Shortest path interpolation (-180 to 180)
+        while (relativeRot < -180) relativeRot += 360;
+        while (relativeRot > 180) relativeRot -= 360;
+
+        // 3. Update UI
+        this.ui.arrow.style.transform = `rotate(${relativeRot}deg)`;
+        this.ui.dist.innerText = distMeters.toFixed(1);
+
+        // 4. Color & Haptic Logic
+        if (distMeters < 5) {
+            this.ui.arrow.style.filter = "drop-shadow(0 0 20px #30D158)";
+            this.ui.pulse.style.animation = "ripple 1s infinite";
+            if(Math.random() > 0.95) navigator.vibrate?.(10);
+        } else {
+            this.ui.arrow.style.filter = "drop-shadow(0 0 15px rgba(255,255,255,0.2))";
+            this.ui.pulse.style.animation = "none";
+        }
+
+        requestAnimationFrame(() => this.renderLoop());
+    }
+
+    // --- SIMULATE TARGET (FOR DEMO) ---
+    simMovement() {
+        // Fake target walking around 
+        setInterval(() => {
+            if(!this.isTracking) return;
+            this.targetPos.lat += (Math.random() - 0.5) * 0.00005;
+            this.targetPos.lng += (Math.random() - 0.5) * 0.00005;
+        }, 1000);
+    }
+}
+
+// Start System
+window.app = new OmegaSystem();
+
+</script>
 </body>
 </html>
