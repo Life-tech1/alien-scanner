@@ -3,766 +3,644 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA v3 | Weather Intelligence</title>
-    
-    <!-- Fonts: Kanit (Thai) & Outfit (Eng) -->
+    <title>AURA ORACLE | Intelligent Lifestyle</title>
+
+    <!-- Typography: Outfit (English) & Kanit (Thai) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600&family=Outfit:wght@200;300;400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- Leaflet CSS (Map) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
     <style>
-        /* ————————————————————————————————————————————————
-           🎨 VISION OS DESIGN SYSTEM
-           ———————————————————————————————————————————————— */
+        /* =========================================
+           🎨 AURA COLOR SYSTEM v2.0 (Blue-Science)
+           ========================================= */
         :root {
-            --font-th: 'Kanit', sans-serif;
+            /* 1. Base Tones (60% Neutral/Blue-Tint) */
+            --bg-base: #F0F6FF;       /* Very soft blue-white */
+            --bg-card: rgba(255, 255, 255, 0.75);
+            --bg-glass: rgba(255, 255, 255, 0.50);
+
+            /* 2. Semantic Blues (25% Structure) */
+            --blue-primary: #80B7FF;  /* Core UI Blue */
+            --blue-breeze: #A9E9F7;   /* Cyan-ish tint */
+            --blue-storm: #8A9BFF;    /* Deep Indigo tint */
+            --blue-shadow: rgba(128, 183, 255, 0.15);
+
+            /* 3. Accents (10% Semantic) */
+            --sem-rain: #6FA4F5;
+            --sem-heat: #FFCA8C;
+            --sem-aqi: #F28B8B;
+            --sem-good: #88DDB2;
+
+            /* 4. The Glow (5% Accent) */
+            --glow-lavender: #C3B4FF;
+
+            /* Text Colors (Premium Blue-Grays) */
+            --text-main: #2B3A4A;     /* Deep Navy-Gray */
+            --text-soft: #64748B;     /* Soft Blue-Gray */
+            --text-light: #94A3B8;
+
+            /* System Tokens */
+            --shadow-float: 
+                0 20px 50px -12px var(--blue-shadow), 
+                0 4px 12px -4px rgba(43, 58, 74, 0.05);
+            
+            --blur-glass: 30px;
+            --border-glass: 1px solid rgba(255, 255, 255, 0.8);
+            --radius-l: 32px;
+            --radius-m: 24px;
+            
+            /* Font Variables */
             --font-en: 'Outfit', sans-serif;
-            
-            /* Dynamic Palette (Updated via JS) */
-            --bg-top: #0f172a;
-            --bg-bot: #000000;
-            --accent: #3b82f6;
-            
-            /* Glassmorphism */
-            --glass-bg: rgba(255, 255, 255, 0.06);
-            --glass-border: rgba(255, 255, 255, 0.12);
-            --glass-shine: rgba(255, 255, 255, 0.03);
-            --glass-blur: 24px;
-            
-            /* Semantic Colors */
-            --safe: #34c759;
-            --warn: #ff9f0a;
-            --danger: #ff453a;
-            --text-main: #ffffff;
-            --text-muted: rgba(255, 255, 255, 0.6);
-            
-            /* Animation */
-            --ease-apple: cubic-bezier(0.25, 1, 0.5, 1);
+            --font-th: 'Kanit', sans-serif;
+            --font-current: var(--font-en); /* Swapped via JS */
         }
 
+        /* Reset */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            background: linear-gradient(180deg, var(--bg-top), var(--bg-bot));
+            background-color: var(--bg-base);
             color: var(--text-main);
-            font-family: var(--font-th);
+            font-family: var(--font-current);
             min-height: 100vh;
+            display: flex;
+            justify-content: center;
             overflow-x: hidden;
-            transition: background 1.5s ease;
+            transition: background 0.5s ease;
+
+            /* 🎨 AMBIENT LAYER: Complex Soft Gradients */
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(169, 233, 247, 0.4) 0%, transparent 40%),
+                radial-gradient(circle at 90% 10%, rgba(195, 180, 255, 0.3) 0%, transparent 40%),
+                radial-gradient(circle at 50% 90%, rgba(128, 183, 255, 0.2) 0%, transparent 50%);
+            background-attachment: fixed;
         }
 
-        /* Canvas Layers */
-        #sky-canvas, #stars-canvas {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 0;
+        /* Frame */
+        .app-frame {
+            width: 100%;
+            max-width: 440px;
+            padding: 24px;
+            padding-top: 50px;
+            padding-bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
         }
-        #sky-canvas { z-index: 1; } /* Rain/Snow */
 
-        /* App Layout */
-        .app {
-            position: relative; z-index: 10;
-            max-width: 1100px; margin: 0 auto;
+        /* 1. Header & Lang Toggle */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .brand {
+            font-family: var(--font-en);
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--blue-storm);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .brand::before {
+            content: ''; width: 8px; height: 8px; 
+            background: var(--glow-lavender); 
+            border-radius: 50%; 
+            box-shadow: 0 0 12px var(--glow-lavender);
+        }
+        
+        /* Language Toggle Pill */
+        .lang-toggle {
+            background: rgba(255,255,255,0.6);
+            border: 1px solid rgba(255,255,255,0.8);
+            border-radius: 20px;
+            padding: 4px 4px;
+            display: flex;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            font-family: var(--font-en);
+        }
+        .lang-opt {
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-soft);
+            transition: all 0.3s ease;
+        }
+        .lang-opt.active {
+            background: #FFFFFF;
+            color: var(--blue-storm);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        /* 2. Hero: Life Score Circle */
+        .hero-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            margin: 10px 0;
+        }
+        .score-circle {
+            width: 190px; height: 190px;
+            border-radius: 50%;
+            /* Soft Blue Gradient Fill */
+            background: linear-gradient(145deg, #FFFFFF, #F2F8FF);
+            box-shadow: 
+                -10px -10px 30px #FFFFFF,
+                10px 10px 30px var(--blue-shadow),
+                inset 0 0 0 1px rgba(255,255,255,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+        .score-val {
+            font-family: var(--font-en);
+            font-size: 72px;
+            font-weight: 300;
+            color: var(--text-main);
+            line-height: 1;
+            letter-spacing: -2px;
+        }
+        .score-label {
+            font-size: 13px;
+            color: var(--text-soft);
+            margin-top: 8px;
+            font-weight: 400;
+        }
+        
+        .hero-meta {
+            margin-top: 24px;
+            display: flex;
+            gap: 20px;
+            align-items: baseline;
+        }
+        .temp-display {
+            font-family: var(--font-en);
+            font-size: 32px;
+            color: var(--text-main);
+            font-weight: 300;
+        }
+        .loc-display {
+            font-size: 14px;
+            color: var(--text-soft);
+        }
+
+        /* 3. Oracle Card (Glass) */
+        .oracle-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(var(--blur-glass));
+            border: var(--border-glass);
+            border-radius: var(--radius-m);
+            padding: 24px;
+            box-shadow: var(--shadow-float);
+            position: relative;
+            overflow: hidden;
+            border-left: 4px solid var(--glow-lavender);
+        }
+        .oracle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .oracle-title {
+            font-size: 11px;
+            font-family: var(--font-en);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--blue-storm);
+            font-weight: 600;
+        }
+        .oracle-icon {
+            width: 18px; height: 18px; fill: var(--glow-lavender);
+            animation: pulse 3s infinite;
+        }
+        .oracle-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-main);
+            font-weight: 300;
+        }
+
+        /* 4. Grid System */
+        .grid-2x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .insight-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 20px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 8px 24px rgba(138, 155, 255, 0.04);
+            transition: transform 0.2s ease;
+        }
+        .insight-card:active { transform: scale(0.98); }
+
+        .icon-box {
+            width: 36px; height: 36px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(169, 233, 247, 0.2); /* Soft Breeze Fill */
+            color: var(--text-soft);
+        }
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+        .card-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-main);
+            line-height: 1.3;
+        }
+
+        /* Status Pills */
+        .pill {
+            display: inline-block;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        
+        /* 5. Nowcast Row */
+        .nowcast-section {
+            background: var(--bg-card);
+            border-radius: var(--radius-m);
             padding: 20px;
-            display: flex; flex-direction: column; gap: 24px;
-            opacity: 0; animation: fadeInfo 1s var(--ease-apple) forwards;
+            box-shadow: var(--shadow-float);
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+        .sec-header {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .scroll-row {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .scroll-row::-webkit-scrollbar { display: none; }
+
+        .time-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-width: 50px;
+            opacity: 0.8;
+        }
+        .time-col.active { opacity: 1; transform: scale(1.05); }
+        .t-time { font-family: var(--font-en); font-size: 12px; color: var(--text-soft); }
+        .t-temp { font-family: var(--font-en); font-size: 14px; color: var(--text-main); font-weight: 500; }
+        .t-icon svg { width: 22px; height: 22px; fill: var(--text-soft); }
+
+        /* Animation Keyframes */
+        @keyframes floatUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.6; transform: scale(0.95); }
         }
 
-        @keyframes fadeInfo { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .anim { animation: floatUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
+        .d-1 { animation-delay: 0.1s; }
+        .d-2 { animation-delay: 0.2s; }
+        .d-3 { animation-delay: 0.3s; }
+        .d-4 { animation-delay: 0.4s; }
 
-        /* Header */
-        header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
-        .brand { font-family: var(--font-en); font-weight: 700; letter-spacing: 1px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
-        .brand-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 12px var(--accent); }
-        .lang-switch { font-family: var(--font-en); font-weight: 600; cursor: pointer; opacity: 0.7; transition: 0.3s; }
-        .lang-switch:hover { opacity: 1; }
+        /* Utility Colors */
+        .c-good { background: var(--sem-good); }
+        .c-warn { background: var(--sem-heat); }
+        .c-bad  { background: var(--sem-aqi); }
+        .c-rain { background: var(--sem-rain); }
+        .c-blue { background: var(--blue-primary); }
 
-        /* Hero Section */
-        .hero { text-align: center; padding: 40px 0; position: relative; }
-        .temp-huge {
-            font-family: var(--font-en); font-size: clamp(80px, 12vw, 130px);
-            font-weight: 200; line-height: 0.9; letter-spacing: -4px;
-            background: linear-gradient(180deg, #fff, rgba(255,255,255,0.7));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.2));
-        }
-        .condition { font-size: 1.5rem; font-weight: 400; opacity: 0.9; margin: 10px 0; }
-        .hl-range { font-family: var(--font-en); font-size: 1.1rem; opacity: 0.6; }
+        /* SVG */
+        svg { fill: currentColor; }
 
-        /* Glass Card System */
-        .card {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 20px;
-            backdrop-filter: blur(var(--glass-blur));
-            -webkit-backdrop-filter: blur(var(--glass-blur));
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-            transition: transform 0.4s var(--ease-apple), box-shadow 0.4s var(--ease-apple);
-            position: relative; overflow: hidden;
-        }
-        .card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.2); }
-        .card::before {
-            content: ''; position: absolute; inset: 0;
-            background: linear-gradient(135deg, var(--glass-shine) 0%, transparent 100%);
-            pointer-events: none;
-        }
-
-        .card-title {
-            font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
-            color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
-        }
-        .card-title svg { width: 14px; height: 14px; opacity: 0.8; }
-
-        /* AI Brain Box */
-        .ai-brain {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(147, 51, 234, 0.05));
-            border-color: rgba(59, 130, 246, 0.3);
-            display: flex; gap: 16px; align-items: flex-start;
-        }
-        .ai-icon { font-size: 24px; animation: pulse 3s infinite; }
-        .ai-content h3 { font-family: var(--font-en); font-size: 0.9rem; color: #60a5fa; margin-bottom: 6px; }
-        .ai-text { font-size: 1rem; line-height: 1.6; font-weight: 300; }
-        .ai-pill { 
-            display: inline-block; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; 
-            font-size: 0.8rem; margin: 4px 4px 0 0; border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        /* Bento Grid */
-        .grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px;
-        }
-        .col-2 { grid-column: span 2; }
-        .col-full { grid-column: 1 / -1; }
-        @media (max-width: 768px) { .col-2 { grid-column: span 1; } }
-
-        /* Monitors */
-        .stat-val { font-family: var(--font-en); font-size: 2rem; font-weight: 600; }
-        .stat-unit { font-size: 1rem; opacity: 0.6; font-weight: 400; }
-        .stat-desc { font-size: 0.85rem; opacity: 0.7; margin-top: 4px; }
-
-        /* Visualizers */
-        .bar-container { height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 12px; overflow: hidden; }
-        .bar-fill { height: 100%; transition: width 1s var(--ease-apple); }
-        
-        .aqi-donut { position: relative; width: 80px; height: 80px; margin: 0 auto; }
-        .aqi-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
-        .aqi-circle { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s var(--ease-apple); }
-
-        .compass { width: 60px; height: 60px; border: 2px solid rgba(255,255,255,0.15); border-radius: 50%; position: relative; margin: 0 auto; }
-        .compass-arrow { 
-            width: 4px; height: 100%; background: linear-gradient(to bottom, var(--danger) 50%, transparent 50%); 
-            position: absolute; left: 50%; transform: translateX(-50%); transition: transform 1s var(--ease-apple);
-        }
-
-        /* Radar Map */
-        #map { width: 100%; height: 350px; border-radius: 20px; background: #000; z-index: 1; }
-        .leaflet-control-attribution { display: none; }
-        .radar-controls { position: absolute; bottom: 16px; left: 16px; z-index: 400; display: flex; gap: 8px; }
-        .play-btn { background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.2); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
-
-        /* Forecast */
-        .chart-container { height: 140px; width: 100%; position: relative; }
-        .day-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .day-row:last-child { border: none; }
-        .day-bar-track { flex: 1; margin: 0 16px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; position: relative; }
-        .day-bar { position: absolute; height: 100%; border-radius: 2px; opacity: 0.8; }
-        
-        /* Loading */
-        #loader {
-            position: fixed; inset: 0; background: #000; z-index: 9999; 
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 0.5s;
-        }
-        .pulse-logo { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); animation: pulse-blue 2s infinite; }
-        
-        @keyframes pulse-blue {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-    <!-- Loading Screen -->
-    <div id="loader">
-        <div class="pulse-logo"></div>
-        <div style="margin-top: 20px; font-family: 'Outfit'; letter-spacing: 2px; font-size: 14px; color: rgba(255,255,255,0.7);">AURA v3 SYSTEM</div>
-    </div>
-
-    <!-- Backgrounds -->
-    <canvas id="stars-canvas"></canvas>
-    <canvas id="sky-canvas"></canvas>
-
-    <div class="app">
+    <div class="app-frame">
+        
         <!-- Header -->
-        <header>
-            <div class="brand"><div class="brand-dot"></div> AURA v3</div>
-            <div class="lang-switch" id="lang-btn">EN / TH</div>
+        <header class="anim">
+            <div class="brand">AURA ORACLE v2</div>
+            <!-- Language Toggle -->
+            <div class="lang-toggle">
+                <div class="lang-opt active" id="btn-en" onclick="setLanguage('en')">EN</div>
+                <div class="lang-opt" id="btn-th" onclick="setLanguage('th')">TH</div>
+            </div>
         </header>
 
-        <!-- Hero -->
-        <section class="hero">
-            <div class="location-badge" style="font-size: 0.9rem; color: var(--accent); margin-bottom: 8px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                <span id="loc-name">Locating...</span>
+        <!-- Hero: Life Score -->
+        <section class="hero-section anim d-1">
+            <div class="score-circle">
+                <span class="score-val" id="val-score">--</span>
+                <span class="score-label" id="lbl-score">LIFE SCORE</span>
             </div>
-            <div class="temp-huge" id="curr-temp">--°</div>
-            <div class="condition" id="curr-cond">Initializing Intelligence</div>
-            <div class="hl-range">H: <span id="max-t">--</span>° L: <span id="min-t">--</span>°</div>
-        </section>
-
-        <!-- AI Brain -->
-        <section class="card ai-brain col-full">
-            <div class="ai-icon">🧠</div>
-            <div class="ai-content">
-                <h3>AURA INTELLIGENCE</h3>
-                <div class="ai-text" id="ai-text">Analyzing atmospheric data...</div>
-                <div id="ai-tags" style="margin-top: 10px;"></div>
+            
+            <div class="hero-meta">
+                <div class="temp-display"><span id="val-temp">--</span>°</div>
+                <div class="loc-display" id="lbl-loc">Bangkok, TH</div>
             </div>
         </section>
 
-        <!-- Monitor Grid -->
-        <div class="grid">
-            <!-- AQI -->
-            <div class="card">
-                <div class="card-title">Air Quality</div>
-                <div class="aqi-donut">
-                    <svg class="aqi-svg" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="8" fill="none"></circle>
-                        <circle id="aqi-ring" class="aqi-circle" cx="50" cy="50" r="40" stroke-dasharray="251" stroke-dashoffset="251" stroke="#34c759"></circle>
-                    </svg>
-                    <div style="position: absolute; inset:0; display:flex; justify-content:center; align-items:center; font-family:'Outfit'; font-weight:700; font-size:1.4rem;" id="aqi-val">--</div>
-                </div>
-                <div class="stat-desc" style="text-align:center; margin-top:4px;" id="aqi-status">--</div>
+        <!-- Oracle Insight -->
+        <section class="oracle-card anim d-2">
+            <div class="oracle-header">
+                <span class="oracle-title" id="lbl-oracle">ORACLE INSIGHT</span>
+                <svg class="oracle-icon" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8Z"/></svg>
             </div>
+            <div class="oracle-text" id="ai-msg">Connecting to AURA...</div>
+        </section>
 
-            <!-- UV -->
-            <div class="card">
-                <div class="card-title">UV Index</div>
-                <div class="stat-val" id="uv-val">--</div>
-                <div class="stat-desc" id="uv-burn">--</div>
-                <div class="bar-container"><div class="bar-fill" id="uv-bar" style="width:0%; background: var(--safe);"></div></div>
-            </div>
-
-            <!-- Wind -->
-            <div class="card">
-                <div class="card-title">Wind Flow</div>
-                <div class="compass">
-                    <div class="compass-arrow" id="wind-arrow"></div>
-                    <div style="position:absolute; top:2px; left:50%; transform:translateX(-50%); font-size:10px; color:#fff;">N</div>
+        <!-- Insights Grid -->
+        <section class="grid-2x2 anim d-3">
+            
+            <!-- Laundry -->
+            <div class="insight-card">
+                <div class="icon-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg>
                 </div>
-                <div style="text-align:center; margin-top:8px;">
-                    <span class="stat-val" style="font-size:1.5rem;" id="wind-speed">--</span> <span class="stat-unit">km/h</span>
+                <div>
+                    <div class="card-label" id="lbl-laundry">LAUNDRY</div>
+                    <div class="card-value" id="val-laundry">--</div>
                 </div>
             </div>
 
-            <!-- Humidity & Dew -->
-            <div class="card">
-                <div class="card-title">Moisture</div>
-                <div class="stat-val"><span id="humidity">--</span><span class="stat-unit">%</span></div>
-                <div class="stat-desc">Dew Point: <span id="dew-point">--</span>°</div>
-                <div class="stat-desc" id="mold-risk" style="color:var(--danger); display:none;">⚠️ Mold Risk</div>
+            <!-- Pet Care -->
+            <div class="insight-card">
+                <div class="icon-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-label" id="lbl-pet">PET CARE</div>
+                    <div class="card-value" id="val-pet">--</div>
+                </div>
             </div>
 
-            <!-- Visibility -->
-            <div class="card">
-                <div class="card-title">Visibility</div>
-                <div class="stat-val"><span id="vis-val">--</span><span class="stat-unit">km</span></div>
-                <div class="stat-desc" id="vis-desc">Clear View</div>
+            <!-- Air Quality -->
+            <div class="insight-card">
+                <div class="icon-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-label" id="lbl-air">AIR QUALITY</div>
+                    <div class="card-value" id="val-air">--</div>
+                </div>
             </div>
 
-            <!-- Rain Probability -->
-            <div class="card">
-                <div class="card-title">Rain Chance</div>
-                <div class="stat-val"><span id="rain-prob">--</span><span class="stat-unit">%</span></div>
-                <div class="stat-desc">Next Hour</div>
-                <div class="bar-container"><div class="bar-fill" id="rain-bar" style="width:0%; background: var(--accent);"></div></div>
+            <!-- AC Mode -->
+            <div class="insight-card">
+                <div class="icon-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-label" id="lbl-ac">AC MODE</div>
+                    <div class="card-value" id="val-ac">--</div>
+                </div>
             </div>
-        </div>
 
-        <!-- 48H Trend -->
-        <section class="card col-full">
-            <div class="card-title">48-Hour Trend</div>
-            <div class="chart-container">
-                <canvas id="tempChart"></canvas>
+        </section>
+
+        <!-- Nowcast -->
+        <section class="nowcast-section anim d-4">
+            <div class="sec-header" id="lbl-nowcast">NOWCAST (3 HRS)</div>
+            <div class="scroll-row" id="nowcast-row">
+                <!-- JS Injected -->
             </div>
         </section>
 
-        <!-- Radar -->
-        <section class="card col-full" style="padding:0; overflow:hidden;">
-            <div id="map"></div>
-            <div class="radar-controls">
-                <div class="play-btn" id="radar-play">▶</div>
-                <div style="font-size:12px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; backdrop-filter:blur(4px);">RADAR LIVE</div>
-            </div>
-        </section>
-
-        <!-- 7 Day Forecast -->
-        <section class="card col-full">
-            <div class="card-title">7-Day Forecast</div>
-            <div id="daily-list"></div>
-        </section>
-
-        <footer style="text-align:center; padding: 20px 0; color: var(--text-muted); font-size: 0.8rem;">
-            AURA v3 • DeepMind Architecture • Apple Design System
-        </footer>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <!-- 🧠 AURA BRAIN (Logic + Language) -->
     <script>
-        /**
-         * ——————————————————————————————————————————————————————————————————————
-         * AURA v3 CORE ENGINE
-         * Single-file architecture: Logic, State, UI, Particle System combined.
-         * ——————————————————————————————————————————————————————————————————————
-         */
-
-        const CONFIG = {
-            lang: 'en', // 'en' or 'th'
-            lat: 13.7563, // Default BKK
-            lon: 100.5018,
-            api: 'https://api.open-meteo.com/v1/forecast',
-            aqi: 'https://air-quality-api.open-meteo.com/v1/air-quality',
-            geo: 'https://api.bigdatacloud.net/data/reverse-geocode-client',
-            radar: 'https://tile.cache.rainviewer.com'
-        };
-
-        const TEXT = {
+        // --- 1. LANGUAGE DICTIONARY ---
+        const DICTIONARY = {
             en: {
-                locating: "Locating Satellites...",
-                analyzing: "Analyzing atmospheric data...",
-                aqi: { good: "Excellent", mod: "Moderate", poor: "Unhealthy", bad: "Hazardous" },
-                uv: { low: "Low", mod: "Moderate", high: "High", ext: "Extreme" },
-                burn: "Burn time: ",
-                mins: " mins",
-                ai: {
-                    hot: "Extreme heat detected. Solar radiation is critical. Skin burn risk in <15 mins.",
-                    rain: "Precipitation inbound within 60 minutes. Umbrella advised.",
-                    storm: "Barometric pressure dropping. Storm cell approaching. Secure loose objects.",
-                    good: "Optimal conditions. Perfect for outdoor activities.",
-                    pm: "Air quality toxic. Mask (N95) highly recommended.",
-                    flood: "Soil saturation high. Flood risk detected in low-lying areas.",
-                    laundry: "Ideal for laundry drying.",
-                    nolaundry: "Do not dry laundry outside.",
-                    run: "Good for running.",
-                    motor: "High crosswinds. Motorcycle risk elevated."
+                score: "LIFE SCORE",
+                oracle: "ORACLE INSIGHT",
+                laundry: "LAUNDRY",
+                pet: "PET CARE",
+                air: "AIR QUALITY",
+                ac: "AC MODE",
+                nowcast: "NOWCAST (3 HRS)",
+                loc: "Bangkok, Thailand",
+                msgs: {
+                    rain: "Rain is likely soon. Good time to stay cozy indoors.",
+                    hot: "It's quite warm. Stay hydrated and seek shade.",
+                    bad_air: "Air quality is poor. Keep windows closed.",
+                    good: "The atmosphere is balanced. Enjoy the fresh air.",
+                    connect: "Analyzing atmosphere..."
                 },
-                tags: ["Run", "Laundry", "Pet", "Drive", "AC"]
+                status: {
+                    dry: "Perfect Dry",
+                    slow: "Slow Dry",
+                    no_dry: "Do Not Dry",
+                    safe: "Safe to Play",
+                    burn: "Paws Burn Risk",
+                    limit: "Limit Outdoor",
+                    clean: "Clean Air",
+                    mod: "Moderate",
+                    poor: "Unhealthy",
+                    fan: "Fan Only",
+                    cool: "Cool 25°C",
+                    dry_mode: "Dry Mode"
+                }
             },
             th: {
-                locating: "กำลังระบุพิกัด...",
-                analyzing: "ระบบ AI กำลังวิเคราะห์ข้อมูล...",
-                aqi: { good: "อากาศดีเยี่ยม", mod: "ปานกลาง", poor: "เริ่มมีผลกระทบ", bad: "อันตราย" },
-                uv: { low: "ต่ำ", mod: "ปานกลาง", high: "สูง", ext: "รุนแรง" },
-                burn: "ผิวไหม้ใน: ",
-                mins: " นาที",
-                ai: {
-                    hot: "อากาศร้อนจัด! รังสี UV รุนแรง เสี่ยงผิวไหม้ใน 15 นาที ควรทาครีมกันแดดทันที",
-                    rain: "ตรวจพบกลุ่มฝนกำลังเคลื่อนตัวเข้ามาใน 60 นาที พกร่มด้วยนะครับ",
-                    storm: "ความกดอากาศต่ำผิดปกติ พายุกำลังก่อตัว ระวังลมกระโชกแรง",
-                    good: "สภาพอากาศดีเยี่ยม เหมาะกับการทำกิจกรรมกลางแจ้ง",
-                    pm: "ค่าฝุ่น PM2.5 สูงเกินมาตรฐาน ควรสวมหน้ากาก N95",
-                    flood: "ความชื้นในดินสูง ระวังน้ำท่วมขังในพื้นที่ต่ำ",
-                    laundry: "ตากผ้าได้แห้งไว",
-                    nolaundry: "ไม่ควรตากผ้า",
-                    run: "วิ่งได้อากาศดี",
-                    motor: "ลมแรง! ขี่มอเตอร์ไซค์อันตราย"
+                score: "คะแนนชีวิต",
+                oracle: "คำแนะนำจากออร่า",
+                laundry: "การซักผ้า",
+                pet: "สัตว์เลี้ยง",
+                air: "คุณภาพอากาศ",
+                ac: "เครื่องปรับอากาศ",
+                nowcast: "พยากรณ์ 3 ชม.",
+                loc: "กรุงเทพฯ, ไทย",
+                msgs: {
+                    rain: "ฝนน่าจะตกเร็วๆ นี้ เหมาะแก่การพักผ่อนในบ้านครับ",
+                    hot: "อากาศค่อนข้างร้อน ดื่มน้ำบ่อยๆ และหลบแดดนะครับ",
+                    bad_air: "คุณภาพอากาศไม่ดี แนะนำให้ปิดหน้าต่างครับ",
+                    good: "บรรยากาศวันนี้สมดุลดีมาก เหมาะแก่การออกไปเดินเล่น",
+                    connect: "กำลังวิเคราะห์สภาพอากาศ..."
                 },
-                tags: ["วิ่ง", "ซักผ้า", "สัตว์เลี้ยง", "ขับขี่", "แอร์"]
-            }
-        };
-
-        // --- PARTICLE ENGINE (Canvas) ---
-        const Visuals = {
-            cvs: document.getElementById('sky-canvas'),
-            ctx: null,
-            w: 0, h: 0,
-            particles: [],
-            type: 'clear', // rain, snow, clear
-
-            init() {
-                this.ctx = this.cvs.getContext('2d');
-                this.resize();
-                window.addEventListener('resize', () => this.resize());
-                this.loop();
-            },
-            resize() {
-                this.w = this.cvs.width = window.innerWidth;
-                this.h = this.cvs.height = window.innerHeight;
-            },
-            setWeather(code) {
-                // WMO Codes
-                if ([51,53,55,61,63,65,80,81,82].includes(code)) this.type = 'rain';
-                else if ([71,73,75,77,85,86].includes(code)) this.type = 'snow';
-                else this.type = 'clear';
-                this.makeParticles();
-            },
-            makeParticles() {
-                this.particles = [];
-                const count = this.type === 'rain' ? 300 : (this.type === 'snow' ? 150 : 30);
-                for(let i=0; i<count; i++) {
-                    this.particles.push({
-                        x: Math.random() * this.w,
-                        y: Math.random() * this.h,
-                        s: Math.random() * 4 + 2, // speed
-                        l: Math.random() * 20 + 5, // length (rain)
-                        o: Math.random() * 0.5 + 0.1 // opacity
-                    });
-                }
-            },
-            loop() {
-                this.ctx.clearRect(0,0,this.w,this.h);
-                if(this.type !== 'clear') {
-                    this.ctx.strokeStyle = this.type === 'rain' ? 'rgba(174,194,224,0.5)' : 'rgba(255,255,255,0.8)';
-                    this.ctx.fillStyle = 'rgba(255,255,255,0.8)';
-                    this.ctx.lineWidth = 1;
-                    
-                    this.particles.forEach(p => {
-                        p.y += p.s;
-                        if(p.y > this.h) { p.y = -20; p.x = Math.random() * this.w; }
-                        
-                        this.ctx.beginPath();
-                        if(this.type === 'rain') {
-                            this.ctx.moveTo(p.x, p.y);
-                            this.ctx.lineTo(p.x, p.y + p.l);
-                            this.ctx.stroke();
-                        } else {
-                            this.ctx.arc(p.x, p.y, p.s/2, 0, Math.PI*2);
-                            this.ctx.fill();
-                        }
-                    });
-                }
-                requestAnimationFrame(() => this.loop());
-            }
-        };
-
-        // --- RADAR ENGINE (Leaflet + RainViewer) ---
-        const Radar = {
-            map: null,
-            layer: null,
-            frames: [],
-            idx: 0,
-            timer: null,
-            
-            init(lat, lon) {
-                if(this.map) return;
-                this.map = L.map('map', { 
-                    zoomControl: false, attributionControl: false, 
-                    scrollWheelZoom: false, dragging: false 
-                }).setView([lat, lon], 7);
-                
-                // Dark Matter Base
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    maxZoom: 18
-                }).addTo(this.map);
-                
-                // Marker
-                const icon = L.divIcon({className:'x', html:`<div style="width:10px;height:10px;background:#3b82f6;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #3b82f6"></div>`});
-                L.marker([lat, lon], {icon}).addTo(this.map);
-                
-                this.load();
-                
-                document.getElementById('radar-play').onclick = () => this.toggle();
-            },
-            async load() {
-                try {
-                    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-                    const meta = await res.json();
-                    this.frames = meta.radar.past; // Use past frames for loop
-                    this.showFrame(this.frames.length-1);
-                } catch(e) {}
-            },
-            showFrame(i) {
-                if(this.layer) this.map.removeLayer(this.layer);
-                const frame = this.frames[i];
-                this.layer = L.tileLayer(`${CONFIG.radar}/v2/radar/${frame.time}/256/{z}/{x}/{y}/2/1_1.png`, {
-                    opacity: 0.7, zIndex: 10
-                }).addTo(this.map);
-            },
-            toggle() {
-                if(this.timer) {
-                    clearInterval(this.timer);
-                    this.timer = null;
-                    document.getElementById('radar-play').innerText = '▶';
-                } else {
-                    document.getElementById('radar-play').innerText = '⏸';
-                    this.timer = setInterval(() => {
-                        this.idx = (this.idx + 1) % this.frames.length;
-                        this.showFrame(this.idx);
-                    }, 500);
+                status: {
+                    dry: "ตากแห้งสนิท",
+                    slow: "แห้งช้า",
+                    no_dry: "ไม่ควรตาก",
+                    safe: "วิ่งเล่นได้",
+                    burn: "พื้นร้อนระวังเท้า",
+                    limit: "เลี่ยงกิจกรรม",
+                    clean: "อากาศดีมาก",
+                    mod: "ปานกลาง",
+                    poor: "เริ่มมีผลกระทบ",
+                    fan: "พัดลมก็พอ",
+                    cool: "โหมดเย็น 25°C",
+                    dry_mode: "โหมดลดชื้น"
                 }
             }
         };
 
-        // --- CHART ENGINE (Chart.js) ---
-        let tempChart = null;
-        function renderChart(hourly) {
-            const ctx = document.getElementById('tempChart').getContext('2d');
-            if(tempChart) tempChart.destroy();
-            
-            const data = hourly.temperature_2m.slice(0, 48); // 48h
-            const labels = hourly.time.slice(0, 48).map(t => new Date(t).getHours());
-            
-            const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
-            gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        // --- 2. GLOBAL STATE ---
+        let currentLang = localStorage.getItem('aura_lang') || 'en';
+        
+        // Mock Sensor Data
+        const SensorData = {
+            temp: 32,
+            humidity: 60,
+            pm25: 45,
+            uv: 6,
+            rainChance: 20,
+            hour: new Date().getHours()
+        };
 
-            tempChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        data,
-                        borderColor: '#3b82f6',
-                        backgroundColor: gradient,
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false }
-                    },
-                    interaction: { mode: 'index', intersect: false }
-                }
-            });
+        // --- 3. AURA LOGIC ---
+        const AuraBrain = {
+            getLifeScore: (d) => {
+                let s = 100;
+                if(d.temp > 34) s-=10;
+                if(d.pm25 > 50) s-=20;
+                if(d.rainChance > 50) s-=15;
+                return Math.max(0, s);
+            },
+            
+            getLaundry: (d, t) => {
+                if(d.rainChance > 40) return { txt: t.status.no_dry, dot: 'c-rain' };
+                if(d.humidity > 70) return { txt: t.status.slow, dot: 'c-warn' };
+                return { txt: t.status.dry, dot: 'c-good' };
+            },
+
+            getPet: (d, t) => {
+                if(d.temp > 33) return { txt: t.status.burn, dot: 'c-warn' };
+                if(d.pm25 > 100) return { txt: t.status.limit, dot: 'c-bad' };
+                return { txt: t.status.safe, dot: 'c-good' };
+            },
+
+            getAir: (d, t) => {
+                if(d.pm25 > 100) return { txt: t.status.poor, dot: 'c-bad' };
+                if(d.pm25 > 50) return { txt: t.status.mod, dot: 'c-warn' };
+                return { txt: t.status.clean, dot: 'c-good' };
+            },
+
+            getAC: (d, t) => {
+                if(d.temp > 30) return { txt: t.status.cool, dot: 'c-blue' };
+                if(d.temp < 25) return { txt: t.status.fan, dot: 'c-good' };
+                return { txt: t.status.dry_mode, dot: 'c-rain' };
+            },
+
+            getOracleMsg: (d, t) => {
+                if(d.pm25 > 100) return t.msgs.bad_air;
+                if(d.rainChance > 50) return t.msgs.rain;
+                if(d.temp > 34) return t.msgs.hot;
+                return t.msgs.good;
+            }
+        };
+
+        // --- 4. RENDER ENGINE ---
+        function render() {
+            const t = DICTIONARY[currentLang];
+            const d = SensorData;
+
+            // Update Fonts
+            document.documentElement.style.setProperty(
+                '--font-current', 
+                currentLang === 'th' ? 'var(--font-th)' : 'var(--font-en)'
+            );
+
+            // Update Static Labels
+            document.getElementById('lbl-score').innerText = t.score;
+            document.getElementById('lbl-oracle').innerText = t.oracle;
+            document.getElementById('lbl-laundry').innerText = t.laundry;
+            document.getElementById('lbl-pet').innerText = t.pet;
+            document.getElementById('lbl-air').innerText = t.air;
+            document.getElementById('lbl-ac').innerText = t.ac;
+            document.getElementById('lbl-nowcast').innerText = t.nowcast;
+            document.getElementById('lbl-loc').innerText = t.loc;
+
+            // Update Toggle State
+            document.getElementById('btn-en').className = `lang-opt ${currentLang === 'en' ? 'active' : ''}`;
+            document.getElementById('btn-th').className = `lang-opt ${currentLang === 'th' ? 'active' : ''}`;
+
+            // Update Dynamic Values
+            document.getElementById('val-score').innerText = AuraBrain.getLifeScore(d);
+            document.getElementById('val-temp').innerText = d.temp;
+
+            // Typing Effect for AI Message
+            const msgEl = document.getElementById('ai-msg');
+            const targetMsg = AuraBrain.getOracleMsg(d, t);
+            // Simple text update for performance, can add typer if needed
+            msgEl.innerText = targetMsg; 
+
+            // Update Cards
+            updateCard('val-laundry', AuraBrain.getLaundry(d, t));
+            updateCard('val-pet', AuraBrain.getPet(d, t));
+            updateCard('val-air', AuraBrain.getAir(d, t));
+            updateCard('val-ac', AuraBrain.getAC(d, t));
+
+            // Generate Nowcast
+            const row = document.getElementById('nowcast-row');
+            row.innerHTML = '';
+            for(let i=0; i<5; i++) {
+                let h = (d.hour + i) % 24;
+                let tmp = d.temp + (i%2==0 ? -1 : 0);
+                const div = document.createElement('div');
+                div.className = `time-col ${i===0?'active':''}`;
+                
+                // SVG Sun Path
+                const sunPath = "M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,2V4M12,20V22M4.93,4.93L6.34,6.34M17.66,17.66L19.07,19.07M2,12H4M20,12H22M4.93,19.07L6.34,17.66M17.66,6.34L19.07,4.93";
+                
+                div.innerHTML = `
+                    <span class="t-time">${h}:00</span>
+                    <div class="t-icon"><svg viewBox="0 0 24 24"><path d="${sunPath}"/></svg></div>
+                    <span class="t-temp">${tmp}°</span>
+                `;
+                row.appendChild(div);
+            }
         }
 
-        // --- MAIN APP LOGIC ---
-        const App = {
-            data: null,
-            
-            init() {
-                Visuals.init();
-                
-                // Event Listener
-                document.getElementById('lang-btn').onclick = () => {
-                    CONFIG.lang = CONFIG.lang === 'en' ? 'th' : 'en';
-                    if(this.data) this.render(this.data);
-                };
+        function updateCard(id, data) {
+            const el = document.getElementById(id);
+            el.innerHTML = `<span class="pill ${data.dot}"></span>${data.txt}`;
+        }
 
-                // Geolocation
-                if(navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        pos => this.fetch(pos.coords.latitude, pos.coords.longitude),
-                        () => this.fetch(CONFIG.lat, CONFIG.lon)
-                    );
-                } else {
-                    this.fetch(CONFIG.lat, CONFIG.lon);
-                }
-            },
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('aura_lang', lang);
+            render();
+        }
 
-            async fetch(lat, lon) {
-                try {
-                    const [wRes, aRes, gRes] = await Promise.all([
-                        fetch(`${CONFIG.api}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,precipitation_probability,weather_code,visibility&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max&timezone=auto`),
-                        fetch(`${CONFIG.aqi}?latitude=${lat}&longitude=${lon}&current=us_aqi`),
-                        fetch(`${CONFIG.geo}?latitude=${lat}&longitude=${lon}&localityLanguage=en`)
-                    ]);
-                    
-                    const weather = await wRes.json();
-                    const aqi = await aRes.json();
-                    const geo = await gRes.json();
-                    
-                    this.data = { weather, aqi, geo };
-                    this.render({ weather, aqi, geo });
-                    Radar.init(lat, lon);
-                    
-                    // Hide Loader
-                    setTimeout(() => {
-                        document.getElementById('loader').style.opacity = '0';
-                        setTimeout(() => document.getElementById('loader').remove(), 500);
-                    }, 1000);
-
-                } catch(e) {
-                    console.error("Critical Failure", e);
-                }
-            },
-
-            render({ weather, aqi, geo }) {
-                const cur = weather.current;
-                const day = weather.daily;
-                const t = TEXT[CONFIG.lang];
-
-                // 1. Theme
-                const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
-                const root = document.documentElement.style;
-                if(isDay) {
-                    root.setProperty('--bg-top', '#3b82f6');
-                    root.setProperty('--bg-bot', '#93c5fd');
-                    if(cur.weather_code >= 95) { // Storm
-                        root.setProperty('--bg-top', '#1e1b4b');
-                        root.setProperty('--bg-bot', '#4c1d95');
-                    }
-                } else {
-                    root.setProperty('--bg-top', '#0f172a');
-                    root.setProperty('--bg-bot', '#000000');
-                }
-                Visuals.setWeather(cur.weather_code);
-
-                // 2. Hero
-                document.getElementById('loc-name').innerText = `${geo.locality}, ${geo.countryCode}`;
-                document.getElementById('curr-temp').innerText = Math.round(cur.temperature_2m) + '°';
-                document.getElementById('curr-cond').innerText = this.getWmoDesc(cur.weather_code);
-                document.getElementById('max-t').innerText = Math.round(day.temperature_2m_max[0]);
-                document.getElementById('min-t').innerText = Math.round(day.temperature_2m_min[0]);
-
-                // 3. AI Brain
-                const ai = this.getAIInsight(weather, aqi.current.us_aqi);
-                document.getElementById('ai-text').innerText = ai.msg;
-                document.getElementById('ai-tags').innerHTML = ai.tags.map(tag => 
-                    `<span class="ai-pill" style="border-color:${tag.ok?'#34c759':'#ff453a'}; color:${tag.ok?'#34c759':'#ff453a'}">${tag.name}</span>`
-                ).join('');
-
-                // 4. Monitors
-                // AQI
-                const aqVal = aqi.current.us_aqi;
-                document.getElementById('aqi-val').innerText = aqVal;
-                document.getElementById('aqi-status').innerText = this.getAqiStatus(aqVal);
-                const offset = 251 - (Math.min(aqVal, 300)/300)*251;
-                document.getElementById('aqi-ring').style.strokeDashoffset = offset;
-                document.getElementById('aqi-ring').setAttribute('stroke', this.getColor(aqVal, 50, 100, 150));
-
-                // UV
-                const uv = day.uv_index_max[0];
-                document.getElementById('uv-val').innerText = uv;
-                document.getElementById('uv-bar').style.width = Math.min((uv/11)*100, 100) + '%';
-                document.getElementById('uv-bar').style.background = this.getColor(uv, 2, 5, 8);
-                // Burn time logic
-                let burnTime = ">60";
-                if(uv > 11) burnTime = "10";
-                else if(uv > 8) burnTime = "20";
-                else if(uv > 5) burnTime = "30";
-                document.getElementById('uv-burn').innerText = `${t.burn}${burnTime}${t.mins}`;
-
-                // Wind
-                document.getElementById('wind-speed').innerText = Math.round(cur.wind_speed_10m);
-                document.getElementById('wind-arrow').style.transform = `translateX(-50%) rotate(${cur.wind_direction_10m}deg)`;
-
-                // Moisture
-                document.getElementById('humidity').innerText = cur.relative_humidity_2m;
-                const dp = cur.temperature_2m - ((100-cur.relative_humidity_2m)/5);
-                document.getElementById('dew-point').innerText = Math.round(dp);
-                if(cur.relative_humidity_2m > 70 && cur.temperature_2m > 25) {
-                    document.getElementById('mold-risk').style.display = 'block';
-                } else {
-                    document.getElementById('mold-risk').style.display = 'none';
-                }
-
-                // Visibility
-                const vis = weather.hourly.visibility[0] / 1000;
-                document.getElementById('vis-val').innerText = vis.toFixed(1);
-
-                // Rain Prob
-                const rainP = weather.hourly.precipitation_probability[new Date().getHours()];
-                document.getElementById('rain-prob').innerText = rainP;
-                document.getElementById('rain-bar').style.width = rainP + '%';
-
-                // 5. Forecast List
-                const list = document.getElementById('daily-list');
-                list.innerHTML = '';
-                const rangeMax = Math.max(...day.temperature_2m_max);
-                const rangeMin = Math.min(...day.temperature_2m_min);
-                const spread = rangeMax - rangeMin + 5;
-
-                for(let i=0; i<7; i++) {
-                    const d = new Date(day.time[i]);
-                    const name = d.toLocaleDateString(CONFIG.lang==='en'?'en-US':'th-TH', {weekday:'short'});
-                    const max = Math.round(day.temperature_2m_max[i]);
-                    const min = Math.round(day.temperature_2m_min[i]);
-                    const icon = this.getIcon(day.weather_code[i]);
-                    
-                    const left = ((min - rangeMin) / spread) * 100;
-                    const width = ((max - min) / spread) * 100;
-
-                    const row = document.createElement('div');
-                    row.className = 'day-row';
-                    row.innerHTML = `
-                        <div style="width:50px; font-weight:500;">${name}</div>
-                        <div style="width:30px; text-align:center; font-size:1.2rem;">${icon}</div>
-                        <div style="width:40px; text-align:right; font-family:'Outfit'; opacity:0.7">${min}°</div>
-                        <div class="day-bar-track">
-                            <div class="day-bar" style="left:${left}%; width:${width}%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
-                        </div>
-                        <div style="width:40px; font-family:'Outfit'; font-weight:600;">${max}°</div>
-                    `;
-                    list.appendChild(row);
-                }
-
-                // 6. Chart
-                renderChart(weather.hourly);
-            },
-
-            getAIInsight(w, aqi) {
-                const t = TEXT[CONFIG.lang];
-                const cur = w.current;
-                const uv = w.daily.uv_index_max[0];
-                const rain = w.hourly.precipitation_probability[new Date().getHours() + 1]; // Next hour
-                
-                let msg = t.ai.good;
-                if(cur.weather_code >= 95) msg = t.ai.storm;
-                else if(aqi > 150) msg = t.ai.pm;
-                else if(rain > 60) msg = t.ai.rain;
-                else if(uv > 9) msg = t.ai.hot;
-
-                const tags = [];
-                // Run
-                tags.push({ name: t.tags[0], ok: (cur.temperature_2m < 32 && aqi < 100 && rain < 40) });
-                // Laundry
-                tags.push({ name: t.tags[1], ok: (rain < 20 && cur.relative_humidity_2m < 75) });
-                // Motor
-                tags.push({ name: t.tags[3], ok: (cur.wind_speed_10m < 30) });
-
-                return { msg, tags };
-            },
-
-            getWmoDesc(code) {
-                // Simplified mapping
-                const map = {
-                    0: 'Clear Sky', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
-                    45: 'Fog', 51: 'Drizzle', 61: 'Rain', 65: 'Heavy Rain', 80: 'Showers', 95: 'Thunderstorm'
-                };
-                return map[code] || 'Unknown';
-            },
-            getIcon(code) {
-                if(code <= 1) return '☀️';
-                if(code <= 3) return '☁️';
-                if(code <= 50) return '🌫';
-                if(code <= 67) return '🌧';
-                if(code >= 95) return '⛈';
-                return '🌦';
-            },
-            getAqiStatus(val) {
-                const t = TEXT[CONFIG.lang].aqi;
-                if(val <= 50) return t.good;
-                if(val <= 100) return t.mod;
-                if(val <= 150) return t.poor;
-                return t.bad;
-            },
-            getColor(val, low, mid, high) {
-                if(val <= low) return '#34c759'; // Green
-                if(val <= mid) return '#ff9f0a'; // Yellow/Orange
-                if(val <= high) return '#ff453a'; // Red
-                return '#bf5af2'; // Purple
-            }
-        };
-
-        // Start
-        window.addEventListener('DOMContentLoaded', () => App.init());
+        // Init
+        document.addEventListener('DOMContentLoaded', render);
 
     </script>
 </body>
