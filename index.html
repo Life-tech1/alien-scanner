@@ -3,645 +3,568 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA ORACLE | Intelligent Lifestyle</title>
+    <title>AURA ORACLE | v3.5 Hybrid Pastel</title>
 
-    <!-- Typography: Outfit (English) & Kanit (Thai) -->
+    <!-- Typography: Outfit (English) & Anuphan (Thai - Premium Round) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
         /* =========================================
-           🎨 AURA COLOR SYSTEM v2.0 (Blue-Science)
+           🎨 HYBRID PASTEL ENGINE (STRICT)
            ========================================= */
         :root {
-            /* 1. Base Tones (60% Neutral/Blue-Tint) */
-            --bg-base: #F0F6FF;       /* Very soft blue-white */
-            --bg-card: rgba(255, 255, 255, 0.75);
-            --bg-glass: rgba(255, 255, 255, 0.50);
+            /* 1. Base Atmosphere */
+            --bg-cloud: #F7F9FC;
+            --bg-mist: #EEF1F6;
+            --bg-glass: rgba(255, 255, 255, 0.75);
+            --bg-glass-heavy: rgba(255, 255, 255, 0.90);
 
-            /* 2. Semantic Blues (25% Structure) */
-            --blue-primary: #80B7FF;  /* Core UI Blue */
-            --blue-breeze: #A9E9F7;   /* Cyan-ish tint */
-            --blue-storm: #8A9BFF;    /* Deep Indigo tint */
-            --blue-shadow: rgba(128, 183, 255, 0.15);
-
-            /* 3. Accents (10% Semantic) */
-            --sem-rain: #6FA4F5;
-            --sem-heat: #FFCA8C;
-            --sem-aqi: #F28B8B;
-            --sem-good: #88DDB2;
-
-            /* 4. The Glow (5% Accent) */
-            --glow-lavender: #C3B4FF;
-
-            /* Text Colors (Premium Blue-Grays) */
-            --text-main: #2B3A4A;     /* Deep Navy-Gray */
-            --text-soft: #64748B;     /* Soft Blue-Gray */
-            --text-light: #94A3B8;
-
-            /* System Tokens */
-            --shadow-float: 
-                0 20px 50px -12px var(--blue-shadow), 
-                0 4px 12px -4px rgba(43, 58, 74, 0.05);
+            /* 2. Hybrid Pastels (The Palette) */
+            --p-sky: #A8D8FF;
+            --p-breeze: #A9E9F7;
+            --p-amber: #FFDBA3;
+            --p-lavender: #C3B4FF;
+            --p-indigo: #8A9BFF;
             
-            --blur-glass: 30px;
-            --border-glass: 1px solid rgba(255, 255, 255, 0.8);
-            --radius-l: 32px;
-            --radius-m: 24px;
+            /* 3. Semantic Accents (Softened) */
+            --acc-rain: #8FB8FF;
+            --acc-heat: #FFCB86;
+            --acc-good: #9CE5B5;
+            --acc-bad:  #FCA5A5;
+
+            /* 4. Gradients (Low Opacity Mesh) */
+            --grad-sky: linear-gradient(135deg, rgba(168, 216, 255, 0.15), rgba(255, 255, 255, 0));
+            --grad-lavender: linear-gradient(135deg, rgba(195, 180, 255, 0.15), rgba(255, 255, 255, 0));
+            --grad-amber: linear-gradient(135deg, rgba(255, 219, 163, 0.15), rgba(255, 255, 255, 0));
+
+            /* 5. Typography */
+            --tx-charcoal: #2A2D33;
+            --tx-soft: #6D7380;
+            --tx-light: #9AA0AC;
+
+            /* 6. System Tokens */
+            --shadow-cold: 
+                0 15px 40px -10px rgba(168, 216, 255, 0.25),
+                0 4px 12px -4px rgba(42, 45, 51, 0.03);
             
-            /* Font Variables */
+            --glow-pulse: 0 0 20px rgba(195, 180, 255, 0.5);
+            --radius-card: 26px;
             --font-en: 'Outfit', sans-serif;
-            --font-th: 'Kanit', sans-serif;
-            --font-current: var(--font-en); /* Swapped via JS */
+            --font-th: 'Anuphan', sans-serif;
         }
 
-        /* Reset */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            background-color: var(--bg-base);
-            color: var(--text-main);
-            font-family: var(--font-current);
+            background-color: var(--bg-cloud);
+            color: var(--tx-charcoal);
+            font-family: var(--font-en);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             overflow-x: hidden;
-            transition: background 0.5s ease;
+            position: relative;
+        }
 
-            /* 🎨 AMBIENT LAYER: Complex Soft Gradients */
+        /* Ambient Pastel Mesh Background */
+        .ambient-mesh {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-image: 
-                radial-gradient(circle at 10% 20%, rgba(169, 233, 247, 0.4) 0%, transparent 40%),
-                radial-gradient(circle at 90% 10%, rgba(195, 180, 255, 0.3) 0%, transparent 40%),
-                radial-gradient(circle at 50% 90%, rgba(128, 183, 255, 0.2) 0%, transparent 50%);
-            background-attachment: fixed;
+                radial-gradient(circle at 0% 0%, rgba(168, 216, 255, 0.18) 0%, transparent 50%),
+                radial-gradient(circle at 100% 0%, rgba(195, 180, 255, 0.18) 0%, transparent 40%),
+                radial-gradient(circle at 50% 100%, rgba(255, 219, 163, 0.12) 0%, transparent 60%);
+            z-index: -1;
+            filter: blur(40px);
         }
 
-        /* Frame */
         .app-frame {
-            width: 100%;
-            max-width: 440px;
-            padding: 24px;
-            padding-top: 50px;
-            padding-bottom: 80px;
-            display: flex;
-            flex-direction: column;
-            gap: 28px;
+            width: 100%; max-width: 440px;
+            padding: 24px; padding-top: 40px; padding-bottom: 80px;
+            display: flex; flex-direction: column; gap: 28px;
         }
 
-        /* 1. Header & Lang Toggle */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        /* --- HEADER --- */
+        header { display: flex; justify-content: space-between; align-items: center; }
         .brand {
-            font-family: var(--font-en);
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            font-size: 11px;
+            font-size: 11px; letter-spacing: 2px; font-weight: 600;
+            color: var(--p-indigo); display: flex; align-items: center; gap: 8px;
             text-transform: uppercase;
-            color: var(--blue-storm);
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
-        .brand::before {
-            content: ''; width: 8px; height: 8px; 
-            background: var(--glow-lavender); 
-            border-radius: 50%; 
-            box-shadow: 0 0 12px var(--glow-lavender);
-        }
+        .brand-dot { width: 8px; height: 8px; background: var(--p-lavender); border-radius: 50%; box-shadow: var(--glow-pulse); }
         
-        /* Language Toggle Pill */
         .lang-toggle {
-            background: rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.6); border-radius: 20px;
+            padding: 3px; display: flex; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
             border: 1px solid rgba(255,255,255,0.8);
-            border-radius: 20px;
-            padding: 4px 4px;
-            display: flex;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-            font-family: var(--font-en);
         }
-        .lang-opt {
-            padding: 4px 12px;
-            border-radius: 16px;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-soft);
-            transition: all 0.3s ease;
+        .lang-btn {
+            padding: 4px 14px; border-radius: 16px; font-size: 11px; font-weight: 600;
+            color: var(--tx-soft); cursor: pointer; transition: 0.3s;
         }
-        .lang-opt.active {
-            background: #FFFFFF;
-            color: var(--blue-storm);
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        }
+        .lang-btn.active { background: #fff; color: var(--p-indigo); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 
-        /* 2. Hero: Life Score Circle */
-        .hero-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
-            margin: 10px 0;
+        /* --- HERO: LIFE SCORE --- */
+        .hero { display: flex; flex-direction: column; align-items: center; position: relative; margin: 10px 0; }
+        .score-ring {
+            width: 170px; height: 170px; border-radius: 50%;
+            background: linear-gradient(135deg, #FFF, #F2F8FF);
+            box-shadow: var(--shadow-cold), inset 0 0 0 1px rgba(255,255,255,0.8);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            position: relative; z-index: 2;
         }
-        .score-circle {
-            width: 190px; height: 190px;
-            border-radius: 50%;
-            /* Soft Blue Gradient Fill */
-            background: linear-gradient(145deg, #FFFFFF, #F2F8FF);
-            box-shadow: 
-                -10px -10px 30px #FFFFFF,
-                10px 10px 30px var(--blue-shadow),
-                inset 0 0 0 1px rgba(255,255,255,0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            z-index: 2;
+        .score-ring::before { /* Pulse Animation */
+            content: ''; position: absolute; inset: -4px; border-radius: 50%;
+            border: 1px solid var(--p-lavender); opacity: 0.4;
+            animation: breathe 4s infinite ease-in-out; z-index: -1;
         }
-        .score-val {
-            font-family: var(--font-en);
-            font-size: 72px;
-            font-weight: 300;
-            color: var(--text-main);
-            line-height: 1;
-            letter-spacing: -2px;
-        }
-        .score-label {
-            font-size: 13px;
-            color: var(--text-soft);
-            margin-top: 8px;
-            font-weight: 400;
-        }
+        .score-val { font-size: 68px; font-weight: 300; line-height: 1; color: var(--tx-charcoal); font-family: 'Outfit'; }
+        .score-lbl { font-size: 12px; color: var(--tx-soft); margin-top: 6px; letter-spacing: 0.5px; }
         
-        .hero-meta {
-            margin-top: 24px;
-            display: flex;
-            gap: 20px;
-            align-items: baseline;
-        }
-        .temp-display {
-            font-family: var(--font-en);
-            font-size: 32px;
-            color: var(--text-main);
-            font-weight: 300;
-        }
-        .loc-display {
-            font-size: 14px;
-            color: var(--text-soft);
-        }
+        .hero-meta { margin-top: 20px; display: flex; gap: 16px; align-items: baseline; }
+        .meta-val { font-size: 28px; font-weight: 300; font-family: 'Outfit'; }
+        .meta-loc { font-size: 14px; color: var(--tx-soft); }
 
-        /* 3. Oracle Card (Glass) */
+        /* --- ORACLE SYSTEM (REASONING) --- */
         .oracle-card {
-            background: var(--bg-glass);
-            backdrop-filter: blur(var(--blur-glass));
-            border: var(--border-glass);
-            border-radius: var(--radius-m);
-            padding: 24px;
-            box-shadow: var(--shadow-float);
-            position: relative;
-            overflow: hidden;
-            border-left: 4px solid var(--glow-lavender);
+            background: var(--bg-glass-heavy); backdrop-filter: blur(24px);
+            border-radius: var(--radius-card); padding: 24px;
+            box-shadow: var(--shadow-cold); border: 1px solid rgba(255,255,255,0.6);
+            position: relative; overflow: hidden;
         }
-        .oracle-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
+        .ai-pulse-line {
+            position: absolute; top: 0; left: 0; height: 3px; width: 100%;
+            background: linear-gradient(90deg, transparent, var(--p-lavender), transparent);
+            animation: scan 3s infinite linear; opacity: 0.8;
         }
-        .oracle-title {
-            font-size: 11px;
-            font-family: var(--font-en);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--blue-storm);
-            font-weight: 600;
-        }
-        .oracle-icon {
-            width: 18px; height: 18px; fill: var(--glow-lavender);
-            animation: pulse 3s infinite;
-        }
-        .oracle-text {
-            font-size: 15px;
-            line-height: 1.6;
-            color: var(--text-main);
-            font-weight: 300;
-        }
+        .oracle-head { display: flex; justify-content: space-between; margin-bottom: 12px; }
+        .oracle-title { font-size: 11px; font-weight: 600; color: var(--p-indigo); letter-spacing: 1px; text-transform: uppercase; }
+        .oracle-msg { font-size: 15px; line-height: 1.6; font-weight: 400; color: var(--tx-charcoal); margin-bottom: 16px; }
 
-        /* 4. Grid System */
-        .grid-2x2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+        /* Reasoning Panel */
+        .reason-panel {
+            background: rgba(247, 249, 252, 0.6); border-radius: 16px; padding: 14px;
+            display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(255,255,255,0.5);
         }
-        .insight-card {
-            background: var(--bg-card);
-            border: 1px solid rgba(255,255,255,0.6);
-            border-radius: 20px;
-            padding: 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            box-shadow: 0 8px 24px rgba(138, 155, 255, 0.04);
-            transition: transform 0.2s ease;
+        .reason-row { display: flex; justify-content: space-between; font-size: 12px; align-items: center; }
+        .reason-key { color: var(--tx-soft); }
+        .reason-val { font-weight: 600; color: var(--p-indigo); font-family: 'Outfit'; }
+        
+        .conf-track { width: 100%; height: 4px; background: rgba(0,0,0,0.05); border-radius: 2px; overflow: hidden; }
+        .conf-bar { height: 100%; background: var(--p-lavender); width: 0%; transition: width 1s ease; }
+        
+        .micro-chart-row { display: flex; gap: 8px; margin-top: 4px; }
+        .micro-chart { flex: 1; height: 24px; background: rgba(255,255,255,0.8); border-radius: 4px; display: flex; align-items: flex-end; padding: 2px; gap: 2px; }
+        .mc-bar { flex: 1; background: var(--p-sky); border-radius: 1px; }
+
+        /* --- LIFE OPPORTUNITIES (TIMELINE CHIPS) --- */
+        .opp-section { display: flex; flex-direction: column; gap: 12px; }
+        .sec-label { font-size: 11px; color: var(--tx-light); letter-spacing: 1px; text-transform: uppercase; font-weight: 600; padding-left: 4px; }
+        
+        .opp-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scroll-behavior: smooth; }
+        .opp-scroll::-webkit-scrollbar { display: none; }
+        
+        .opp-chip {
+            min-width: 140px; padding: 12px 14px; border-radius: 18px;
+            background: #FFF; border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+            display: flex; flex-direction: column; gap: 4px;
+            position: relative; overflow: hidden; flex-shrink: 0;
         }
-        .insight-card:active { transform: scale(0.98); }
+        .opp-chip.sky::before { content:''; position:absolute; inset:0; background: var(--grad-sky); }
+        .opp-chip.lavender::before { content:''; position:absolute; inset:0; background: var(--grad-lavender); }
+        .opp-chip.amber::before { content:''; position:absolute; inset:0; background: var(--grad-amber); }
+        
+        .opp-time { font-size: 12px; font-weight: 600; color: var(--tx-charcoal); font-family: 'Outfit'; z-index: 1; }
+        .opp-desc { font-size: 11px; color: var(--tx-soft); z-index: 1; }
+
+        /* --- INSIGHT GRID --- */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .card {
+            background: #FFF; border-radius: 20px; padding: 16px;
+            display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.02);
+            border: 1px solid rgba(255,255,255,0.6); position: relative; overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .card:active { transform: scale(0.98); }
+        .card-bg::before { content:''; position: absolute; inset:0; pointer-events: none; opacity: 0.6; }
+        .bg-rain::before { background: var(--grad-sky); }
+        .bg-heat::before { background: var(--grad-amber); }
+        .bg-good::before { background: linear-gradient(135deg, rgba(156,229,181,0.1), transparent); }
 
         .icon-box {
-            width: 36px; height: 36px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(169, 233, 247, 0.2); /* Soft Breeze Fill */
-            color: var(--text-soft);
+            width: 32px; height: 32px; border-radius: 12px; background: var(--bg-cloud);
+            display: flex; align-items: center; justify-content: center; color: var(--tx-soft);
         }
-        .card-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-light);
-            font-weight: 500;
-        }
-        .card-value {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-main);
-            line-height: 1.3;
-        }
+        .card-t { font-size: 10px; font-weight: 600; color: var(--tx-light); letter-spacing: 0.5px; text-transform: uppercase; }
+        .card-v { font-size: 13px; font-weight: 500; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
 
-        /* Status Pills */
-        .pill {
-            display: inline-block;
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            margin-right: 6px;
-            vertical-align: middle;
+        /* --- INTERACTIVE TIMELINE --- */
+        .timeline-box {
+            background: #FFF; border-radius: 24px; padding: 20px;
+            box-shadow: var(--shadow-cold);
         }
+        .timeline-scroll {
+            display: flex; justify-content: space-between;
+            position: relative; padding: 10px 0;
+        }
+        .timeline-scroll::after {
+            content:''; position: absolute; top: 50%; left: 10px; right: 10px;
+            height: 1px; background: rgba(0,0,0,0.05); z-index: 0;
+        }
+        .t-node {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            position: relative; z-index: 1; width: 40px; cursor: pointer; transition: 0.3s;
+        }
+        .t-dot {
+            width: 10px; height: 10px; background: #FFF; border: 2px solid var(--tx-light);
+            border-radius: 50%; transition: 0.3s;
+        }
+        .t-time { font-size: 11px; color: var(--tx-light); font-family: 'Outfit'; }
         
-        /* 5. Nowcast Row */
-        .nowcast-section {
-            background: var(--bg-card);
-            border-radius: var(--radius-m);
-            padding: 20px;
-            box-shadow: var(--shadow-float);
-            border: 1px solid rgba(255,255,255,0.6);
+        .t-node.active .t-dot {
+            transform: scale(1.4); background: var(--p-breeze); border-color: var(--p-sky);
+            box-shadow: 0 0 0 4px rgba(169, 233, 247, 0.3);
         }
-        .sec-header {
-            font-size: 11px;
-            color: var(--text-light);
-            margin-bottom: 16px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        .scroll-row {
-            display: flex;
-            gap: 20px;
-            overflow-x: auto;
-            padding-bottom: 4px;
-            -webkit-overflow-scrolling: touch;
-        }
-        .scroll-row::-webkit-scrollbar { display: none; }
+        .t-node.active .t-time { color: var(--p-indigo); font-weight: 600; }
 
-        .time-col {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            min-width: 50px;
-            opacity: 0.8;
-        }
-        .time-col.active { opacity: 1; transform: scale(1.05); }
-        .t-time { font-family: var(--font-en); font-size: 12px; color: var(--text-soft); }
-        .t-temp { font-family: var(--font-en); font-size: 14px; color: var(--text-main); font-weight: 500; }
-        .t-icon svg { width: 22px; height: 22px; fill: var(--text-soft); }
+        /* Colors */
+        .c-good { background: var(--acc-good); }
+        .c-warn { background: var(--acc-heat); }
+        .c-bad { background: var(--acc-bad); }
+        .c-rain { background: var(--acc-rain); }
 
-        /* Animation Keyframes */
-        @keyframes floatUp {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-            0% { opacity: 0.6; transform: scale(0.95); }
-            50% { opacity: 1; transform: scale(1.05); }
-            100% { opacity: 0.6; transform: scale(0.95); }
-        }
-
-        .anim { animation: floatUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
-        .d-1 { animation-delay: 0.1s; }
-        .d-2 { animation-delay: 0.2s; }
-        .d-3 { animation-delay: 0.3s; }
-        .d-4 { animation-delay: 0.4s; }
-
-        /* Utility Colors */
-        .c-good { background: var(--sem-good); }
-        .c-warn { background: var(--sem-heat); }
-        .c-bad  { background: var(--sem-aqi); }
-        .c-rain { background: var(--sem-rain); }
-        .c-blue { background: var(--blue-primary); }
+        /* Animations */
+        @keyframes breathe { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.03); } }
+        @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .anim { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        .d1 { animation-delay: 0.1s; } .d2 { animation-delay: 0.2s; } .d3 { animation-delay: 0.3s; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
         /* SVG */
         svg { fill: currentColor; }
-
     </style>
 </head>
 <body>
+    <div class="ambient-mesh"></div>
 
     <div class="app-frame">
-        
-        <!-- Header -->
+        <!-- HEADER -->
         <header class="anim">
-            <div class="brand">AURA ORACLE v2</div>
-            <!-- Language Toggle -->
+            <div class="brand"><div class="brand-dot"></div>Aura v3.5</div>
             <div class="lang-toggle">
-                <div class="lang-opt active" id="btn-en" onclick="setLanguage('en')">EN</div>
-                <div class="lang-opt" id="btn-th" onclick="setLanguage('th')">TH</div>
+                <div class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</div>
+                <div class="lang-btn" id="btn-th" onclick="setLang('th')">TH</div>
             </div>
         </header>
 
-        <!-- Hero: Life Score -->
-        <section class="hero-section anim d-1">
-            <div class="score-circle">
-                <span class="score-val" id="val-score">--</span>
-                <span class="score-label" id="lbl-score">LIFE SCORE</span>
+        <!-- HERO -->
+        <section class="hero anim d1">
+            <div class="score-ring">
+                <span class="score-val" id="score-val">--</span>
+                <span class="score-lbl" id="score-lbl">LIFE SCORE</span>
             </div>
-            
             <div class="hero-meta">
-                <div class="temp-display"><span id="val-temp">--</span>°</div>
-                <div class="loc-display" id="lbl-loc">Bangkok, TH</div>
+                <div class="meta-val"><span id="temp-val">--</span>°</div>
+                <div class="meta-loc" id="loc-lbl">Bangkok, TH</div>
             </div>
         </section>
 
-        <!-- Oracle Insight -->
-        <section class="oracle-card anim d-2">
-            <div class="oracle-header">
-                <span class="oracle-title" id="lbl-oracle">ORACLE INSIGHT</span>
-                <svg class="oracle-icon" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8Z"/></svg>
+        <!-- ORACLE REASONING -->
+        <section class="oracle-card anim d2">
+            <div class="ai-pulse-line"></div>
+            <div class="oracle-head">
+                <span class="oracle-title" id="oracle-title">ORACLE PREDICTION</span>
             </div>
-            <div class="oracle-text" id="ai-msg">Connecting to AURA...</div>
-        </section>
-
-        <!-- Insights Grid -->
-        <section class="grid-2x2 anim d-3">
+            <div class="oracle-msg" id="oracle-msg">Gathering atmosphere data...</div>
             
-            <!-- Laundry -->
-            <div class="insight-card">
-                <div class="icon-box">
-                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg>
+            <!-- REASONING PANEL -->
+            <div class="reason-panel">
+                <div class="reason-row">
+                    <span class="reason-key" id="lbl-conf">AI Confidence</span>
+                    <span class="reason-val" id="val-conf">96%</span>
                 </div>
-                <div>
-                    <div class="card-label" id="lbl-laundry">LAUNDRY</div>
-                    <div class="card-value" id="val-laundry">--</div>
+                <div class="conf-track"><div class="conf-bar" id="bar-conf" style="width:0%"></div></div>
+                
+                <div class="reason-row" style="margin-top:4px;">
+                    <span class="reason-key" id="lbl-factor">Key Driver</span>
+                    <span class="reason-val" style="color:var(--tx-charcoal); font-weight:400;" id="val-factor">PM2.5 Shift</span>
+                </div>
+
+                <!-- Micro Charts (Visual Polish) -->
+                <div class="micro-chart-row">
+                    <div class="micro-chart"><div class="mc-bar" style="height:40%"></div><div class="mc-bar" style="height:60%"></div><div class="mc-bar" style="height:30%"></div></div>
+                    <div class="micro-chart"><div class="mc-bar" style="height:80%; background:var(--p-lavender)"></div><div class="mc-bar" style="height:50%; background:var(--p-lavender)"></div></div>
+                    <div class="micro-chart"><div class="mc-bar" style="height:20%; background:var(--p-amber)"></div><div class="mc-bar" style="height:90%; background:var(--p-amber)"></div></div>
                 </div>
             </div>
-
-            <!-- Pet Care -->
-            <div class="insight-card">
-                <div class="icon-box">
-                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-label" id="lbl-pet">PET CARE</div>
-                    <div class="card-value" id="val-pet">--</div>
-                </div>
-            </div>
-
-            <!-- Air Quality -->
-            <div class="insight-card">
-                <div class="icon-box">
-                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-label" id="lbl-air">AIR QUALITY</div>
-                    <div class="card-value" id="val-air">--</div>
-                </div>
-            </div>
-
-            <!-- AC Mode -->
-            <div class="insight-card">
-                <div class="icon-box">
-                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg>
-                </div>
-                <div>
-                    <div class="card-label" id="lbl-ac">AC MODE</div>
-                    <div class="card-value" id="val-ac">--</div>
-                </div>
-            </div>
-
         </section>
 
-        <!-- Nowcast -->
-        <section class="nowcast-section anim d-4">
-            <div class="sec-header" id="lbl-nowcast">NOWCAST (3 HRS)</div>
-            <div class="scroll-row" id="nowcast-row">
+        <!-- LIFE OPPORTUNITIES -->
+        <section class="opp-section anim d2">
+            <div class="sec-label" id="lbl-opp">LIFE OPPORTUNITIES</div>
+            <div class="opp-scroll" id="opp-list">
                 <!-- JS Injected -->
             </div>
         </section>
 
+        <!-- INSIGHTS GRID (Pet, Indoor, Laundry) -->
+        <section class="grid anim d3">
+            <!-- Pet Health -->
+            <div class="card card-bg bg-heat">
+                <div class="icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-t" id="lbl-pet">PET HEALTH</div>
+                    <div class="card-v" id="val-pet">--</div>
+                </div>
+            </div>
+
+            <!-- Aura Sense (Indoor) -->
+            <div class="card card-bg bg-good">
+                <div class="icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-t" id="lbl-indoor">AURA SENSE</div>
+                    <div class="card-v" id="val-indoor">--</div>
+                </div>
+            </div>
+
+            <!-- Laundry -->
+            <div class="card card-bg bg-rain">
+                <div class="icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-t" id="lbl-laundry">LAUNDRY</div>
+                    <div class="card-v" id="val-laundry">--</div>
+                </div>
+            </div>
+
+            <!-- Mold Risk -->
+            <div class="card">
+                <div class="icon-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg>
+                </div>
+                <div>
+                    <div class="card-t" id="lbl-mold">MOLD RISK</div>
+                    <div class="card-v" id="val-mold">--</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HYBRID TIMELINE -->
+        <section class="timeline-box anim d3">
+            <div class="sec-label" style="padding-left:0; margin-bottom:12px;" id="lbl-nowcast">TIMELINE</div>
+            <div class="timeline-scroll" id="timeline-row">
+                <!-- JS Generated -->
+            </div>
+        </section>
     </div>
 
-    <!-- 🧠 AURA BRAIN (Logic + Language) -->
+    <!-- 🧠 AURA INTELLIGENCE v3.5 -->
     <script>
-        // --- 1. LANGUAGE DICTIONARY ---
-        const DICTIONARY = {
+        // --- 1. LANGUAGE ENGINE ---
+        let lang = localStorage.getItem('aura_lang_3_5') || 'en';
+        
+        const DICT = {
             en: {
                 score: "LIFE SCORE",
-                oracle: "ORACLE INSIGHT",
+                oracle: "ORACLE PREDICTION",
+                conf: "AI Confidence",
+                factor: "Key Factor",
+                opps: "LIFE OPPORTUNITIES",
+                pet: "PET HEALTH",
+                indoor: "AURA SENSE",
                 laundry: "LAUNDRY",
-                pet: "PET CARE",
-                air: "AIR QUALITY",
-                ac: "AC MODE",
-                nowcast: "NOWCAST (3 HRS)",
+                mold: "MOLD RISK",
+                nowcast: "HYBRID TIMELINE",
                 loc: "Bangkok, Thailand",
-                msgs: {
-                    rain: "Rain is likely soon. Good time to stay cozy indoors.",
-                    hot: "It's quite warm. Stay hydrated and seek shade.",
-                    bad_air: "Air quality is poor. Keep windows closed.",
-                    good: "The atmosphere is balanced. Enjoy the fresh air.",
-                    connect: "Analyzing atmosphere..."
+                msg: {
+                    good: "Atmosphere is balanced. A perfect time for fresh air.",
+                    rain: "Rain clouds detected nearby. Keep it cozy indoors.",
+                    bad_air: "Pollution drift detected. Please close windows.",
+                    heat: "High thermal load. Stay hydrated and cool."
                 },
                 status: {
-                    dry: "Perfect Dry",
-                    slow: "Slow Dry",
-                    no_dry: "Do Not Dry",
-                    safe: "Safe to Play",
-                    burn: "Paws Burn Risk",
-                    limit: "Limit Outdoor",
-                    clean: "Clean Air",
-                    mod: "Moderate",
-                    poor: "Unhealthy",
-                    fan: "Fan Only",
-                    cool: "Cool 25°C",
-                    dry_mode: "Dry Mode"
+                    safe: "Safe to Play", allergy: "Allergy Risk",
+                    vent: "Ventilate Now", seal: "Seal Windows",
+                    dry: "Perfect Dry", slow: "Slow Dry",
+                    low: "Low Risk", high: "High Risk"
+                },
+                chips: {
+                    shop: "Best Shopping",
+                    air: "Purest Air",
+                    dry: "Fastest Dry",
+                    relax: "Relax Mode"
                 }
             },
             th: {
                 score: "คะแนนชีวิต",
-                oracle: "คำแนะนำจากออร่า",
+                oracle: "คำทำนายจากออร่า",
+                conf: "ความมั่นใจ AI",
+                factor: "ปัจจัยหลัก",
+                opps: "โอกาสที่ดีที่สุดวันนี้",
+                pet: "สุขภาพสัตว์เลี้ยง",
+                indoor: "อากาศในบ้าน",
                 laundry: "การซักผ้า",
-                pet: "สัตว์เลี้ยง",
-                air: "คุณภาพอากาศ",
-                ac: "เครื่องปรับอากาศ",
-                nowcast: "พยากรณ์ 3 ชม.",
-                loc: "กรุงเทพฯ, ไทย",
-                msgs: {
-                    rain: "ฝนน่าจะตกเร็วๆ นี้ เหมาะแก่การพักผ่อนในบ้านครับ",
-                    hot: "อากาศค่อนข้างร้อน ดื่มน้ำบ่อยๆ และหลบแดดนะครับ",
-                    bad_air: "คุณภาพอากาศไม่ดี แนะนำให้ปิดหน้าต่างครับ",
-                    good: "บรรยากาศวันนี้สมดุลดีมาก เหมาะแก่การออกไปเดินเล่น",
-                    connect: "กำลังวิเคราะห์สภาพอากาศ..."
+                mold: "ความเสี่ยงเชื้อรา",
+                nowcast: "ไทม์ไลน์ล่วงหน้า",
+                loc: "กรุงเทพฯ",
+                msg: {
+                    good: "บรรยากาศสมดุลดีเยี่ยม เหมาะแก่การเปิดรับอากาศบริสุทธิ์ครับ",
+                    rain: "ตรวจพบกลุ่มฝนใกล้เคียง ดูแลสุขภาพและอยู่ในที่ร่มนะครับ",
+                    bad_air: "ค่าฝุ่นเริ่มสูง ปิดหน้าต่างเพื่อสุขภาพที่ดีนะครับ",
+                    heat: "ความร้อนสะสมสูง ดื่มน้ำและหลีกเลี่ยงแดดจัดนะครับ"
                 },
                 status: {
-                    dry: "ตากแห้งสนิท",
-                    slow: "แห้งช้า",
-                    no_dry: "ไม่ควรตาก",
-                    safe: "วิ่งเล่นได้",
-                    burn: "พื้นร้อนระวังเท้า",
-                    limit: "เลี่ยงกิจกรรม",
-                    clean: "อากาศดีมาก",
-                    mod: "ปานกลาง",
-                    poor: "เริ่มมีผลกระทบ",
-                    fan: "พัดลมก็พอ",
-                    cool: "โหมดเย็น 25°C",
-                    dry_mode: "โหมดลดชื้น"
+                    safe: "วิ่งเล่นได้", allergy: "เสี่ยงภูมิแพ้",
+                    vent: "เปิดหน้าต่างได้", seal: "ปิดหน้าต่าง",
+                    dry: "ตากแห้งไว", slow: "แห้งช้า",
+                    low: "ความเสี่ยงต่ำ", high: "ความเสี่ยงสูง"
+                },
+                chips: {
+                    shop: "เวลาซื้อของ",
+                    air: "อากาศดีสุด",
+                    dry: "ผ้าแห้งไวสุด",
+                    relax: "เวลาผ่อนคลาย"
                 }
             }
         };
 
-        // --- 2. GLOBAL STATE ---
-        let currentLang = localStorage.getItem('aura_lang') || 'en';
-        
-        // Mock Sensor Data
-        const SensorData = {
-            temp: 32,
-            humidity: 60,
-            pm25: 45,
-            uv: 6,
-            rainChance: 20,
-            hour: new Date().getHours()
+        // --- 2. DATA SIMULATION ---
+        const Data = {
+            temp: 31, humidity: 62, pm25: 45, uv: 6, rainChance: 15,
+            wind: 12, hour: new Date().getHours()
         };
 
-        // --- 3. AURA LOGIC ---
-        const AuraBrain = {
-            getLifeScore: (d) => {
+        // --- 3. INTELLIGENCE LOGIC ---
+        const Aura = {
+            getScore: (d) => {
                 let s = 100;
-                if(d.temp > 34) s-=10;
+                if(d.temp > 33) s-=10;
                 if(d.pm25 > 50) s-=20;
-                if(d.rainChance > 50) s-=15;
+                if(d.rainChance > 40) s-=15;
                 return Math.max(0, s);
             },
             
-            getLaundry: (d, t) => {
-                if(d.rainChance > 40) return { txt: t.status.no_dry, dot: 'c-rain' };
-                if(d.humidity > 70) return { txt: t.status.slow, dot: 'c-warn' };
-                return { txt: t.status.dry, dot: 'c-good' };
+            analyze: (d, t) => {
+                // Pet
+                let pet = { t: t.status.safe, c: 'c-good' };
+                if(d.pm25 > 80 || d.humidity > 70) pet = { t: t.status.allergy, c: 'c-warn' };
+                
+                // Indoor (Aura Sense)
+                let inn = { t: t.status.vent, c: 'c-good' };
+                if(d.pm25 > 50) inn = { t: t.status.seal, c: 'c-bad' };
+
+                // Laundry
+                let lnd = { t: t.status.dry, c: 'c-good' };
+                if(d.rainChance > 30) lnd = { t: t.status.slow, c: 'c-rain' };
+
+                // Mold
+                let mld = { t: t.status.low, c: 'c-good' };
+                if(d.humidity > 75) mld = { t: t.status.high, c: 'c-warn' };
+
+                // Oracle
+                let msg = t.msg.good;
+                let factor = "Wind Stability";
+                if(d.pm25 > 50) { msg = t.msg.bad_air; factor = "PM2.5 Drift"; }
+                else if(d.rainChance > 30) { msg = t.msg.rain; factor = "Moisture"; }
+                else if(d.temp > 33) { msg = t.msg.heat; factor = "Thermal Load"; }
+
+                return { pet, inn, lnd, mld, msg, factor };
             },
 
-            getPet: (d, t) => {
-                if(d.temp > 33) return { txt: t.status.burn, dot: 'c-warn' };
-                if(d.pm25 > 100) return { txt: t.status.limit, dot: 'c-bad' };
-                return { txt: t.status.safe, dot: 'c-good' };
-            },
-
-            getAir: (d, t) => {
-                if(d.pm25 > 100) return { txt: t.status.poor, dot: 'c-bad' };
-                if(d.pm25 > 50) return { txt: t.status.mod, dot: 'c-warn' };
-                return { txt: t.status.clean, dot: 'c-good' };
-            },
-
-            getAC: (d, t) => {
-                if(d.temp > 30) return { txt: t.status.cool, dot: 'c-blue' };
-                if(d.temp < 25) return { txt: t.status.fan, dot: 'c-good' };
-                return { txt: t.status.dry_mode, dot: 'c-rain' };
-            },
-
-            getOracleMsg: (d, t) => {
-                if(d.pm25 > 100) return t.msgs.bad_air;
-                if(d.rainChance > 50) return t.msgs.rain;
-                if(d.temp > 34) return t.msgs.hot;
-                return t.msgs.good;
+            getOpps: (d, t) => {
+                // Generate logic-based chips
+                return [
+                    { time: "11:30", txt: t.chips.shop, type: "sky" },
+                    { time: "14:00", txt: t.chips.dry, type: "amber" },
+                    { time: "20:00", txt: t.chips.relax, type: "lavender" }
+                ];
             }
         };
 
         // --- 4. RENDER ENGINE ---
         function render() {
-            const t = DICTIONARY[currentLang];
-            const d = SensorData;
+            const t = DICT[lang];
+            const d = Data;
+            const res = Aura.analyze(d, t);
+            const opps = Aura.getOpps(d, t);
 
-            // Update Fonts
-            document.documentElement.style.setProperty(
-                '--font-current', 
-                currentLang === 'th' ? 'var(--font-th)' : 'var(--font-en)'
-            );
+            // Font Switching
+            document.body.style.fontFamily = lang === 'th' ? 'var(--font-th)' : 'var(--font-en)';
 
-            // Update Static Labels
-            document.getElementById('lbl-score').innerText = t.score;
-            document.getElementById('lbl-oracle').innerText = t.oracle;
-            document.getElementById('lbl-laundry').innerText = t.laundry;
-            document.getElementById('lbl-pet').innerText = t.pet;
-            document.getElementById('lbl-air').innerText = t.air;
-            document.getElementById('lbl-ac').innerText = t.ac;
-            document.getElementById('lbl-nowcast').innerText = t.nowcast;
-            document.getElementById('lbl-loc').innerText = t.loc;
+            // Labels
+            const ids = ['score-lbl','oracle-title','lbl-conf','lbl-factor','lbl-opp','lbl-pet','lbl-indoor','lbl-laundry','lbl-nowcast','lbl-mold'];
+            const keys = ['score','oracle','conf','factor','opps','pet','indoor','laundry','nowcast','mold'];
+            ids.forEach((id, i) => document.getElementById(id).innerText = t[keys[i]]);
+            
+            document.getElementById('loc-lbl').innerText = t.loc;
 
-            // Update Toggle State
-            document.getElementById('btn-en').className = `lang-opt ${currentLang === 'en' ? 'active' : ''}`;
-            document.getElementById('btn-th').className = `lang-opt ${currentLang === 'th' ? 'active' : ''}`;
-
-            // Update Dynamic Values
-            document.getElementById('val-score').innerText = AuraBrain.getLifeScore(d);
-            document.getElementById('val-temp').innerText = d.temp;
-
-            // Typing Effect for AI Message
-            const msgEl = document.getElementById('ai-msg');
-            const targetMsg = AuraBrain.getOracleMsg(d, t);
-            // Simple text update for performance, can add typer if needed
-            msgEl.innerText = targetMsg; 
+            // Values
+            document.getElementById('score-val').innerText = Aura.getScore(d);
+            document.getElementById('temp-val').innerText = d.temp;
+            document.getElementById('oracle-msg').innerText = res.msg;
+            document.getElementById('val-factor').innerText = res.factor;
+            
+            // Confidence Animation
+            setTimeout(() => document.getElementById('bar-conf').style.width = "96%", 200);
 
             // Update Cards
-            updateCard('val-laundry', AuraBrain.getLaundry(d, t));
-            updateCard('val-pet', AuraBrain.getPet(d, t));
-            updateCard('val-air', AuraBrain.getAir(d, t));
-            updateCard('val-ac', AuraBrain.getAC(d, t));
+            updateCard('val-pet', res.pet);
+            updateCard('val-indoor', res.inn);
+            updateCard('val-laundry', res.lnd);
+            updateCard('val-mold', res.mld);
 
-            // Generate Nowcast
-            const row = document.getElementById('nowcast-row');
-            row.innerHTML = '';
-            for(let i=0; i<5; i++) {
-                let h = (d.hour + i) % 24;
-                let tmp = d.temp + (i%2==0 ? -1 : 0);
-                const div = document.createElement('div');
-                div.className = `time-col ${i===0?'active':''}`;
-                
-                // SVG Sun Path
-                const sunPath = "M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,2V4M12,20V22M4.93,4.93L6.34,6.34M17.66,17.66L19.07,19.07M2,12H4M20,12H22M4.93,19.07L6.34,17.66M17.66,6.34L19.07,4.93";
-                
-                div.innerHTML = `
-                    <span class="t-time">${h}:00</span>
-                    <div class="t-icon"><svg viewBox="0 0 24 24"><path d="${sunPath}"/></svg></div>
-                    <span class="t-temp">${tmp}°</span>
+            // Render Opportunities
+            const oppList = document.getElementById('opp-list');
+            oppList.innerHTML = '';
+            opps.forEach(o => {
+                oppList.innerHTML += `
+                    <div class="opp-chip ${o.type}">
+                        <span class="opp-time">${o.time}</span>
+                        <span class="opp-desc">${o.txt}</span>
+                    </div>
                 `;
-                row.appendChild(div);
+            });
+
+            // Render Timeline (Interactive)
+            const tl = document.getElementById('timeline-row');
+            tl.innerHTML = '';
+            for(let i=0; i<6; i++) {
+                let h = (d.hour + i) % 24;
+                let active = i===0 ? 'active' : '';
+                tl.innerHTML += `
+                    <div class="t-node ${active}">
+                        <div class="t-dot"></div>
+                        <span class="t-time">${h}:00</span>
+                    </div>
+                `;
             }
+
+            // Lang Toggle
+            document.getElementById('btn-en').className = `lang-btn ${lang==='en'?'active':''}`;
+            document.getElementById('btn-th').className = `lang-btn ${lang==='th'?'active':''}`;
         }
 
         function updateCard(id, data) {
-            const el = document.getElementById(id);
-            el.innerHTML = `<span class="pill ${data.dot}"></span>${data.txt}`;
+            document.getElementById(id).innerHTML = `<span class="dot ${data.c}"></span>${data.t}`;
         }
 
-        function setLanguage(lang) {
-            currentLang = lang;
-            localStorage.setItem('aura_lang', lang);
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('aura_lang_3_5', l);
             render();
         }
 
-        // Init
+        // Boot
         document.addEventListener('DOMContentLoaded', render);
-
     </script>
 </body>
 </html>
