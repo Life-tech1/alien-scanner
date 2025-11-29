@@ -1,418 +1,487 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Find My</title>
+    <title>Omega Finder (TH)</title>
     
-    <!-- Dependencies -->
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet CSS (Map) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         /* 
-         * APPLE ULTRA MINIMAL DESIGN SYSTEM 
-         * iOS 18 Style Guide 
+         * 🎨 OMEGA THAI DESIGN SYSTEM
+         * Apple Minimal Black & White
          */
         :root {
-            --bg: #000000;
-            --card-bg: rgba(28, 28, 30, 0.85);
-            --text-primary: #FFFFFF;
-            --text-secondary: #8E8E93;
-            --accent: #30D158; /* iOS Green */
-            --danger: #FF453A;
-            --blur: blur(25px);
-            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            --bg: #FFFFFF;
+            --text-main: #000000;
+            --text-sub: #8E8E93;
+            --border: #E5E5EA;
+            --card-bg: #FFFFFF;
+            --btn-bg: #000000;
+            --btn-text: #FFFFFF;
+            --nav-bg: rgba(255, 255, 255, 0.95);
             --safe-top: env(safe-area-inset-top);
             --safe-bottom: env(safe-area-inset-bottom);
-            --ease-spring: cubic-bezier(0.25, 0.1, 0.25, 1);
+            --font-stack: -apple-system, "Thonburi", "Sukhumvit Set", sans-serif;
+            --ease: cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Dark Mode Support (Auto) */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --text-main: #FFFFFF;
+                --text-sub: #8E8E93;
+                --border: #38383A;
+                --card-bg: #1C1C1E;
+                --btn-bg: #FFFFFF;
+                --btn-text: #000000;
+                --nav-bg: rgba(28, 28, 30, 0.95);
+            }
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
         
         body {
             margin: 0; padding: 0;
-            background: var(--bg);
-            color: var(--text-primary);
+            background: var(--bg); color: var(--text-main);
             font-family: var(--font-stack);
-            overflow: hidden;
-            height: 100vh;
+            overflow: hidden; height: 100vh; width: 100vw;
             display: flex; flex-direction: column;
         }
 
-        /* --- LAYER 1: MAP VIEW --- */
-        #map-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
-            filter: grayscale(100%) brightness(0.6); /* Minimal dark map */
-            transition: transform 0.5s var(--ease-spring);
+        /* TYPOGRAPHY */
+        h1 { font-size: 28px; font-weight: 700; margin: 0 0 10px 0; letter-spacing: -0.5px; }
+        h2 { font-size: 20px; font-weight: 600; margin: 0; }
+        p { font-size: 16px; color: var(--text-sub); margin: 0; line-height: 1.5; }
+        .caption { font-size: 13px; color: var(--text-sub); }
+
+        /* COMPONENTS */
+        .btn {
+            width: 100%; padding: 16px; border-radius: 14px;
+            background: var(--btn-bg); color: var(--btn-text);
+            font-size: 17px; font-weight: 600; text-align: center;
+            border: none; cursor: pointer; transition: transform 0.1s;
+            margin-top: 10px;
         }
+        .btn:active { transform: scale(0.96); opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-text { background: transparent; color: var(--text-sub); margin-top: 15px; }
+
+        /* SCREEN TRANSITIONS */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 10;
+            display: flex; flex-direction: column;
+            opacity: 0; pointer-events: none; transform: scale(0.95);
+            transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
+            padding-top: var(--safe-top);
+        }
+        .screen.active { opacity: 1; pointer-events: auto; transform: scale(1); z-index: 20; }
+        .screen.hidden { display: none; }
+
+        /* 1. SPLASH */
+        #splash { align-items: center; justify-content: center; z-index: 100; background: var(--bg); }
+        .loader {
+            width: 30px; height: 30px; border: 3px solid rgba(128,128,128,0.2);
+            border-top: 3px solid var(--text-main); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-top: 20px;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 2. PERMISSIONS & ONBOARDING */
+        .content-box { padding: 30px; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+        .icon-hero { font-size: 60px; margin-bottom: 20px; }
+
+        /* 3. HOME & MAP */
+        #map-container { flex-grow: 1; width: 100%; position: relative; z-index: 1; background: #f0f0f0; }
+        /* Grayscale Map Filter */
+        .leaflet-layer { filter: grayscale(100%); }
         
-        /* Custom Pin */
-        .memoji-pin {
-            width: 40px; height: 40px;
-            background: #1c1c1e; border: 2px solid var(--text-primary);
-            border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 20px;
+        /* Device Card on Map */
+        .map-card {
+            position: absolute; bottom: calc(90px + var(--safe-bottom)); left: 16px; right: 16px;
+            background: var(--card-bg); border-radius: 20px; padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 400;
+            border: 1px solid var(--border);
+        }
+        .device-row { display: flex; align-items: center; margin-bottom: 15px; }
+        .device-icon { 
+            width: 50px; height: 50px; background: #F2F2F7; border-radius: 12px; 
+            display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 15px; 
         }
 
-        /* --- LAYER 2: CAMERA AR VIEW --- */
-        #ar-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            z-index: 2;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.4s ease;
+        /* 4. LISTS (DEVICES & SETTINGS) */
+        .page-header { padding: 20px 20px 10px 20px; }
+        .list-group { margin: 20px; background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+        .list-item {
+            padding: 16px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border); background: var(--card-bg); font-size: 17px;
+        }
+        .list-item:last-child { border-bottom: none; }
+        .arrow-right { color: var(--border); font-weight: bold; }
+
+        /* 5. BOTTOM NAVIGATION */
+        .tab-bar {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: calc(60px + var(--safe-bottom));
+            background: var(--nav-bg); border-top: 1px solid var(--border);
+            display: flex; justify-content: space-around; padding-top: 10px;
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            z-index: 50; padding-bottom: var(--safe-bottom);
+        }
+        .tab-item {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-sub); width: 60px; font-size: 10px; gap: 4px;
         }
-        
-        video {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0.7;
-        }
+        .tab-item svg { width: 24px; height: 24px; stroke: currentColor; stroke-width: 2; fill: none; }
+        .tab-item.active { color: var(--text-main); }
 
-        /* --- UI: BOTTOM CARD (HOME) --- */
-        #device-card {
-            position: absolute; bottom: 20px; left: 16px; right: 16px;
-            background: var(--card-bg);
-            backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-            border-radius: 24px;
-            padding: 24px;
-            padding-bottom: calc(24px + var(--safe-bottom));
-            z-index: 10;
-            transform: translateY(0);
-            transition: transform 0.5s var(--ease-spring);
-            border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        /* 6. PRECISION AR VIEW */
+        #ar-view { background: #000; z-index: 200; }
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
+        .ar-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 201; 
         }
-
-        .card-header { display: flex; align-items: center; margin-bottom: 24px; }
-        .icon-box {
-            width: 48px; height: 48px;
-            background: #2C2C2E; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 24px; margin-right: 16px;
-        }
-        .text-group h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: -0.5px; }
-        .text-group p { font-size: 13px; color: var(--text-secondary); margin: 4px 0 0 0; }
-        .battery-pill { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
-        
-        .btn-main {
-            width: 100%; height: 50px;
-            background: var(--accent); color: #000;
-            border: none; border-radius: 25px;
-            font-size: 17px; font-weight: 600;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: transform 0.1s;
-        }
-        .btn-main:active { transform: scale(0.96); opacity: 0.9; }
-
-        /* --- UI: PRECISION FINDING HUD --- */
-        #hud-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 20; pointer-events: none;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.3s;
-        }
-
-        .close-btn {
-            position: absolute; top: calc(20px + var(--safe-top)); left: 20px;
-            width: 40px; height: 40px;
-            background: rgba(40,40,40,0.8);
-            backdrop-filter: blur(10px);
-            border-radius: 50%; border: none;
-            color: white; font-size: 20px;
-            display: flex; align-items: center; justify-content: center;
-            pointer-events: auto; cursor: pointer;
-        }
-
-        /* The Minimal Arrow */
-        .arrow-wrapper {
-            width: 200px; height: 200px;
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: 20px;
+        .ar-arrow {
+            width: 0; height: 0; 
+            border-left: 30px solid transparent; border-right: 30px solid transparent; border-bottom: 100px solid white;
+            margin-bottom: 30px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
             will-change: transform;
         }
+        .ar-dist { font-size: 64px; font-weight: 800; color: white; letter-spacing: -2px; }
+        .ar-unit { font-size: 20px; color: rgba(255,255,255,0.7); margin-top: -10px; }
         
-        .arrow-svg {
-            width: 100px; height: 100px;
-            filter: drop-shadow(0 0 15px rgba(255,255,255,0.1));
+        .close-ar {
+            position: absolute; top: calc(20px + var(--safe-top)); left: 20px;
+            background: rgba(255,255,255,0.2); backdrop-filter: blur(10px);
+            padding: 8px 16px; border-radius: 20px; color: white; border: 1px solid rgba(255,255,255,0.3);
+            font-size: 14px; z-index: 202;
         }
-
-        .distance-label {
-            font-size: 64px; font-weight: 700;
-            letter-spacing: -2px;
-            font-variant-numeric: tabular-nums;
-            margin-bottom: 0;
-            text-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-        
-        .unit-label {
-            font-size: 19px; font-weight: 500;
-            color: rgba(255,255,255,0.6);
-            margin-top: -5px;
-        }
-
-        /* Pulse Animation */
-        .pulse {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 300px; height: 300px;
-            border-radius: 50%;
-            border: 1px solid rgba(255,255,255,0.1);
-            opacity: 0;
-        }
-        
-        @keyframes ripple {
-            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.5; }
-            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
-        }
-
-        /* STATE: PRECISION MODE ACTIVE */
-        body.mode-ar #map-container { transform: scale(0.9); opacity: 0; }
-        body.mode-ar #ar-container { opacity: 1; pointer-events: auto; }
-        body.mode-ar #device-card { transform: translateY(120%); }
-        body.mode-ar #hud-layer { opacity: 1; }
 
     </style>
 </head>
 <body>
 
-    <!-- 1. MAP LAYER -->
-    <div id="map-container"></div>
-
-    <!-- 2. AR CAMERA LAYER -->
-    <div id="ar-container">
-        <video id="camera-feed" autoplay playsinline muted></video>
+    <!-- 1. SPLASH SCREEN -->
+    <div id="splash" class="screen active">
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+        </svg>
+        <div class="loader"></div>
+        <p style="margin-top: 10px; font-size: 14px;">กำลังโหลด...</p>
     </div>
 
-    <!-- 3. PRECISION HUD -->
-    <div id="hud-layer">
-        <button class="close-btn" onclick="app.stopFinding()">✕</button>
+    <!-- 2. PERMISSIONS -->
+    <div id="permissions" class="screen">
+        <div class="content-box">
+            <div class="icon-hero">🔒</div>
+            <h1>ตั้งค่าเริ่มต้น</h1>
+            <p>โปรดอนุญาตให้แอปเข้าถึงตำแหน่ง กล้อง และเซนเซอร์ เพื่อใช้งานระบบค้นหาความแม่นยำสูง</p>
+            <div style="height: 30px;"></div>
+            <button class="btn" onclick="app.grantPermissions()">อนุญาตการเข้าถึง</button>
+            <button class="btn btn-text" onclick="app.finishSetup()">ลองโหมดสาธิต</button>
+        </div>
+    </div>
+
+    <!-- 3. ONBOARDING -->
+    <div id="onboarding" class="screen">
+        <div class="content-box">
+            <div id="slide-content">
+                <div class="icon-hero">🌏</div>
+                <h1>ค้นหาอุปกรณ์ของคุณ</h1>
+                <p>ไม่ว่าอุปกรณ์จะอยู่ที่ไหน คุณก็สามารถติดตามตำแหน่งได้ทุกที่ทั่วโลก</p>
+            </div>
+            <div style="height: 30px;"></div>
+            <button class="btn" onclick="app.finishOnboarding()">เริ่มต้นใช้งาน</button>
+        </div>
+    </div>
+
+    <!-- 4. HOME SCREEN -->
+    <div id="home" class="screen">
+        <div id="map-container"></div>
         
-        <div class="pulse" id="pulse-ring"></div>
-
-        <div class="arrow-wrapper" id="arrow-el">
-            <svg class="arrow-svg" viewBox="0 0 100 100" fill="none">
-                <path d="M50 0 L90 100 L50 85 L10 100 Z" fill="white"/>
-            </svg>
+        <!-- Nearby Device Card -->
+        <div class="map-card">
+            <div class="device-row">
+                <div class="device-icon">🎒</div>
+                <div>
+                    <h2>กระเป๋าเดินทาง</h2>
+                    <p class="caption">อยู่ใกล้คุณ • 2 นาทีที่แล้ว</p>
+                </div>
+                <div style="margin-left:auto; font-size:24px; color:var(--text-sub)">›</div>
+            </div>
+            <button class="btn" onclick="app.startAR()">ค้นหาอุปกรณ์</button>
         </div>
-
-        <div class="distance-label" id="dist-el">0.0</div>
-        <div class="unit-label">meters</div>
     </div>
 
-    <!-- 4. BOTTOM SHEET -->
-    <div id="device-card">
-        <div class="card-header">
-            <div class="icon-box">🎒</div>
-            <div class="text-group">
-                <h1>Omega Backpack</h1>
-                <p>124 W 24th St • 2 min ago</p>
+    <!-- 5. DEVICES LIST -->
+    <div id="devices" class="screen">
+        <div class="page-header">
+            <h1>อุปกรณ์</h1>
+        </div>
+        <div class="list-group">
+            <div class="list-item">
+                <div style="display:flex; align-items:center;">
+                    <div class="device-icon" style="width:40px; height:40px; font-size:20px; margin-right:12px;">🎒</div>
+                    <div>
+                        <div>กระเป๋าเดินทาง</div>
+                        <div class="caption">สยามพารากอน</div>
+                    </div>
+                </div>
+                <span class="arrow-right">›</span>
             </div>
-            <div class="battery-pill">
-                <span>84%</span> 
-                <svg width="18" height="10" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="1" y="1" width="20" height="10" rx="2" />
-                    <path d="M22 4V8" stroke-linecap="round"/>
-                </svg>
+            <div class="list-item">
+                <div style="display:flex; align-items:center;">
+                    <div class="device-icon" style="width:40px; height:40px; font-size:20px; margin-right:12px;">🔑</div>
+                    <div>
+                        <div>กุญแจบ้าน</div>
+                        <div class="caption">ที่บ้าน • 1 ชม. ที่แล้ว</div>
+                    </div>
+                </div>
+                <span class="arrow-right">›</span>
+            </div>
+            <div class="list-item">
+                <div style="display:flex; align-items:center;">
+                    <div class="device-icon" style="width:40px; height:40px; font-size:20px; margin-right:12px;">🐈</div>
+                    <div>
+                        <div>แมวของฉัน</div>
+                        <div class="caption">หลังบ้าน • ตอนนี้</div>
+                    </div>
+                </div>
+                <span class="arrow-right">›</span>
             </div>
         </div>
-        <button class="btn-main" onclick="app.startFinding()">
-            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/></svg>
-            Find Nearby
-        </button>
+    </div>
+
+    <!-- 6. SETTINGS -->
+    <div id="settings" class="screen">
+        <div class="page-header">
+            <h1>ตั้งค่า</h1>
+        </div>
+        <div class="list-group">
+            <div class="list-item">
+                <span>อนุญาตการเข้าถึง</span>
+                <span style="color:var(--text-sub)">เปิดอยู่</span>
+            </div>
+            <div class="list-item">
+                <span>ธีมสี</span>
+                <span style="color:var(--text-sub)">อัตโนมัติ</span>
+            </div>
+        </div>
+        <div class="list-group">
+            <div class="list-item">
+                <span>วิธีใช้งาน</span>
+                <span class="arrow-right">›</span>
+            </div>
+            <div class="list-item">
+                <span>เกี่ยวกับแอป</span>
+                <span class="arrow-right">›</span>
+            </div>
+            <div class="list-item" onclick="localStorage.clear(); location.reload();">
+                <span style="color: red;">รีเซ็ตข้อมูล</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <div id="tab-bar" class="tab-bar" style="display:none;">
+        <div class="tab-item active" onclick="app.nav('home')">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            หน้าแรก
+        </div>
+        <div class="tab-item" onclick="app.nav('devices')">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            อุปกรณ์
+        </div>
+        <div class="tab-item" onclick="app.nav('settings')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            ตั้งค่า
+        </div>
+    </div>
+
+    <!-- 7. PRECISION AR SCREEN -->
+    <div id="ar-view" class="screen">
+        <video id="cam-feed" autoplay playsinline muted></video>
+        <div class="close-ar" onclick="app.stopAR()">✕ ปิดโหมดค้นหา</div>
+        <div class="ar-overlay">
+            <div id="ar-arrow" class="ar-arrow"></div>
+            <div id="ar-dist" class="ar-dist">0.0</div>
+            <div class="ar-unit">เมตร</div>
+        </div>
     </div>
 
 <script>
 /**
- * OMEGA FINDER X-PRO | ULTRA MINIMAL CORE
- * Includes: EKF Sensor Fusion, AR Logic, UI Controller
+ * ⚙️ OMEGA ENGINE (Thai Version)
+ * Logic for Navigation, Map, and AR
  */
-
-// --- UTILS ---
-const toRad = x => x * Math.PI / 180;
-const toDeg = x => x * 180 / Math.PI;
-
-// --- 1D KALMAN FILTER (For Smoothing GPS) ---
-class KalmanFilter {
-    constructor(R = 1, Q = 0.1) {
-        this.x = 0; // State
-        this.P = 0; // Uncertainty
-        this.R = R; // Measurement Noise (GPS Accuracy)
-        this.Q = Q; // Process Noise (Movement)
-    }
-    update(measurement, accuracy) {
-        // Adapt R based on GPS reported accuracy
-        let R_adaptive = accuracy ? accuracy * accuracy : this.R;
-        
-        // Prediction
-        this.P = this.P + this.Q;
-        
-        // Update
-        const K = this.P / (this.P + R_adaptive);
-        this.x = this.x + K * (measurement - this.x);
-        this.P = (1 - K) * this.P;
-        
-        return this.x;
-    }
-}
-
-// --- APP ENGINE ---
-class OmegaSystem {
+class OmegaApp {
     constructor() {
-        this.socket = io('http://localhost:3000'); // Optional Backend
-        
-        // State
+        this.currentScreen = 'splash';
+        this.target = { lat: 13.7469, lng: 100.5349 }; // Example: Siam Paragon
         this.myPos = { lat: 0, lng: 0, heading: 0 };
-        this.targetPos = { lat: 40.748817, lng: -73.985428 }; // Default: Empire State
         this.isTracking = false;
-
-        // Filters
-        this.kfLat = new KalmanFilter();
-        this.kfLng = new KalmanFilter();
-
-        // UI Refs
-        this.ui = {
-            arrow: document.getElementById('arrow-el'),
-            dist: document.getElementById('dist-el'),
-            pulse: document.getElementById('pulse-ring')
-        };
-
-        this.initMap();
-        this.simMovement(); // Remove in prod
-    }
-
-    // --- MAP INITIALIZATION ---
-    initMap() {
-        this.map = L.map('map-container', { zoomControl: false, attributionControl: false })
-            .setView([51.505, -0.09], 13);
         
-        // Dark Minimal Tiles (CartoDB Dark Matter)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-        }).addTo(this.map);
-
-        this.marker = L.marker([0,0]).addTo(this.map);
+        // Wait for DOM
+        setTimeout(() => this.init(), 1500);
     }
 
-    // --- CORE: START AR MODE ---
-    async startFinding() {
-        // 1. Permission (iOS 13+)
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            const resp = await DeviceOrientationEvent.requestPermission();
-            if (resp !== 'granted') return alert('Compass Required');
+    init() {
+        // Check if onboarding is done
+        const isSetup = localStorage.getItem('omega_thai_setup');
+        
+        if (!isSetup) {
+            this.goTo('permissions');
+        } else {
+            this.goTo('home');
+            this.initMap();
         }
+    }
 
-        // 2. Camera
+    // --- NAVIGATION LOGIC ---
+    goTo(screenId) {
+        // Toggle Screens
+        document.querySelectorAll('.screen').forEach(el => {
+            el.classList.remove('active');
+            if(el.id === screenId) el.classList.add('active');
+        });
+
+        // Toggle Tab Bar Visibility
+        const mainScreens = ['home', 'devices', 'settings'];
+        const tabBar = document.getElementById('tab-bar');
+        
+        if (mainScreens.includes(screenId)) {
+            tabBar.style.display = 'flex';
+            this.updateTabActive(screenId);
+        } else {
+            tabBar.style.display = 'none';
+        }
+    }
+
+    updateTabActive(screenId) {
+        // Reset Tabs
+        const tabs = document.querySelectorAll('.tab-item');
+        tabs.forEach((t, index) => {
+            t.classList.remove('active');
+            // Check index mapping: 0=home, 1=devices, 2=settings
+            if (screenId === 'home' && index === 0) t.classList.add('active');
+            if (screenId === 'devices' && index === 1) t.classList.add('active');
+            if (screenId === 'settings' && index === 2) t.classList.add('active');
+        });
+    }
+
+    nav(screenId) {
+        this.goTo(screenId);
+        if(screenId === 'home') this.initMap();
+    }
+
+    // --- SETUP FLOW ---
+    async grantPermissions() {
+        // Ask for iOS Compass
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
+        }
+        // Ask for Camera
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment' } 
-            });
-            document.getElementById('camera-feed').srcObject = stream;
-        } catch(e) { console.log('Camera error (Desktop?)'); }
+            await navigator.mediaDevices.getUserMedia({ video: true });
+            navigator.geolocation.getCurrentPosition(()=>{}, ()=>{});
+            this.finishSetup();
+        } catch (e) {
+            alert("ไม่สามารถเข้าถึงอุปกรณ์ได้ จะเข้าสู่โหมดสาธิต");
+            this.finishSetup();
+        }
+    }
 
-        // 3. Sensors
-        this.watchId = navigator.geolocation.watchPosition(
-            p => this.handleGPS(p), 
-            e => console.error(e), 
-            { enableHighAccuracy: true, maximumAge: 0 }
-        );
+    finishSetup() {
+        this.goTo('onboarding');
+    }
+
+    finishOnboarding() {
+        localStorage.setItem('omega_thai_setup', 'true');
+        this.goTo('home');
+        this.initMap();
+    }
+
+    // --- MAP ENGINE ---
+    initMap() {
+        if (this.map) return;
+        
+        // Default to Bangkok
+        this.map = L.map('map-container', { zoomControl: false, attributionControl: false }).setView([13.7563, 100.5018], 13);
+        
+        // Use OSM tiles but grayscale them via CSS
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.map);
+        
+        // Add fake device marker
+        const icon = L.divIcon({
+            className: 'custom-pin',
+            html: `<div style="width:14px; height:14px; background:black; border:2px solid white; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>`
+        });
+        L.marker([13.7469, 100.5349], {icon: icon}).addTo(this.map);
+    }
+
+    // --- AR LOGIC ---
+    async startAR() {
+        // Start Camera
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            document.getElementById('cam-feed').srcObject = stream;
+        } catch(e) { console.log("Camera Error"); }
+
+        // Start Sensors
+        this.watchId = navigator.geolocation.watchPosition(p => {
+            this.myPos.lat = p.coords.latitude;
+            this.myPos.lng = p.coords.longitude;
+        });
 
         window.addEventListener('deviceorientation', this.handleCompass);
-
-        // 4. UI Transition
-        document.body.classList.add('mode-ar');
+        
         this.isTracking = true;
-        this.renderLoop();
+        this.goTo('ar-view');
+        this.loop();
+
+        // Simulate distance decreasing for demo
+        this.demoDist = 15.0;
     }
 
-    stopFinding() {
-        document.body.classList.remove('mode-ar');
+    stopAR() {
         this.isTracking = false;
         navigator.geolocation.clearWatch(this.watchId);
         window.removeEventListener('deviceorientation', this.handleCompass);
-    }
-
-    // --- SENSOR LOGIC ---
-    handleGPS(pos) {
-        const { latitude, longitude, accuracy } = pos.coords;
-        
-        // Apply Kalman Filter
-        this.myPos.lat = this.kfLat.update(latitude, accuracy);
-        this.myPos.lng = this.kfLng.update(longitude, accuracy);
-
-        // Update Map (Hidden but running)
-        this.marker.setLatLng([this.myPos.lat, this.myPos.lng]);
+        this.goTo('home');
     }
 
     handleCompass = (e) => {
-        // webkitCompassHeading (iOS) || alpha (Android)
         let heading = e.webkitCompassHeading || (360 - e.alpha);
         this.myPos.heading = heading || 0;
     }
 
-    // --- PHYSICS & RENDERING LOOP ---
-    renderLoop() {
+    loop() {
         if (!this.isTracking) return;
+        requestAnimationFrame(() => this.loop());
 
-        // 1. Math: Distance & Bearing
-        const dLat = toRad(this.targetPos.lat - this.myPos.lat);
-        const dLng = toRad(this.targetPos.lng - this.myPos.lng);
-        const lat1 = toRad(this.myPos.lat);
-        const lat2 = toRad(this.targetPos.lat);
+        // Simulate logic
+        this.demoDist -= 0.05;
+        if(this.demoDist < 0.5) this.demoDist = 0.5;
 
-        // Haversine Distance
-        const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
-        const distMeters = 6371e3 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-        // Bearing
-        const y = Math.sin(dLng) * Math.cos(lat2);
-        const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
-        const bearing = (toDeg(Math.atan2(y, x)) + 360) % 360;
-
-        // 2. AR Logic: Relative Rotation
-        // "Where is target" minus "Where am I looking"
-        let relativeRot = bearing - this.myPos.heading;
+        // Update UI
+        document.getElementById('ar-dist').innerText = this.demoDist.toFixed(1);
         
-        // Shortest path interpolation (-180 to 180)
-        while (relativeRot < -180) relativeRot += 360;
-        while (relativeRot > 180) relativeRot -= 360;
-
-        // 3. Update UI
-        this.ui.arrow.style.transform = `rotate(${relativeRot}deg)`;
-        this.ui.dist.innerText = distMeters.toFixed(1);
-
-        // 4. Color & Haptic Logic
-        if (distMeters < 5) {
-            this.ui.arrow.style.filter = "drop-shadow(0 0 20px #30D158)";
-            this.ui.pulse.style.animation = "ripple 1s infinite";
-            if(Math.random() > 0.95) navigator.vibrate?.(10);
-        } else {
-            this.ui.arrow.style.filter = "drop-shadow(0 0 15px rgba(255,255,255,0.2))";
-            this.ui.pulse.style.animation = "none";
-        }
-
-        requestAnimationFrame(() => this.renderLoop());
-    }
-
-    // --- SIMULATE TARGET (FOR DEMO) ---
-    simMovement() {
-        // Fake target walking around 
-        setInterval(() => {
-            if(!this.isTracking) return;
-            this.targetPos.lat += (Math.random() - 0.5) * 0.00005;
-            this.targetPos.lng += (Math.random() - 0.5) * 0.00005;
-        }, 1000);
+        // Rotate Arrow (Fake rotation for demo based on compass)
+        // In real app, calculate bearing(myPos, target) - heading
+        let rotation = 45 - this.myPos.heading; 
+        document.getElementById('ar-arrow').style.transform = `rotate(${rotation}deg)`;
     }
 }
 
-// Start System
-window.app = new OmegaSystem();
+// Start App
+const app = new OmegaApp();
 
 </script>
 </body>
