@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA ORACLE v6.0 | Resilient Weather OS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AURA v8.0 | Real-Time Engine</title>
 
     <!-- Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,16 +12,15 @@
 
     <style>
         /* =========================================
-           🎨 AURA HYBRID PASTEL SYSTEM
+           🎨 AURA v8.0 DESIGN SYSTEM
            ========================================= */
         :root {
             /* Atmosphere */
-            --bg-cloud: #F7F9FC;
-            --bg-mist: #EEF1F6;
+            --bg-cloud: #F5F7FA;
             --bg-glass: rgba(255, 255, 255, 0.65);
-            --bg-glass-heavy: rgba(255, 255, 255, 0.95);
+            --bg-glass-heavy: rgba(255, 255, 255, 0.85);
 
-            /* Pastels */
+            /* Hybrid Pastels */
             --p-sky: #A8D8FF;
             --p-breeze: #A9E9F7;
             --p-amber: #FFDBA3;
@@ -31,16 +30,16 @@
             --p-rose: #FFB3B3;
 
             /* Text */
-            --tx-charcoal: #2A2D33;
+            --tx-charcoal: #1D1D1F;
             --tx-soft: #6D7380;
             --tx-light: #9AA0AC;
 
-            /* Tokens */
-            --shadow-float: 0 20px 50px -12px rgba(168, 216, 255, 0.4), 0 4px 12px -4px rgba(42, 45, 51, 0.05);
-            --glow-pulse: 0 0 20px rgba(195, 180, 255, 0.6);
+            /* Physics */
+            --shadow-float: 0 20px 40px -10px rgba(168, 216, 255, 0.3), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
             --radius-card: 28px;
             --font-en: 'Outfit', sans-serif;
             --font-th: 'Anuphan', sans-serif;
+            --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -50,235 +49,202 @@
             color: var(--tx-charcoal);
             font-family: var(--font-en);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
             overflow-x: hidden;
+            position: relative;
+            overscroll-behavior-y: none;
         }
 
-        /* Ambient Background */
-        .ambient-mesh {
+        /* --- FLUID SIMULATION LAYER --- */
+        #sim-canvas {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(168, 216, 255, 0.25) 0%, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(195, 180, 255, 0.20) 0%, transparent 50%),
-                radial-gradient(at 50% 100%, rgba(255, 219, 163, 0.15) 0%, transparent 60%);
-            z-index: -1;
-            filter: blur(80px);
-            animation: breathe 12s infinite ease-in-out;
+            z-index: -1; transform: translateZ(0); pointer-events: none;
         }
 
+        /* --- APP UI --- */
         .app-frame {
-            width: 100%; max-width: 440px;
-            padding: 24px; padding-top: 50px; padding-bottom: 90px;
+            width: 100%; max-width: 460px; margin: 0 auto;
+            padding: 24px; padding-top: 50px; padding-bottom: 120px;
             display: flex; flex-direction: column; gap: 24px;
-            opacity: 0; animation: fadeEntry 0.8s ease forwards;
+            position: relative; z-index: 10;
+            opacity: 0; animation: fadeEntry 1s var(--ease-out) forwards;
         }
 
-        /* HEADER */
+        /* Header */
         header { display: flex; justify-content: space-between; align-items: center; }
-        .brand { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: var(--p-indigo); display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
-        .brand-dot { width: 8px; height: 8px; background: var(--p-lavender); border-radius: 50%; box-shadow: var(--glow-pulse); }
+        .brand { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: var(--tx-charcoal); display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
+        .brand-dot { width: 8px; height: 8px; background: var(--p-lavender); border-radius: 50%; box-shadow: 0 0 15px var(--p-lavender); animation: pulse 3s infinite; }
         
         .controls { display: flex; gap: 8px; }
         .btn-pill {
-            background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.8);
+            background: var(--bg-glass); border: 1px solid rgba(255,255,255,0.6);
             border-radius: 20px; padding: 6px 14px; font-size: 11px; font-weight: 600;
-            color: var(--tx-soft); cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 6px;
+            color: var(--tx-soft); cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; gap: 4px; backdrop-filter: blur(10px);
         }
-        .btn-pill:active { transform: scale(0.96); }
-        .btn-pill.active { background: #fff; color: var(--p-indigo); border-color: var(--p-indigo); }
-        .btn-pill.error { border-color: var(--p-rose); color: var(--p-rose); }
+        .btn-pill.active { background: #fff; color: var(--p-indigo); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .btn-pill.refreshing { animation: spinBorder 1s infinite linear; border-color: var(--p-indigo); color: var(--p-indigo); }
 
-        /* HERO */
-        .hero { display: flex; flex-direction: column; align-items: center; position: relative; margin: 10px 0; }
+        /* Hero */
+        .hero { display: flex; flex-direction: column; align-items: center; margin: 10px 0; }
         .score-ring {
             width: 180px; height: 180px; border-radius: 50%;
-            background: linear-gradient(135deg, #FFF, #F2F8FF);
-            box-shadow: var(--shadow-float), inset 0 0 0 1px rgba(255,255,255,0.8);
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(240,245,255,0.4));
+            box-shadow: var(--shadow-float), inset 0 0 0 1px rgba(255,255,255,0.5);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            position: relative; z-index: 2; transition: all 0.5s;
+            position: relative; transition: transform 0.5s var(--ease-out);
         }
-        .score-val { font-size: 72px; font-weight: 300; line-height: 1; color: var(--tx-charcoal); font-family: 'Outfit'; letter-spacing: -2px; }
-        .score-lbl { font-size: 11px; color: var(--tx-soft); margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; }
-        
+        .score-val { font-size: 72px; font-weight: 300; line-height: 1; color: var(--tx-charcoal); font-family: 'Outfit'; letter-spacing: -3px; }
+        .score-lbl { font-size: 11px; color: var(--tx-soft); margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
         .hero-meta { margin-top: 24px; text-align: center; }
         .loc-name { font-size: 15px; font-weight: 600; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; justify-content: center; }
-        .weather-status { font-size: 13px; color: var(--tx-soft); margin-top: 4px; font-weight: 400; }
+        .weather-status { font-size: 13px; color: var(--tx-soft); margin-top: 4px; font-weight: 400; transition: color 0.3s; }
 
-        /* ORACLE CARD */
-        .oracle-card {
-            background: var(--bg-glass-heavy); backdrop-filter: blur(30px);
+        /* Cards */
+        .card-glass {
+            background: var(--bg-glass-heavy); backdrop-filter: blur(40px);
             border-radius: var(--radius-card); padding: 24px;
-            box-shadow: var(--shadow-float); border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: var(--shadow-float); border: 1px solid rgba(255,255,255,0.7);
             position: relative; overflow: hidden; transition: transform 0.3s;
         }
-        .ai-glow {
-            position: absolute; top: 0; left: 0; width: 100%; height: 3px;
-            background: linear-gradient(90deg, transparent, var(--p-lavender), transparent);
-            animation: scan 3s infinite linear; opacity: 0.8;
-        }
-        .oracle-head { display: flex; justify-content: space-between; margin-bottom: 14px; }
+        
+        /* Oracle */
+        .oracle-head { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; }
         .oracle-title { font-size: 11px; font-weight: 700; color: var(--p-indigo); letter-spacing: 1px; text-transform: uppercase; }
-        .oracle-msg { font-size: 15px; line-height: 1.6; color: var(--tx-charcoal); margin-bottom: 18px; font-weight: 400; }
-
-        .reason-box {
-            background: rgba(247, 249, 252, 0.7); border-radius: 16px; padding: 16px;
-            display: flex; flex-direction: column; gap: 12px; border: 1px solid rgba(255,255,255,0.6);
+        .oracle-msg { font-size: 15px; line-height: 1.6; color: var(--tx-charcoal); font-weight: 400; margin-bottom: 16px; }
+        
+        .diagnosis-pill {
+            background: rgba(240, 244, 255, 0.6); padding: 12px; border-radius: 16px;
+            display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--tx-soft);
+            border: 1px solid rgba(255,255,255,0.5);
         }
-        .rb-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-        .rb-key { color: var(--tx-light); font-weight: 500; }
-        .rb-val { font-weight: 600; color: var(--p-indigo); }
-        .conf-track { width: 100%; height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; overflow: hidden; margin-top: 4px; }
-        .conf-fill { height: 100%; background: var(--p-lavender); width: 0%; transition: width 1s ease; }
+        .ai-pulse-bar { width: 3px; height: 24px; background: var(--p-lavender); border-radius: 2px; transition: height 0.2s; }
 
-        /* Sparklines */
-        .spark-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
-        .spark-item { 
-            height: 40px; background: #fff; border-radius: 12px; position: relative; 
-            overflow: hidden; display: flex; align-items: flex-end; padding: 4px; 
-            border: 1px solid rgba(0,0,0,0.03); 
-        }
-        .spark-lbl { position: absolute; top: 3px; left: 6px; font-size: 9px; color: var(--tx-light); font-weight: 600; }
-        .spark-line { fill: none; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-
-        /* GRID */
+        /* Grid */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .card {
-            background: #FFF; border-radius: 20px; padding: 16px;
+        .insight-card {
+            background: rgba(255,255,255,0.8); border-radius: 20px; padding: 16px;
             display: flex; flex-direction: column; gap: 10px;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.02);
-            border: 1px solid rgba(255,255,255,0.6); position: relative; overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+            border: 1px solid rgba(255,255,255,0.5); position: relative; overflow: hidden;
+            transition: all 0.3s;
         }
-        .card-icon { width: 32px; height: 32px; border-radius: 10px; background: var(--bg-cloud); display: flex; justify-content: center; align-items: center; color: var(--tx-soft); }
-        .card-lbl { font-size: 10px; font-weight: 700; color: var(--tx-light); text-transform: uppercase; letter-spacing: 0.5px; }
-        .card-val { font-size: 13px; font-weight: 500; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .insight-icon { width: 32px; height: 32px; border-radius: 10px; background: var(--bg-cloud); display: flex; justify-content: center; align-items: center; color: var(--tx-soft); }
+        .insight-lbl { font-size: 10px; font-weight: 700; color: var(--tx-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .insight-val { font-size: 13px; font-weight: 600; color: var(--tx-charcoal); display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; transition: background-color 0.5s; }
 
-        /* TIMELINE */
-        .timeline-box { 
-            background: var(--bg-glass-heavy); border-radius: 24px; padding: 20px; 
-            box-shadow: var(--shadow-float); border: 1px solid rgba(255,255,255,0.8);
-        }
-        .sec-title { font-size: 11px; font-weight: 700; color: var(--tx-light); letter-spacing: 1px; margin-bottom: 16px; }
-        .timeline-scroll { display: flex; justify-content: space-between; position: relative; padding: 10px 0; overflow-x: auto; gap: 12px; }
+        /* Timeline */
+        .timeline-scroll { display: flex; gap: 16px; overflow-x: auto; padding: 10px 0; scroll-behavior: smooth; }
         .timeline-scroll::-webkit-scrollbar { display: none; }
-        .timeline-scroll::after { content:''; position: absolute; top: 22px; left: 10px; right: 10px; height: 2px; background: var(--bg-mist); z-index: 0; }
-        
-        .t-node { z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 44px; }
-        .t-dot { width: 12px; height: 12px; background: #FFF; border: 2px solid var(--tx-light); border-radius: 50%; }
-        .t-time { font-size: 11px; color: var(--tx-light); font-family: 'Outfit'; }
-        .t-temp { font-size: 12px; color: var(--tx-charcoal); font-weight: 600; opacity: 0.7; }
-        .t-node.active .t-dot { transform: scale(1.3); background: var(--p-breeze); border-color: var(--p-sky); box-shadow: 0 0 0 4px rgba(169, 233, 247, 0.4); }
-        .t-node.active .t-time { color: var(--p-indigo); font-weight: 700; }
-        .t-node.active .t-temp { opacity: 1; font-weight: 700; }
+        .t-node { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 50px; opacity: 0.6; transition: 0.3s; cursor: pointer; }
+        .t-node.active { opacity: 1; transform: scale(1.1); }
+        .t-time { font-size: 11px; font-family: 'Outfit'; color: var(--tx-soft); }
+        .t-temp { font-size: 13px; font-weight: 600; color: var(--tx-charcoal); }
+        .t-dot { width: 6px; height: 6px; background: #ddd; border-radius: 50%; transition: background 0.3s; }
+        .t-node.active .t-dot { background: var(--p-indigo); box-shadow: 0 0 8px var(--p-indigo); }
 
-        /* TOAST */
-        .toast {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(42, 45, 51, 0.95); color: #fff; padding: 12px 24px;
-            border-radius: 30px; font-size: 12px; z-index: 100;
-            opacity: 0; pointer-events: none; transition: 0.3s; display: flex; align-items: center; gap: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
-        .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        /* Animations */
+        @keyframes fadeEntry { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes breathe { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes highlight { 0% { background: rgba(255,255,255,0.8); } 50% { background: rgba(169, 233, 247, 0.4); } 100% { background: rgba(255,255,255,0.8); } }
         
+        .updated-pulse { animation: highlight 1s ease-out; }
+        .vibrate { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
         /* Utils */
         .c-good { background: var(--p-mint); }
         .c-warn { background: var(--p-amber); }
         .c-bad { background: var(--p-rose); }
         .c-rain { background: var(--p-indigo); }
-        .hidden { display: none !important; }
-
-        /* Animation */
-        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-        @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-        @keyframes fadeEntry { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
         svg { fill: currentColor; }
+        .hidden { display: none; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: rgba(29, 29, 31, 0.9); color: #fff; padding: 12px 24px;
+            border-radius: 30px; font-size: 12px; z-index: 100;
+            opacity: 0; pointer-events: none; transition: 0.4s var(--ease-out);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); backdrop-filter: blur(10px);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
 
-    <div class="ambient-mesh"></div>
+    <!-- REAL-TIME FLUID ENGINE -->
+    <canvas id="sim-canvas"></canvas>
 
-    <div class="app-frame">
+    <div class="app-frame" id="app">
         
         <!-- HEADER -->
         <header>
-            <div class="brand"><div class="brand-dot"></div>Aura v6.0</div>
+            <div class="brand"><div class="brand-dot"></div>Aura v8.0</div>
             <div class="controls">
-                <button class="btn-pill" id="btn-gps" onclick="LocationManager.request()">
-                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg> GPS
-                </button>
-                <button class="btn-pill" id="btn-lang" onclick="State.toggleLang()">EN</button>
+                <div class="btn-pill" id="btn-refresh" onclick="Engine.refresh()">
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    AUTO
+                </div>
+                <div class="btn-pill" id="btn-lang" onclick="State.toggleLang()">EN</div>
             </div>
         </header>
 
         <!-- HERO -->
         <section class="hero">
-            <div class="score-ring">
+            <div class="score-ring" id="hero-ring">
                 <span class="score-val" id="score-val">--</span>
                 <span class="score-lbl" id="score-lbl">LIFE SCORE</span>
             </div>
             <div class="hero-meta">
                 <div class="loc-name">
-                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                    <span id="loc-txt">Initialize...</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5-2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <span id="loc-txt">Locating...</span>
                 </div>
-                <div class="weather-status" id="weather-desc">Syncing Satellites...</div>
+                <div class="weather-status" id="weather-desc">Initializing Engine...</div>
             </div>
         </section>
 
-        <!-- ORACLE REASONING -->
-        <section class="oracle-card">
-            <div class="ai-glow"></div>
+        <!-- DIAGNOSTIC -->
+        <section class="card-glass">
             <div class="oracle-head">
-                <span class="oracle-title" id="lbl-oracle">ORACLE REASONING</span>
+                <span class="oracle-title" id="lbl-diag">AI DIAGNOSTIC</span>
+                <div style="font-size:10px; color:var(--tx-light);">LIVE</div>
             </div>
-            <div class="oracle-msg" id="ai-msg">Connecting to environmental sensors...</div>
-            
-            <div class="reason-box">
-                <div class="rb-row">
-                    <span class="rb-key" id="lbl-conf">Precision</span>
-                    <span class="rb-val" id="val-conf">99.8%</span>
-                </div>
-                <div class="conf-track"><div class="conf-fill" id="bar-conf" style="width:0%"></div></div>
-                
-                <div class="rb-row" style="margin-top:6px;">
-                    <span class="rb-key" id="lbl-factor">Key Driver</span>
-                    <span class="rb-val" style="color:var(--tx-charcoal); font-weight:400;" id="val-factor">--</span>
-                </div>
-
-                <!-- Micro Sparklines -->
-                <div class="spark-grid" id="spark-grid"></div>
+            <div class="oracle-msg" id="ai-msg">Aura is synchronizing with satellites...</div>
+            <div class="diagnosis-pill">
+                <div class="ai-pulse-bar" id="pulse-bar"></div>
+                <span id="ai-reason">Calibrating sensors.</span>
             </div>
         </section>
 
-        <!-- INSIGHT GRID -->
+        <!-- INSIGHTS -->
         <section class="grid">
-            <div class="card">
-                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg></div>
-                <div><div class="card-lbl" id="lbl-laundry">LAUNDRY</div><div class="card-val" id="val-laundry">--</div></div>
+            <div class="insight-card" id="card-laundry">
+                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M18 19H6C5.45 19 5 18.55 5 18V9H19V18C19 18.55 18.55 19 18 19M16.53 5.16L14.47 4.11L14.73 3.6L12.06 2.25C11.66 2.05 11.17 2.21 10.97 2.62L10.3 4H6C4.9 4 4 4.9 4 6V18C4 19.11 4.9 20 6 20H18C19.11 20 20 19.11 20 18V6C20 4.9 19.11 4 18 4H14.89L16.53 5.16M13.5 14C13.5 14.83 12.83 15.5 12 15.5C11.17 15.5 10.5 14.83 10.5 14C10.5 13.17 11.17 12.5 12 12.5C12.83 12.5 13.5 13.17 13.5 14M15 14C15 12.34 13.66 11 12 11C10.34 11 9 12.34 9 14C9 15.66 10.34 17 12 17C13.66 17 15 15.66 15 14Z"/></svg></div>
+                <div><div class="insight-lbl" id="lbl-laundry">LAUNDRY</div><div class="insight-val" id="val-laundry">--</div></div>
             </div>
-            <div class="card">
-                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg></div>
-                <div><div class="card-lbl" id="lbl-pet">PET COMFORT</div><div class="card-val" id="val-pet">--</div></div>
+            <div class="insight-card" id="card-pet">
+                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M19.33 11.83C19 11.83 18.67 11.91 18.39 12.06L16.43 13.04C16.29 13.11 16.14 13.15 16 13.15C15.45 13.15 15 12.7 15 12.15V9.41L14.47 9.14C14.18 9 13.85 9 13.56 9.14L10.5 10.67V12.15C10.5 12.7 10.05 13.15 9.5 13.15C9.35 13.15 9.21 13.11 9.07 13.04L7.11 12.06C6.83 11.91 6.5 11.83 6.17 11.83C5.25 11.83 4.5 12.58 4.5 13.5V17.5C4.5 18.88 5.62 20 7 20H18.5C19.88 20 21 18.88 21 17.5V13.5C21 12.58 20.25 11.83 19.33 11.83Z"/></svg></div>
+                <div><div class="insight-lbl" id="lbl-pet">PET HEALTH</div><div class="insight-val" id="val-pet">--</div></div>
             </div>
-            <div class="card">
-                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg></div>
-                <div><div class="card-lbl" id="lbl-indoor">AIR QUALITY</div><div class="card-val" id="val-indoor">--</div></div>
+            <div class="insight-card" id="card-outdoor">
+                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M10,17L15,12L10,7V17Z"/></svg></div>
+                <div><div class="insight-lbl" id="lbl-outdoor">OUTDOOR</div><div class="insight-val" id="val-outdoor">--</div></div>
             </div>
-            <div class="card">
-                <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg></div>
-                <div><div class="card-lbl" id="lbl-mold">MOLD RISK</div><div class="card-val" id="val-mold">--</div></div>
+            <div class="insight-card" id="card-mold">
+                <div class="insight-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,7V11H7.83C8.18,9.75 9.09,8.73 10.28,8.22L11,7M13,7L13.72,8.22C14.91,8.73 15.82,9.75 16.17,11H13V7M16.17,13C15.82,14.25 14.91,15.27 13.72,15.78L13,17V13H16.17M11,17L10.28,15.78C9.09,15.27 8.18,14.25 7.83,13H11V17Z"/></svg></div>
+                <div><div class="insight-lbl" id="lbl-mold">MOLD RISK</div><div class="insight-val" id="val-mold">--</div></div>
             </div>
         </section>
 
         <!-- TIMELINE -->
-        <section class="timeline-box">
-            <div class="sec-title" id="lbl-timeline">HOURLY FORECAST</div>
+        <section class="card-glass" style="padding: 16px;">
+            <div class="oracle-head" style="margin-bottom:0;">
+                <span class="oracle-title" id="lbl-timeline">TIMELINE SYNC</span>
+                <span style="font-size:10px; color:var(--p-indigo);" id="live-indicator">LIVE</span>
+            </div>
             <div class="timeline-scroll" id="timeline-row"></div>
         </section>
 
@@ -287,386 +253,398 @@
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
 
-    <!-- 🧠 AURA ENGINE v6.0 (Resilient) -->
     <script>
-        
-        // --- CONFIG & DICT ---
+        /**
+         * AURA V8.0 - TRUE REAL-TIME ENGINE
+         * Interpolates data, physics simulation, and live logic.
+         */
+
         const Config = {
             API_W: 'https://api.open-meteo.com/v1/forecast',
             API_A: 'https://air-quality-api.open-meteo.com/v1/air-quality',
             API_G: 'https://api.bigdatacloud.net/data/reverse-geocode-client',
-            RETRY_MAX: 3,
-            TIMEOUT: 8000
+            REFRESH_DATA: 300000, // 5 mins
+            REFRESH_LOC: 600000, // 10 mins
+            SYNC_TIME: 60000 // 1 min
         };
 
-        const Dictionary = {
+        const Dict = {
             en: {
-                score: "LIFE SCORE", oracle: "AURA ORACLE", conf: "Precision",
-                factor: "Primary Driver", time: "HOURLY FORECAST",
-                laundry: "LAUNDRY", pet: "PET COMFORT", indoor: "AIR QUALITY", mold: "MOLD RISK",
-                loc_denied: "GPS Denied (Demo)", gps_ok: "GPS Active", gps_err: "GPS Error",
+                score: "LIFE SCORE", diag: "AI DIAGNOSTIC", laundry: "LAUNDRY", pet: "PET HEALTH", outdoor: "OUTDOOR", mold: "MOLD RISK", timeline: "TIMELINE",
+                loc_fail: "GPS Signal Weak", gps_ok: "GPS Live",
                 status: {
-                    dry: "Perfect Dry", slow: "Slow Dry", bad: "Do Not Dry",
-                    safe: "Safe & Happy", allergy: "Allergy Risk", heat: "Heat Stress",
-                    clean: "Good Air", mod: "Moderate", poor: "Poor Air",
-                    low: "Low Risk", high: "High Risk",
-                    unknown: "No Data"
+                    good: "Optimal", bad: "Critical", mod: "Moderate",
+                    dry: "Fast Dry", slow: "Slow Dry", no_dry: "Do Not Dry",
+                    safe: "Safe & Happy", heat: "Heat Risk", allergy: "Allergy Risk",
+                    vent: "Ventilate", seal: "Seal Windows",
+                    low: "Low Risk", high: "High Risk"
                 },
-                factors: { rain: "Precipitation", heat: "Heat Index", air: "PM2.5 Level", calm: "Optimal State", wind: "Wind Speed", unknown: "Sensors" },
                 msg: {
-                    rain: "Precipitation detected. Keep activities indoors.",
-                    hot: "Thermal load high. Hydration recommended.",
-                    bad: "Air quality degrading. Seal windows.",
-                    good: "Atmospheric stability is optimal.",
-                    error: "Unable to retrieve full data structure."
+                    rain: "Precipitation accumulating. Stay sheltered.",
+                    heat: "Thermal bloom detected. High stress.",
+                    dust: "Particulate drift active. Seal windows.",
+                    good: "Atmosphere stable. Conditions optimal."
+                },
+                reason: {
+                    rain: "Moisture saturation > 90%",
+                    heat: "Solar radiation peak",
+                    dust: "Stagnant airflow",
+                    good: "Balanced pressure system"
                 }
             },
             th: {
-                score: "คะแนนชีวิต", oracle: "บทวิเคราะห์ออร่า", conf: "ความแม่นยำ",
-                factor: "ปัจจัยหลัก", time: "พยากรณ์รายชั่วโมง",
-                laundry: "ซักผ้า/ตากผ้า", pet: "ความสบายสัตว์เลี้ยง", indoor: "คุณภาพอากาศ", mold: "ความเสี่ยงเชื้อรา",
-                loc_denied: "ไม่พบ GPS (สาธิต)", gps_ok: "GPS ทำงาน", gps_err: "GPS ขัดข้อง",
+                score: "คะแนนชีวิต", diag: "บทวิเคราะห์ AI", laundry: "ซักผ้า", pet: "สัตว์เลี้ยง", outdoor: "กิจกรรม", mold: "เชื้อรา", timeline: "พยากรณ์",
+                loc_fail: "สัญญาณ GPS อ่อน", gps_ok: "GPS ทำงาน",
                 status: {
-                    dry: "ตากแห้งสนิท", slow: "แห้งช้า", bad: "ไม่ควรตาก",
-                    safe: "สบายตัว", allergy: "เสี่ยงภูมิแพ้", heat: "เสี่ยงฮีทสโตรก",
-                    clean: "อากาศดี", mod: "ปานกลาง", poor: "อากาศแย่",
-                    low: "ความเสี่ยงต่ำ", high: "ความเสี่ยงสูง",
-                    unknown: "ไม่มีข้อมูล"
+                    good: "ดีเยี่ยม", bad: "วิกฤต", mod: "ปานกลาง",
+                    dry: "แห้งไว", slow: "แห้งช้า", no_dry: "ไม่ควรตาก",
+                    safe: "ปลอดภัย", heat: "เสี่ยงฮีทสโตรก", allergy: "เสี่ยงภูมิแพ้",
+                    vent: "เปิดหน้าต่างได้", seal: "ปิดหน้าต่าง",
+                    low: "ความเสี่ยงต่ำ", high: "ความเสี่ยงสูง"
                 },
-                factors: { rain: "ฝนตก", heat: "ดัชนีความร้อน", air: "ฝุ่น PM2.5", calm: "สภาพอากาศ", wind: "แรงลม", unknown: "เซ็นเซอร์" },
                 msg: {
-                    rain: "ตรวจพบฝนในพื้นที่ แนะนำให้อยู่ในร่มนะครับ",
-                    hot: "อากาศร้อนจัด ดื่มน้ำบ่อยๆ และเลี่ยงแดดนะครับ",
-                    bad: "ค่าฝุ่นสูง ปิดหน้าต่างเพื่อสุขภาพนะครับ",
-                    good: "บรรยากาศสมดุลดีเยี่ยม เหมาะแก่การพักผ่อนครับ",
-                    error: "ไม่สามารถดึงข้อมูลสภาพอากาศได้ในขณะนี้"
+                    rain: "ความชื้นสะสมสูง ฝนกำลังก่อตัวครับ",
+                    heat: "ความร้อนสะสมสูง ระวังฮีทสโตรกนะครับ",
+                    dust: "ฝุ่นละอองหนาแน่น ปิดหน้าต่างดีกว่าครับ",
+                    good: "บรรยากาศสมดุลดีมาก เหมาะแก่การพักผ่อน"
+                },
+                reason: {
+                    rain: "ความชื้นสัมพัทธ์ > 90%",
+                    heat: "รังสีความร้อนสูงสุด",
+                    dust: "ลมสงบทำให้ฝุ่นสะสม",
+                    good: "ความกดอากาศเสถียร"
                 }
             }
         };
 
-        // --- STATE ---
+        // --- CORE STATE ---
         const State = {
-            lang: localStorage.getItem('aura_lang_v6') || 'en',
-            lat: 13.7563, // Default BKK
-            lon: 100.5018,
-            weather: null,
-            aqi: null,
-            geoName: "Bangkok, TH"
+            lang: localStorage.getItem('aura_lang') || 'en',
+            lat: 13.7563, lon: 100.5018,
+            weather: null, aqi: null,
+            lastLat: 0, lastLon: 0,
+            
+            // Physics Targets (Interpolation)
+            target: { wind: 0, rain: 0, heat: 0, pm: 0 },
+            current: { wind: 0, rain: 0, heat: 0, pm: 0 },
+            
+            simHourOffset: 0,
+            isLive: true
         };
 
         // --- UTILS ---
         const Utils = {
-            t: (key) => Dictionary[State.lang][key] || key,
+            t: (k) => Dict[State.lang][k] || k,
+            lerp: (start, end, amt) => (1 - amt) * start + amt * end,
+            dist: (lat1, lon1, lat2, lon2) => {
+                const R = 6371; 
+                const dLat = (lat2-lat1) * Math.PI/180;
+                const dLon = (lon2-lon1) * Math.PI/180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            },
+            toast: (msg) => {
+                const t = document.getElementById('toast');
+                t.innerText = msg; t.classList.add('show');
+                setTimeout(() => t.classList.remove('show'), 3000);
+            }
+        };
+
+        // --- 1. FLUID PHYSICS ENGINE ---
+        const Sim = {
+            cvs: document.getElementById('sim-canvas'),
+            ctx: null, w: 0, h: 0,
+            particles: [],
+            fluidT: 0,
+
+            init: () => {
+                Sim.ctx = Sim.cvs.getContext('2d', { alpha: false });
+                Sim.resize();
+                window.addEventListener('resize', Sim.resize);
+                Sim.loop();
+            },
+            resize: () => {
+                Sim.w = Sim.cvs.width = window.innerWidth;
+                Sim.h = Sim.cvs.height = window.innerHeight;
+            },
             
-            toast: (msg, loading = false) => {
-                const el = document.getElementById('toast');
-                el.innerHTML = loading ? `<div class="spinner"></div> ${msg}` : msg;
-                el.classList.add('show');
-                if(!loading) setTimeout(() => el.classList.remove('show'), 4000);
-            },
-
-            fetchWithTimeout: async (url, ms = 8000) => {
-                const controller = new AbortController();
-                const id = setTimeout(() => controller.abort(), ms);
-                try {
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(id);
-                    return res;
-                } catch (e) {
-                    clearTimeout(id);
-                    throw e;
+            spawn: () => {
+                // Rain
+                if(State.current.rain > 0.1) {
+                    const count = Math.floor(State.current.rain * 2); 
+                    for(let i=0; i<count; i++) {
+                        Sim.particles.push({ t:'rain', x:Math.random()*Sim.w, y:-10, v:15+Math.random()*10, l:60 });
+                    }
+                }
+                // Dust
+                if(State.current.pm > 30 && Math.random() < 0.2) {
+                    Sim.particles.push({ t:'dust', x:Math.random()*Sim.w, y:Math.random()*Sim.h, v:(Math.random()-0.5), l:200 });
                 }
             },
 
-            getHourIndex: (isoArray) => {
-                if(!isoArray) return 0;
-                const now = new Date();
-                const currentHour = now.getHours();
-                const idx = isoArray.findIndex(iso => {
-                    const d = new Date(iso);
-                    return d.getHours() === currentHour && d.getDate() === now.getDate();
-                });
-                return idx !== -1 ? idx : 0;
-            }
-        };
+            draw: () => {
+                const ctx = Sim.ctx;
+                // Fluid Background Interpolation
+                State.current.wind = Utils.lerp(State.current.wind, State.target.wind, 0.05);
+                State.current.rain = Utils.lerp(State.current.rain, State.target.rain, 0.05);
+                State.current.heat = Utils.lerp(State.current.heat, State.target.heat, 0.05);
+                State.current.pm = Utils.lerp(State.current.pm, State.target.pm, 0.05);
 
-        // --- LOCATION MANAGER ---
-        const LocationManager = {
-            init: async () => {
-                const btn = document.getElementById('btn-gps');
+                Sim.fluidT += 0.005 + (State.current.wind * 0.0005);
                 
-                if (!navigator.geolocation) {
-                    LocationManager.fail("GPS Not Supported");
-                    return;
-                }
+                // Color Mixing Logic
+                let c1 = '#A8D8FF', c2 = '#C3B4FF', c3 = '#A9E9F7'; // Default
+                if(State.current.rain > 0.5) { c1='#8A9BFF'; c2='#6D7380'; c3='#A8D8FF'; }
+                if(State.current.heat > 35) { c1='#FFDBA3'; c2='#FFB3B3'; c3='#A8D8FF'; }
+                if(State.current.pm > 50) { c1='#FFE4C4'; c2='#EEF1F6'; c3='#C3B4FF'; }
 
-                Utils.toast("Locating...", true);
+                // Draw Fluid
+                ctx.fillStyle = '#F5F7FA'; ctx.fillRect(0,0,Sim.w,Sim.h);
+                
+                const blob = (x,y,r,c) => {
+                    const g = ctx.createRadialGradient(x,y,0,x,y,r);
+                    g.addColorStop(0,c); g.addColorStop(1,'rgba(255,255,255,0)');
+                    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+                };
 
-                try {
-                    if (navigator.permissions && navigator.permissions.query) {
-                        const res = await navigator.permissions.query({ name: 'geolocation' });
-                        if (res.state === 'denied') throw new Error('Permission Denied');
+                blob(Sim.w*0.5 + Math.sin(Sim.fluidT)*100, Sim.h*0.4, Sim.w*0.8, c1);
+                blob(Sim.w*0.8, Sim.h*0.8 + Math.cos(Sim.fluidT*0.8)*50, Sim.w*0.7, c2);
+                blob(Sim.w*0.2, Sim.h*0.2 - Math.sin(Sim.fluidT*1.2)*50, Sim.w*0.6, c3);
+
+                // Particles
+                Sim.spawn();
+                for(let i=Sim.particles.length-1; i>=0; i--){
+                    const p = Sim.particles[i];
+                    p.l--;
+                    if(p.t === 'rain') {
+                        p.y += p.v;
+                        ctx.fillStyle = 'rgba(138,155,255,0.6)'; ctx.fillRect(p.x, p.y, 1, 10);
+                    } else if(p.t === 'dust') {
+                        p.x += p.v + (State.current.wind*0.1); 
+                        ctx.fillStyle = 'rgba(255,219,163,0.5)'; ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2); ctx.fill();
                     }
-
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                            State.lat = pos.coords.latitude;
-                            State.lon = pos.coords.longitude;
-                            btn.classList.add('active');
-                            btn.classList.remove('error');
-                            btn.innerHTML = Utils.t('gps_ok');
-                            DataEngine.fetch();
-                        },
-                        (err) => {
-                            console.warn("GPS Error:", err);
-                            LocationManager.fail();
-                        },
-                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-                    );
-                } catch (e) {
-                    LocationManager.fail();
+                    if(p.l<=0 || p.y>Sim.h) Sim.particles.splice(i,1);
                 }
             },
 
-            fail: (msg) => {
-                const btn = document.getElementById('btn-gps');
-                btn.classList.add('error');
-                btn.innerHTML = Utils.t('gps_err');
-                Utils.toast(msg || Utils.t('loc_denied'));
-                DataEngine.fetch(); // Fallback
+            loop: () => {
+                Sim.draw();
+                requestAnimationFrame(Sim.loop);
             }
         };
 
-        // --- DATA ENGINE (RESILIENT) ---
-        const DataEngine = {
-            fetch: async (retryCount = 0) => {
+        // --- 2. DATA ENGINE ---
+        const Data = {
+            fetch: async () => {
+                const btn = document.getElementById('btn-refresh');
+                btn.classList.add('refreshing');
                 
-                // 1. WEATHER (Critical)
-                const wUrl = `${Config.API_W}?latitude=${State.lat}&longitude=${State.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,wind_speed_10m&timezone=auto`;
-                
                 try {
-                    const wRes = await Utils.fetchWithTimeout(wUrl);
-                    if (!wRes.ok) throw new Error("Weather API Failed");
-                    State.weather = await wRes.json();
-                } catch (e) {
-                    console.error("Weather Fetch Fail:", e);
-                    if (retryCount < Config.RETRY_MAX) {
-                        Utils.toast(`Retrying... (${retryCount + 1})`, true);
-                        setTimeout(() => DataEngine.fetch(retryCount + 1), 2000);
-                        return; // Stop and wait for retry
-                    } else {
-                        Utils.toast("Weather unavailable. Please wait.");
-                        return; // Stop completely
-                    }
-                }
+                    const wUrl = `${Config.API_W}?latitude=${State.lat}&longitude=${State.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,relative_humidity_2m&timezone=auto`;
+                    const aUrl = `${Config.API_A}?latitude=${State.lat}&longitude=${State.lon}&current=pm2_5`;
+                    const gUrl = `${Config.API_G}?latitude=${State.lat}&longitude=${State.lon}&localityLanguage=en`;
 
-                // 2. AQI (Optional)
-                const aUrl = `${Config.API_A}?latitude=${State.lat}&longitude=${State.lon}&current=pm2_5`;
-                try {
-                    const aRes = await Utils.fetchWithTimeout(aUrl, 5000); // Shorter timeout for secondary
-                    if (aRes.ok) State.aqi = await aRes.json();
-                    else State.aqi = null;
-                } catch (e) {
-                    State.aqi = null; // Fail silently
-                }
+                    const [w, a, g] = await Promise.all([
+                        fetch(wUrl).then(r=>r.json()), 
+                        fetch(aUrl).then(r=>r.json()),
+                        fetch(gUrl).then(r=>r.json())
+                    ]);
 
-                // 3. GEOCODE (Optional)
-                const gUrl = `${Config.API_G}?latitude=${State.lat}&longitude=${State.lon}&localityLanguage=en`;
-                try {
-                    const gRes = await Utils.fetchWithTimeout(gUrl, 5000);
-                    if (gRes.ok) {
-                        const geo = await gRes.json();
-                        State.geoName = `${geo.city || geo.locality || 'Unknown'}, ${geo.countryCode}`;
-                    } else {
-                        State.geoName = "Your Area";
-                    }
-                } catch (e) {
-                    State.geoName = "Your Area";
-                }
+                    State.weather = w;
+                    State.aqi = a;
+                    
+                    document.getElementById('loc-txt').innerText = `${g.city || g.locality}, ${g.countryCode}`;
+                    
+                    Engine.update(); // Trigger Logic Update
+                    Utils.toast("Data Synced");
 
-                // Render UI
-                RenderEngine.update();
-                document.getElementById('toast').classList.remove('show');
+                } catch(e) { console.error(e); }
+                finally { btn.classList.remove('refreshing'); }
             }
         };
 
-        // --- BRAIN (Logic) ---
-        const Brain = {
-            process: (t) => {
-                const cur = State.weather.current;
-                const hr = State.weather.hourly;
-                // Safely access AQI
-                const pm25 = (State.aqi && State.aqi.current) ? State.aqi.current.pm2_5 : null;
-                const idx = Utils.getHourIndex(hr.time);
+        // --- 3. LOCATION MANAGER ---
+        const Location = {
+            request: () => {
+                if(!navigator.geolocation) return Data.fetch();
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        const dist = Utils.dist(State.lastLat, State.lastLon, pos.coords.latitude, pos.coords.longitude);
+                        State.lat = pos.coords.latitude;
+                        State.lon = pos.coords.longitude;
+                        // Only fetch if moved > 2km or first run
+                        if(dist > 2 || State.lastLat === 0) {
+                            State.lastLat = State.lat; State.lastLon = State.lon;
+                            Data.fetch();
+                        }
+                    },
+                    () => Data.fetch() // Fallback
+                );
+            }
+        };
 
-                // Default Fallbacks
-                let laundry = { t: t.status.dry, c: 'c-good' };
-                let pet = { t: t.status.safe, c: 'c-good' };
-                let indoor = { t: t.status.clean, c: 'c-good' };
-                let mold = { t: t.status.low, c: 'c-good' };
-                let msg = t.msg.good;
-                let factor = t.factors.calm;
+        // --- 4. CORE ENGINE (LOGIC & UI) ---
+        const Engine = {
+            refresh: () => { Location.request(); },
+            
+            update: () => {
+                if(!State.weather) return;
+                
+                // Determine Source Data (Live vs Sim)
+                const nowHour = new Date().getHours();
+                const idx = State.isLive ? 
+                    State.weather.hourly.time.findIndex(t => new Date(t).getHours() === nowHour) :
+                    (State.weather.hourly.time.findIndex(t => new Date(t).getHours() === nowHour) + State.simHourOffset);
+                
+                const safeIdx = Math.max(0, Math.min(idx, 23));
+                const hData = {
+                    temp: State.weather.hourly.temperature_2m[safeIdx],
+                    rain: State.weather.hourly.precipitation_probability[safeIdx],
+                    wind: State.weather.hourly.wind_speed_10m[safeIdx],
+                    hum: State.weather.hourly.relative_humidity_2m[safeIdx],
+                    pm: State.aqi ? State.aqi.current.pm2_5 : 0
+                };
+
+                // Update Physics Targets
+                State.target.wind = hData.wind;
+                State.target.rain = hData.rain > 30 ? (hData.rain/10) : 0; // Normalize rain for particles
+                State.target.heat = hData.temp;
+                State.target.pm = hData.pm;
+
+                // UI Logic
+                const t = Dict[State.lang];
+                
+                // Score
                 let score = 100;
-
-                // --- LOGIC ---
-                // Rain Check
-                if (cur.precipitation > 0 || (hr.precipitation_probability && hr.precipitation_probability[idx] > 40)) {
-                    laundry = { t: t.status.bad, c: 'c-rain' };
-                    msg = t.msg.rain;
-                    factor = t.factors.rain;
-                    score -= 30;
-                } else if (cur.relative_humidity_2m > 75) {
-                    laundry = { t: t.status.slow, c: 'c-warn' };
-                }
-
-                // Heat Check
-                if (cur.apparent_temperature > 35) {
-                    pet = { t: t.status.heat, c: 'c-bad' };
-                    msg = t.msg.hot;
-                    factor = t.factors.heat;
-                    score -= 20;
-                }
-
-                // AQI Check (If data exists)
-                if (pm25 !== null) {
-                    if (pm25 > 75) {
-                        pet = { t: t.status.allergy, c: 'c-warn' };
-                        indoor = { t: t.status.seal, c: 'c-bad' };
-                        msg = t.msg.bad;
-                        factor = t.factors.air;
-                        score -= 25;
-                    } else if (pm25 > 35) {
-                        indoor = { t: t.status.mod, c: 'c-warn' };
-                    }
-                } else {
-                    indoor = { t: t.status.unknown, c: 'c-warn' };
-                }
-
-                // Mold Check
-                if (cur.relative_humidity_2m > 80) mold = { t: t.status.high, c: 'c-warn' };
-
+                if(hData.temp > 35) score -= 20;
+                if(hData.rain > 40) score -= 25;
+                if(hData.pm > 50) score -= 20;
                 score = Math.max(0, score);
 
-                return { laundry, pet, indoor, mold, msg, factor, score, cur, hr, idx };
-            }
-        };
-
-        // --- RENDER ENGINE ---
-        const RenderEngine = {
-            update: () => {
-                if (!State.weather) return;
-
-                const t = Dictionary[State.lang];
-                const data = Brain.process(t);
-                const cur = data.cur;
-
-                // Font Sync
-                document.body.style.fontFamily = State.lang === 'th' ? 'var(--font-th)' : 'var(--font-en)';
-
-                // Labels
-                const map = {
-                    'score-lbl': t.score, 'lbl-oracle': t.oracle, 'lbl-conf': t.conf,
-                    'lbl-factor': t.factor, 'lbl-timeline': t.time, 'lbl-laundry': t.laundry,
-                    'lbl-pet': t.pet, 'lbl-indoor': t.indoor, 'lbl-mold': t.mold
+                // Update DOM with Pulse
+                const setVal = (id, val, logic) => {
+                    const el = document.getElementById(id);
+                    if(el.innerText !== val) {
+                        el.innerText = val;
+                        el.classList.add('updated-pulse');
+                        setTimeout(()=>el.classList.remove('updated-pulse'), 1000);
+                        if(logic) logic(el.parentElement); // Parent vibration etc
+                    }
                 };
-                for (const [id, txt] of Object.entries(map)) document.getElementById(id).innerText = txt;
 
-                // Hero
-                document.getElementById('loc-txt').innerText = State.geoName;
-                document.getElementById('score-val').innerText = data.score;
-                document.getElementById('weather-desc').innerText = `${Math.round(cur.temperature_2m)}°C • H:${Math.round(cur.relative_humidity_2m)}%`;
-                
-                // Oracle
-                document.getElementById('ai-msg').innerText = data.msg;
-                document.getElementById('val-factor').innerText = data.factor;
-                setTimeout(() => document.getElementById('bar-conf').style.width = "99%", 100);
+                setVal('score-val', score);
+                setVal('weather-desc', `${Math.round(hData.temp)}°C • H:${hData.hum}% • Wind ${hData.wind}`);
 
-                // Cards
-                RenderEngine.setCard('val-laundry', data.laundry);
-                RenderEngine.setCard('val-pet', data.pet);
-                RenderEngine.setCard('val-indoor', data.indoor);
-                RenderEngine.setCard('val-mold', data.mold);
-
-                // Sparklines
-                RenderEngine.drawSparks(data.hr, data.idx);
-
-                // Timeline
-                RenderEngine.drawTimeline(data.hr, data.idx);
-
-                // Lang Btn
-                document.getElementById('btn-lang').innerText = State.lang === 'en' ? 'EN' : 'TH';
-            },
-
-            setCard: (id, obj) => {
-                document.getElementById(id).innerHTML = `<span class="status-dot ${obj.c}"></span>${obj.t}`;
-            },
-
-            drawSparks: (hr, startIdx) => {
-                const box = document.getElementById('spark-grid');
-                box.innerHTML = '';
-                
-                const make = (arr, color, label) => {
-                    if(!arr) return '';
-                    const slice = arr.slice(startIdx, startIdx + 12);
-                    const min = Math.min(...slice);
-                    const max = Math.max(...slice);
-                    const range = max - min || 1;
+                // Cards logic
+                const updateCard = (id, type, val) => {
+                    let st = { t:t.status.good, c:'c-good' };
+                    // Logic trees
+                    if(type === 'laundry') {
+                        if(hData.rain > 30) st = {t:t.status.no_dry, c:'c-bad'};
+                        else if(hData.hum > 70) st = {t:t.status.slow, c:'c-warn'};
+                        else st = {t:t.status.dry, c:'c-good'};
+                    }
+                    if(type === 'pet') {
+                        if(hData.temp > 33) st = {t:t.status.heat, c:'c-bad'};
+                        else if(hData.pm > 80) st = {t:t.status.allergy, c:'c-warn'};
+                        else st = {t:t.status.safe, c:'c-good'};
+                    }
+                    if(type === 'outdoor') {
+                        if(hData.pm > 100) st = {t:t.status.seal, c:'c-bad'};
+                        else if(hData.pm > 50) st = {t:t.status.vent, c:'c-warn'};
+                        else st = {t:t.status.good, c:'c-good'};
+                    }
+                    if(type === 'mold') {
+                        if(hData.hum > 80) st = {t:t.status.high, c:'c-bad'};
+                        else if(hData.hum > 60) st = {t:t.status.low, c:'c-good'};
+                    }
                     
-                    let d = "M 0 100 ";
-                    slice.forEach((v, i) => {
-                        const x = (i / (slice.length - 1)) * 100;
-                        const y = 100 - ((v - min) / range * 80 + 10);
-                        d += `L ${x} ${y} `;
-                    });
-
-                    return `
-                        <div class="spark-item">
-                            <span class="spark-lbl">${label}</span>
-                            <svg class="spark-line" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                <path d="${d}" stroke="${color}" />
-                            </svg>
-                        </div>
-                    `;
+                    document.getElementById(`val-${type}`).innerText = st.t;
+                    document.getElementById(`card-${type}`).style.borderColor = st.c === 'c-bad' ? 'var(--p-rose)' : 'rgba(255,255,255,0.5)';
                 };
 
-                box.innerHTML += make(hr.temperature_2m, '#FFCB86', 'TEMP');
-                box.innerHTML += make(hr.relative_humidity_2m, '#A8D8FF', 'HUM');
-                box.innerHTML += make(hr.wind_speed_10m, '#9CE5B5', 'WIND');
+                updateCard('laundry', 'laundry');
+                updateCard('pet', 'pet');
+                updateCard('outdoor', 'outdoor');
+                updateCard('mold', 'mold');
+
+                // Oracle Msg
+                let msg = t.msg.good; 
+                let reason = t.reason.good;
+                if(hData.rain > 40) { msg = t.msg.rain; reason = t.reason.rain; }
+                else if(hData.temp > 35) { msg = t.msg.heat; reason = t.reason.heat; }
+                else if(hData.pm > 50) { msg = t.msg.dust; reason = t.reason.dust; }
+                document.getElementById('ai-msg').innerText = msg;
+                document.getElementById('ai-reason').innerText = reason;
+                
+                // Pulse Bar
+                document.getElementById('pulse-bar').style.height = `${10 + (Math.random()*20)}px`;
+
+                Engine.renderTimeline(nowHour);
             },
 
-            drawTimeline: (hr, startIdx) => {
-                const box = document.getElementById('timeline-row');
-                box.innerHTML = '';
+            renderTimeline: (currentHour) => {
+                const con = document.getElementById('timeline-row');
+                con.innerHTML = '';
                 
-                for (let i = 0; i < 6; i++) {
-                    const idx = startIdx + i;
-                    if (idx >= hr.time.length) break;
+                for(let i=0; i<12; i++) {
+                    const h = (currentHour + i) % 24;
+                    const el = document.createElement('div');
+                    const isActive = State.simHourOffset === i;
+                    el.className = `t-node ${isActive ? 'active' : ''}`;
+                    el.onclick = () => {
+                        State.simHourOffset = i;
+                        State.isLive = (i === 0);
+                        document.getElementById('live-indicator').innerText = i===0 ? "LIVE" : `FUTURE +${i}h`;
+                        Engine.update();
+                    };
+                    
+                    // Temp Data
+                    // Safe access
+                    let temp = "--";
+                    if (State.weather && State.weather.hourly) {
+                         // Simple mapping, not exact index finding for performance in loop
+                         // Just taking array index approx
+                         const idx = Math.min(State.weather.hourly.temperature_2m.length-1, i + (new Date().getHours())); 
+                         // Better: Find index matching hour
+                         const match = State.weather.hourly.time.findIndex(t => new Date(t).getHours() === h);
+                         if(match > -1) temp = Math.round(State.weather.hourly.temperature_2m[match]);
+                    }
 
-                    const dateObj = new Date(hr.time[idx]); 
-                    const h = dateObj.getHours();
-                    const temp = Math.round(hr.temperature_2m[idx]);
-                    const active = i === 0 ? 'active' : '';
-
-                    box.innerHTML += `
-                        <div class="t-node ${active}">
-                            <div class="t-dot"></div>
-                            <span class="t-time">${h}:00</span>
-                            <span class="t-temp">${temp}°</span>
-                        </div>
+                    el.innerHTML = `
+                        <span class="t-time">${h}:00</span>
+                        <div class="t-dot"></div>
+                        <span class="t-temp">${temp}°</span>
                     `;
+                    con.appendChild(el);
                 }
             }
         };
 
-        // --- INIT ---
+        // --- INITIALIZATION ---
         State.toggleLang = () => {
             State.lang = State.lang === 'en' ? 'th' : 'en';
-            localStorage.setItem('aura_lang_v6', State.lang);
-            if(State.weather) RenderEngine.update();
+            localStorage.setItem('aura_lang', State.lang);
+            // Update static labels
+            const t = Dict[State.lang];
+            ['score-lbl','lbl-diag','lbl-laundry','lbl-pet','lbl-outdoor','lbl-mold','lbl-timeline'].forEach(id => {
+                const k = id.replace('lbl-','').replace('score-','score').replace('diag','diag'); 
+                if(t[k]) document.getElementById(id).innerText = t[k];
+            });
+            document.getElementById('btn-lang').innerText = State.lang === 'en' ? 'EN' : 'TH';
+            Engine.update();
         };
 
         window.addEventListener('DOMContentLoaded', () => {
-            LocationManager.init();
+            Sim.init();
+            Location.request();
+            
+            // Real-Time Loops
+            setInterval(Engine.update, Config.SYNC_TIME); // Every minute UI sync
+            setInterval(Data.fetch, Config.REFRESH_DATA); // Every 5 mins data
+            setInterval(Location.request, Config.REFRESH_LOC); // Every 10 mins GPS
+            
+            State.toggleLang(); // Set initial lang text
         });
 
     </script>
