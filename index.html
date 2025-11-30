@@ -2,486 +2,751 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Omega Finder (TH)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RABROY – Random Behavior Analyzer</title>
+    <meta name="description" content="วิเคราะห์พฤติกรรมตัวเลขด้วยหลักสถิติระดับสูง Chi-square, Runs Test และ Autocorrelation">
     
-    <!-- Leaflet CSS (Map) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <style>
-        /* 
-         * 🎨 OMEGA THAI DESIGN SYSTEM
-         * Apple Minimal Black & White
-         */
+        /* --- 1. DESIGN TOKENS --- */
         :root {
-            --bg: #FFFFFF;
-            --text-main: #000000;
-            --text-sub: #8E8E93;
-            --border: #E5E5EA;
-            --card-bg: #FFFFFF;
-            --btn-bg: #000000;
-            --btn-text: #FFFFFF;
-            --nav-bg: rgba(255, 255, 255, 0.95);
-            --safe-top: env(safe-area-inset-top);
-            --safe-bottom: env(safe-area-inset-bottom);
-            --font-stack: -apple-system, "Thonburi", "Sukhumvit Set", sans-serif;
-            --ease: cubic-bezier(0.25, 1, 0.5, 1);
+            /* Palette: Apple/Scientific Pro */
+            --bg-body: #F5F5F7;
+            --bg-card: #FFFFFF;
+            --bg-glass: rgba(255, 255, 255, 0.8);
+            
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --text-tertiary: #C7C7CC;
+            
+            --accent: #0071E3;
+            --accent-gradient: linear-gradient(135deg, #0077ED, #0071E3);
+            --accent-glow: rgba(0, 113, 227, 0.3);
+            
+            --success-bg: #E4F9E8; --success-text: #178236;
+            --warning-bg: #FFF4E5; --warning-text: #B45309;
+            --danger-bg: #FEECEC; --danger-text: #CB2A2A;
+            --neutral-bg: #F2F2F7; --neutral-text: #636366;
+
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-card: 0 4px 24px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02);
+            --shadow-float: 0 20px 40px rgba(0,0,0,0.08);
+
+            --radius-l: 24px;
+            --radius-m: 16px;
+            --radius-s: 12px;
+            --radius-pill: 999px;
+
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
+            --anim-smooth: cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* Dark Mode Support (Auto) */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #000000;
-                --text-main: #FFFFFF;
-                --text-sub: #8E8E93;
-                --border: #38383A;
-                --card-bg: #1C1C1E;
-                --btn-bg: #FFFFFF;
-                --btn-text: #000000;
-                --nav-bg: rgba(28, 28, 30, 0.95);
-            }
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-        
         body {
-            margin: 0; padding: 0;
-            background: var(--bg); color: var(--text-main);
             font-family: var(--font-stack);
-            overflow: hidden; height: 100vh; width: 100vw;
-            display: flex; flex-direction: column;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding-bottom: 40px;
         }
 
-        /* TYPOGRAPHY */
-        h1 { font-size: 28px; font-weight: 700; margin: 0 0 10px 0; letter-spacing: -0.5px; }
-        h2 { font-size: 20px; font-weight: 600; margin: 0; }
-        p { font-size: 16px; color: var(--text-sub); margin: 0; line-height: 1.5; }
-        .caption { font-size: 13px; color: var(--text-sub); }
+        /* --- 2. LAYOUT & UTILS --- */
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            opacity: 0;
+            animation: fadeInPage 0.8s var(--anim-smooth) 0.5s forwards;
+        }
+        @keyframes fadeInPage { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* COMPONENTS */
-        .btn {
-            width: 100%; padding: 16px; border-radius: 14px;
-            background: var(--btn-bg); color: var(--btn-text);
-            font-size: 17px; font-weight: 600; text-align: center;
-            border: none; cursor: pointer; transition: transform 0.1s;
+        header { text-align: center; margin-bottom: 32px; }
+        .badge-research {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #EAF2FF; color: var(--accent);
+            font-size: 0.7rem; font-weight: 700;
+            padding: 6px 12px; border-radius: var(--radius-pill);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+        }
+        h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 8px; color: var(--text-primary); }
+        .subtitle { font-size: 1.05rem; color: var(--text-secondary); max-width: 500px; margin: 0 auto; line-height: 1.6; }
+
+        .grid-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .grid-full { grid-column: span 2; }
+        
+        @media (max-width: 768px) {
+            .grid-main { grid-template-columns: 1fr; }
+            .grid-full { grid-column: span 1; }
+            h1 { font-size: 2rem; }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-l);
+            box-shadow: var(--shadow-card);
+            border: 1px solid rgba(0,0,0,0.04);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s var(--anim-smooth), box-shadow 0.3s var(--anim-smooth);
+        }
+
+        /* --- 3. COMPONENT: VISUALIZER (NEW) --- */
+        .visualizer-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; min-height: 320px;
+        }
+        
+        .dial-wrapper {
+            position: relative;
+            width: 200px; height: 200px;
+            margin-bottom: 24px;
+        }
+        
+        /* Rings */
+        .ring-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; border: 8px solid var(--neutral-bg);
+        }
+        .ring-needle {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%;
+            transition: transform 0.8s cubic-bezier(0.1, 1.2, 0.3, 1); /* Elastic ease */
+        }
+        .ring-needle::after {
+            content: ''; position: absolute; top: 10px; left: 50%;
+            width: 8px; height: 8px; background: var(--accent);
+            border-radius: 50%; transform: translateX(-50%);
+            box-shadow: 0 0 10px var(--accent);
+        }
+        
+        /* Big Number */
+        .viz-number {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4.5rem; font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+        .viz-label {
+            position: absolute; top: 70%; left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem; font-weight: 600;
+            color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 1px;
             margin-top: 10px;
         }
-        .btn:active { transform: scale(0.96); opacity: 0.9; }
-        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
-        .btn-text { background: transparent; color: var(--text-sub); margin-top: 15px; }
 
-        /* SCREEN TRANSITIONS */
-        .screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg); z-index: 10;
-            display: flex; flex-direction: column;
-            opacity: 0; pointer-events: none; transform: scale(0.95);
-            transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
-            padding-top: var(--safe-top);
+        /* Mini History Tape */
+        .mini-history {
+            display: flex; gap: 8px; justify-content: center;
+            margin-top: 16px; min-height: 24px;
+            overflow: hidden;
         }
-        .screen.active { opacity: 1; pointer-events: auto; transform: scale(1); z-index: 20; }
-        .screen.hidden { display: none; }
-
-        /* 1. SPLASH */
-        #splash { align-items: center; justify-content: center; z-index: 100; background: var(--bg); }
-        .loader {
-            width: 30px; height: 30px; border: 3px solid rgba(128,128,128,0.2);
-            border-top: 3px solid var(--text-main); border-radius: 50%;
-            animation: spin 1s linear infinite; margin-top: 20px;
+        .hist-dot {
+            font-family: var(--font-mono); font-size: 0.8rem;
+            color: var(--text-secondary); opacity: 0.5;
+            transition: opacity 0.3s;
         }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .hist-dot:first-child { opacity: 1; font-weight: 700; color: var(--text-primary); }
 
-        /* 2. PERMISSIONS & ONBOARDING */
-        .content-box { padding: 30px; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; }
-        .icon-hero { font-size: 60px; margin-bottom: 20px; }
+        /* Draw Button */
+        .btn-draw {
+            background: var(--bg-body); color: var(--text-primary);
+            border: 1px solid rgba(0,0,0,0.05);
+            padding: 12px 24px; border-radius: var(--radius-pill);
+            font-weight: 600; font-size: 0.95rem; cursor: pointer;
+            transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+            box-shadow: var(--shadow-sm);
+        }
+        .btn-draw:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); background: #fff; }
+        .btn-draw:active { transform: translateY(0); }
+        .btn-draw:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* 3. HOME & MAP */
-        #map-container { flex-grow: 1; width: 100%; position: relative; z-index: 1; background: #f0f0f0; }
-        /* Grayscale Map Filter */
-        .leaflet-layer { filter: grayscale(100%); }
+        /* --- 4. COMPONENT: SUMMARY & CONTROLS --- */
+        .stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-box {
+            background: var(--bg-body); padding: 16px; border-radius: var(--radius-m);
+            text-align: center;
+        }
+        .stat-val { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+        .stat-lbl { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; }
+
+        .control-panel { display: flex; flex-direction: column; gap: 12px; }
+        .btn-primary {
+            background: var(--accent-gradient); color: white;
+            border: none; padding: 14px; border-radius: var(--radius-m);
+            font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+            transition: all 0.2s; position: relative; overflow: hidden;
+        }
+        .btn-primary:hover { box-shadow: 0 6px 16px rgba(0, 113, 227, 0.4); transform: scale(1.01); }
+        .btn-primary:active { transform: scale(0.99); }
+        .btn-primary:disabled { background: var(--text-tertiary); box-shadow: none; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: white; color: var(--text-primary);
+            border: 1px solid rgba(0,0,0,0.1); padding: 14px; border-radius: var(--radius-m);
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: #F9F9F9; border-color: rgba(0,0,0,0.2); }
+
+        /* Loading Spinner inside Button */
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff; border-radius: 50%;
+            display: inline-block; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- 5. COMPONENT: ANALYSIS TABS --- */
+        .tabs-container { margin-top: 8px; }
+        .tabs-header {
+            display: flex; background: var(--neutral-bg); padding: 4px;
+            border-radius: var(--radius-m); margin-bottom: 24px;
+        }
+        .tab-btn {
+            flex: 1; background: transparent; border: none; padding: 10px;
+            border-radius: var(--radius-s); font-size: 0.9rem; font-weight: 600;
+            color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+        }
+        .tab-btn.active { background: #fff; color: var(--text-primary); box-shadow: var(--shadow-sm); }
+
+        .tab-panel { display: none; animation: slideUp 0.3s ease; }
+        .tab-panel.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Stats Rows with Chips */
+        .res-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0; border-bottom: 1px solid var(--neutral-bg);
+        }
+        .chip {
+            font-size: 0.75rem; font-weight: 700; padding: 4px 10px;
+            border-radius: 6px; text-transform: uppercase;
+        }
+        .chip.green { background: var(--success-bg); color: var(--success-text); }
+        .chip.red { background: var(--danger-bg); color: var(--danger-text); }
+        .chip.gray { background: var(--neutral-bg); color: var(--neutral-text); }
         
-        /* Device Card on Map */
-        .map-card {
-            position: absolute; bottom: calc(90px + var(--safe-bottom)); left: 16px; right: 16px;
-            background: var(--card-bg); border-radius: 20px; padding: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 400;
-            border: 1px solid var(--border);
+        .bar-container {
+            display: flex; align-items: center; gap: 12px; margin-top: 8px;
         }
-        .device-row { display: flex; align-items: center; margin-bottom: 15px; }
-        .device-icon { 
-            width: 50px; height: 50px; background: #F2F2F7; border-radius: 12px; 
-            display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 15px; 
-        }
+        .bar-bg { flex: 1; height: 6px; background: var(--neutral-bg); border-radius: 3px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
 
-        /* 4. LISTS (DEVICES & SETTINGS) */
-        .page-header { padding: 20px 20px 10px 20px; }
-        .list-group { margin: 20px; background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
-        .list-item {
-            padding: 16px; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--border); background: var(--card-bg); font-size: 17px;
-        }
-        .list-item:last-child { border-bottom: none; }
-        .arrow-right { color: var(--border); font-weight: bold; }
-
-        /* 5. BOTTOM NAVIGATION */
-        .tab-bar {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: calc(60px + var(--safe-bottom));
-            background: var(--nav-bg); border-top: 1px solid var(--border);
-            display: flex; justify-content: space-around; padding-top: 10px;
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            z-index: 50; padding-bottom: var(--safe-bottom);
-        }
-        .tab-item {
+        /* --- 6. SPLASH SCREEN --- */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: var(--text-sub); width: 60px; font-size: 10px; gap: 4px;
+            transition: opacity 0.5s;
         }
-        .tab-item svg { width: 24px; height: 24px; stroke: currentColor; stroke-width: 2; fill: none; }
-        .tab-item.active { color: var(--text-main); }
+        .loader-svg { width: 60px; height: 60px; animation: spin 1s linear infinite; }
+        .loader-circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-dasharray: 100; stroke-dashoffset: 50; }
 
-        /* 6. PRECISION AR VIEW */
-        #ar-view { background: #000; z-index: 200; }
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
-        .ar-overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            z-index: 201; 
+        /* Footer */
+        .footer-note {
+            text-align: center; margin-top: 40px; font-size: 0.8rem; color: var(--text-tertiary);
         }
-        .ar-arrow {
-            width: 0; height: 0; 
-            border-left: 30px solid transparent; border-right: 30px solid transparent; border-bottom: 100px solid white;
-            margin-bottom: 30px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
-            will-change: transform;
-        }
-        .ar-dist { font-size: 64px; font-weight: 800; color: white; letter-spacing: -2px; }
-        .ar-unit { font-size: 20px; color: rgba(255,255,255,0.7); margin-top: -10px; }
         
-        .close-ar {
-            position: absolute; top: calc(20px + var(--safe-top)); left: 20px;
-            background: rgba(255,255,255,0.2); backdrop-filter: blur(10px);
-            padding: 8px 16px; border-radius: 20px; color: white; border: 1px solid rgba(255,255,255,0.3);
-            font-size: 14px; z-index: 202;
-        }
-
     </style>
 </head>
 <body>
 
-    <!-- 1. SPLASH SCREEN -->
-    <div id="splash" class="screen active">
-        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+    <!-- Splash Screen -->
+    <div id="splash">
+        <svg class="loader-svg" viewBox="0 0 50 50">
+            <circle class="loader-circle" cx="25" cy="25" r="20"></circle>
         </svg>
-        <div class="loader"></div>
-        <p style="margin-top: 10px; font-size: 14px;">กำลังโหลด...</p>
+        <div style="margin-top: 16px; font-weight: 600; color: var(--text-secondary);">RABROY</div>
     </div>
 
-    <!-- 2. PERMISSIONS -->
-    <div id="permissions" class="screen">
-        <div class="content-box">
-            <div class="icon-hero">🔒</div>
-            <h1>ตั้งค่าเริ่มต้น</h1>
-            <p>โปรดอนุญาตให้แอปเข้าถึงตำแหน่ง กล้อง และเซนเซอร์ เพื่อใช้งานระบบค้นหาความแม่นยำสูง</p>
-            <div style="height: 30px;"></div>
-            <button class="btn" onclick="app.grantPermissions()">อนุญาตการเข้าถึง</button>
-            <button class="btn btn-text" onclick="app.finishSetup()">ลองโหมดสาธิต</button>
-        </div>
-    </div>
-
-    <!-- 3. ONBOARDING -->
-    <div id="onboarding" class="screen">
-        <div class="content-box">
-            <div id="slide-content">
-                <div class="icon-hero">🌏</div>
-                <h1>ค้นหาอุปกรณ์ของคุณ</h1>
-                <p>ไม่ว่าอุปกรณ์จะอยู่ที่ไหน คุณก็สามารถติดตามตำแหน่งได้ทุกที่ทั่วโลก</p>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="badge-research">
+                <span>🔬</span> Research & Education Only
             </div>
-            <div style="height: 30px;"></div>
-            <button class="btn" onclick="app.finishOnboarding()">เริ่มต้นใช้งาน</button>
-        </div>
-    </div>
+            <h1>RABROY</h1>
+            <div class="subtitle">Random Behavior Analyzer<br>วิเคราะห์พฤติกรรมตัวเลขด้วยหลักสถิติ</div>
+        </header>
 
-    <!-- 4. HOME SCREEN -->
-    <div id="home" class="screen">
-        <div id="map-container"></div>
-        
-        <!-- Nearby Device Card -->
-        <div class="map-card">
-            <div class="device-row">
-                <div class="device-icon">🎒</div>
-                <div>
-                    <h2>กระเป๋าเดินทาง</h2>
-                    <p class="caption">อยู่ใกล้คุณ • 2 นาทีที่แล้ว</p>
+        <!-- Main Grid -->
+        <div class="grid-main">
+            
+            <!-- 1. Live Random Visualizer -->
+            <div class="card visualizer-container">
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <span style="font-weight:700; font-size:0.9rem; color:var(--text-primary);">Live Visualizer</span>
+                    <span style="font-size:1.2rem;">🎲</span>
                 </div>
-                <div style="margin-left:auto; font-size:24px; color:var(--text-sub)">›</div>
-            </div>
-            <button class="btn" onclick="app.startAR()">ค้นหาอุปกรณ์</button>
-        </div>
-    </div>
 
-    <!-- 5. DEVICES LIST -->
-    <div id="devices" class="screen">
-        <div class="page-header">
-            <h1>อุปกรณ์</h1>
-        </div>
-        <div class="list-group">
-            <div class="list-item">
-                <div style="display:flex; align-items:center;">
-                    <div class="device-icon" style="width:40px; height:40px; font-size:20px; margin-right:12px;">🎒</div>
-                    <div>
-                        <div>กระเป๋าเดินทาง</div>
-                        <div class="caption">สยามพารากอน</div>
+                <div class="dial-wrapper">
+                    <div class="ring-bg"></div>
+                    <div class="ring-needle" id="viz-needle"></div>
+                    <div class="viz-number" id="viz-number">--</div>
+                    <div class="viz-label">Current Draw</div>
+                </div>
+
+                <button class="btn-draw" id="btn-draw-single">
+                    <span>Draw 1 Sample</span>
+                </button>
+
+                <div class="mini-history" id="mini-history">
+                    <!-- History Dots -->
+                </div>
+            </div>
+
+            <!-- 2. Dataset Summary & Controls -->
+            <div class="card">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="font-size:1.1rem; font-weight:700;">Dataset Overview</h3>
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">
+                        Source: <span id="source-badge">Waiting for input...</span>
                     </div>
                 </div>
-                <span class="arrow-right">›</span>
-            </div>
-            <div class="list-item">
-                <div style="display:flex; align-items:center;">
-                    <div class="device-icon" style="width:40px; height:40px; font-size:20px; margin-right:12px;">🔑</div>
-                    <div>
-                        <div>กุญแจบ้าน</div>
-                        <div class="caption">ที่บ้าน • 1 ชม. ที่แล้ว</div>
+
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-val" id="stat-total">-</div>
+                        <div class="stat-lbl">Total Samples</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val" id="stat-mean">-</div>
+                        <div class="stat-lbl">Mean Value</div>
                     </div>
                 </div>
-                <span class="arrow-right">›</span>
-            </div>
-            <div class="list-item">
-                <div style="display:flex; align-items:center;">
-                    <div class="device-icon" style="width:40px; height:40px; font-size:20px; margin-right:12px;">🐈</div>
-                    <div>
-                        <div>แมวของฉัน</div>
-                        <div class="caption">หลังบ้าน • ตอนนี้</div>
-                    </div>
+
+                <div class="control-panel">
+                    <button class="btn-secondary" id="btn-load-hist">
+                        📂 โหลดข้อมูลจริง (Historical)
+                    </button>
+                    <button class="btn-primary" id="btn-sim">
+                        ⚡ จำลองการสุ่ม (Simulation)
+                    </button>
                 </div>
-                <span class="arrow-right">›</span>
+                
+                <div id="sim-progress" style="display:none; margin-top:12px; font-size:0.8rem; color:var(--text-secondary); text-align:center;">
+                    Generating samples... <span id="sim-count">0</span>/1000
+                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- 6. SETTINGS -->
-    <div id="settings" class="screen">
-        <div class="page-header">
-            <h1>ตั้งค่า</h1>
-        </div>
-        <div class="list-group">
-            <div class="list-item">
-                <span>อนุญาตการเข้าถึง</span>
-                <span style="color:var(--text-sub)">เปิดอยู่</span>
-            </div>
-            <div class="list-item">
-                <span>ธีมสี</span>
-                <span style="color:var(--text-sub)">อัตโนมัติ</span>
-            </div>
-        </div>
-        <div class="list-group">
-            <div class="list-item">
-                <span>วิธีใช้งาน</span>
-                <span class="arrow-right">›</span>
-            </div>
-            <div class="list-item">
-                <span>เกี่ยวกับแอป</span>
-                <span class="arrow-right">›</span>
-            </div>
-            <div class="list-item" onclick="localStorage.clear(); location.reload();">
-                <span style="color: red;">รีเซ็ตข้อมูล</span>
-            </div>
-        </div>
-    </div>
+            <!-- 3. Analysis Tabs (Full Width) -->
+            <div class="card grid-full">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="chi">Chi-Square</button>
+                    <button class="tab-btn" data-tab="runs">Runs Test</button>
+                    <button class="tab-btn" data-tab="autocorr">Autocorr</button>
+                    <button class="tab-btn" data-tab="bayes">Bayesian</button>
+                </div>
 
-    <!-- BOTTOM NAVIGATION BAR -->
-    <div id="tab-bar" class="tab-bar" style="display:none;">
-        <div class="tab-item active" onclick="app.nav('home')">
-            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            หน้าแรก
-        </div>
-        <div class="tab-item" onclick="app.nav('devices')">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            อุปกรณ์
-        </div>
-        <div class="tab-item" onclick="app.nav('settings')">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            ตั้งค่า
-        </div>
-    </div>
+                <!-- Tab: Chi-Square -->
+                <div id="tab-chi" class="tab-panel active">
+                    <div class="res-row">
+                        <span>Chi-Square Value</span>
+                        <span style="font-weight:700;" id="chi-val">-</span>
+                    </div>
+                    <div class="res-row">
+                        <span>P-Value (Uniformity)</span>
+                        <div style="text-align:right;">
+                            <span id="chi-p" style="margin-right:8px; font-weight:700;">-</span>
+                            <span id="chi-chip" class="chip gray">N/A</span>
+                        </div>
+                    </div>
+                    <p style="margin-top:16px; font-size:0.9rem; color:var(--text-secondary);">
+                        *ทดสอบว่าการกระจายตัวของเลข 0-99 สม่ำเสมอหรือไม่ (p > 0.05 คือยอมรับได้ว่าสุ่มจริง)
+                    </p>
+                </div>
 
-    <!-- 7. PRECISION AR SCREEN -->
-    <div id="ar-view" class="screen">
-        <video id="cam-feed" autoplay playsinline muted></video>
-        <div class="close-ar" onclick="app.stopAR()">✕ ปิดโหมดค้นหา</div>
-        <div class="ar-overlay">
-            <div id="ar-arrow" class="ar-arrow"></div>
-            <div id="ar-dist" class="ar-dist">0.0</div>
-            <div class="ar-unit">เมตร</div>
+                <!-- Tab: Runs Test -->
+                <div id="tab-runs" class="tab-panel">
+                    <div class="res-row">
+                        <span>Z-Score (Runs)</span>
+                        <div style="text-align:right;">
+                            <span id="runs-z" style="margin-right:8px; font-weight:700;">-</span>
+                            <span id="runs-chip" class="chip gray">N/A</span>
+                        </div>
+                    </div>
+                    <div class="res-row">
+                        <span>Number of Runs</span>
+                        <span style="font-weight:700;" id="runs-count">-</span>
+                    </div>
+                    <p style="margin-top:16px; font-size:0.9rem; color:var(--text-secondary);">
+                        *ทดสอบการสลับเลขสูง/ต่ำ (|Z| < 1.96 แปลว่าไม่มี Pattern การเกาะกลุ่มที่ผิดปกติ)
+                    </p>
+                </div>
+
+                <!-- Tab: Autocorr -->
+                <div id="tab-autocorr" class="tab-panel">
+                    <div style="text-align:center; padding:24px 0;">
+                        <div style="font-size:3rem; font-weight:700; color:var(--text-primary);" id="auto-r">-</div>
+                        <div style="font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase;">Correlation (r₁)</div>
+                        <div id="auto-chip" class="chip gray" style="display:inline-block; margin-top:8px;">N/A</div>
+                    </div>
+                    <p style="text-align:center; font-size:0.9rem; color:var(--text-secondary);">
+                        ค่าเข้าใกล้ 0 = ไม่มีความสัมพันธ์ระหว่างงวดก่อนหน้าและงวดถัดไป
+                    </p>
+                </div>
+
+                <!-- Tab: Bayesian -->
+                <div id="tab-bayes" class="tab-panel">
+                    <div id="bayes-container" style="display:flex; flex-direction:column; gap:12px;">
+                        <div style="text-align:center; color:var(--text-secondary); padding:20px;">No data available</div>
+                    </div>
+                    <p style="margin-top:16px; font-size:0.8rem; color:var(--text-tertiary); text-align:right;">
+                        *Posterior Probability based on Dirichlet Prior (α=1)
+                    </p>
+                </div>
+            </div>
+
+            <!-- 4. Insight Assistant -->
+            <div class="card grid-full" style="background:#F0F8FF; border:1px solid #D1E9FF;">
+                <div style="display:flex; gap:12px; margin-bottom:12px;">
+                    <div style="width:32px; height:32px; background:white; border-radius:50%; display:flex; align-items:center; justify-content:center;">🧠</div>
+                    <h3 style="font-size:1rem; font-weight:700; color:#004085; line-height:32px;">Insight Assistant</h3>
+                </div>
+                <ul id="ai-insights" style="list-style:none; padding-left:4px; color:#003060; font-size:0.95rem; line-height:1.6;">
+                    <li>กรุณาเลือกโหลดข้อมูล Historical หรือทำการ Simulation เพื่อเริ่มการวิเคราะห์</li>
+                </ul>
+                <div style="margin-top:16px; pt:12px; border-top:1px solid rgba(0,0,0,0.05); font-size:0.75rem; color:#6C8CAF;">
+                    Disclaimer: ผลลัพธ์จากการคำนวณทางสถิติเท่านั้น ไม่ใช่การทำนายผลสลากกินแบ่งรัฐบาล
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer-note">
+            RABROY Lab © 2025. Pure Mathematics & Statistics Application. No Gambling Advice.
         </div>
     </div>
 
 <script>
-/**
- * ⚙️ OMEGA ENGINE (Thai Version)
- * Logic for Navigation, Map, and AR
- */
-class OmegaApp {
-    constructor() {
-        this.currentScreen = 'splash';
-        this.target = { lat: 13.7469, lng: 100.5349 }; // Example: Siam Paragon
-        this.myPos = { lat: 0, lng: 0, heading: 0 };
-        this.isTracking = false;
+    /**
+     * --- PART 1: UI & VISUALIZER LOGIC ---
+     */
+    
+    // Elements
+    const el = {
+        vizNumber: document.getElementById('viz-number'),
+        vizNeedle: document.getElementById('viz-needle'),
+        btnDraw: document.getElementById('btn-draw-single'),
+        miniHistory: document.getElementById('mini-history'),
         
-        // Wait for DOM
-        setTimeout(() => this.init(), 1500);
-    }
+        // Summary
+        statTotal: document.getElementById('stat-total'),
+        statMean: document.getElementById('stat-mean'),
+        sourceBadge: document.getElementById('source-badge'),
+        btnSim: document.getElementById('btn-sim'),
+        simProgress: document.getElementById('sim-progress'),
+        simCount: document.getElementById('sim-count'),
+        
+        // Panels
+        panels: {
+            chi: document.getElementById('tab-chi'),
+            runs: document.getElementById('tab-runs'),
+            autocorr: document.getElementById('tab-autocorr'),
+            bayes: document.getElementById('tab-bayes')
+        },
+        tabs: document.querySelectorAll('.tab-btn')
+    };
 
-    init() {
-        // Check if onboarding is done
-        const isSetup = localStorage.getItem('omega_thai_setup');
+    const state = {
+        mainData: [], // For Analysis
+        liveHistory: [] // For Visualizer only
+    };
+
+    // --- Visualizer Animation ---
+    el.btnDraw.addEventListener('click', () => {
+        animateVisualizer();
+    });
+
+    function animateVisualizer() {
+        // Disable button
+        el.btnDraw.disabled = true;
         
-        if (!isSetup) {
-            this.goTo('permissions');
-        } else {
-            this.goTo('home');
-            this.initMap();
+        let duration = 800; // ms
+        let start = null;
+        let finalNum = Math.floor(Math.random() * 100); // The result
+        
+        // Random spin offset (so needle spins a few times)
+        let totalRotation = 360 * 3 + (finalNum * 3.6); 
+
+        function step(timestamp) {
+            if (!start) start = timestamp;
+            const progress = timestamp - start;
+            const pct = Math.min(progress / duration, 1);
+            
+            // Easing (Ease Out Cubic)
+            const ease = 1 - Math.pow(1 - pct, 3);
+            
+            // 1. Slot Machine Numbers
+            if (pct < 1) {
+                el.vizNumber.textContent = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+                el.vizNumber.style.transform = `translate(-50%, -50%) scale(${1 + Math.sin(pct * 10)*0.05})`;
+                el.vizNumber.style.filter = "blur(1px)";
+            } else {
+                el.vizNumber.textContent = finalNum.toString().padStart(2, '0');
+                el.vizNumber.style.transform = "translate(-50%, -50%) scale(1)";
+                el.vizNumber.style.filter = "none";
+            }
+
+            // 2. Needle Rotation
+            const currentRot = totalRotation * ease;
+            el.vizNeedle.style.transform = `rotate(${currentRot}deg)`;
+
+            if (progress < duration) {
+                requestAnimationFrame(step);
+            } else {
+                finishDraw(finalNum);
+            }
         }
+        
+        requestAnimationFrame(step);
     }
 
-    // --- NAVIGATION LOGIC ---
-    goTo(screenId) {
-        // Toggle Screens
-        document.querySelectorAll('.screen').forEach(el => {
-            el.classList.remove('active');
-            if(el.id === screenId) el.classList.add('active');
+    function finishDraw(num) {
+        el.btnDraw.disabled = false;
+        
+        // Update Mini History
+        state.liveHistory.unshift(num);
+        if (state.liveHistory.length > 8) state.liveHistory.pop();
+        
+        renderMiniHistory();
+    }
+
+    function renderMiniHistory() {
+        el.miniHistory.innerHTML = state.liveHistory
+            .map(n => `<span class="hist-dot">${n.toString().padStart(2,'0')}</span>`)
+            .join('');
+    }
+
+    // --- Tab Switching ---
+    el.tabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            
+            btn.classList.add('active');
+            el.panels[btn.dataset.tab].classList.add('active');
         });
+    });
 
-        // Toggle Tab Bar Visibility
-        const mainScreens = ['home', 'devices', 'settings'];
-        const tabBar = document.getElementById('tab-bar');
-        
-        if (mainScreens.includes(screenId)) {
-            tabBar.style.display = 'flex';
-            this.updateTabActive(screenId);
-        } else {
-            tabBar.style.display = 'none';
-        }
-    }
-
-    updateTabActive(screenId) {
-        // Reset Tabs
-        const tabs = document.querySelectorAll('.tab-item');
-        tabs.forEach((t, index) => {
-            t.classList.remove('active');
-            // Check index mapping: 0=home, 1=devices, 2=settings
-            if (screenId === 'home' && index === 0) t.classList.add('active');
-            if (screenId === 'devices' && index === 1) t.classList.add('active');
-            if (screenId === 'settings' && index === 2) t.classList.add('active');
-        });
-    }
-
-    nav(screenId) {
-        this.goTo(screenId);
-        if(screenId === 'home') this.initMap();
-    }
-
-    // --- SETUP FLOW ---
-    async grantPermissions() {
-        // Ask for iOS Compass
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
-        }
-        // Ask for Camera
+    /**
+     * --- PART 2: DATA & SIMULATION LOGIC ---
+     */
+    
+    // Load Historical
+    document.getElementById('btn-load-hist').addEventListener('click', async () => {
+        showSplash(true);
         try {
-            await navigator.mediaDevices.getUserMedia({ video: true });
-            navigator.geolocation.getCurrentPosition(()=>{}, ()=>{});
-            this.finishSetup();
+            const res = await fetch('thai_lotto_last2.json');
+            if (!res.ok) throw new Error("File not found");
+            const json = await res.json();
+            const data = [];
+            json.forEach(row => {
+                const n = parseInt(row.last2);
+                if (!isNaN(n)) data.unshift(n); // Oldest first
+            });
+            
+            state.mainData = data;
+            el.sourceBadge.textContent = "Historical Data (หวยจริง)";
+            el.sourceBadge.style.color = "var(--accent)";
+            analyzeData();
+            
         } catch (e) {
-            alert("ไม่สามารถเข้าถึงอุปกรณ์ได้ จะเข้าสู่โหมดสาธิต");
-            this.finishSetup();
+            alert("ไม่พบไฟล์ thai_lotto_last2.json");
         }
-    }
+        setTimeout(() => hideSplash(), 500);
+    });
 
-    finishSetup() {
-        this.goTo('onboarding');
-    }
-
-    finishOnboarding() {
-        localStorage.setItem('omega_thai_setup', 'true');
-        this.goTo('home');
-        this.initMap();
-    }
-
-    // --- MAP ENGINE ---
-    initMap() {
-        if (this.map) return;
+    // Run Simulation (Chunked)
+    el.btnSim.addEventListener('click', () => {
+        const N = 1000;
+        const chunkSize = 50;
+        let generated = [];
         
-        // Default to Bangkok
-        this.map = L.map('map-container', { zoomControl: false, attributionControl: false }).setView([13.7563, 100.5018], 13);
+        el.btnSim.disabled = true;
+        el.btnSim.innerHTML = '<span class="spinner"></span> Generating...';
+        el.simProgress.style.display = 'block';
         
-        // Use OSM tiles but grayscale them via CSS
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.map);
+        let count = 0;
         
-        // Add fake device marker
-        const icon = L.divIcon({
-            className: 'custom-pin',
-            html: `<div style="width:14px; height:14px; background:black; border:2px solid white; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>`
-        });
-        L.marker([13.7469, 100.5349], {icon: icon}).addTo(this.map);
-    }
-
-    // --- AR LOGIC ---
-    async startAR() {
-        // Start Camera
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            document.getElementById('cam-feed').srcObject = stream;
-        } catch(e) { console.log("Camera Error"); }
-
-        // Start Sensors
-        this.watchId = navigator.geolocation.watchPosition(p => {
-            this.myPos.lat = p.coords.latitude;
-            this.myPos.lng = p.coords.longitude;
-        });
-
-        window.addEventListener('deviceorientation', this.handleCompass);
+        function generateChunk() {
+            for (let i = 0; i < chunkSize; i++) {
+                generated.push(Math.floor(Math.random() * 100));
+            }
+            count += chunkSize;
+            el.simCount.textContent = count;
+            
+            if (count < N) {
+                setTimeout(generateChunk, 10); // Yield to UI
+            } else {
+                // Done
+                state.mainData = generated;
+                el.sourceBadge.textContent = "Simulation (Random 1,000 samples)";
+                el.sourceBadge.style.color = "var(--success-text)";
+                
+                el.btnSim.disabled = false;
+                el.btnSim.innerHTML = '⚡ จำลองการสุ่ม (Simulation)';
+                el.simProgress.style.display = 'none';
+                
+                analyzeData();
+            }
+        }
         
-        this.isTracking = true;
-        this.goTo('ar-view');
-        this.loop();
+        generateChunk();
+    });
 
-        // Simulate distance decreasing for demo
-        this.demoDist = 15.0;
-    }
+    /**
+     * --- PART 3: STATISTICS & MATH ENGINE ---
+     */
 
-    stopAR() {
-        this.isTracking = false;
-        navigator.geolocation.clearWatch(this.watchId);
-        window.removeEventListener('deviceorientation', this.handleCompass);
-        this.goTo('home');
-    }
+    function analyzeData() {
+        const data = state.mainData;
+        const total = data.length;
+        if (total === 0) return;
 
-    handleCompass = (e) => {
-        let heading = e.webkitCompassHeading || (360 - e.alpha);
-        this.myPos.heading = heading || 0;
-    }
+        // 1. Basic Stats
+        el.statTotal.textContent = total.toLocaleString();
+        const sum = data.reduce((a,b)=>a+b,0);
+        el.statMean.textContent = (sum / total).toFixed(2);
 
-    loop() {
-        if (!this.isTracking) return;
-        requestAnimationFrame(() => this.loop());
-
-        // Simulate logic
-        this.demoDist -= 0.05;
-        if(this.demoDist < 0.5) this.demoDist = 0.5;
-
-        // Update UI
-        document.getElementById('ar-dist').innerText = this.demoDist.toFixed(1);
+        // 2. Chi-Square
+        const counts = new Array(100).fill(0);
+        data.forEach(n => counts[n]++);
+        const expected = total / 100;
+        let chi2 = 0;
+        counts.forEach(o => chi2 += ((o - expected)**2)/expected);
         
-        // Rotate Arrow (Fake rotation for demo based on compass)
-        // In real app, calculate bearing(myPos, target) - heading
-        let rotation = 45 - this.myPos.heading; 
-        document.getElementById('ar-arrow').style.transform = `rotate(${rotation}deg)`;
-    }
-}
+        // Wilson-Hilferty approx for p-value (df=99)
+        const zChi = Math.sqrt(2*chi2) - Math.sqrt(2*99 - 1);
+        const pVal = 1 - normalCDF(zChi);
+        
+        document.getElementById('chi-val').textContent = chi2.toFixed(2);
+        document.getElementById('chi-p').textContent = pVal.toFixed(4);
+        
+        const chiChip = document.getElementById('chi-chip');
+        if (pVal > 0.05) {
+            chiChip.className = "chip green"; chiChip.textContent = "Uniform-like";
+        } else {
+            chiChip.className = "chip red"; chiChip.textContent = "Non-Uniform";
+        }
 
-// Start App
-const app = new OmegaApp();
+        // 3. Runs Test (Median = 49.5, split 0-49 vs 50-99)
+        let n1=0, n0=0, runs=1;
+        const bins = data.map(n => n >= 50 ? 1 : 0);
+        for(let x of bins) x===1 ? n1++ : n0++;
+        for(let i=1; i<total; i++) if(bins[i] !== bins[i-1]) runs++;
+        
+        const expRuns = 1 + (2*n1*n0)/total;
+        const varRuns = (2*n1*n0*(2*n1*n0 - total)) / ((total*total)*(total-1));
+        const zRuns = (runs - expRuns) / Math.sqrt(varRuns);
+        
+        document.getElementById('runs-z').textContent = zRuns.toFixed(2);
+        document.getElementById('runs-count').textContent = runs;
+        
+        const runsChip = document.getElementById('runs-chip');
+        if (Math.abs(zRuns) < 1.96) {
+            runsChip.className = "chip green"; runsChip.textContent = "Random Seq";
+        } else {
+            runsChip.className = "chip red"; runsChip.textContent = "Pattern Detected";
+        }
+
+        // 4. Autocorrelation (Lag-1)
+        const mean = sum/total;
+        let num=0, den=0;
+        for(let i=0; i<total-1; i++) num += (data[i]-mean)*(data[i+1]-mean);
+        for(let i=0; i<total; i++) den += (data[i]-mean)**2;
+        const r1 = num/den;
+        
+        document.getElementById('auto-r').textContent = r1.toFixed(3);
+        const autoChip = document.getElementById('auto-chip');
+        if (Math.abs(r1) < 0.1) {
+            autoChip.className = "chip green"; autoChip.textContent = "No Correlation";
+        } else {
+            autoChip.className = "chip warning"; autoChip.style.background = "var(--warning-bg)"; 
+            autoChip.style.color = "var(--warning-text)"; autoChip.textContent = "Slight Correlation";
+        }
+
+        // 5. Bayesian (Top 5)
+        const alphaSum = 100 + total;
+        const probs = counts.map((c, i) => ({ n: i, p: (1+c)/alphaSum }));
+        probs.sort((a,b) => b.p - a.p);
+        const top5 = probs.slice(0, 5);
+        const maxP = top5[0].p;
+        
+        const bayesContainer = document.getElementById('bayes-container');
+        bayesContainer.innerHTML = top5.map(item => {
+            const pct = (item.p * 100).toFixed(2);
+            const barW = (item.p / maxP) * 100;
+            return `
+                <div style="font-size:0.9rem;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                        <span style="font-weight:600;">Number ${item.n.toString().padStart(2,'0')}</span>
+                        <span>${pct}%</span>
+                    </div>
+                    <div class="bar-bg"><div class="bar-fill" style="width:${barW}%"></div></div>
+                </div>
+            `;
+        }).join('');
+
+        // 6. Generate Insights
+        generateInsights(total, pVal, zRuns, r1);
+    }
+
+    function generateInsights(total, pVal, zRuns, r1) {
+        const ul = document.getElementById('ai-insights');
+        let html = "";
+        
+        // Volume
+        if (total < 200) html += `<li>⚠️ ข้อมูลจำนวนน้อย (${total}) ผลลัพธ์ทางสถิติอาจคลาดเคลื่อนสูง</li>`;
+        else html += `<li>✅ จำนวนข้อมูลเพียงพอต่อการวิเคราะห์ (${total} samples)</li>`;
+
+        // Chi-Square
+        if (pVal > 0.05) html += `<li>⚖️ <strong>Chi-Square:</strong> การกระจายตัวของเลข "สมดุลดี" (Uniform) ไม่มีเลขไหนออกบ่อยผิดปกติอย่างมีนัยสำคัญ</li>`;
+        else html += `<li>🚩 <strong>Chi-Square:</strong> พบความไม่สม่ำเสมอในการกระจายตัว (p=${pVal.toFixed(3)}) มีบางเลขออกบ่อย/น้อยกว่าปกติ</li>`;
+
+        // Runs
+        if (Math.abs(zRuns) < 1.96) html += `<li>🎲 <strong>Runs Test:</strong> การสลับไปมาของเลขสูง/ต่ำ เป็นธรรมชาติ ไม่มี Pattern การเกาะกลุ่ม</li>`;
+        else html += `<li>📉 <strong>Runs Test:</strong> พบแนวโน้มการเกาะกลุ่มของเลข (Z=${zRuns.toFixed(2)}) ซึ่งอาจเกิดจากความบังเอิญหรือ Pattern บางอย่าง</li>`;
+
+        ul.innerHTML = html;
+    }
+
+    // Helper: Normal CDF
+    function normalCDF(x) {
+        var t = 1 / (1 + .2316419 * Math.abs(x));
+        var d = .3989423 * Math.exp(-x * x / 2);
+        var prob = d * t * (.3193815 + t * (-.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+        if (x > 0) prob = 1 - prob;
+        return prob;
+    }
+
+    // Splash Hiding
+    function showSplash(loading) {
+        document.getElementById('splash').style.opacity = 1;
+        document.getElementById('splash').style.pointerEvents = 'all';
+    }
+    function hideSplash() {
+        document.getElementById('splash').style.opacity = 0;
+        document.getElementById('splash').style.pointerEvents = 'none';
+    }
+
+    // Init
+    window.addEventListener('load', () => {
+        setTimeout(hideSplash, 1500);
+    });
 
 </script>
 </body>
